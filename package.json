@@ -1,0 +1,55 @@
+{
+  "name": "agents-reverse",
+  "version": "0.1.0",
+  "description": "CLI tool for reverse-engineering codebase documentation for AI agents",
+  "type": "module",
+  "bin": {
+    "agents-reverse": "dist/cli/index.js",
+    "ar": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/cli/index.ts",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "fast-glob": "^3.3.3",
+    "ignore": "^7.0.3",
+    "isbinaryfile": "^5.0.4",
+    "ora": "^8.1.1",
+    "picocolors": "^1.1.1",
+    "simple-git": "^3.27.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "documentation",
+    "codebase",
+    "ai",
+    "agents",
+    "reverse-engineering"
+  ],
+  "author": "",
+  "license": "MIT",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GeoloeG-IsT/agents-reverse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GeoloeG-IsT/agents-reverse/issues"
+  },
+  "homepage": "https://github.com/GeoloeG-IsT/agents-reverse#readme"
+}
