@@ -74,24 +74,24 @@
 | DISC-03 | Phase 1 | Pending |
 | DISC-04 | Phase 1 | Pending |
 | GEN-01 | Phase 2 | Pending |
-| GEN-02 | Phase 3 | Pending |
-| GEN-03 | Phase 3 | Pending |
+| GEN-02 | Phase 2 | Pending |
+| GEN-03 | Phase 2 | Pending |
 | GEN-04 | Phase 2 | Pending |
-| GEN-05 | Phase 3 | Pending |
-| UPD-01 | Phase 4 | Pending |
-| UPD-02 | Phase 4 | Pending |
-| UPD-03 | Phase 4 | Pending |
-| UPD-04 | Phase 4 | Pending |
-| INT-01 | Phase 5 | Pending |
-| INT-02 | Phase 5 | Pending |
-| INT-03 | Phase 5 | Pending |
-| INT-04 | Phase 5 | Pending |
+| GEN-05 | Phase 2 | Pending |
+| UPD-01 | Phase 3 | Pending |
+| UPD-02 | Phase 3 | Pending |
+| UPD-03 | Phase 3 | Pending |
+| UPD-04 | Phase 3 | Pending |
+| INT-01 | Phase 4 | Pending |
+| INT-02 | Phase 4 | Pending |
+| INT-03 | Phase 4 | Pending |
+| INT-04 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 17 total
 - Mapped to phases: 17
-- Unmapped: 0 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2025-01-25*
-*Last updated: 2025-01-25 after initial definition*
+*Last updated: 2025-01-25 after roadmap creation*
