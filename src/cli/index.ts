@@ -6,11 +6,13 @@
  *   init              Create default configuration
  *   discover [path]   Discover files to analyze
  *   generate [path]   Generate documentation plan
+ *   update [path]     Update docs incrementally
  */
 
 import { initCommand, type InitOptions } from './init.js';
 import { discoverCommand, type DiscoverOptions } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
+import { updateCommand, type UpdateCommandOptions } from './update.js';
 
 const USAGE = `
 agents-reverse - AI-friendly codebase documentation
@@ -19,13 +21,15 @@ Commands:
   init              Create default configuration
   discover [path]   Discover files to analyze (default: current directory)
   generate [path]   Generate documentation plan (default: current directory)
+  update [path]     Update docs incrementally (default: current directory)
 
 Options:
   --quiet, -q       Suppress output except errors
   --verbose, -v     Show detailed output
   --show-excluded   List each excluded file (discover only)
-  --dry-run         Show plan without writing files (generate only)
-  --budget <n>      Override token budget (generate only)
+  --dry-run         Show plan without writing files (generate, update)
+  --budget <n>      Override token budget (generate, update)
+  --uncommitted     Include uncommitted changes (update only)
   --help, -h        Show this help
 
 Examples:
@@ -33,6 +37,8 @@ Examples:
   ar discover
   ar generate --dry-run
   ar generate ./my-project --budget 50000
+  ar update
+  ar update --uncommitted --verbose
 `;
 
 /**
@@ -150,6 +156,18 @@ async function main(): Promise<void> {
         budget: values.has('budget') ? parseInt(values.get('budget')!, 10) : undefined,
       };
       await generateCommand(positional[0] || '.', options);
+      break;
+    }
+
+    case 'update': {
+      const options: UpdateCommandOptions = {
+        uncommitted: flags.has('uncommitted'),
+        quiet: flags.has('quiet'),
+        verbose: flags.has('verbose'),
+        dryRun: flags.has('dry-run'),
+        budget: values.has('budget') ? parseInt(values.get('budget')!, 10) : undefined,
+      };
+      await updateCommand(positional[0] || '.', options);
       break;
     }
 
