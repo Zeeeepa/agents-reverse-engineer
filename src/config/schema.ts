@@ -45,6 +45,22 @@ const OutputSchema = z.object({
 }).default({});
 
 /**
+ * Schema for generation configuration
+ */
+const GenerationSchema = z.object({
+  /** Token budget for entire project (default: 100,000) */
+  tokenBudget: z.number().positive().default(100_000),
+  /** Generate ARCHITECTURE.md when thresholds met (default: true) */
+  generateArchitecture: z.boolean().default(true),
+  /** Generate STACK.md from package.json (default: true) */
+  generateStack: z.boolean().default(true),
+  /** Output directory for supplementary docs (default: project root) */
+  supplementaryDocsDir: z.string().optional(),
+  /** Chunk size for large files in tokens (default: 3000) */
+  chunkSize: z.number().positive().default(3000),
+}).default({});
+
+/**
  * Main configuration schema for agents-reverse.
  *
  * All fields have sensible defaults, so an empty object `{}` is valid
@@ -68,6 +84,8 @@ export const ConfigSchema = z.object({
   options: OptionsSchema,
   /** Output formatting options */
   output: OutputSchema,
+  /** Generation options */
+  generation: GenerationSchema,
 }).default({});
 
 /**
@@ -90,3 +108,8 @@ export type OptionsConfig = z.infer<typeof OptionsSchema>;
  * Type for the output section of config
  */
 export type OutputConfig = z.infer<typeof OutputSchema>;
+
+/**
+ * Type for the generation section of config
+ */
+export type GenerationConfig = z.infer<typeof GenerationSchema>;
