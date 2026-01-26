@@ -1,0 +1,322 @@
+import { writeFile, readdir, stat, mkdir } from 'node:fs/promises';
+import * as path from 'node:path';
+import { readSumFile, getSumPath } from './sum.js';
+
+/**
+ * Reference to a file in a directory.
+ */
+export interface FileRef {
+  /** File name */
+  name: string;
+  /** Brief description from .sum file */
+  description: string;
+  /** Whether this is a critical/frequently modified file */
+  critical?: boolean;
+}
+
+/**
+ * Group of files by purpose.
+ */
+export interface FileGroup {
+  /** Purpose/category of this group */
+  purpose: string;
+  /** Files in this group */
+  files: FileRef[];
+}
+
+/**
+ * Summary of a subdirectory.
+ */
+export interface SubdirSummary {
+  /** Directory name */
+  name: string;
+  /** Brief summary (from child AGENTS.md or inferred) */
+  summary: string;
+}
+
+/**
+ * Complete directory documentation structure.
+ */
+export interface DirectoryDoc {
+  /** Directory path (relative to project root) */
+  path: string;
+  /** Directory description */
+  description: string;
+  /** Files grouped by purpose */
+  files: FileGroup[];
+  /** Subdirectories with summaries */
+  subdirectories: SubdirSummary[];
+  /** Related directories (from imports, config) */
+  relatedDirectories: string[];
+  /** Patterns/conventions in this directory */
+  patterns: string[];
+}
+
+/**
+ * Build AGENTS.md content from directory documentation.
+ */
+export function buildAgentsMd(doc: DirectoryDoc): string {
+  const sections: string[] = [];
+  const dirName = path.basename(doc.path) || 'Project Root';
+
+  // Header
+  sections.push(`# ${dirName}\n`);
+  if (doc.description) {
+    sections.push(`${doc.description}\n`);
+  }
+
+  // Files grouped by purpose (not flat listing)
+  if (doc.files.length > 0) {
+    sections.push('## Contents\n');
+    for (const group of doc.files) {
+      if (group.files.length === 0) continue;
+
+      sections.push(`### ${group.purpose}\n`);
+      for (const file of group.files) {
+        const marker = file.critical ? ' **[critical]**' : '';
+        sections.push(`- [${file.name}](./${file.name}) - ${file.description}${marker}`);
+      }
+      sections.push('');
+    }
+  }
+
+  // Subdirectories
+  if (doc.subdirectories.length > 0) {
+    sections.push('## Subdirectories\n');
+    for (const subdir of doc.subdirectories) {
+      sections.push(`- [${subdir.name}/](./${subdir.name}/) - ${subdir.summary}`);
+    }
+    sections.push('');
+  }
+
+  // Related directories
+  if (doc.relatedDirectories.length > 0) {
+    sections.push('## Related\n');
+    for (const related of doc.relatedDirectories) {
+      sections.push(`- [${related}](${related})`);
+    }
+    sections.push('');
+  }
+
+  // Patterns/Conventions
+  if (doc.patterns.length > 0) {
+    sections.push('## Patterns\n');
+    for (const pattern of doc.patterns) {
+      sections.push(`- ${pattern}`);
+    }
+    sections.push('');
+  }
+
+  return sections.join('\n').trim() + '\n';
+}
+
+/**
+ * Categorize files by purpose based on file type and name.
+ */
+function categorizeFile(_fileName: string, fileType: string): string {
+  // Use file type for categorization
+  const typeCategories: Record<string, string> = {
+    component: 'Components',
+    service: 'Services',
+    util: 'Utilities',
+    type: 'Types',
+    test: 'Tests',
+    config: 'Configuration',
+    api: 'API Routes',
+    model: 'Models',
+    hook: 'Hooks',
+    schema: 'Schemas',
+    generic: 'Core',
+  };
+
+  return typeCategories[fileType] ?? 'Other';
+}
+
+/**
+ * Synthesize a directory description from aggregated .sum file metadata.
+ *
+ * This function creates a meaningful directory-level description by:
+ * 1. Collecting all purposes from .sum files in the directory
+ * 2. Identifying common patterns and themes
+ * 3. Generating a concise summary of the directory's role
+ *
+ * @param files - Map of category to file references with descriptions
+ * @param dirName - Name of the directory
+ * @returns A synthesized description of the directory's purpose
+ */
+function synthesizeDirectoryDescription(
+  files: Map<string, FileRef[]>,
+  dirName: string
+): string {
+  // Collect all file purposes/descriptions
+  const allDescriptions: string[] = [];
+  const categories: string[] = [];
+
+  for (const [category, fileRefs] of files) {
+    categories.push(category);
+    for (const file of fileRefs) {
+      if (file.description && file.description !== 'No description') {
+        allDescriptions.push(file.description);
+      }
+    }
+  }
+
+  // If no descriptions available, create a basic description from categories
+  if (allDescriptions.length === 0) {
+    if (categories.length === 0) {
+      return `Contains ${dirName} related files.`;
+    }
+    const categoryList = categories.slice(0, 3).join(', ');
+    return `Contains ${categoryList.toLowerCase()} for ${dirName}.`;
+  }
+
+  // Synthesize description from available metadata
+  // Extract common themes from descriptions (simple keyword extraction)
+  const keywords = new Map<string, number>();
+  const commonWords = new Set([
+    'the', 'a', 'an', 'and', 'or', 'for', 'to', 'of', 'in', 'on', 'with',
+    'this', 'that', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'must', 'can', 'from', 'by', 'as', 'at',
+  ]);
+
+  for (const desc of allDescriptions) {
+    const words = desc.toLowerCase()
+      .replace(/[^a-z\s]/g, '')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !commonWords.has(w));
+
+    for (const word of words) {
+      keywords.set(word, (keywords.get(word) ?? 0) + 1);
+    }
+  }
+
+  // Get top themes
+  const topThemes = Array.from(keywords.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([word]) => word);
+
+  // Build description
+  if (topThemes.length > 0) {
+    const themePhrase = topThemes.join(', ');
+    const primaryCategory = categories[0]?.toLowerCase() ?? 'files';
+    return `${capitalizeFirst(dirName)} ${primaryCategory} for ${themePhrase}.`;
+  }
+
+  // Fallback: use first description as base
+  const firstDesc = allDescriptions[0];
+  if (firstDesc.length <= 80) {
+    return `${capitalizeFirst(dirName)} directory: ${firstDesc}`;
+  }
+  return `${capitalizeFirst(dirName)} directory containing ${categories.length} file type(s).`;
+}
+
+/**
+ * Capitalize first letter of a string.
+ */
+function capitalizeFirst(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Build directory documentation from .sum files.
+ */
+export async function buildDirectoryDoc(
+  dirPath: string,
+  projectRoot: string
+): Promise<DirectoryDoc> {
+  const relativePath = path.relative(projectRoot, dirPath) || '.';
+  const dirName = path.basename(dirPath) || 'root';
+  const doc: DirectoryDoc = {
+    path: relativePath,
+    description: '', // Will be populated after collecting file metadata
+    files: [],
+    subdirectories: [],
+    relatedDirectories: [],
+    patterns: [],
+  };
+
+  const entries = await readdir(dirPath, { withFileTypes: true });
+  const filesByCategory = new Map<string, FileRef[]>();
+
+  for (const entry of entries) {
+    const entryPath = path.join(dirPath, entry.name);
+
+    if (entry.isDirectory()) {
+      // Check for AGENTS.md in subdirectory
+      const childAgentsPath = path.join(entryPath, 'AGENTS.md');
+      try {
+        await stat(childAgentsPath);
+        // Has AGENTS.md - extract first line as summary
+        doc.subdirectories.push({
+          name: entry.name,
+          summary: `See ${entry.name}/AGENTS.md`,
+        });
+      } catch {
+        // No AGENTS.md - just note the directory exists
+        doc.subdirectories.push({
+          name: entry.name,
+          summary: `${entry.name} directory`,
+        });
+      }
+    } else if (entry.isFile() && !entry.name.endsWith('.sum') && !entry.name.startsWith('.')) {
+      // Try to read .sum file for this source file
+      const sumPath = getSumPath(entryPath);
+      const sumContent = await readSumFile(sumPath);
+
+      if (sumContent) {
+        const category = categorizeFile(entry.name, sumContent.fileType);
+        const files = filesByCategory.get(category) ?? [];
+        files.push({
+          name: entry.name,
+          description: sumContent.metadata.purpose || 'No description',
+        });
+        filesByCategory.set(category, files);
+      }
+    }
+  }
+
+  // Synthesize directory description from collected .sum metadata
+  doc.description = synthesizeDirectoryDescription(filesByCategory, dirName);
+
+  // Convert map to sorted groups
+  const categoryOrder = [
+    'Configuration', 'Types', 'Models', 'Schemas',
+    'Services', 'API Routes', 'Hooks', 'Components',
+    'Utilities', 'Tests', 'Core', 'Other',
+  ];
+
+  for (const category of categoryOrder) {
+    const files = filesByCategory.get(category);
+    if (files && files.length > 0) {
+      doc.files.push({
+        purpose: category,
+        files: files.sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    }
+  }
+
+  return doc;
+}
+
+/**
+ * Write AGENTS.md for a directory.
+ *
+ * @param dirPath - Directory to write AGENTS.md for
+ * @param projectRoot - Project root for relative paths
+ * @returns Path to written AGENTS.md
+ */
+export async function writeAgentsMd(
+  dirPath: string,
+  projectRoot: string
+): Promise<string> {
+  const doc = await buildDirectoryDoc(dirPath, projectRoot);
+  const content = buildAgentsMd(doc);
+  const agentsPath = path.join(dirPath, 'AGENTS.md');
+
+  await mkdir(path.dirname(agentsPath), { recursive: true });
+  await writeFile(agentsPath, content, 'utf-8');
+
+  return agentsPath;
+}
