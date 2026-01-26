@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2025-01-25)
 ## Current Position
 
 Phase: 2 of 4 (Documentation Generation)
-Plan: 4 of 6 in current phase
+Plan: 5 of 6 in current phase
 Status: In progress
-Last activity: 2026-01-26 - Completed 02-04-PLAN.md
+Last activity: 2026-01-26 - Completed 02-05-PLAN.md
 
-Progress: [████████..] 80%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: 3 min
-- Total execution time: 28 min
+- Total execution time: 31 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Foundation & Discovery | 5/5 | 15 min | 3 min |
-| 2. Documentation Generation | 4/6 | 13 min | 3 min |
+| 2. Documentation Generation | 5/6 | 16 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-05 (3 min), 02-01 (3 min), 02-02 (3 min), 02-03 (4 min), 02-04 (3 min)
+- Last 5 plans: 02-01 (3 min), 02-02 (3 min), 02-03 (4 min), 02-04 (3 min), 02-05 (3 min)
 - Trend: Consistent pace
 
 *Updated after each plan completion*
@@ -71,6 +71,9 @@ Recent decisions affecting current work:
 | YAML-like .sum frontmatter | 02-04 | Simple format with file_type/generated_at, parseable without YAML lib |
 | Keyword frequency synthesis | 02-04 | Extract common themes from .sum purposes for directory descriptions |
 | 12 category types for grouping | 02-04 | Ordered as: Config, Types, Models, Schemas, Services, etc. |
+| 9 architectural patterns | 02-05 | Pattern detection heuristics for codebase analysis |
+| Triple ARCHITECTURE.md threshold | 02-05 | 20+ files OR 3+ depth OR 2+ patterns triggers generation |
+| 5 dependency categories | 02-05 | Framework, Database, Testing, Build Tools, Other |
 
 ### Pending Todos
 
@@ -83,5 +86,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed 02-04-PLAN.md (documentation writers)
+Stopped at: Completed 02-05-PLAN.md (supplementary documentation)
 Resume file: None
