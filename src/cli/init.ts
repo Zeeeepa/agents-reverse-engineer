@@ -17,7 +17,12 @@ export interface InitOptions {
    * Run in interactive mode (reserved for future --interactive flag).
    * @default false
    */
-  interactive: boolean;
+  interactive?: boolean;
+  /**
+   * Generate integration files for detected AI assistant environments.
+   * @default false
+   */
+  integration?: boolean;
 }
 
 /**
@@ -63,6 +68,37 @@ export async function initCommand(root: string, options: InitOptions): Promise<v
     logger.info('  - exclude.patterns: Add custom glob patterns to exclude');
     logger.info('  - exclude.vendorDirs: Modify vendor directories list');
     logger.info('  - options.maxFileSize: Adjust large file threshold');
+
+    // Handle integration file generation
+    if (options.integration) {
+      const { generateIntegrationFiles } = await import('../integration/generate.js');
+      const results = await generateIntegrationFiles(resolvedRoot);
+
+      if (results.length === 0) {
+        logger.info('');
+        logger.info('No AI assistant environments detected.');
+        logger.info('Integration files will be created when .claude/ or .opencode/ exists.');
+      } else {
+        for (const result of results) {
+          logger.info('');
+          logger.info(`${result.environment} integration:`);
+          if (result.filesCreated.length > 0) {
+            logger.info(`  Created: ${result.filesCreated.join(', ')}`);
+          }
+          if (result.filesSkipped.length > 0) {
+            logger.info(`  Skipped (already exist): ${result.filesSkipped.join(', ')}`);
+          }
+          if (result.environment === 'claude') {
+            logger.info('');
+            logger.info('Note: Add SessionEnd hook to .claude/settings.json manually:');
+            logger.info('  "hooks": { "SessionEnd": [".claude/hooks/ar-session-end.js"] }');
+          }
+        }
+      }
+    } else {
+      logger.info('');
+      logger.info('Run with --integration to set up AI assistant commands');
+    }
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
 
