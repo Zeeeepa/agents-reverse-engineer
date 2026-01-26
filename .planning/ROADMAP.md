@@ -48,10 +48,10 @@ Plans:
 **Plans**: 6 plans
 
 Plans:
-- [ ] 02-01-PLAN.md - Create generation types and file type detection
-- [ ] 02-02-PLAN.md - Create token budget management system
-- [ ] 02-03-PLAN.md - Create file-type-specific prompt templates
-- [ ] 02-04-PLAN.md - Create documentation writers (.sum, AGENTS.md, CLAUDE.md)
+- [x] 02-01-PLAN.md - Create generation types and file type detection
+- [x] 02-02-PLAN.md - Create token budget management system
+- [x] 02-03-PLAN.md - Create file-type-specific prompt templates
+- [x] 02-04-PLAN.md - Create documentation writers (.sum, AGENTS.md, CLAUDE.md)
 - [ ] 02-05-PLAN.md - Create supplementary docs (ARCHITECTURE.md, STACK.md)
 - [ ] 02-06-PLAN.md - Create CLI generate command and orchestrator
 
@@ -91,7 +91,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Discovery | 5/5 | ✓ Complete | 2026-01-26 |
-| 2. Documentation Generation | 0/6 | Ready to execute | - |
+| 2. Documentation Generation | 4/6 | In progress | - |
 | 3. Incremental Updates | 0/TBD | Not started | - |
 | 4. Integration & Commands | 0/TBD | Not started | - |
 
