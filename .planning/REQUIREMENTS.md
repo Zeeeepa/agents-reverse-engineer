@@ -22,10 +22,10 @@
 
 ### Incremental Updates
 
-- [ ] **UPD-01**: Store git hash after each generation run for change detection
-- [ ] **UPD-02**: Re-analyze only files that changed since last stored hash
-- [ ] **UPD-03**: Propagate updates up the directory tree to parent AGENTS.md files
-- [ ] **UPD-04**: Handle renamed and moved files gracefully via git rename detection
+- [x] **UPD-01**: Store git hash after each generation run for change detection
+- [x] **UPD-02**: Re-analyze only files that changed since last stored hash
+- [x] **UPD-03**: Propagate updates up the directory tree to parent AGENTS.md files
+- [x] **UPD-04**: Handle renamed and moved files gracefully via git rename detection
 
 ### Integration
 
@@ -78,10 +78,10 @@
 | GEN-03 | Phase 2 | Complete |
 | GEN-04 | Phase 2 | Complete |
 | GEN-05 | Phase 2 | Complete |
-| UPD-01 | Phase 3 | Pending |
-| UPD-02 | Phase 3 | Pending |
-| UPD-03 | Phase 3 | Pending |
-| UPD-04 | Phase 3 | Pending |
+| UPD-01 | Phase 3 | Complete |
+| UPD-02 | Phase 3 | Complete |
+| UPD-03 | Phase 3 | Complete |
+| UPD-04 | Phase 3 | Complete |
 | INT-01 | Phase 4 | Pending |
 | INT-02 | Phase 4 | Pending |
 | INT-03 | Phase 4 | Pending |
@@ -94,4 +94,4 @@
 
 ---
 *Requirements defined: 2025-01-25*
-*Last updated: 2026-01-26 after Phase 2 completion*
+*Last updated: 2026-01-26 after Phase 3 completion*
