@@ -30,10 +30,12 @@ Options:
   --dry-run         Show plan without writing files (generate, update)
   --budget <n>      Override token budget (generate, update)
   --uncommitted     Include uncommitted changes (update only)
+  --integration     Generate AI assistant command files (init only)
   --help, -h        Show this help
 
 Examples:
   ar init
+  ar init --integration
   ar discover
   ar generate --dry-run
   ar generate ./my-project --budget 50000
@@ -133,6 +135,7 @@ async function main(): Promise<void> {
     case 'init': {
       const options: InitOptions = {
         interactive: flags.has('interactive'),
+        integration: flags.has('integration'),
       };
       await initCommand(positional[0] || '.', options);
       break;
