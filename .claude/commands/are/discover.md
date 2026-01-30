@@ -50,9 +50,10 @@ Project: <project path>
 ## Phase 1: File Analysis
 
 ### <directory>/ (<N> files)
+
 - [ ] `<file_path>`
 - [ ] `<file_path>`
-...
+      ...
 
 (Group files by their parent directory)
 
@@ -62,7 +63,7 @@ Project: <project path>
 
 - [ ] `<dir>/AGENTS.md`
 - [ ] `<dir>/AGENTS.md`
-...
+      ...
 - [ ] `./AGENTS.md` (root)
 
 ---
@@ -77,7 +78,8 @@ Project: <project path>
 ## Output
 
 Report:
+
 - Number of files discovered
 - Path to GENERATION-PLAN.md
 - Suggest running `/are:generate` to execute the plan
-</execution>
+  </execution>

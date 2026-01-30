@@ -40,6 +40,8 @@ export interface ExecutionTask {
       total: number;
     };
     directoryFiles?: string[];
+    /** Directory depth (for post-order traversal) */
+    depth?: number;
   };
 }
 
@@ -66,7 +68,19 @@ export interface ExecutionPlan {
 }
 
 /**
+ * Calculate directory depth (number of path segments).
+ * Root "." has depth 0, "src" has depth 1, "src/cli" has depth 2, etc.
+ */
+function getDirectoryDepth(dir: string): number {
+  if (dir === '.') return 0;
+  return dir.split(path.sep).length;
+}
+
+/**
  * Build execution plan from generation plan.
+ *
+ * Directory tasks are sorted using post-order traversal (deepest directories first)
+ * so child AGENTS.md files are generated before their parents.
  */
 export function buildExecutionPlan(
   plan: GenerationPlan,
@@ -109,8 +123,13 @@ export function buildExecutionPlan(
     }
   }
 
-  // Create directory tasks (depend on all files in that directory)
-  for (const [dir, files] of Object.entries(directoryFileMap)) {
+  // Create directory tasks in post-order (deepest first)
+  // Sort directories by depth descending so children are processed before parents
+  const sortedDirs = Object.entries(directoryFileMap).sort(
+    ([dirA], [dirB]) => getDirectoryDepth(dirB) - getDirectoryDepth(dirA)
+  );
+
+  for (const [dir, files] of sortedDirs) {
     const dirAbsPath = path.join(projectRoot, dir);
     const fileTaskIds = files.map(f => `file:${f}`);
 
@@ -128,6 +147,7 @@ First verify all .sum files exist, then synthesize them into a directory overvie
       outputPath: path.join(dirAbsPath, 'AGENTS.md'),
       metadata: {
         directoryFiles: files,
+        depth: getDirectoryDepth(dir),
       },
     });
   }
@@ -255,6 +275,7 @@ export function formatExecutionPlanAsJson(plan: ExecutionPlan): string {
       directoryTasks: plan.directoryTasks.length,
       rootTasks: plan.rootTasks.length,
       directories: Object.keys(plan.directoryFileMap).length,
+      traversal: 'post-order (deepest first)',
     },
     directoryFileMap: plan.directoryFileMap,
     fileTasks: plan.fileTasks.map(t => ({
@@ -269,6 +290,7 @@ export function formatExecutionPlanAsJson(plan: ExecutionPlan): string {
     directoryTasks: plan.directoryTasks.map(t => ({
       id: t.id,
       path: t.path,
+      depth: t.metadata.depth,
       absolutePath: t.absolutePath,
       outputPath: t.outputPath,
       dependencies: t.dependencies,
@@ -305,8 +327,8 @@ export function* streamTasks(plan: ExecutionPlan): Generator<string> {
     });
   }
 
-  // Then yield directory tasks
-  yield JSON.stringify({ phase: 'directories', count: plan.directoryTasks.length });
+  // Then yield directory tasks (post-order: deepest first)
+  yield JSON.stringify({ phase: 'directories', count: plan.directoryTasks.length, traversal: 'post-order' });
 
   for (const task of plan.directoryTasks) {
     yield JSON.stringify({
@@ -314,6 +336,7 @@ export function* streamTasks(plan: ExecutionPlan): Generator<string> {
         id: task.id,
         type: task.type,
         path: task.path,
+        depth: task.metadata.depth,
         absolutePath: task.absolutePath,
         outputPath: task.outputPath,
         files: task.metadata.directoryFiles,

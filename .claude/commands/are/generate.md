@@ -68,11 +68,14 @@ generated_at: <ISO timestamp>
 <important patterns, algorithms, or gotchas>
 ```
 
-### After All Files in a Directory Complete:
+### After All Files Complete, Generate AGENTS.md (Post-Order Traversal):
 
+Process directories from **deepest to shallowest** so child AGENTS.md files exist before parent directories are documented.
+
+For each directory (in post-order):
 1. Verify ALL .sum files exist for that directory
 2. Read all .sum files in the directory
-3. **Also read AGENTS.md from any subdirectories** (child directory docs)
+3. **Read AGENTS.md from any subdirectories** (already generated due to post-order)
 4. Generate AGENTS.md with:
    - Directory description synthesized from file summaries
    - Files grouped by purpose (Types, Services, Utils, etc.)
