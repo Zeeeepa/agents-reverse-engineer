@@ -40,7 +40,8 @@ AI coding assistants are powerful, but they don't know your codebase. Every sess
 - **`.sum` files** — Per-file summaries with purpose, exports, dependencies
 - **`AGENTS.md`** — Per-directory overviews with file organization (standard format)
 - **`CLAUDE.md`** — Project entry point for Claude Code
-- **`CODEX.md`** — Project entry point for OpenCode *(coming soon)*
+- **`ARCHITECTURE.md`** — System design overview for complex projects
+- **`STACK.md`** — Technology stack from package.json
 
 The result: Your AI assistant understands your codebase from the first message.
 
@@ -144,15 +145,18 @@ Only regenerates documentation for files that changed since last run.
 | `are discover`                 | List files that will be analyzed |
 | `are discover --plan`          | Create GENERATION-PLAN.md        |
 | `are discover --show-excluded` | Show excluded files with reasons |
+| `are generate`                 | Generate all documentation       |
+| `are update`                   | Update changed files only        |
+| `are clean`                    | Remove all generated docs        |
 
 ### AI Assistant Commands
 
 | Command         | Description                    | Supported Runtimes |
 | --------------- | ------------------------------ | ------------------ |
 | `/are:init`     | Initialize config and commands | Claude Code        |
+| `/are:discover` | Rediscover and regenerate plan | Claude Code        |
 | `/are:generate` | Generate all documentation     | Claude Code        |
 | `/are:update`   | Update changed files only      | Claude Code        |
-| `/are:discover` | Rediscover and regenerate plan | Claude Code        |
 | `/are:clean`    | Remove all generated docs      | Claude Code        |
 
 > OpenCode and Gemini CLI command support coming soon.
