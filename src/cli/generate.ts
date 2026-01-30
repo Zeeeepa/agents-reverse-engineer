@@ -7,7 +7,7 @@
  * 3. Creating analysis tasks with prompts
  * 4. Tracking token budget
  *
- * The actual analysis is performed by the host LLM using the generated prompts.
+ * With --execute flag, outputs tasks as JSON for AI agent execution.
  */
 
 import * as path from 'node:path';
@@ -22,6 +22,7 @@ import {
   createCustomFilter,
 } from '../discovery/filters/index.js';
 import { createOrchestrator, type GenerationPlan } from '../generation/orchestrator.js';
+import { buildExecutionPlan, formatExecutionPlanAsJson, streamTasks } from '../generation/executor.js';
 
 /**
  * Options for the generate command.
@@ -35,6 +36,10 @@ export interface GenerateOptions {
   dryRun?: boolean;
   /** Override token budget */
   budget?: number;
+  /** Execute mode - output JSON for AI agent execution */
+  execute?: boolean;
+  /** Stream mode - output tasks one per line */
+  stream?: boolean;
 }
 
 /**
@@ -124,10 +129,12 @@ export async function generateCommand(
   options: GenerateOptions
 ): Promise<void> {
   const absolutePath = path.resolve(targetPath);
+  // In execute/stream mode, suppress all non-JSON output
+  const isJsonMode = options.execute || options.stream;
   const logger = createLogger({
-    colors: true,
+    colors: !isJsonMode,
     verbose: options.verbose ?? false,
-    quiet: options.quiet ?? false,
+    quiet: isJsonMode || (options.quiet ?? false),
     showExcluded: false,
   });
 
@@ -180,8 +187,8 @@ export async function generateCommand(
   );
   const plan = await orchestrator.createPlan(discoveryResult);
 
-  // Display plan
-  if (!options.quiet) {
+  // Display plan (skip in JSON mode)
+  if (!options.quiet && !isJsonMode) {
     console.log(formatPlan(plan));
   }
 
@@ -190,7 +197,23 @@ export async function generateCommand(
     return;
   }
 
-  // Output task instructions for the host LLM
+  // Execute mode - output JSON for AI agent execution
+  if (options.execute || options.stream) {
+    const executionPlan = buildExecutionPlan(plan, absolutePath);
+
+    if (options.stream) {
+      // Stream mode - one task per line for incremental processing
+      for (const line of streamTasks(executionPlan)) {
+        console.log(line);
+      }
+    } else {
+      // Full JSON output
+      console.log(formatExecutionPlanAsJson(executionPlan));
+    }
+    return;
+  }
+
+  // Default: Output task instructions for the host LLM
   console.log('\n=== Ready for Analysis ===\n');
   console.log(`This plan contains ${plan.tasks.length} analysis tasks.`);
   console.log('The host LLM will process each file and generate summaries.');
@@ -207,6 +230,9 @@ export async function generateCommand(
   if (plan.generateStack) {
     console.log('7. Generate STACK.md (package.json found)');
   }
+
+  console.log('\nRun with --execute to get JSON output for AI agent execution.');
+  console.log('Run with --stream for streaming task output.');
 
   // Summary
   const budgetReport = orchestrator.getBudgetReport();

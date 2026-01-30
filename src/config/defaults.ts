@@ -19,6 +19,10 @@ export const DEFAULT_VENDOR_DIRS = [
   'target',
   '.cargo',
   '.gradle',
+  // AI assistant tooling directories
+  '.planning',
+  '.claude',
+  '.opencode',
 ] as const;
 
 /**

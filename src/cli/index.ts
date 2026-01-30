@@ -29,6 +29,8 @@ Options:
   --show-excluded   List each excluded file (discover only)
   --dry-run         Show plan without writing files (generate, update)
   --budget <n>      Override token budget (generate, update)
+  --execute         Output JSON execution plan for AI agents (generate)
+  --stream          Output tasks as streaming JSON, one per line (generate)
   --uncommitted     Include uncommitted changes (update only)
   --integration     Generate AI assistant command files (init only)
   --help, -h        Show this help
@@ -38,6 +40,7 @@ Examples:
   are init --integration
   are discover
   are generate --dry-run
+  are generate --execute
   are generate ./my-project --budget 50000
   are update
   are update --uncommitted --verbose
@@ -157,6 +160,8 @@ async function main(): Promise<void> {
         verbose: flags.has('verbose'),
         dryRun: flags.has('dry-run'),
         budget: values.has('budget') ? parseInt(values.get('budget')!, 10) : undefined,
+        execute: flags.has('execute'),
+        stream: flags.has('stream'),
       };
       await generateCommand(positional[0] || '.', options);
       break;
