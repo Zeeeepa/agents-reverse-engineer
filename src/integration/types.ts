@@ -8,7 +8,7 @@
 /**
  * Supported AI coding assistant environment types
  */
-export type EnvironmentType = 'claude' | 'opencode' | 'aider';
+export type EnvironmentType = 'claude' | 'opencode' | 'aider' | 'gemini';
 
 /**
  * Result of detecting an AI coding assistant environment

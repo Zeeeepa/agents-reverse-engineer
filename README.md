@@ -12,7 +12,7 @@
 <br>
 
 ```bash
-npx agents-reverse-engineer init --integration
+npx agents-reverse-engineer init --integration claude
 ```
 
 **Works on Mac, Windows, and Linux.**
@@ -56,13 +56,15 @@ Developers using AI coding assistants (Claude Code, OpenCode, Gemini CLI, or any
 ## Getting Started
 
 ```bash
-npx agents-reverse-engineer init --integration
+npx agents-reverse-engineer init --integration claude
 ```
 
 This creates:
 
 1. **Config** — `.agents-reverse-engineer/config.yaml`
-2. **Commands** — `.claude/commands/are/` for Claude Code (other runtimes coming soon)
+2. **Commands** — `.claude/commands/are/` for Claude Code
+
+**Supported integrations:** `claude`, `opencode`, `gemini`, `aider`
 
 Then discover your files and create the plan:
 
@@ -78,12 +80,12 @@ Finally, in your AI assistant:
 
 The assistant reads the plan and generates all documentation.
 
-> **Note:** The generated `AGENTS.md` files work with any AI assistant that supports this format. The `/are:*` commands currently target Claude Code, with OpenCode and Gemini CLI support planned.
+> **Note:** The generated `AGENTS.md` files work with any AI assistant that supports this format. Use `--integration <name>` with `claude`, `opencode`, or `gemini` to generate the appropriate command files.
 
 ### Staying Updated
 
 ```bash
-npx agents-reverse-engineer@latest init --integration
+npx agents-reverse-engineer@latest init --integration claude
 ```
 
 ---
@@ -93,10 +95,12 @@ npx agents-reverse-engineer@latest init --integration
 ### 1. Initialize
 
 ```bash
-are init --integration
+are init --integration claude
 ```
 
 Creates configuration and Claude Code commands in your project.
+
+Other integrations: `opencode`, `gemini`, `aider`
 
 ---
 
@@ -138,28 +142,28 @@ Only regenerates documentation for files that changed since last run.
 
 ## Commands
 
-| Command                        | Description                      |
-| ------------------------------ | -------------------------------- |
-| `are init`                     | Create configuration file        |
-| `are init --integration`       | Also create Claude Code commands |
-| `are discover`                 | List files that will be analyzed |
-| `are discover --plan`          | Create GENERATION-PLAN.md        |
-| `are discover --show-excluded` | Show excluded files with reasons |
-| `are generate`                 | Generate all documentation       |
-| `are update`                   | Update changed files only        |
-| `are clean`                    | Remove all generated docs        |
+| Command                           | Description                          |
+| --------------------------------- | ------------------------------------ |
+| `are init`                        | Create configuration file            |
+| `are init --integration <name>`   | Also create AI assistant commands    |
+| `are discover`                    | List files that will be analyzed     |
+| `are discover --plan`             | Create GENERATION-PLAN.md            |
+| `are discover --show-excluded`    | Show excluded files with reasons     |
+| `are generate`                    | Generate all documentation           |
+| `are update`                      | Update changed files only            |
+| `are clean`                       | Remove all generated docs            |
+
+**Integration names:** `claude`, `opencode`, `gemini`, `aider`
 
 ### AI Assistant Commands
 
-| Command         | Description                    | Supported Runtimes |
-| --------------- | ------------------------------ | ------------------ |
-| `/are:init`     | Initialize config and commands | Claude Code        |
-| `/are:discover` | Rediscover and regenerate plan | Claude Code        |
-| `/are:generate` | Generate all documentation     | Claude Code        |
-| `/are:update`   | Update changed files only      | Claude Code        |
-| `/are:clean`    | Remove all generated docs      | Claude Code        |
-
-> OpenCode and Gemini CLI command support coming soon.
+| Command         | Description                    | Supported Runtimes        |
+| --------------- | ------------------------------ | ------------------------- |
+| `/are:init`     | Initialize config and commands | Claude, OpenCode, Gemini  |
+| `/are:discover` | Rediscover and regenerate plan | Claude, OpenCode, Gemini  |
+| `/are:generate` | Generate all documentation     | Claude, OpenCode, Gemini  |
+| `/are:update`   | Update changed files only      | Claude, OpenCode, Gemini  |
+| `/are:clean`    | Remove all generated docs      | Claude, OpenCode, Gemini  |
 
 ---
 

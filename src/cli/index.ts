@@ -13,6 +13,7 @@ import { initCommand, type InitOptions } from './init.js';
 import { discoverCommand, type DiscoverOptions } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
+import type { EnvironmentType } from '../integration/types.js';
 
 const USAGE = `
 agents-reverse-engineer - AI-friendly codebase documentation
@@ -33,12 +34,13 @@ Options:
   --execute         Output JSON execution plan for AI agents (generate)
   --stream          Output tasks as streaming JSON, one per line (generate)
   --uncommitted     Include uncommitted changes (update only)
-  --integration     Generate AI assistant command files (init only)
+  --integration <n> Generate AI assistant command files (init only)
+                    Supported: claude, opencode, gemini, aider
   --help, -h        Show this help
 
 Examples:
   are init
-  are init --integration
+  are init --integration claude
   are discover
   are discover --plan
   are generate --dry-run
@@ -138,9 +140,18 @@ async function main(): Promise<void> {
   // Route to command handlers
   switch (command) {
     case 'init': {
+      const integrationValue = values.get('integration');
+      const validEnvironments: EnvironmentType[] = ['claude', 'opencode', 'gemini', 'aider'];
+
+      if (integrationValue && !validEnvironments.includes(integrationValue as EnvironmentType)) {
+        console.error(`Invalid integration: ${integrationValue}`);
+        console.error(`Supported: ${validEnvironments.join(', ')}`);
+        process.exit(1);
+      }
+
       const options: InitOptions = {
         interactive: flags.has('interactive'),
-        integration: flags.has('integration'),
+        integration: integrationValue as EnvironmentType | undefined,
       };
       await initCommand(positional[0] || '.', options);
       break;

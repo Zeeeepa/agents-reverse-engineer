@@ -12,6 +12,7 @@ import { detectEnvironments } from './detect.js';
 import {
   getClaudeTemplates,
   getOpenCodeTemplates,
+  getGeminiTemplates,
   getHookTemplate,
 } from './templates.js';
 
@@ -23,6 +24,8 @@ export interface GenerateOptions {
   dryRun?: boolean;
   /** If true, overwrite existing files instead of skipping them */
   force?: boolean;
+  /** Specific environment to generate for (bypasses auto-detection) */
+  environment?: EnvironmentType;
 }
 
 /**
@@ -59,11 +62,24 @@ export async function generateIntegrationFiles(
   projectRoot: string,
   options: GenerateOptions = {}
 ): Promise<IntegrationResult[]> {
-  const { dryRun = false, force = false } = options;
+  const { dryRun = false, force = false, environment: specificEnv } = options;
   const results: IntegrationResult[] = [];
 
-  // Detect which environments are present
-  const environments = detectEnvironments(projectRoot);
+  // Use specific environment if provided, otherwise auto-detect
+  let environments: { type: EnvironmentType; configDir: string }[];
+  if (specificEnv) {
+    // Map environment type to config directory
+    const configDirMap: Record<EnvironmentType, string> = {
+      claude: '.claude',
+      opencode: '.opencode',
+      aider: '.aider',
+      gemini: '.gemini',
+    };
+    environments = [{ type: specificEnv, configDir: configDirMap[specificEnv] }];
+  } else {
+    // Detect which environments are present
+    environments = detectEnvironments(projectRoot);
+  }
 
   for (const env of environments) {
     const result: IntegrationResult = {
@@ -128,6 +144,8 @@ function getTemplatesForEnvironment(
       return getClaudeTemplates();
     case 'opencode':
       return getOpenCodeTemplates();
+    case 'gemini':
+      return getGeminiTemplates();
     case 'aider':
       // Aider doesn't have command files yet - return empty
       return [];

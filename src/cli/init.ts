@@ -7,7 +7,9 @@
 
 import path from 'node:path';
 import { configExists, writeDefaultConfig, CONFIG_DIR, CONFIG_FILE } from '../config/loader.js';
-import { createLogger, type LoggerOptions } from '../output/logger.js';
+import { createLogger } from '../output/logger.js';
+
+import type { EnvironmentType } from '../integration/types.js';
 
 /**
  * Options for the init command.
@@ -19,10 +21,11 @@ export interface InitOptions {
    */
   interactive?: boolean;
   /**
-   * Generate integration files for detected AI assistant environments.
-   * @default false
+   * Generate integration files for specified AI assistant environment.
+   * Valid values: 'claude', 'opencode', 'gemini', 'aider'
+   * @default undefined
    */
-  integration?: boolean;
+  integration?: EnvironmentType;
 }
 
 /**
@@ -72,12 +75,13 @@ export async function initCommand(root: string, options: InitOptions): Promise<v
     // Handle integration file generation
     if (options.integration) {
       const { generateIntegrationFiles } = await import('../integration/generate.js');
-      const results = await generateIntegrationFiles(resolvedRoot);
+      const results = await generateIntegrationFiles(resolvedRoot, {
+        environment: options.integration,
+      });
 
       if (results.length === 0) {
         logger.info('');
-        logger.info('No AI assistant environments detected.');
-        logger.info('Integration files will be created when .claude/ or .opencode/ exists.');
+        logger.info(`No templates available for ${options.integration} environment.`);
       } else {
         for (const result of results) {
           logger.info('');
@@ -97,7 +101,8 @@ export async function initCommand(root: string, options: InitOptions): Promise<v
       }
     } else {
       logger.info('');
-      logger.info('Run with --integration to set up AI assistant commands');
+      logger.info('Run with --integration <name> to set up AI assistant commands');
+      logger.info('  Supported: claude, opencode, gemini, aider');
     }
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
