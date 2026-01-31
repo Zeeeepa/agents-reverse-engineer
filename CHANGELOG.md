@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-01-31
+
 ### Added
 - **Gemini CLI support** - New integration for Google's Gemini CLI with full command set
 - **Required integration name** - `--integration` now requires a name parameter (`claude`, `opencode`, `gemini`, `aider`)
 - **discover command** - Added to all integration templates for file discovery and plan generation
 - **clean command** - Added to all integration templates for removing generated documentation
 - **OIDC publishing** - GitHub Actions workflow now uses OIDC trusted publishing (no npm token needed)
+- **CHANGELOG.md** - Added project changelog
 
 ### Changed
 - `are init --integration` now requires environment name: `are init --integration claude`
@@ -47,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/GeoloeG-IsT/agents-reverse/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/GeoloeG-IsT/agents-reverse/releases/tag/v0.1.0
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/releases/tag/v0.1.0
