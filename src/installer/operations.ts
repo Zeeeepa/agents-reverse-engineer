@@ -241,7 +241,9 @@ export function registerHooks(
   }
 
   const settingsPath = path.join(basePath, 'settings.json');
-  const hookCommand = 'node hooks/are-session-end.js';
+  // Use full path from project root (e.g., .claude/hooks/are-session-end.js)
+  const runtimeDir = runtime === 'claude' ? '.claude' : '.gemini';
+  const hookCommand = `node ${runtimeDir}/hooks/are-session-end.js`;
 
   if (runtime === 'gemini') {
     return registerGeminiHook(settingsPath, hookCommand, dryRun);
