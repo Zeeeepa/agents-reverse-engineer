@@ -313,3 +313,40 @@ export function writeVersionFile(basePath: string, dryRun: boolean): void {
   ensureDir(versionPath);
   writeFileSync(versionPath, version, 'utf-8');
 }
+
+/**
+ * Format installation result for display
+ *
+ * Generates human-readable lines showing created/skipped files.
+ *
+ * @param result - Installation result to format
+ * @returns Array of formatted lines for display
+ */
+export function formatInstallResult(result: InstallerResult): string[] {
+  const lines: string[] = [];
+
+  // Header with runtime and location
+  lines.push(`  ${result.runtime} (${result.location}):`);
+
+  // Created files
+  for (const file of result.filesCreated) {
+    lines.push(`    Created: ${file}`);
+  }
+
+  // Skipped files
+  for (const file of result.filesSkipped) {
+    lines.push(`    Skipped: ${file} (already exists)`);
+  }
+
+  // Hook registration status (Claude only)
+  if (result.hookRegistered) {
+    lines.push(`    Registered: SessionEnd hook in settings.json`);
+  }
+
+  // Summary line
+  const created = result.filesCreated.length;
+  const skipped = result.filesSkipped.length;
+  lines.push(`    ${created} files installed, ${skipped} skipped`);
+
+  return lines;
+}
