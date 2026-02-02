@@ -18,7 +18,7 @@ import type { FileType } from './types.js';
 import { BudgetTracker, countTokens, needsChunking, chunkFile } from './budget/index.js';
 import { buildPrompt, buildChunkPrompt } from './prompts/index.js';
 import { analyzeComplexity, shouldGenerateArchitecture, shouldGenerateStack } from './complexity.js';
-import type { ComplexityMetrics } from './complexity.js';
+import type { ComplexityMetrics, PackageRoot } from './complexity.js';
 
 /**
  * A file prepared for analysis.
@@ -92,6 +92,8 @@ export interface GenerationPlan {
   generateIntegrations: boolean;
   /** Whether to generate CONCERNS.md */
   generateConcerns: boolean;
+  /** Package roots where supplementary docs will be generated */
+  packageRoots: PackageRoot[];
   /** Budget tracker state */
   budget: {
     total: number;
@@ -311,6 +313,7 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       generateTesting: this.config.generation.generateTesting,
       generateIntegrations: this.config.generation.generateIntegrations,
       generateConcerns: this.config.generation.generateConcerns,
+      packageRoots: complexity.packageRoots,
       budget: {
         total: this.config.generation.tokenBudget,
         estimated: this.budgetTracker.getReport().used,

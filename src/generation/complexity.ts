@@ -1,6 +1,27 @@
 import * as path from 'node:path';
 
 /**
+ * Package manifest type indicator.
+ */
+export type PackageType = 'node' | 'python';
+
+/**
+ * Detected package root information.
+ */
+export interface PackageRoot {
+  /** Relative path from project root (empty string for root) */
+  path: string;
+  /** Absolute path */
+  absolutePath: string;
+  /** Type of package (node for package.json, python for requirements.txt/pyproject.toml) */
+  type: PackageType;
+  /** Manifest file that triggered detection */
+  manifestFile: string;
+  /** Package name if available */
+  name?: string;
+}
+
+/**
  * Metrics about codebase complexity.
  */
 export interface ComplexityMetrics {
@@ -14,6 +35,8 @@ export interface ComplexityMetrics {
   files: string[];
   /** Unique directory paths */
   directories: Set<string>;
+  /** Detected package roots (directories with package.json, requirements.txt, pyproject.toml) */
+  packageRoots: PackageRoot[];
 }
 
 /**
@@ -126,6 +149,58 @@ function extractDirectories(files: string[]): Set<string> {
 }
 
 /**
+ * Package manifest files to detect.
+ */
+const PACKAGE_MANIFESTS: Array<{ file: string; type: PackageType }> = [
+  { file: 'package.json', type: 'node' },
+  { file: 'requirements.txt', type: 'python' },
+  { file: 'pyproject.toml', type: 'python' },
+];
+
+/**
+ * Detect package roots from discovered files.
+ * A package root is a directory containing package.json, requirements.txt, or pyproject.toml.
+ */
+function detectPackageRoots(files: string[], projectRoot: string): PackageRoot[] {
+  const packageRoots: PackageRoot[] = [];
+  const seenDirs = new Set<string>();
+
+  for (const file of files) {
+    const relativePath = path.relative(projectRoot, file);
+    const fileName = path.basename(file);
+    const dirPath = path.dirname(relativePath);
+
+    // Check if this file is a package manifest
+    for (const manifest of PACKAGE_MANIFESTS) {
+      if (fileName === manifest.file) {
+        // Normalize directory path (use empty string for root)
+        const normalizedDir = dirPath === '.' ? '' : dirPath;
+
+        // Avoid duplicates (same directory with different manifest types)
+        const key = `${normalizedDir}:${manifest.type}`;
+        if (!seenDirs.has(key)) {
+          seenDirs.add(key);
+          packageRoots.push({
+            path: normalizedDir,
+            absolutePath: normalizedDir ? path.join(projectRoot, normalizedDir) : projectRoot,
+            type: manifest.type,
+            manifestFile: manifest.file,
+          });
+        }
+      }
+    }
+  }
+
+  // Sort by path depth (root first, then alphabetically)
+  return packageRoots.sort((a, b) => {
+    const depthA = a.path ? a.path.split(path.sep).length : 0;
+    const depthB = b.path ? b.path.split(path.sep).length : 0;
+    if (depthA !== depthB) return depthA - depthB;
+    return a.path.localeCompare(b.path);
+  });
+}
+
+/**
  * Analyze codebase complexity from discovered files.
  *
  * @param files - List of source file paths
@@ -142,6 +217,7 @@ export function analyzeComplexity(
     architecturalPatterns: detectArchitecturalPatterns(files),
     files,
     directories: extractDirectories(files),
+    packageRoots: detectPackageRoots(files, projectRoot),
   };
 }
 

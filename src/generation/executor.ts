@@ -10,6 +10,7 @@
 import * as path from 'node:path';
 import { readdir } from 'node:fs/promises';
 import type { GenerationPlan, AnalysisTask, PreparedFile } from './orchestrator.js';
+import type { PackageRoot } from './complexity.js';
 import { getSumPath, sumFileExists } from './writers/sum.js';
 
 /**
@@ -42,6 +43,8 @@ export interface ExecutionTask {
     directoryFiles?: string[];
     /** Directory depth (for post-order traversal) */
     depth?: number;
+    /** Package root path (for supplementary docs) */
+    packageRoot?: string;
   };
 }
 
@@ -75,6 +78,8 @@ export interface ExecutionPlan {
   generateIntegrations: boolean;
   /** Whether to generate CONCERNS.md */
   generateConcerns: boolean;
+  /** Package roots where supplementary docs will be generated */
+  packageRoots: PackageRoot[];
 }
 
 /**
@@ -197,106 +202,121 @@ Base this on the directory structure and file summaries.`,
     });
   }
 
-  if (plan.generateStack) {
-    rootTasks.push({
-      id: 'root:STACK.md',
-      type: 'root-doc',
-      path: 'STACK.md',
-      absolutePath: path.join(projectRoot, 'STACK.md'),
-      systemPrompt: `You are generating STACK.md, documenting the project's technology stack.
+  // Generate supplementary docs for each package root
+  for (const pkgRoot of plan.packageRoots) {
+    const pkgAbsPath = pkgRoot.absolutePath;
+    const pkgPrefix = pkgRoot.path ? `pkg:${pkgRoot.path}` : 'root';
+    const pkgLabel = pkgRoot.path || 'root';
+
+    // Get directory task IDs relevant to this package root
+    const pkgDirTaskIds = Object.keys(directoryFileMap)
+      .filter(d => {
+        if (!pkgRoot.path) return true; // Root package includes all dirs
+        return d.startsWith(pkgRoot.path + path.sep) || d === pkgRoot.path;
+      })
+      .map(d => `dir:${d}`);
+
+    if (plan.generateStack && pkgRoot.type === 'node') {
+      rootTasks.push({
+        id: `${pkgPrefix}:STACK.md`,
+        type: 'root-doc',
+        path: pkgRoot.path ? path.join(pkgRoot.path, 'STACK.md') : 'STACK.md',
+        absolutePath: path.join(pkgAbsPath, 'STACK.md'),
+        systemPrompt: `You are generating STACK.md for "${pkgLabel}", documenting the technology stack.
 Analyze package.json and the codebase to document all technologies used.
 Include: frameworks, libraries, dev tools, and their purposes.`,
-      userPrompt: `Generate STACK.md documenting the technology stack.
+        userPrompt: `Generate STACK.md documenting the technology stack for "${pkgLabel}".
 Read package.json and analyze dependencies.`,
-      dependencies: ['root:CLAUDE.md'],
-      outputPath: path.join(projectRoot, 'STACK.md'),
-      metadata: {},
-    });
-  }
+        dependencies: pkgRoot.path ? [] : ['root:CLAUDE.md'],
+        outputPath: path.join(pkgAbsPath, 'STACK.md'),
+        metadata: { packageRoot: pkgRoot.path },
+      });
+    }
 
-  if (plan.generateStructure) {
-    rootTasks.push({
-      id: 'root:STRUCTURE.md',
-      type: 'root-doc',
-      path: 'STRUCTURE.md',
-      absolutePath: path.join(projectRoot, 'STRUCTURE.md'),
-      systemPrompt: `You are generating STRUCTURE.md, documenting the codebase structure.
+    if (plan.generateStructure) {
+      rootTasks.push({
+        id: `${pkgPrefix}:STRUCTURE.md`,
+        type: 'root-doc',
+        path: pkgRoot.path ? path.join(pkgRoot.path, 'STRUCTURE.md') : 'STRUCTURE.md',
+        absolutePath: path.join(pkgAbsPath, 'STRUCTURE.md'),
+        systemPrompt: `You are generating STRUCTURE.md for "${pkgLabel}", documenting the codebase structure.
 Analyze the directory layout and organization patterns.
 Include: directory overview, entry points, key modules, and organization patterns.`,
-      userPrompt: `Generate STRUCTURE.md documenting the codebase structure.
-Describe how the project is organized and where key functionality lives.`,
-      dependencies: allDirTaskIds,
-      outputPath: path.join(projectRoot, 'STRUCTURE.md'),
-      metadata: {},
-    });
-  }
+        userPrompt: `Generate STRUCTURE.md documenting the codebase structure for "${pkgLabel}".
+Describe how the package is organized and where key functionality lives.`,
+        dependencies: pkgDirTaskIds,
+        outputPath: path.join(pkgAbsPath, 'STRUCTURE.md'),
+        metadata: { packageRoot: pkgRoot.path },
+      });
+    }
 
-  if (plan.generateConventions) {
-    rootTasks.push({
-      id: 'root:CONVENTIONS.md',
-      type: 'root-doc',
-      path: 'CONVENTIONS.md',
-      absolutePath: path.join(projectRoot, 'CONVENTIONS.md'),
-      systemPrompt: `You are generating CONVENTIONS.md, documenting coding conventions and patterns.
+    if (plan.generateConventions) {
+      rootTasks.push({
+        id: `${pkgPrefix}:CONVENTIONS.md`,
+        type: 'root-doc',
+        path: pkgRoot.path ? path.join(pkgRoot.path, 'CONVENTIONS.md') : 'CONVENTIONS.md',
+        absolutePath: path.join(pkgAbsPath, 'CONVENTIONS.md'),
+        systemPrompt: `You are generating CONVENTIONS.md for "${pkgLabel}", documenting coding conventions and patterns.
 Analyze the codebase for naming conventions, code style, and common patterns.
 Include: naming conventions, file patterns, module system, and common code patterns.`,
-      userPrompt: `Generate CONVENTIONS.md documenting coding conventions.
-Describe the code style and patterns used in this project.`,
-      dependencies: allDirTaskIds,
-      outputPath: path.join(projectRoot, 'CONVENTIONS.md'),
-      metadata: {},
-    });
-  }
+        userPrompt: `Generate CONVENTIONS.md documenting coding conventions for "${pkgLabel}".
+Describe the code style and patterns used in this package.`,
+        dependencies: pkgDirTaskIds,
+        outputPath: path.join(pkgAbsPath, 'CONVENTIONS.md'),
+        metadata: { packageRoot: pkgRoot.path },
+      });
+    }
 
-  if (plan.generateTesting) {
-    rootTasks.push({
-      id: 'root:TESTING.md',
-      type: 'root-doc',
-      path: 'TESTING.md',
-      absolutePath: path.join(projectRoot, 'TESTING.md'),
-      systemPrompt: `You are generating TESTING.md, documenting the testing approach and coverage.
+    if (plan.generateTesting) {
+      rootTasks.push({
+        id: `${pkgPrefix}:TESTING.md`,
+        type: 'root-doc',
+        path: pkgRoot.path ? path.join(pkgRoot.path, 'TESTING.md') : 'TESTING.md',
+        absolutePath: path.join(pkgAbsPath, 'TESTING.md'),
+        systemPrompt: `You are generating TESTING.md for "${pkgLabel}", documenting the testing approach and coverage.
 Analyze the test framework(s), test directories, and testing patterns.
 Include: testing frameworks, test directories, patterns, coverage tools, and test strategy.`,
-      userPrompt: `Generate TESTING.md documenting the testing approach.
-Describe how tests are organized and run in this project.`,
-      dependencies: allDirTaskIds,
-      outputPath: path.join(projectRoot, 'TESTING.md'),
-      metadata: {},
-    });
-  }
+        userPrompt: `Generate TESTING.md documenting the testing approach for "${pkgLabel}".
+Describe how tests are organized and run in this package.`,
+        dependencies: pkgDirTaskIds,
+        outputPath: path.join(pkgAbsPath, 'TESTING.md'),
+        metadata: { packageRoot: pkgRoot.path },
+      });
+    }
 
-  if (plan.generateIntegrations) {
-    rootTasks.push({
-      id: 'root:INTEGRATIONS.md',
-      type: 'root-doc',
-      path: 'INTEGRATIONS.md',
-      absolutePath: path.join(projectRoot, 'INTEGRATIONS.md'),
-      systemPrompt: `You are generating INTEGRATIONS.md, documenting external dependencies and APIs.
-Analyze package.json and code for database connections, API clients, and third-party services.
+    if (plan.generateIntegrations) {
+      rootTasks.push({
+        id: `${pkgPrefix}:INTEGRATIONS.md`,
+        type: 'root-doc',
+        path: pkgRoot.path ? path.join(pkgRoot.path, 'INTEGRATIONS.md') : 'INTEGRATIONS.md',
+        absolutePath: path.join(pkgAbsPath, 'INTEGRATIONS.md'),
+        systemPrompt: `You are generating INTEGRATIONS.md for "${pkgLabel}", documenting external dependencies and APIs.
+Analyze ${pkgRoot.type === 'node' ? 'package.json' : pkgRoot.manifestFile} and code for database connections, API clients, and third-party services.
 Include: databases, external APIs, third-party services, and environment variables.`,
-      userPrompt: `Generate INTEGRATIONS.md documenting external integrations.
-Describe the external services and APIs this project connects to.`,
-      dependencies: allDirTaskIds,
-      outputPath: path.join(projectRoot, 'INTEGRATIONS.md'),
-      metadata: {},
-    });
-  }
+        userPrompt: `Generate INTEGRATIONS.md documenting external integrations for "${pkgLabel}".
+Describe the external services and APIs this package connects to.`,
+        dependencies: pkgDirTaskIds,
+        outputPath: path.join(pkgAbsPath, 'INTEGRATIONS.md'),
+        metadata: { packageRoot: pkgRoot.path },
+      });
+    }
 
-  if (plan.generateConcerns) {
-    rootTasks.push({
-      id: 'root:CONCERNS.md',
-      type: 'root-doc',
-      path: 'CONCERNS.md',
-      absolutePath: path.join(projectRoot, 'CONCERNS.md'),
-      systemPrompt: `You are generating CONCERNS.md, documenting technical debt and known issues.
+    if (plan.generateConcerns) {
+      rootTasks.push({
+        id: `${pkgPrefix}:CONCERNS.md`,
+        type: 'root-doc',
+        path: pkgRoot.path ? path.join(pkgRoot.path, 'CONCERNS.md') : 'CONCERNS.md',
+        absolutePath: path.join(pkgAbsPath, 'CONCERNS.md'),
+        systemPrompt: `You are generating CONCERNS.md for "${pkgLabel}", documenting technical debt and known issues.
 Identify areas needing attention: missing docs, complex code, improvement opportunities.
 Include: missing documentation, technical debt, known issues, and improvement areas.`,
-      userPrompt: `Generate CONCERNS.md documenting technical concerns.
-Identify technical debt and areas that need attention in this project.`,
-      dependencies: allDirTaskIds,
-      outputPath: path.join(projectRoot, 'CONCERNS.md'),
-      metadata: {},
-    });
+        userPrompt: `Generate CONCERNS.md documenting technical concerns for "${pkgLabel}".
+Identify technical debt and areas that need attention in this package.`,
+        dependencies: pkgDirTaskIds,
+        outputPath: path.join(pkgAbsPath, 'CONCERNS.md'),
+        metadata: { packageRoot: pkgRoot.path },
+      });
+    }
   }
 
   return {
@@ -313,6 +333,7 @@ Identify technical debt and areas that need attention in this project.`,
     generateTesting: plan.generateTesting,
     generateIntegrations: plan.generateIntegrations,
     generateConcerns: plan.generateConcerns,
+    packageRoots: plan.packageRoots,
   };
 }
 
@@ -548,27 +569,41 @@ export function formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string {
   // Phase 3: Root Documents
   lines.push('## Phase 3: Root Documents');
   lines.push('');
+  lines.push('### Global');
   lines.push('- [ ] `CLAUDE.md`');
   if (plan.generateArchitecture) {
     lines.push('- [ ] `ARCHITECTURE.md`');
   }
-  if (plan.generateStack) {
-    lines.push('- [ ] `STACK.md`');
-  }
-  if (plan.generateStructure) {
-    lines.push('- [ ] `STRUCTURE.md`');
-  }
-  if (plan.generateConventions) {
-    lines.push('- [ ] `CONVENTIONS.md`');
-  }
-  if (plan.generateTesting) {
-    lines.push('- [ ] `TESTING.md`');
-  }
-  if (plan.generateIntegrations) {
-    lines.push('- [ ] `INTEGRATIONS.md`');
-  }
-  if (plan.generateConcerns) {
-    lines.push('- [ ] `CONCERNS.md`');
+  lines.push('');
+
+  // Supplementary docs per package root
+  if (plan.packageRoots.length > 0) {
+    lines.push('### Supplementary Docs by Package');
+    lines.push('');
+    for (const pkgRoot of plan.packageRoots) {
+      const pkgLabel = pkgRoot.path || '(root)';
+      const pkgPath = pkgRoot.path ? `${pkgRoot.path}/` : '';
+      lines.push(`#### ${pkgLabel} (${pkgRoot.type})`);
+      if (plan.generateStack && pkgRoot.type === 'node') {
+        lines.push(`- [ ] \`${pkgPath}STACK.md\``);
+      }
+      if (plan.generateStructure) {
+        lines.push(`- [ ] \`${pkgPath}STRUCTURE.md\``);
+      }
+      if (plan.generateConventions) {
+        lines.push(`- [ ] \`${pkgPath}CONVENTIONS.md\``);
+      }
+      if (plan.generateTesting) {
+        lines.push(`- [ ] \`${pkgPath}TESTING.md\``);
+      }
+      if (plan.generateIntegrations) {
+        lines.push(`- [ ] \`${pkgPath}INTEGRATIONS.md\``);
+      }
+      if (plan.generateConcerns) {
+        lines.push(`- [ ] \`${pkgPath}CONCERNS.md\``);
+      }
+      lines.push('');
+    }
   }
   lines.push('');
 

@@ -93,15 +93,24 @@ function formatPlan(plan: GenerationPlan): string {
   }
   lines.push('');
 
+  // Package roots
+  lines.push(`Package roots: ${plan.packageRoots.length}`);
+  for (const pkgRoot of plan.packageRoots) {
+    const label = pkgRoot.path || '(root)';
+    lines.push(`  - ${label} (${pkgRoot.type}: ${pkgRoot.manifestFile})`);
+  }
+  lines.push('');
+
   // Supplementary docs
   lines.push('Supplementary docs:');
-  lines.push(`  ARCHITECTURE.md: ${plan.generateArchitecture ? 'yes' : 'no'}`);
-  lines.push(`  STACK.md: ${plan.generateStack ? 'yes' : 'no'}`);
-  lines.push(`  STRUCTURE.md: ${plan.generateStructure ? 'yes' : 'no'}`);
-  lines.push(`  CONVENTIONS.md: ${plan.generateConventions ? 'yes' : 'no'}`);
-  lines.push(`  TESTING.md: ${plan.generateTesting ? 'yes' : 'no'}`);
-  lines.push(`  INTEGRATIONS.md: ${plan.generateIntegrations ? 'yes' : 'no'}`);
-  lines.push(`  CONCERNS.md: ${plan.generateConcerns ? 'yes' : 'no'}`);
+  lines.push(`  ARCHITECTURE.md: ${plan.generateArchitecture ? 'yes' : 'no'} (root only)`);
+  lines.push(`  Per package root:`);
+  lines.push(`    STACK.md: ${plan.generateStack ? 'yes' : 'no'} (node packages only)`);
+  lines.push(`    STRUCTURE.md: ${plan.generateStructure ? 'yes' : 'no'}`);
+  lines.push(`    CONVENTIONS.md: ${plan.generateConventions ? 'yes' : 'no'}`);
+  lines.push(`    TESTING.md: ${plan.generateTesting ? 'yes' : 'no'}`);
+  lines.push(`    INTEGRATIONS.md: ${plan.generateIntegrations ? 'yes' : 'no'}`);
+  lines.push(`    CONCERNS.md: ${plan.generateConcerns ? 'yes' : 'no'}`);
   lines.push('');
 
   // Skipped files
@@ -232,23 +241,20 @@ export async function generateCommand(
   if (plan.generateArchitecture) {
     console.log('6. Generate ARCHITECTURE.md (complexity threshold met)');
   }
-  if (plan.generateStack) {
-    console.log('7. Generate STACK.md (package.json found)');
-  }
-  if (plan.generateStructure) {
-    console.log('8. Generate STRUCTURE.md (codebase structure overview)');
-  }
-  if (plan.generateConventions) {
-    console.log('9. Generate CONVENTIONS.md (coding conventions)');
-  }
-  if (plan.generateTesting) {
-    console.log('10. Generate TESTING.md (testing approach)');
-  }
-  if (plan.generateIntegrations) {
-    console.log('11. Generate INTEGRATIONS.md (external dependencies)');
-  }
-  if (plan.generateConcerns) {
-    console.log('12. Generate CONCERNS.md (technical debt)');
+
+  // Show package root supplementary docs
+  if (plan.packageRoots.length > 0) {
+    console.log(`\nFor each package root (${plan.packageRoots.length} found):`);
+    const enabledDocs: string[] = [];
+    if (plan.generateStack) enabledDocs.push('STACK.md (node only)');
+    if (plan.generateStructure) enabledDocs.push('STRUCTURE.md');
+    if (plan.generateConventions) enabledDocs.push('CONVENTIONS.md');
+    if (plan.generateTesting) enabledDocs.push('TESTING.md');
+    if (plan.generateIntegrations) enabledDocs.push('INTEGRATIONS.md');
+    if (plan.generateConcerns) enabledDocs.push('CONCERNS.md');
+    for (const doc of enabledDocs) {
+      console.log(`   - Generate ${doc}`);
+    }
   }
 
   console.log('\nRun with --execute to get JSON output for AI agent execution.');
