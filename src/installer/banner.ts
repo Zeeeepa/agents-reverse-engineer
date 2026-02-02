@@ -8,7 +8,7 @@
 import pc from 'picocolors';
 
 /** Package version - updated at build time */
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
 
 /**
  * Display the ASCII banner at installer launch
