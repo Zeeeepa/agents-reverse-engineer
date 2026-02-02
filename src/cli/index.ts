@@ -189,6 +189,7 @@ function hasInstallerFlags(flags: Set<string>, values: Map<string, string>): boo
     flags.has('global') ||
     flags.has('local') ||
     flags.has('uninstall') ||
+    flags.has('force') ||
     values.has('runtime')
   );
 }
