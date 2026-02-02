@@ -126,9 +126,6 @@ function parseArgs(args: string[]): {
           case 'l':
             flags.add('local');
             break;
-          case 'u':
-            flags.add('uninstall');
-            break;
           case 'V':
             flags.add('version');
             break;
@@ -190,7 +187,6 @@ function hasInstallerFlags(flags: Set<string>, values: Map<string, string>): boo
   return (
     flags.has('global') ||
     flags.has('local') ||
-    flags.has('uninstall') ||
     flags.has('force') ||
     values.has('runtime')
   );

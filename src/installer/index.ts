@@ -29,7 +29,7 @@ export { selectRuntime, selectLocation, confirmAction, isInteractive } from './p
 /**
  * Parse command-line arguments for the installer
  *
- * Handles both short (-g, -l, -u, -h) and long (--global, --local, --uninstall, --help) flags.
+ * Handles both short (-g, -l, -h) and long (--global, --local, --help) flags.
  * Uses pattern from cli/index.ts for consistency.
  *
  * @param args - Command line arguments (process.argv.slice(2))
@@ -49,8 +49,6 @@ export function parseInstallerArgs(args: string[]): InstallerArgs {
       flags.add('global');
     } else if (arg === '-l' || arg === '--local') {
       flags.add('local');
-    } else if (arg === '-u' || arg === '--uninstall') {
-      flags.add('uninstall');
     } else if (arg === '--force') {
       flags.add('force');
     } else if (arg === '-q' || arg === '--quiet') {
@@ -71,7 +69,7 @@ export function parseInstallerArgs(args: string[]): InstallerArgs {
     runtime,
     global: flags.has('global'),
     local: flags.has('local'),
-    uninstall: flags.has('uninstall'),
+    uninstall: false, // Set by 'uninstall' command, not flags
     force: flags.has('force'),
     help: flags.has('help'),
     quiet: flags.has('quiet'),
