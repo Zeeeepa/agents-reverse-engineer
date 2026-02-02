@@ -166,5 +166,5 @@ Phase 4 (Integration & Commands) complete:
 - Phase 1: Foundation & Discovery (5 plans) - File discovery with gitignore, binary, vendor exclusions
 - Phase 2: Documentation Generation (6 plans) - .sum files, AGENTS.md hierarchy, token budgets
 - Phase 3: Incremental Updates (5 plans) - Git diff detection, SQLite state, orphan cleanup
-- Phase 4: Integration & Commands (4 plans) - Claude Code/OpenCode commands and hooks
+- Phase 4: Integration & Commands (5 plans) - Claude Code/OpenCode commands and hooks + gap closure
 - Phase 5: Installation Workflow (5 plans) - npx installer with runtime/location prompts

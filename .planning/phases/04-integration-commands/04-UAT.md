@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: closed
 phase: 04-integration-commands
 source: 04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md
 started: 2026-01-26T23:10:00Z
-updated: 2026-02-02T12:00:00Z
+updated: 2026-02-02T14:00:00Z
 ---
 
 ## Current Test
@@ -49,7 +49,7 @@ skipped: 0
 ## Gaps
 
 - truth: "Running init --integration should generate integration files even when config already exists"
-  status: failed
+  status: closed
   reason: "User reported: When config already exists, --integration flag is ignored. Early return at line 59 skips integration code."
   severity: major
   test: 1
@@ -62,3 +62,5 @@ skipped: 0
     - "Decouple config creation from integration file generation"
     - "Allow --integration to proceed independently when config already exists"
   debug_session: ".planning/debug/init-integration-flag-ignored.md"
+  fix_plan: "04-05-PLAN.md"
+  fix_commit: "cdff007"
