@@ -13,7 +13,7 @@ import { selectRuntime, selectLocation, confirmAction, isInteractive } from './p
 // Re-export types for external consumers
 export type { InstallerArgs, InstallerResult, Runtime, Location, RuntimePaths } from './types.js';
 export { getRuntimePaths, getAllRuntimes, resolveInstallPath, getSettingsPath } from './paths.js';
-export { displayBanner, showHelp, showSuccess, showError, showWarning, showInfo } from './banner.js';
+export { displayBanner, showHelp, showSuccess, showError, showWarning, showInfo, showNextSteps, VERSION } from './banner.js';
 export { selectRuntime, selectLocation, confirmAction, isInteractive } from './prompts.js';
 
 /**

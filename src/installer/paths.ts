@@ -24,6 +24,11 @@ export function getAllRuntimes(): Array<Exclude<Runtime, 'all'>> {
  * Returns global and local installation paths plus settings file location.
  * All paths are cross-platform using os.homedir() and path.join().
  *
+ * Environment variable overrides (in priority order):
+ * - Claude: CLAUDE_CONFIG_DIR
+ * - OpenCode: OPENCODE_CONFIG_DIR > XDG_CONFIG_HOME/opencode
+ * - Gemini: GEMINI_CONFIG_DIR
+ *
  * @param runtime - Target runtime (claude, opencode, or gemini)
  * @returns Path configuration object with global, local, and settingsFile paths
  */
@@ -32,7 +37,8 @@ export function getRuntimePaths(runtime: Exclude<Runtime, 'all'>): RuntimePaths 
 
   switch (runtime) {
     case 'claude': {
-      const globalPath = path.join(home, '.claude');
+      // CLAUDE_CONFIG_DIR overrides default ~/.claude
+      const globalPath = process.env.CLAUDE_CONFIG_DIR || path.join(home, '.claude');
       return {
         global: globalPath,
         local: '.claude',
@@ -41,7 +47,9 @@ export function getRuntimePaths(runtime: Exclude<Runtime, 'all'>): RuntimePaths 
     }
 
     case 'opencode': {
-      const globalPath = path.join(home, '.config', 'opencode');
+      // OPENCODE_CONFIG_DIR > XDG_CONFIG_HOME/opencode > ~/.config/opencode
+      const xdgConfig = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
+      const globalPath = process.env.OPENCODE_CONFIG_DIR || path.join(xdgConfig, 'opencode');
       return {
         global: globalPath,
         local: '.opencode',
@@ -50,7 +58,8 @@ export function getRuntimePaths(runtime: Exclude<Runtime, 'all'>): RuntimePaths 
     }
 
     case 'gemini': {
-      const globalPath = path.join(home, '.gemini');
+      // GEMINI_CONFIG_DIR overrides default ~/.gemini
+      const globalPath = process.env.GEMINI_CONFIG_DIR || path.join(home, '.gemini');
       return {
         global: globalPath,
         local: '.gemini',

@@ -7,14 +7,17 @@
 
 import * as pc from 'picocolors';
 
+/** Package version - updated at build time */
+export const VERSION = '0.1.2';
+
 /**
  * Display the ASCII banner at installer launch
  *
- * Shows big ASCII art "ARE" letters in cyan with tagline below.
+ * Shows big ASCII art "ARE" letters in green with version and tagline.
  */
 export function displayBanner(): void {
   const art = pc.green;
-  const tagline = pc.dim;
+  const dim = pc.dim;
 
   console.log();
   console.log(art('  █████╗ ██████╗ ███████╗'));
@@ -24,7 +27,8 @@ export function displayBanner(): void {
   console.log(art(' ██║  ██║██║  ██║███████╗'));
   console.log(art(' ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝'));
   console.log();
-  console.log(tagline(' agents-reverse-engineer — AI-friendly codebase documentation'));
+  console.log(dim(` agents-reverse-engineer v${VERSION}`));
+  console.log(dim(' AI-friendly codebase documentation'));
   console.log();
 }
 
@@ -91,4 +95,25 @@ export function showWarning(msg: string): void {
  */
 export function showInfo(msg: string): void {
   console.log(pc.cyan('>') + ' ' + msg);
+}
+
+/**
+ * Display post-install next steps
+ *
+ * Shows what to do after installation with helpful links.
+ *
+ * @param runtime - Which runtime was installed
+ * @param filesCreated - Number of files created
+ */
+export function showNextSteps(runtime: string, filesCreated: number): void {
+  console.log();
+  console.log(pc.bold('Installation complete!'));
+  console.log(pc.dim(`${filesCreated} files installed for ${runtime}`));
+  console.log();
+  console.log(pc.bold('Next steps:'));
+  console.log('  1. Run ' + pc.cyan('/are:help') + ' in your AI assistant to verify');
+  console.log('  2. Run ' + pc.cyan('/are:init') + ' to initialize a project');
+  console.log('  3. Run ' + pc.cyan('/are:generate') + ' to generate documentation');
+  console.log();
+  console.log(pc.dim('Docs: https://github.com/backnotprop/agents-reverse-engineer'));
 }
