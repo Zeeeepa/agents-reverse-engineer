@@ -124,6 +124,7 @@ function installFilesForRuntime(
   }
 
   // For Claude runtime, also install the session hook
+  let hookRegistered = false;
   if (runtime === 'claude') {
     const hookPath = path.join(basePath, 'hooks', 'are-session-end.js');
     if (existsSync(hookPath) && !options.force) {
@@ -141,6 +142,22 @@ function installFilesForRuntime(
         filesCreated.push(hookPath);
       }
     }
+
+    // Register hook in settings.json for global installs
+    if (location === 'global') {
+      hookRegistered = registerHooks(basePath, options.dryRun);
+    }
+  }
+
+  // Write VERSION file if files were created and not dry run
+  let versionWritten = false;
+  if (filesCreated.length > 0 && !options.dryRun) {
+    try {
+      writeVersionFile(basePath, options.dryRun);
+      versionWritten = true;
+    } catch {
+      // Non-fatal, don't add to errors
+    }
   }
 
   return {
@@ -150,6 +167,8 @@ function installFilesForRuntime(
     filesCreated,
     filesSkipped,
     errors,
+    hookRegistered,
+    versionWritten,
   };
 }
 
@@ -165,4 +184,132 @@ export function verifyInstallation(files: string[]): { success: boolean; missing
     success: missing.length === 0,
     missing,
   };
+}
+
+/**
+ * Session hook configuration for settings.json
+ */
+interface SessionHook {
+  type: 'command';
+  command: string;
+}
+
+interface HookEvent {
+  hooks: SessionHook[];
+}
+
+interface SettingsJson {
+  hooks?: {
+    SessionEnd?: HookEvent[];
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * Register session-end hook in Claude Code settings.json
+ *
+ * Only applicable for Claude global installations.
+ * Merges with existing hooks, doesn't overwrite.
+ *
+ * @param basePath - Base installation path (e.g., ~/.claude)
+ * @param dryRun - If true, don't write changes
+ * @returns true if hook was added, false if already existed
+ */
+export function registerHooks(basePath: string, dryRun: boolean): boolean {
+  // Only for Claude installations
+  if (!basePath.includes('.claude')) {
+    return false;
+  }
+
+  const settingsPath = path.join(basePath, 'settings.json');
+
+  // Load or create settings
+  let settings: SettingsJson = {};
+  if (existsSync(settingsPath)) {
+    try {
+      const content = readFileSync(settingsPath, 'utf-8');
+      settings = JSON.parse(content) as SettingsJson;
+    } catch {
+      // If can't parse, start fresh
+      settings = {};
+    }
+  }
+
+  // Ensure hooks structure exists
+  if (!settings.hooks) {
+    settings.hooks = {};
+  }
+  if (!settings.hooks.SessionEnd) {
+    settings.hooks.SessionEnd = [];
+  }
+
+  // Define our hook
+  const hookCommand = 'node hooks/are-session-end.js';
+  const newHook: HookEvent = {
+    hooks: [
+      {
+        type: 'command',
+        command: hookCommand,
+      },
+    ],
+  };
+
+  // Check if hook already exists (by command string match)
+  const hookExists = settings.hooks.SessionEnd.some((event) =>
+    event.hooks?.some((h) => h.command === hookCommand),
+  );
+
+  if (hookExists) {
+    return false;
+  }
+
+  // Add the hook
+  settings.hooks.SessionEnd.push(newHook);
+
+  // Write settings if not dry run
+  if (!dryRun) {
+    ensureDir(settingsPath);
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+  }
+
+  return true;
+}
+
+/**
+ * Get package version from package.json
+ *
+ * @returns Version string or 'unknown' if can't read
+ */
+export function getPackageVersion(): string {
+  try {
+    // Navigate from dist/installer/operations.js to package.json
+    // In ESM, we need to use import.meta.url
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    // From src/installer/ go up two levels to project root
+    const packagePath = path.join(__dirname, '..', '..', 'package.json');
+    const content = readFileSync(packagePath, 'utf-8');
+    const pkg = JSON.parse(content) as { version?: string };
+    return pkg.version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Write VERSION file to track installed version
+ *
+ * @param basePath - Base installation path
+ * @param dryRun - If true, don't write the file
+ */
+export function writeVersionFile(basePath: string, dryRun: boolean): void {
+  if (dryRun) {
+    return;
+  }
+
+  const versionPath = path.join(basePath, 'VERSION');
+  const version = getPackageVersion();
+
+  ensureDir(versionPath);
+  writeFileSync(versionPath, version, 'utf-8');
 }

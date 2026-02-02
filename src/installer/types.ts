@@ -61,6 +61,10 @@ export interface InstallerResult {
   filesSkipped: string[];
   /** Error messages if any */
   errors: string[];
+  /** Whether hook was registered in settings.json (Claude only) */
+  hookRegistered?: boolean;
+  /** Whether VERSION file was written */
+  versionWritten?: boolean;
 }
 
 /**
