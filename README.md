@@ -12,8 +12,10 @@
 <br>
 
 ```bash
-npx agents-reverse-engineer init --integration claude
+npx agents-reverse-engineer
 ```
+
+**Interactive installer with runtime and location selection.**
 
 **Works on Mac, Windows, and Linux.**
 
@@ -56,23 +58,42 @@ Developers using AI coding assistants (Claude Code, OpenCode, Gemini CLI, or any
 ## Getting Started
 
 ```bash
-npx agents-reverse-engineer init --integration claude
+npx agents-reverse-engineer
 ```
+
+The interactive installer prompts you to:
+
+1. **Select runtime** — Claude Code, OpenCode, Gemini CLI, or all
+2. **Select location** — Global (`~/.claude/`) or local (`./.claude/`)
 
 This creates:
 
-1. **Config** — `.agents-reverse-engineer/config.yaml`
-2. **Commands** — `.claude/commands/are/` for Claude Code
+- **Config** — `.agents-reverse-engineer/config.yaml`
+- **Commands** — `/are:generate`, `/are:update`, etc.
+- **Session hook** — Auto-updates docs when session ends (Claude/Gemini)
 
-**Supported integrations:** `claude`, `opencode`, `gemini`, `aider`
+### Non-Interactive Installation
 
-Then discover your files and create the plan:
+```bash
+# Install for Claude Code globally
+npx are install --runtime claude --global
+
+# Install for all runtimes locally
+npx are install --runtime all --local
+
+# Short flags
+npx are install -r claude -g
+```
+
+### After Installation
+
+Discover your files and create the plan:
 
 ```bash
 npx are discover --plan
 ```
 
-Finally, in your AI assistant:
+Then in your AI assistant:
 
 ```
 /are:generate
@@ -80,27 +101,33 @@ Finally, in your AI assistant:
 
 The assistant reads the plan and generates all documentation.
 
-> **Note:** The generated `AGENTS.md` files work with any AI assistant that supports this format. Use `--integration <name>` with `claude`, `opencode`, or `gemini` to generate the appropriate command files.
+### Uninstall
+
+```bash
+npx are uninstall
+```
+
+Removes all installed files and hooks.
 
 ### Staying Updated
 
 ```bash
-npx agents-reverse-engineer@latest init --integration claude
+npx agents-reverse-engineer@latest
 ```
 
 ---
 
 ## How It Works
 
-### 1. Initialize
+### 1. Install
 
 ```bash
-are init --integration claude
+npx agents-reverse-engineer
 ```
 
-Creates configuration and Claude Code commands in your project.
+Interactive installer creates configuration and commands for your chosen runtime(s).
 
-Other integrations: `opencode`, `gemini`, `aider`
+**Runtimes:** Claude Code, OpenCode, Gemini CLI (or all at once)
 
 ---
 
@@ -144,8 +171,12 @@ Only regenerates documentation for files that changed since last run.
 
 | Command                           | Description                          |
 | --------------------------------- | ------------------------------------ |
+| `are`                             | Interactive installer (default)      |
+| `are install`                     | Install with prompts                 |
+| `are install -r <runtime> -g`     | Install to runtime globally          |
+| `are install -r <runtime> -l`     | Install to runtime locally           |
+| `are uninstall`                   | Remove all installed files/hooks     |
 | `are init`                        | Create configuration file            |
-| `are init --integration <name>`   | Also create AI assistant commands    |
 | `are discover`                    | List files that will be analyzed     |
 | `are discover --plan`             | Create GENERATION-PLAN.md            |
 | `are discover --show-excluded`    | Show excluded files with reasons     |
@@ -153,7 +184,7 @@ Only regenerates documentation for files that changed since last run.
 | `are update`                      | Update changed files only            |
 | `are clean`                       | Remove all generated docs            |
 
-**Integration names:** `claude`, `opencode`, `gemini`, `aider`
+**Runtimes:** `claude`, `opencode`, `gemini`, `all`
 
 ### AI Assistant Commands
 
@@ -235,7 +266,8 @@ options:
 
 - **Node.js 18+**
 - **AI Coding Assistant** — One of:
-  - [Claude Code](https://claude.ai/claude-code) (full support)
+  - [Claude Code](https://claude.ai/claude-code) (full support + session hooks)
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) (full support + session hooks)
   - [OpenCode](https://github.com/opencode-ai/opencode) (AGENTS.md supported)
   - Any assistant supporting `AGENTS.md` format
 

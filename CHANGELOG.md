@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-02
+
+### Added
+- **Interactive TUI installer** - Running `npx agents-reverse-engineer` launches an interactive installer with ASCII banner and arrow-key navigation
+- **Runtime selection** - Choose from Claude Code, OpenCode, Gemini CLI, or install to all runtimes at once
+- **Location selection** - Install globally (`~/.claude/`) or locally (`./.claude/`) with interactive prompts
+- **Non-interactive flags** - `--runtime <name>`, `-g`/`--global`, `-l`/`--local` for scripted installations
+- **Uninstall command** - `npx are uninstall` removes all installed files and hooks cleanly
+- **SessionEnd hooks** - Automatic documentation updates on session close for Claude Code and Gemini CLI
+- **VERSION tracking** - Installed version tracked for future upgrade detection
+
+### Changed
+- Default command is now the interactive installer (previously required `init` command)
+- `are init` now only creates config file; use `are install` for commands and hooks
+- Simplified onboarding: just run `npx agents-reverse-engineer` and follow prompts
+
+### Removed
+- `--integration` flag from `are init` - replaced by the interactive installer (`are install`)
+
 ## [0.1.2] - 2026-01-31
 
 ### Added
@@ -50,7 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/releases/tag/v0.1.0
