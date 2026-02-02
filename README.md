@@ -41,7 +41,7 @@ AI coding assistants are powerful, but they don't know your codebase. Every sess
 
 - **`.sum` files** — Per-file summaries with purpose, exports, dependencies
 - **`AGENTS.md`** — Per-directory overviews with file organization (standard format)
-- **`CLAUDE.md`** — Project entry point for Claude Code
+- **`CLAUDE.md`** / **`GEMINI.md`** / **`OPENCODE.md`** — Runtime-specific project entry points
 - **`ARCHITECTURE.md`** — System design overview for complex projects
 - **`STACK.md`** — Technology stack from package.json
 
@@ -172,7 +172,7 @@ Your AI assistant executes the plan:
 
 1. **File Analysis** — Creates `.sum` file for each source file
 2. **Directory Docs** — Creates `AGENTS.md` for each directory
-3. **Root Docs** — Creates `CLAUDE.md`, `ARCHITECTURE.md`, `STACK.md`
+3. **Root Docs** — Creates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`, `ARCHITECTURE.md`, `STACK.md`
 
 ---
 
@@ -253,6 +253,8 @@ Directory overview with:
 ### Root Documents
 
 - **`CLAUDE.md`** — Project entry point for Claude Code (auto-loaded)
+- **`GEMINI.md`** — Project entry point for Gemini CLI
+- **`OPENCODE.md`** — Project entry point for OpenCode
 - **`AGENTS.md`** — Root directory overview (universal format)
 - **`ARCHITECTURE.md`** — System design overview (generated for complex projects)
 - **`STACK.md`** — Technology stack from package.json

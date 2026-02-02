@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-02
+
+### Added
+- **GEMINI.md and OPENCODE.md root documents** — Runtime-specific root documents generated alongside CLAUDE.md for Gemini CLI and OpenCode users
+- **Content hash for change detection** — `.sum` files now include a `content_hash` field to detect file changes without relying solely on timestamps
+- **User-defined file preservation** — Generation now preserves user-modified root documents (CLAUDE.md, GEMINI.md, OPENCODE.md) instead of overwriting them
+
+### Changed
+- Updated default `vendorDirs` and `binaryExtensions` for better AI assistant tooling coverage
+- Enhanced `.sum` file format documentation with detailed field guidelines and examples
+- Orchestrator now uses frontmatter mode for more reliable document generation
+
+### Fixed
+- `.sum` file generation steps now correctly include content hash computation
+
 ## [0.2.12] - 2026-02-02
 
 ### Fixed
@@ -149,7 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.2.12...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.2.12...v0.3.0
 [0.2.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.2.9...v0.2.10
