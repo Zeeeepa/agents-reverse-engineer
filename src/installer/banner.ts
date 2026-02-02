@@ -8,7 +8,7 @@
 import pc from 'picocolors';
 
 /** Package version - updated at build time */
-export const VERSION = '0.1.2';
+export const VERSION = '0.2.0';
 
 /**
  * Display the ASCII banner at installer launch
@@ -113,7 +113,9 @@ export function showNextSteps(runtime: string, filesCreated: number): void {
   console.log(pc.bold('Next steps:'));
   console.log('  1. Run ' + pc.cyan('/are:help') + ' in your AI assistant to verify');
   console.log('  2. Run ' + pc.cyan('/are:init') + ' to initialize a project');
-  console.log('  3. Run ' + pc.cyan('/are:generate') + ' to generate documentation');
+  console.log('  3. Run ' + pc.cyan('/are:discover') + ' to create the generation plan');
+  console.log('  4. Run ' + pc.cyan('/are:generate') + ' to generate documentation');
+  console.log('  5. Run ' + pc.cyan('/are:update') + ' to update documentation after changes');
   console.log();
-  console.log(pc.dim('Docs: https://github.com/backnotprop/agents-reverse-engineer'));
+  console.log(pc.dim('Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer'));
 }
