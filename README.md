@@ -12,7 +12,7 @@
 <br>
 
 ```bash
-npx agents-reverse-engineer
+npx agents-reverse-engineer@latest
 ```
 
 **Interactive installer with runtime and location selection.**
@@ -60,7 +60,7 @@ Developers using AI coding assistants (Claude Code, OpenCode, Gemini CLI, or any
 ### 1. Install Commands
 
 ```bash
-npx agents-reverse-engineer
+npx agents-reverse-engineer@latest
 ```
 
 The interactive installer prompts you to:
@@ -98,24 +98,24 @@ The assistant creates the plan and generates all documentation.
 
 ```bash
 # Install for Claude Code globally
-npx agents-reverse-engineer --runtime claude -g
+npx agents-reverse-engineer@latest --runtime claude -g
 
 # Install for all runtimes locally
-npx agents-reverse-engineer --runtime all -l
+npx agents-reverse-engineer@latest --runtime all -l
 ```
 
 ### Uninstall
 
 ```bash
-npx agents-reverse-engineer install -u
+npx agents-reverse-engineer@latest install -u
 ```
 
 Removes all installed files and hooks.
 
-### Staying Updated
+### Checking Version
 
 ```bash
-npx agents-reverse-engineer@latest
+npx agents-reverse-engineer@latest --version
 ```
 
 ---
@@ -125,7 +125,7 @@ npx agents-reverse-engineer@latest
 ### 1. Install Commands
 
 ```bash
-npx agents-reverse-engineer
+npx agents-reverse-engineer@latest
 ```
 
 Interactive installer installs commands and hooks for your chosen runtime(s).
