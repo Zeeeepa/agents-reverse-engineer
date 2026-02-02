@@ -143,10 +143,8 @@ function installFilesForRuntime(
       }
     }
 
-    // Register hook in settings.json for global installs
-    if (location === 'global') {
-      hookRegistered = registerHooks(basePath, options.dryRun);
-    }
+    // Register hook in settings.json
+    hookRegistered = registerHooks(basePath, options.dryRun);
   }
 
   // Write VERSION file if files were created and not dry run
