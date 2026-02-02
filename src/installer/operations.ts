@@ -321,11 +321,11 @@ function registerClaudeHook(settingsPath: string, hookCommand: string, dryRun: b
  * Permissions to auto-allow for ARE commands
  */
 const ARE_PERMISSIONS = [
-  'Bash(npx are init*)',
-  'Bash(npx are discover*)',
-  'Bash(npx are generate*)',
-  'Bash(npx are update*)',
-  'Bash(npx are clean*)',
+  'Bash(npx agents-reverse-engineer@latest init*)',
+  'Bash(npx agents-reverse-engineer@latest discover*)',
+  'Bash(npx agents-reverse-engineer@latest generate*)',
+  'Bash(npx agents-reverse-engineer@latest update*)',
+  'Bash(npx agents-reverse-engineer@latest clean*)',
 ];
 
 /**
