@@ -10,20 +10,21 @@ import * as pc from 'picocolors';
 /**
  * Display the ASCII banner at installer launch
  *
- * Shows a styled box with project name and tagline using colors:
- * - Cyan for box borders
- * - Bold for project name
- * - Dim for tagline
+ * Shows big ASCII art "ARE" letters in cyan with tagline below.
  */
 export function displayBanner(): void {
-  const border = pc.cyan;
-  const name = pc.bold('agents-reverse-engineer');
-  const tagline = pc.dim('AI-friendly codebase documentation');
+  const art = pc.cyan;
+  const tagline = pc.dim;
 
-  console.log(border('╔═══════════════════════════════════════════════════╗'));
-  console.log(border('║') + '   ' + name + '                         ' + border('║'));
-  console.log(border('║') + '   ' + tagline + '              ' + border('║'));
-  console.log(border('╚═══════════════════════════════════════════════════╝'));
+  console.log();
+  console.log(art('  █████╗ ██████╗ ███████╗'));
+  console.log(art(' ██╔══██╗██╔══██╗██╔════╝'));
+  console.log(art(' ███████║██████╔╝█████╗  '));
+  console.log(art(' ██╔══██║██╔══██╗██╔══╝  '));
+  console.log(art(' ██║  ██║██║  ██║███████╗'));
+  console.log(art(' ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝'));
+  console.log();
+  console.log(tagline(' agents-reverse-engineer — AI-friendly codebase documentation'));
   console.log();
 }
 
