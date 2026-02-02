@@ -1,6 +1,6 @@
 {
   "name": "agents-reverse-engineer",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "CLI tool for reverse-engineering codebase documentation for AI agents",
   "type": "module",
   "bin": {

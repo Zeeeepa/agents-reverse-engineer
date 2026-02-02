@@ -182,27 +182,27 @@ npx agents-reverse-engineer install
       path: '.claude/commands/are/discover.md',
       content: `---
 name: are:discover
-description: Discover files and create execution plan (GENERATION-PLAN.md)
+description: Discover files to analyze (use --plan to create GENERATION-PLAN.md)
 argument-hint: "[path] [--plan] [--show-excluded]"
 ---
 
-Discover files to analyze and optionally create the GENERATION-PLAN.md for documentation generation.
+Discover files that will be analyzed for documentation.
 
 <execution>
-Run the agents-reverse-engineer discover command:
+Run the agents-reverse-engineer discover command with EXACTLY the arguments provided by the user:
 
 \`\`\`bash
 npx are discover $ARGUMENTS
 \`\`\`
 
-Common options:
-- \`--plan\` - Generate GENERATION-PLAN.md file (required before /are:generate)
+**IMPORTANT**: Do NOT add flags that the user did not request. Pass $ARGUMENTS exactly as provided.
+
+Options (only use if user requests):
+- \`--plan\` - Generate GENERATION-PLAN.md file
 - \`--show-excluded\` - Show excluded files with reasons
 - \`--quiet\` - Only show the summary count
 
-After completion, summarize:
-- Number of files discovered
-- If --plan was used: path to GENERATION-PLAN.md and suggest running \`/are:generate\`
+After completion, summarize what was done based on the flags actually used.
 </execution>
 `,
     },
@@ -361,16 +361,18 @@ Arguments supported:
       filename: 'are-discover.md',
       path: '.opencode/commands/are-discover.md',
       content: `---
-description: Discover files and create execution plan (GENERATION-PLAN.md)
+description: Discover files to analyze (use --plan to create GENERATION-PLAN.md)
 agent: build
 ---
 
-Discover files to analyze and optionally create the GENERATION-PLAN.md for documentation generation.
+Discover files that will be analyzed for documentation.
 
 Run: \`npx are discover $ARGUMENTS\`
 
-Arguments supported:
-- \`--plan\` - Generate GENERATION-PLAN.md file (required before /are-generate)
+**IMPORTANT**: Pass $ARGUMENTS exactly as provided. Do NOT add flags the user did not request.
+
+Options (only use if user requests):
+- \`--plan\` - Generate GENERATION-PLAN.md file
 - \`--show-excluded\` - Show excluded files with reasons
 - \`--quiet\` - Only show the summary count
 `,
@@ -494,15 +496,17 @@ Arguments supported:
       filename: 'are-discover.md',
       path: '.gemini/commands/are-discover.md',
       content: `---
-description: Discover files and create execution plan (GENERATION-PLAN.md)
+description: Discover files to analyze (use --plan to create GENERATION-PLAN.md)
 ---
 
-Discover files to analyze and optionally create the GENERATION-PLAN.md for documentation generation.
+Discover files that will be analyzed for documentation.
 
 Run: \`npx are discover $ARGUMENTS\`
 
-Arguments supported:
-- \`--plan\` - Generate GENERATION-PLAN.md file (required before /are-generate)
+**IMPORTANT**: Pass $ARGUMENTS exactly as provided. Do NOT add flags the user did not request.
+
+Options (only use if user requests):
+- \`--plan\` - Generate GENERATION-PLAN.md file
 - \`--show-excluded\` - Show excluded files with reasons
 - \`--quiet\` - Only show the summary count
 `,
