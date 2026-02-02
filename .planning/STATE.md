@@ -5,23 +5,25 @@
 See: .planning/PROJECT.md (updated 2025-01-25)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** Phase 4 - Integration & Commands
+**Current focus:** Phase 5 - Installation Workflow
 
 ## Current Position
 
-Phase: 4 of 4 (Integration & Commands)
-Plan: 4 of 4 in current phase
-Status: PROJECT COMPLETE
-Last activity: 2026-01-26 - Completed 04-04-PLAN.md
+Phase: 5 of 5 (Installation Workflow)
+Plan: 1 of 5 in current phase
+Status: In progress
+Last activity: 2026-02-02 - Completed 05-01-PLAN.md
 
-Progress: [████████████████████] 100%
+Progress: [████████████████████░] 84%
+
+**Next plan:** 05-02 - Interactive Prompts
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
+- Total plans completed: 21
 - Average duration: 3 min
-- Total execution time: 60 min
+- Total execution time: 62 min
 
 **By Phase:**
 
@@ -31,9 +33,10 @@ Progress: [████████████████████] 100%
 | 2. Documentation Generation | 6/6 | 21 min | 4 min |
 | 3. Incremental Updates | 5/5 | 11 min | 2 min |
 | 4. Integration & Commands | 4/4 | 13 min | 3 min |
+| 5. Installation Workflow | 1/5 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-05 (4 min), 04-01 (3 min), 04-02 (4 min), 04-03 (2 min), 04-04 (4 min)
+- Last 5 plans: 04-01 (3 min), 04-02 (4 min), 04-03 (2 min), 04-04 (4 min), 05-01 (2 min)
 - Trend: Consistent pace
 
 *Updated after each plan completion*
@@ -102,6 +105,13 @@ Recent decisions affecting current work:
 | CLAUDE_PROJECT_DIR for hook paths | 04-03 | Correct path resolution regardless of cwd |
 | Silent hook error handling | 04-03 | Exit silently on all error conditions for non-intrusive behavior |
 | Background spawn for hooks | 04-03 | Detached process to not block session close |
+| Runtime 'all' meta-value | 05-01 | Allows batch installation to all runtimes at once |
+| OpenCode XDG convention | 05-01 | OpenCode uses ~/.config/opencode per XDG spec |
+| Exclude<Runtime, 'all'> pattern | 05-01 | Path functions work with concrete runtimes only |
+
+### Roadmap Evolution
+
+- Phase 5 added: Implement installation workflow (2026-02-02)
 
 ### Pending Todos
 
@@ -113,9 +123,18 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-26
-Stopped at: PROJECT COMPLETE - All 20 plans executed
+Last session: 2026-02-02
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
+
+## Phase 5 Progress
+
+Phase 5 (Installation Workflow) in progress:
+- 05-01: Foundation types & paths (complete)
+- 05-02: Interactive prompts (pending)
+- 05-03: File operations (pending)
+- 05-04: Uninstall logic (pending)
+- 05-05: TUI entry point (pending)
 
 ## Phase 4 Progress
 
@@ -127,12 +146,11 @@ Phase 4 (Integration & Commands) complete:
 
 ## Project Summary
 
-**agents-reverse v1 COMPLETE**
+**agents-reverse v1 IN PROGRESS**
 
-All 17 requirements delivered across 4 phases and 20 plans:
+17 requirements delivered across 4 phases (20 plans). Phase 5 added:
 - Phase 1: Foundation & Discovery (5 plans) - File discovery with gitignore, binary, vendor exclusions
 - Phase 2: Documentation Generation (6 plans) - .sum files, AGENTS.md hierarchy, token budgets
 - Phase 3: Incremental Updates (5 plans) - Git diff detection, SQLite state, orphan cleanup
 - Phase 4: Integration & Commands (4 plans) - Claude Code/OpenCode commands and hooks
-
-Total execution time: 60 minutes
+- Phase 5: Installation Workflow (5 plans) - npx installer with runtime/location prompts
