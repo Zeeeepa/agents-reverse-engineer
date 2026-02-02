@@ -55,24 +55,26 @@ export async function initCommand(root: string, options: InitOptions): Promise<v
   });
 
   try {
+    let configCreated = false;
+
     // Check if config already exists
     if (await configExists(resolvedRoot)) {
       logger.warn(`Config already exists at ${configPath}`);
       logger.info('Edit the file to customize exclusions and options.');
-      return;
+    } else {
+      // Create default config
+      await writeDefaultConfig(resolvedRoot);
+      configCreated = true;
+
+      logger.info(`Created configuration at ${configPath}`);
+      logger.info('');
+      logger.info('Edit the file to customize:');
+      logger.info('  - exclude.patterns: Add custom glob patterns to exclude');
+      logger.info('  - exclude.vendorDirs: Modify vendor directories list');
+      logger.info('  - options.maxFileSize: Adjust large file threshold');
     }
 
-    // Create default config
-    await writeDefaultConfig(resolvedRoot);
-
-    logger.info(`Created configuration at ${configPath}`);
-    logger.info('');
-    logger.info('Edit the file to customize:');
-    logger.info('  - exclude.patterns: Add custom glob patterns to exclude');
-    logger.info('  - exclude.vendorDirs: Modify vendor directories list');
-    logger.info('  - options.maxFileSize: Adjust large file threshold');
-
-    // Handle integration file generation
+    // Handle integration file generation (runs regardless of config state)
     if (options.integration) {
       const { generateIntegrationFiles } = await import('../integration/generate.js');
       const results = await generateIntegrationFiles(resolvedRoot, {
@@ -99,7 +101,8 @@ export async function initCommand(root: string, options: InitOptions): Promise<v
           }
         }
       }
-    } else {
+    } else if (configCreated) {
+      // Only show integration hint if we just created config
       logger.info('');
       logger.info('Run with --integration <name> to set up AI assistant commands');
       logger.info('  Supported: claude, opencode, gemini, aider');
