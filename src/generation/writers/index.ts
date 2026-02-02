@@ -22,6 +22,16 @@ export {
 } from './claude-md.js';
 
 export {
+  writeGeminiMd,
+  getGeminiMdContent,
+} from './gemini-md.js';
+
+export {
+  writeOpencodeMd,
+  getOpencodeMdContent,
+} from './opencode-md.js';
+
+export {
   writeArchitectureMd,
   writeStackMd,
   buildArchitectureMd,

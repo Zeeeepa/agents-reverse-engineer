@@ -7,6 +7,7 @@
 
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { stat } from 'node:fs/promises';
 import type { Runtime, Location, RuntimePaths } from './types.js';
 
 /**
@@ -106,4 +107,70 @@ export function resolveInstallPath(
  */
 export function getSettingsPath(runtime: Exclude<Runtime, 'all'>): string {
   return getRuntimePaths(runtime).settingsFile;
+}
+
+/**
+ * Check if a runtime is installed locally in a project.
+ *
+ * Checks for the presence of the local config directory (e.g., .claude, .opencode, .gemini).
+ *
+ * @param runtime - Target runtime (claude, opencode, or gemini)
+ * @param projectRoot - Project root directory to check
+ * @returns True if the runtime's local config directory exists
+ */
+export async function isRuntimeInstalledLocally(
+  runtime: Exclude<Runtime, 'all'>,
+  projectRoot: string
+): Promise<boolean> {
+  const paths = getRuntimePaths(runtime);
+  const localPath = path.join(projectRoot, paths.local);
+
+  try {
+    const stats = await stat(localPath);
+    return stats.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a runtime is installed globally.
+ *
+ * Checks for the presence of the global config directory.
+ *
+ * @param runtime - Target runtime (claude, opencode, or gemini)
+ * @returns True if the runtime's global config directory exists
+ */
+export async function isRuntimeInstalledGlobally(
+  runtime: Exclude<Runtime, 'all'>
+): Promise<boolean> {
+  const paths = getRuntimePaths(runtime);
+
+  try {
+    const stats = await stat(paths.global);
+    return stats.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get list of runtimes installed locally in a project.
+ *
+ * @param projectRoot - Project root directory to check
+ * @returns Array of runtime identifiers that are installed locally
+ */
+export async function getInstalledRuntimes(
+  projectRoot: string
+): Promise<Array<Exclude<Runtime, 'all'>>> {
+  const runtimes = getAllRuntimes();
+  const installed: Array<Exclude<Runtime, 'all'>> = [];
+
+  for (const runtime of runtimes) {
+    if (await isRuntimeInstalledLocally(runtime, projectRoot)) {
+      installed.push(runtime);
+    }
+  }
+
+  return installed;
 }

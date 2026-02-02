@@ -50,33 +50,41 @@ Read \`.agents-reverse-engineer/GENERATION-PLAN.md\` and find unchecked tasks (\
 
 \`\`\`
 Analyze and document this file:
-1. Read: <file_path>
-2. Generate .sum content following the format below
-3. Write to: <file_path>.sum
-4. Verify: Read back the .sum file to confirm success
-5. Report: "SUCCESS: <file_path>.sum created" or "FAILED: <reason>"
+1. Compute content hash: sha256sum <file_path> | cut -d' ' -f1
+2. Read: <file_path>
+3. Generate .sum content following the format below (include the content_hash)
+4. Write to: <file_path>.sum
+5. Verify: Read back the .sum file to confirm success
+6. Report: "SUCCESS: <file_path>.sum created" or "FAILED: <reason>"
 \`\`\`
 
 ### .sum File Format
 
-\`\`\`
+\`\`\`yaml
 ---
 file_type: <generic|type|config|test|component|service|api|hook|model|schema>
 generated_at: <ISO timestamp>
+content_hash: <SHA-256 hash - compute with: sha256sum <file> | cut -d' ' -f1>
+purpose: <1-2 sentence description of what this file does>
+public_interface: [func1(), func2(), ClassName]
+dependencies: [express, lodash, ./utils]
+patterns: [singleton, factory, observer]
+related_files: [./types.ts, ./utils.ts]
 ---
 
-## Purpose
-<1-2 sentence description of what this file does>
-
-## Public Interface
-<exported functions, classes, types with brief descriptions>
-
-## Dependencies
-<key imports and what they're used for>
-
-## Implementation Notes
-<important patterns, algorithms, or gotchas>
+<Detailed 300-500 word summary covering:
+- What the code does and how it works
+- Key implementation details
+- Important usage patterns
+- Notable edge cases or gotchas>
 \`\`\`
+
+**Field Guidelines:**
+- \`purpose\`: One-line summary (what + why)
+- \`public_interface\`: Exported functions/classes/types
+- \`dependencies\`: External packages and internal imports
+- \`patterns\`: Design patterns used (singleton, factory, etc.)
+- \`related_files\`: Tightly coupled files (optional)
 
 ### After All Files Complete, Generate AGENTS.md (Post-Order Traversal):
 

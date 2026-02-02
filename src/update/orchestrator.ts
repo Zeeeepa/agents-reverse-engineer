@@ -1,37 +1,33 @@
 /**
  * Update orchestrator
  *
- * Coordinates incremental documentation updates:
+ * Coordinates incremental documentation updates using frontmatter-based change detection:
  * 1. Check git repository status
- * 2. Get last run from state database
- * 3. Detect changed files since last run
+ * 2. Scan for existing .sum files
+ * 3. Compare content hashes from frontmatter with current file hashes
  * 4. Clean up orphaned .sum files
  * 5. Prepare analysis tasks for changed files
  * 6. Track affected directories for AGENTS.md regeneration
- * 7. Persist new state after successful completion
  */
 import * as path from 'node:path';
-import { mkdir } from 'node:fs/promises';
 import type { Config } from '../config/schema.js';
-import type { StateDatabase, FileRecord, RunRecord } from '../state/index.js';
-import { openDatabase } from '../state/index.js';
 import {
   isGitRepo,
   getCurrentCommit,
-  getChangedFiles,
   computeContentHash,
   type FileChange,
 } from '../change-detection/index.js';
 import { cleanupOrphans, getAffectedDirectories } from './orphan-cleaner.js';
-import type {
-  UpdateOptions,
-  CleanupResult,
-} from './types.js';
-
-/** State directory name (relative to project root) */
-const STATE_DIR = '.agents-reverse-engineer';
-/** State database filename */
-const STATE_DB = 'state.db';
+import { readSumFile, getSumPath } from '../generation/writers/sum.js';
+import type { UpdateOptions, CleanupResult } from './types.js';
+import { walkDirectory } from '../discovery/walker.js';
+import {
+  applyFilters,
+  createGitignoreFilter,
+  createVendorFilter,
+  createBinaryFilter,
+  createCustomFilter,
+} from '../discovery/filters/index.js';
 
 /**
  * Result of update preparation (before analysis).
@@ -45,21 +41,20 @@ export interface UpdatePlan {
   cleanup: CleanupResult;
   /** Directories that need AGENTS.md regeneration */
   affectedDirs: string[];
-  /** Base commit (from last run or initial) */
+  /** Base commit (not used in frontmatter mode, kept for compatibility) */
   baseCommit: string;
   /** Current commit */
   currentCommit: string;
-  /** Whether this is first run (no prior state) */
+  /** Whether this is first run (no .sum files exist) */
   isFirstRun: boolean;
 }
 
 /**
- * Orchestrates incremental documentation updates.
+ * Orchestrates incremental documentation updates using frontmatter-based change detection.
  */
 export class UpdateOrchestrator {
   private config: Config;
   private projectRoot: string;
-  private db: StateDatabase | null = null;
 
   constructor(config: Config, projectRoot: string) {
     this.config = config;
@@ -67,34 +62,10 @@ export class UpdateOrchestrator {
   }
 
   /**
-   * Get path to state database.
-   */
-  private getDbPath(): string {
-    return path.join(this.projectRoot, STATE_DIR, STATE_DB);
-  }
-
-  /**
-   * Ensure state directory exists and open database.
-   */
-  async openState(): Promise<StateDatabase> {
-    if (this.db) return this.db;
-
-    // Ensure state directory exists
-    const stateDir = path.join(this.projectRoot, STATE_DIR);
-    await mkdir(stateDir, { recursive: true });
-
-    this.db = openDatabase(this.getDbPath());
-    return this.db;
-  }
-
-  /**
-   * Close database connection.
+   * Close resources (no-op in frontmatter mode, kept for API compatibility).
    */
   close(): void {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
+    // No database to close in frontmatter mode
   }
 
   /**
@@ -113,78 +84,91 @@ export class UpdateOrchestrator {
   }
 
   /**
+   * Discover all source files in the project.
+   */
+  private async discoverFiles(): Promise<string[]> {
+    // Create filters
+    const gitignoreFilter = await createGitignoreFilter(this.projectRoot);
+    const vendorFilter = createVendorFilter(this.config.exclude.vendorDirs);
+    const binaryFilter = createBinaryFilter({
+      maxFileSize: this.config.options.maxFileSize,
+      additionalExtensions: this.config.exclude.binaryExtensions,
+    });
+    const customFilter = createCustomFilter(this.config.exclude.patterns, this.projectRoot);
+    const filters = [gitignoreFilter, vendorFilter, binaryFilter, customFilter];
+
+    // Walk directory
+    const files = await walkDirectory({
+      cwd: this.projectRoot,
+      followSymlinks: this.config.options.followSymlinks,
+    });
+
+    // Apply filters
+    const filterResult = await applyFilters(files, filters);
+    return filterResult.included;
+  }
+
+  /**
    * Prepare update plan without executing analysis.
+   *
+   * Uses frontmatter-based change detection:
+   * - Reads content_hash from each .sum file
+   * - Compares with current file content hash
+   * - Files with mismatched hashes need re-analysis
    *
    * @param options - Update options
    * @returns Update plan with files to analyze and cleanup actions
    */
   async preparePlan(options: UpdateOptions = {}): Promise<UpdatePlan> {
     await this.checkPrerequisites();
-    const db = await this.openState();
 
-    // Get current commit
+    // Get current commit for reference
     const currentCommit = await getCurrentCommit(this.projectRoot);
 
-    // Get last run to determine base commit
-    const lastRun = db.getLastRun();
-    const isFirstRun = !lastRun;
-    const baseCommit = lastRun?.commit_hash ?? currentCommit;
+    // Discover all source files
+    const allFiles = await this.discoverFiles();
 
-    // If first run or same commit, no committed changes
-    let changes: FileChange[] = [];
-    if (!isFirstRun && baseCommit !== currentCommit) {
-      const result = await getChangedFiles(
-        this.projectRoot,
-        baseCommit,
-        { includeUncommitted: options.includeUncommitted }
-      );
-      changes = result.changes;
-    } else if (options.includeUncommitted) {
-      // Even if no committed changes, check uncommitted
-      const result = await getChangedFiles(
-        this.projectRoot,
-        currentCommit, // Use current as base (no committed diff)
-        { includeUncommitted: true }
-      );
-      changes = result.changes;
-    }
-
-    // Separate files by status for different handling
-    const filesToAnalyze = changes.filter(
-      c => c.status === 'added' || c.status === 'modified' || c.status === 'renamed'
-    );
-    const deletedOrRenamed = changes.filter(
-      c => c.status === 'deleted' || c.status === 'renamed'
-    );
-
-    // Filter out files that haven't actually changed (content hash match)
-    const actuallyChanged: FileChange[] = [];
+    const filesToAnalyze: FileChange[] = [];
     const filesToSkip: string[] = [];
+    const deletedOrRenamed: FileChange[] = [];
 
-    for (const change of filesToAnalyze) {
-      if (change.status === 'added') {
-        // New files are always analyzed
-        actuallyChanged.push(change);
-      } else {
-        // For modified/renamed, check content hash
-        const filePath = path.join(this.projectRoot, change.path);
-        try {
-          const currentHash = await computeContentHash(filePath);
-          const stored = db.getFile(change.path);
+    // Track which .sum files we've seen (to detect orphans)
+    const seenSumFiles = new Set<string>();
 
-          if (!stored || stored.content_hash !== currentHash) {
-            actuallyChanged.push(change);
-          } else {
-            filesToSkip.push(change.path);
-          }
-        } catch {
-          // File can't be read - skip it
-          filesToSkip.push(change.path);
+    // Check each file against its .sum file
+    for (const relativePath of allFiles) {
+      const filePath = path.join(this.projectRoot, relativePath);
+      const sumPath = getSumPath(filePath);
+      seenSumFiles.add(sumPath);
+
+      try {
+        // Read existing .sum file
+        const sumContent = await readSumFile(sumPath);
+
+        if (!sumContent) {
+          // No .sum file exists - file needs analysis
+          filesToAnalyze.push({ path: relativePath, status: 'added' });
+          continue;
         }
+
+        // Compare content hashes
+        const currentHash = await computeContentHash(filePath);
+        const storedHash = sumContent.contentHash;
+
+        if (!storedHash || storedHash !== currentHash) {
+          // Hash mismatch or no hash stored - file needs re-analysis
+          filesToAnalyze.push({ path: relativePath, status: 'modified' });
+        } else {
+          // Hash matches - skip this file
+          filesToSkip.push(relativePath);
+        }
+      } catch {
+        // Error reading file - skip it
+        filesToSkip.push(relativePath);
       }
     }
 
-    // Cleanup orphans (deleted and renamed old paths)
+    // Cleanup orphans (deleted files whose .sum files still exist)
     const cleanup = await cleanupOrphans(
       this.projectRoot,
       deletedOrRenamed,
@@ -192,84 +176,71 @@ export class UpdateOrchestrator {
     );
 
     // Get directories affected by changes (for AGENTS.md regeneration)
-    const affectedDirs = Array.from(getAffectedDirectories(actuallyChanged));
+    const affectedDirs = Array.from(getAffectedDirectories(filesToAnalyze));
+
+    // Determine if this is first run (no files to skip means no existing .sum files)
+    const isFirstRun = filesToSkip.length === 0 && filesToAnalyze.length > 0;
 
     return {
-      filesToAnalyze: actuallyChanged,
+      filesToAnalyze,
       filesToSkip,
       cleanup,
       affectedDirs,
-      baseCommit,
+      baseCommit: currentCommit, // Not used in frontmatter mode
       currentCommit,
       isFirstRun,
     };
   }
 
   /**
-   * Update state for a successfully analyzed file.
-   *
-   * @param relativePath - Relative path to the file
-   * @param contentHash - SHA-256 hash of file content
-   * @param currentCommit - Current git commit hash
+   * Record file analyzed (no-op in frontmatter mode - hash is stored in .sum file).
+   * Kept for API compatibility.
    */
   async recordFileAnalyzed(
-    relativePath: string,
-    contentHash: string,
-    currentCommit: string
+    _relativePath: string,
+    _contentHash: string,
+    _currentCommit: string
   ): Promise<void> {
-    const db = await this.openState();
-    db.upsertFile({
-      path: relativePath,
-      content_hash: contentHash,
-      sum_generated_at: new Date().toISOString(),
-      last_analyzed_commit: currentCommit,
-    });
+    // No-op: content hash is stored in .sum file frontmatter
   }
 
   /**
-   * Remove file from state (for deleted files).
+   * Remove file from state (no-op in frontmatter mode).
+   * Kept for API compatibility.
    */
-  async removeFileState(relativePath: string): Promise<void> {
-    const db = await this.openState();
-    db.deleteFile(relativePath);
+  async removeFileState(_relativePath: string): Promise<void> {
+    // No-op: .sum file cleanup is handled separately
   }
 
   /**
-   * Record a completed update run.
-   *
-   * @param commitHash - Git commit hash at completion
-   * @param filesAnalyzed - Number of files analyzed
-   * @param filesSkipped - Number of files skipped
-   * @returns Run ID
+   * Record a completed update run (no-op in frontmatter mode).
+   * Kept for API compatibility.
    */
   async recordRun(
-    commitHash: string,
-    filesAnalyzed: number,
-    filesSkipped: number
+    _commitHash: string,
+    _filesAnalyzed: number,
+    _filesSkipped: number
   ): Promise<number> {
-    const db = await this.openState();
-    return db.insertRun({
-      commit_hash: commitHash,
-      completed_at: new Date().toISOString(),
-      files_analyzed: filesAnalyzed,
-      files_skipped: filesSkipped,
-    });
+    // No-op: no run history in frontmatter mode
+    return 0;
   }
 
   /**
-   * Get last run information.
+   * Get last run information (not available in frontmatter mode).
+   * Kept for API compatibility.
    */
-  async getLastRun(): Promise<RunRecord | undefined> {
-    const db = await this.openState();
-    return db.getLastRun();
+  async getLastRun(): Promise<undefined> {
+    // No run history in frontmatter mode
+    return undefined;
   }
 
   /**
-   * Check if this is the first run (no prior state).
+   * Check if this is the first run.
+   * In frontmatter mode, checks if any .sum files exist.
    */
   async isFirstRun(): Promise<boolean> {
-    const db = await this.openState();
-    return !db.getLastRun();
+    const plan = await this.preparePlan({ dryRun: true });
+    return plan.isFirstRun;
   }
 }
 

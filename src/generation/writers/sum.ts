@@ -6,7 +6,7 @@ import type { SummaryMetadata } from '../types.js';
  * Content structure for a .sum file.
  */
 export interface SumFileContent {
-  /** Main summary text */
+  /** Main summary text (detailed description) */
   summary: string;
   /** Extracted metadata */
   metadata: SummaryMetadata;
@@ -14,6 +14,8 @@ export interface SumFileContent {
   fileType: string;
   /** Generation timestamp */
   generatedAt: string;
+  /** SHA-256 hash of source file content (for change detection) */
+  contentHash: string;
 }
 
 /**
@@ -27,6 +29,35 @@ export async function readSumFile(sumPath: string): Promise<SumFileContent | nul
   } catch {
     return null;
   }
+}
+
+/**
+ * Parse a YAML-style array from frontmatter.
+ * Supports both inline [a, b, c] and multi-line formats.
+ */
+function parseYamlArray(frontmatter: string, key: string): string[] {
+  // Try inline format first: key: [a, b, c]
+  const inlineMatch = frontmatter.match(new RegExp(`${key}:\\s*\\[([^\\]]*)\\]`));
+  if (inlineMatch) {
+    return inlineMatch[1]
+      .split(',')
+      .map(s => s.trim().replace(/^["']|["']$/g, ''))
+      .filter(s => s.length > 0);
+  }
+
+  // Try multi-line format:
+  // key:
+  //   - item1
+  //   - item2
+  const multiLineMatch = frontmatter.match(new RegExp(`${key}:\\s*\\n((?:\\s+-\\s+.+\\n?)+)`, 'm'));
+  if (multiLineMatch) {
+    return multiLineMatch[1]
+      .split('\n')
+      .map(line => line.replace(/^\s*-\s*/, '').trim())
+      .filter(s => s.length > 0);
+  }
+
+  return [];
 }
 
 /**
@@ -44,19 +75,28 @@ function parseSumFile(content: string): SumFileContent | null {
     // Parse frontmatter (simple YAML-like parsing)
     const fileType = frontmatter.match(/file_type:\s*(.+)/)?.[1]?.trim() ?? 'generic';
     const generatedAt = frontmatter.match(/generated_at:\s*(.+)/)?.[1]?.trim() ?? '';
+    const contentHash = frontmatter.match(/content_hash:\s*(.+)/)?.[1]?.trim() ?? '';
 
-    // Parse metadata sections
+    // Parse purpose (single line value)
+    const purpose = frontmatter.match(/purpose:\s*(.+)/)?.[1]?.trim() ?? '';
+
+    // Parse metadata arrays
     const metadata: SummaryMetadata = {
-      purpose: '',
-      publicInterface: [],
-      dependencies: [],
-      patterns: [],
+      purpose,
+      publicInterface: parseYamlArray(frontmatter, 'public_interface'),
+      dependencies: parseYamlArray(frontmatter, 'dependencies'),
+      patterns: parseYamlArray(frontmatter, 'patterns'),
     };
 
-    // Extract purpose from summary (first paragraph after any heading)
-    const purposeMatch = summary.match(/##?\s*Purpose\n([\s\S]*?)(?=\n##|\n\n##|$)/i);
-    if (purposeMatch) {
-      metadata.purpose = purposeMatch[1].trim();
+    // Parse optional fields
+    const criticalTodos = parseYamlArray(frontmatter, 'critical_todos');
+    if (criticalTodos.length > 0) {
+      metadata.criticalTodos = criticalTodos;
+    }
+
+    const relatedFiles = parseYamlArray(frontmatter, 'related_files');
+    if (relatedFiles.length > 0) {
+      metadata.relatedFiles = relatedFiles;
     }
 
     return {
@@ -64,6 +104,7 @@ function parseSumFile(content: string): SumFileContent | null {
       metadata,
       fileType,
       generatedAt,
+      contentHash,
     };
   } catch {
     return null;
@@ -71,18 +112,47 @@ function parseSumFile(content: string): SumFileContent | null {
 }
 
 /**
+ * Format a YAML array for frontmatter.
+ * Uses inline format for short arrays, multi-line for longer ones.
+ */
+function formatYamlArray(key: string, values: string[]): string {
+  if (values.length === 0) {
+    return `${key}: []`;
+  }
+  if (values.length <= 3 && values.every(v => v.length < 40)) {
+    // Inline format for short arrays
+    return `${key}: [${values.join(', ')}]`;
+  }
+  // Multi-line format for longer arrays
+  return `${key}:\n${values.map(v => `  - ${v}`).join('\n')}`;
+}
+
+/**
  * Format .sum file content for writing.
  */
 function formatSumFile(content: SumFileContent): string {
-  const frontmatter = [
+  const lines = [
     '---',
     `file_type: ${content.fileType}`,
     `generated_at: ${content.generatedAt}`,
-    '---',
-    '',
-  ].join('\n');
+    `content_hash: ${content.contentHash}`,
+    `purpose: ${content.metadata.purpose}`,
+    formatYamlArray('public_interface', content.metadata.publicInterface),
+    formatYamlArray('dependencies', content.metadata.dependencies),
+    formatYamlArray('patterns', content.metadata.patterns),
+  ];
 
-  return frontmatter + content.summary;
+  // Add optional fields if present
+  if (content.metadata.criticalTodos && content.metadata.criticalTodos.length > 0) {
+    lines.push(formatYamlArray('critical_todos', content.metadata.criticalTodos));
+  }
+  if (content.metadata.relatedFiles && content.metadata.relatedFiles.length > 0) {
+    lines.push(formatYamlArray('related_files', content.metadata.relatedFiles));
+  }
+
+  lines.push('---', '');
+
+  return lines.join('\n') + content.summary;
 }
 
 /**
