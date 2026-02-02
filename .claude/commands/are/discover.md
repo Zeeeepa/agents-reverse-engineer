@@ -7,18 +7,16 @@ argument-hint: "[path] [--plan] [--show-excluded] [--quiet]"
 List files that would be analyzed for documentation.
 
 <execution>
-**CRITICAL**: Run this command EXACTLY as shown. Do NOT add any flags unless the user explicitly provided them in $ARGUMENTS.
+## STRICT RULES - VIOLATION IS FORBIDDEN
+
+1. Run ONLY this exact command: `npx are discover $ARGUMENTS`
+2. DO NOT add `--plan` unless user typed `--plan`
+3. DO NOT add ANY flags the user did not explicitly type
+4. If user typed nothing after `/are:discover`, run with ZERO flags
 
 ```bash
 npx are discover $ARGUMENTS
 ```
 
-If $ARGUMENTS is empty, run: `npx are discover` (with NO additional flags)
-
-Available flags (ONLY use if user requested):
-- `--plan` - Generate GENERATION-PLAN.md
-- `--show-excluded` - Show excluded files
-- `--quiet` - Summary only
-
-After completion: Report number of files found.
+Report number of files found.
 </execution>
