@@ -86,7 +86,6 @@ function formatPlan(plan: UpdatePlan, verbose: boolean): string {
     lines.push(pc.yellow('First run detected. Use "are generate" for initial documentation.'));
     lines.push('');
   } else {
-    lines.push(`Base commit: ${pc.dim(plan.baseCommit.slice(0, 7))}`);
     lines.push(`Current commit: ${pc.dim(plan.currentCommit.slice(0, 7))}`);
     lines.push('');
   }
@@ -160,13 +159,16 @@ async function analyzeFile(
   projectRoot: string,
   change: FileChange,
   verbose: boolean
-): Promise<FileAnalysisResult> {
+): Promise<FileAnalysisResult & { contentHash?: string }> {
   const filePath = path.join(projectRoot, change.path);
 
   try {
     // Read file content
     const content = await readFile(filePath, 'utf-8');
     const tokens = countTokens(content);
+
+    // Compute content hash for change detection
+    const contentHash = await computeContentHash(filePath);
 
     // Detect file type and build prompt
     const fileType = detectFileType(filePath, content);
@@ -190,6 +192,7 @@ async function analyzeFile(
       },
       fileType,
       generatedAt: new Date().toISOString(),
+      contentHash,
     };
 
     // Write .sum file
@@ -203,6 +206,7 @@ async function analyzeFile(
       path: change.path,
       success: true,
       tokensUsed: tokens,
+      contentHash,
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -306,11 +310,7 @@ export async function updateCommand(
     if (plan.filesToAnalyze.length === 0 &&
         plan.cleanup.deletedSumFiles.length === 0 &&
         plan.cleanup.deletedAgentsMd.length === 0) {
-      const lastRun = await orchestrator.getLastRun();
-      if (lastRun) {
-        console.log(pc.dim(`Last run: ${lastRun.completed_at}`));
-        console.log(pc.dim(`Commit: ${lastRun.commit_hash.slice(0, 7)}`));
-      }
+      console.log(pc.green('All files are up to date.'));
       return;
     }
 
@@ -333,20 +333,17 @@ export async function updateCommand(
       for (const change of plan.filesToAnalyze) {
         const result = await analyzeFile(absolutePath, change, verbose);
 
-        if (result.success) {
+        if (result.success && result.contentHash) {
           filesAnalyzed++;
           totalTokens += result.tokensUsed;
 
           // Update state for this file
-          const contentHash = await computeContentHash(
-            path.join(absolutePath, change.path)
-          );
           await orchestrator.recordFileAnalyzed(
             change.path,
-            contentHash,
+            result.contentHash,
             plan.currentCommit
           );
-        } else {
+        } else if (!result.success) {
           filesFailed++;
         }
       }
