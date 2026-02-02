@@ -270,6 +270,26 @@ Arguments supported:
 - \`--dry-run\` - Preview what would be deleted without deleting
 `,
     },
+    {
+      filename: 'are-init.md',
+      path: '.opencode/commands/are-init.md',
+      content: `---
+description: Initialize agents-reverse-engineer configuration and integration
+agent: build
+---
+
+Initialize agents-reverse-engineer in this project.
+
+Run: \`npx are init $ARGUMENTS\`
+
+Arguments supported:
+- \`--integration <name>\` - Also install command files for specified AI assistant (claude, opencode, gemini)
+
+This creates:
+- \`.agents-reverse-engineer.yaml\` configuration file
+- With \`--integration\`: command files for the specified AI assistant
+`,
+    },
   ];
 }
 
@@ -350,6 +370,25 @@ Run: \`npx are clean $ARGUMENTS\`
 
 Arguments supported:
 - \`--dry-run\` - Preview what would be deleted without deleting
+`,
+    },
+    {
+      filename: 'are-init.md',
+      path: '.gemini/commands/are-init.md',
+      content: `---
+description: Initialize agents-reverse-engineer configuration and integration
+---
+
+Initialize agents-reverse-engineer in this project.
+
+Run: \`npx are init $ARGUMENTS\`
+
+Arguments supported:
+- \`--integration <name>\` - Also install command files for specified AI assistant (claude, opencode, gemini)
+
+This creates:
+- \`.agents-reverse-engineer.yaml\` configuration file
+- With \`--integration\`: command files for the specified AI assistant
 `,
     },
   ];
