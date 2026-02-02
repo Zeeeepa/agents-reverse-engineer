@@ -97,4 +97,4 @@ After all tasks complete:
 - Report number of files analyzed
 - Report number of directories documented
 - Mark plan as complete (change header to show ✓ COMPLETE)
-  </execution>
+</execution>

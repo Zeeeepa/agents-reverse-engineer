@@ -1,21 +1,22 @@
 ---
 name: are:init
-description: Initialize agents-reverse-engineer configuration and integration
-argument-hint: "[--integration <name>]"
+description: Initialize agents-reverse-engineer configuration
 ---
 
-Initialize agents-reverse-engineer in this project.
+Initialize agents-reverse-engineer configuration in this project.
 
 <execution>
 Run the agents-reverse-engineer init command:
 
 ```bash
-npx are init $ARGUMENTS
+npx are init
 ```
 
-This creates:
-- `.agents-reverse-engineer.yaml` configuration file
-- With `--integration <name>`: command files for the specified AI assistant
+This creates `.agents-reverse-engineer.yaml` configuration file.
 
-Supported integrations: `claude`, `opencode`, `gemini`, `aider`
+To install commands and hooks, use the interactive installer:
+
+```bash
+npx agents-reverse-engineer install
+```
 </execution>

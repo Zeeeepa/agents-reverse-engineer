@@ -34,20 +34,11 @@ If user passed `--dry-run`, stop here.
 After confirming with the user (or if no --dry-run flag):
 
 ```bash
-# Delete .sum files
 find . -name "*.sum" -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
-
-# Delete AGENTS.md files
 find . -name "AGENTS.md" -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
-
-# Delete root documents
 rm -f CLAUDE.md ARCHITECTURE.md STACK.md
-
-# Delete plan file
 rm -f .agents-reverse-engineer/GENERATION-PLAN.md
 ```
-
-## Output
 
 Report:
 - Number of .sum files deleted
