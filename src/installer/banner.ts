@@ -5,10 +5,27 @@
  * Uses picocolors for terminal coloring.
  */
 
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import pc from 'picocolors';
 
-/** Package version - updated at build time */
-export const VERSION = '0.2.1';
+/**
+ * Get package version from package.json.
+ */
+function getVersion(): string {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const packagePath = join(__dirname, '..', '..', 'package.json');
+    const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
+    return packageJson.version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/** Package version read from package.json */
+export const VERSION = getVersion();
 
 /**
  * Display the ASCII banner at installer launch

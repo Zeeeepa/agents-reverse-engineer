@@ -9,11 +9,30 @@
  *   update [path]     Update docs incrementally
  */
 
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { initCommand, type InitOptions } from './init.js';
 import { discoverCommand, type DiscoverOptions } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
+
+/**
+ * Get package version from package.json.
+ */
+function getVersion(): string {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const packagePath = join(__dirname, '..', '..', 'package.json');
+    const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
+    return packageJson.version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+const VERSION = getVersion();
 
 const USAGE = `
 agents-reverse-engineer - AI-friendly codebase documentation
@@ -43,6 +62,7 @@ General Options:
   --stream          Output tasks as streaming JSON, one per line (generate)
   --uncommitted     Include uncommitted changes (update only)
   --help, -h        Show this help
+  --version, -V     Show version number
 
 Examples:
   are install
@@ -107,6 +127,9 @@ function parseArgs(args: string[]): {
           case 'u':
             flags.add('uninstall');
             break;
+          case 'V':
+            flags.add('version');
+            break;
           default:
             // Unknown short flag - ignore
             break;
@@ -122,6 +145,21 @@ function parseArgs(args: string[]): {
   }
 
   return { command, positional, flags, values };
+}
+
+/**
+ * Show version and exit.
+ */
+function showVersion(): void {
+  console.log(`agents-reverse-engineer v${VERSION}`);
+  process.exit(0);
+}
+
+/**
+ * Display version banner.
+ */
+function showVersionBanner(): void {
+  console.log(`agents-reverse-engineer v${VERSION}\n`);
 }
 
 /**
@@ -162,6 +200,11 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const { command, positional, flags, values } = parseArgs(args);
 
+  // Handle version flag
+  if (flags.has('version')) {
+    showVersion();
+  }
+
   // Handle help flag anywhere (but not if --help is for install command)
   if (flags.has('help') && !command && !hasInstallerFlags(flags, values)) {
     showHelp();
@@ -186,6 +229,11 @@ async function main(): Promise<void> {
     const installerArgs = parseInstallerArgs(args);
     await runInstaller(installerArgs);
     return;
+  }
+
+  // Show version banner unless quiet mode
+  if (!flags.has('quiet')) {
+    showVersionBanner();
   }
 
   // Route to command handlers
