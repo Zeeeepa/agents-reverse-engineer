@@ -103,10 +103,10 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 05-01-PLAN.md - Create installer types and path resolution
-- [ ] 05-02-PLAN.md - Create interactive prompts and banner
-- [ ] 05-03-PLAN.md - Create file operations and hook registration
-- [ ] 05-04-PLAN.md - Create uninstall and CLI integration
+- [x] 05-01-PLAN.md - Create installer types and path resolution
+- [x] 05-02-PLAN.md - Create interactive prompts and banner
+- [x] 05-03-PLAN.md - Create file operations and hook registration
+- [x] 05-04-PLAN.md - Create uninstall and CLI integration
 - [ ] 05-05-PLAN.md - End-to-end verification checkpoint
 
 ## Progress
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Documentation Generation | 6/6 | ✓ Complete | 2026-01-26 |
 | 3. Incremental Updates | 5/5 | ✓ Complete | 2026-01-26 |
 | 4. Integration & Commands | 4/4 | ✓ Complete | 2026-01-26 |
-| 5. Installation Workflow | 0/5 | Planned | - |
+| 5. Installation Workflow | 4/5 | In Progress | - |
 
 ---
 *Roadmap created: 2025-01-25*
