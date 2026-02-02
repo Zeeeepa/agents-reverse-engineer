@@ -43,7 +43,8 @@ AI coding assistants are powerful, but they don't know your codebase. Every sess
 - **`AGENTS.md`** — Per-directory overviews with file organization (standard format)
 - **`CLAUDE.md`** / **`GEMINI.md`** / **`OPENCODE.md`** — Runtime-specific project entry points
 - **`ARCHITECTURE.md`** — System design overview for complex projects
-- **`STACK.md`** — Technology stack from package.json
+- **`STACK.md`** — Technology stack from package manifests
+- **Supplementary docs** — `STRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md`, `CONCERNS.md`
 
 The result: Your AI assistant understands your codebase from the first message.
 
@@ -172,7 +173,7 @@ Your AI assistant executes the plan:
 
 1. **File Analysis** — Creates `.sum` file for each source file
 2. **Directory Docs** — Creates `AGENTS.md` for each directory
-3. **Root Docs** — Creates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`, `ARCHITECTURE.md`, `STACK.md`
+3. **Root Docs** — Creates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`, `ARCHITECTURE.md`, `STACK.md`, and supplementary docs
 
 ---
 
@@ -257,7 +258,15 @@ Directory overview with:
 - **`OPENCODE.md`** — Project entry point for OpenCode
 - **`AGENTS.md`** — Root directory overview (universal format)
 - **`ARCHITECTURE.md`** — System design overview (generated for complex projects)
-- **`STACK.md`** — Technology stack from package.json
+- **`STACK.md`** — Technology stack from package manifests (package.json, go.mod, Cargo.toml, etc.)
+
+### Supplementary Documents
+
+- **`STRUCTURE.md`** — Codebase organization and directory layout
+- **`CONVENTIONS.md`** — Coding patterns and style guidelines
+- **`TESTING.md`** — Test organization and testing patterns
+- **`INTEGRATIONS.md`** — External services and API integrations
+- **`CONCERNS.md`** — Technical debt and areas needing attention
 
 ---
 
