@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A lightweight, open-source tool that generates and maintains agent-friendly documentation for brownfield codebases. It recursively analyzes a project bottom-up — from file summaries to directory overviews — creating AGENTS.md files that help AI coding assistants understand the codebase. Works as commands within Claude Code, OpenCode, and similar tools.
+A lightweight, open-source tool that generates and maintains agent-friendly documentation for brownfield codebases. It recursively analyzes a project bottom-up — from file summaries to directory overviews — creating AGENTS.md files that help AI coding assistants understand the codebase. Installs via npx and works as commands within Claude Code, OpenCode, Gemini CLI, and similar tools.
 
 ## Core Value
 
@@ -12,21 +12,25 @@ Documentation that stays fresh automatically. When code changes, docs update —
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Recursive file analysis (bottom-up from leaves to root) — v1.0
+- [x] Generate `.sum` file for each analyzed file — v1.0
+- [x] Generate `AGENTS.md` per directory describing contents and sub-structure — v1.0
+- [x] Generate `CLAUDE.md` as pointer to `AGENTS.md` for Anthropic compatibility — v1.0
+- [x] Content-driven supplementary docs (ARCHITECTURE.md, STACK.md, etc. when relevant) — v1.0
+- [x] `/are:generate` command for full project analysis — v1.0
+- [x] `/are:update` command for incremental updates — v1.0
+- [x] End-of-session hook integration for automatic updates — v1.0
+- [x] Git diff-based change detection (track hash between runs) — v1.0
+- [x] Language agnostic analysis (LLM figures out the language) — v1.0
+- [x] Works on any repository size (token budgets) — v1.0
+- [x] Interactive npx installer with runtime/location selection — v1.0
+- [x] Multi-runtime support (Claude Code, OpenCode, Gemini CLI) — v1.0
 
 ### Active
 
-- [ ] Recursive file analysis (bottom-up from leaves to root)
-- [ ] Generate `.sum` file for each analyzed file
-- [ ] Generate `AGENTS.md` per directory describing contents and sub-structure
-- [ ] Generate `CLAUDE.md` as pointer to `AGENTS.md` for Anthropic compatibility
-- [ ] Content-driven supplementary docs (ARCHITECTURE.md, STACK.md, etc. when relevant)
-- [ ] `/are:generate` command for full project analysis
-- [ ] `/are:update` command for incremental updates
-- [ ] End-of-session hook integration for automatic updates
-- [ ] Git diff-based change detection (track hash between runs)
-- [ ] Language agnostic analysis (LLM figures out the language)
-- [ ] Works on any repository size
+- [ ] AST-based code structure extraction for deeper understanding (v2)
+- [ ] Cross-reference detection between files (v2)
+- [ ] Dependency graph visualization (v2)
 
 ### Out of Scope
 
@@ -34,8 +38,19 @@ Documentation that stays fresh automatically. When code changes, docs update —
 - Language-specific parsers — relies on LLM understanding
 - GUI or web interface — CLI/command only for v1
 - Proprietary/commercial features — fully open source
+- Real-time file watching — git-diff-based is sufficient
+- Auto-commit generated docs — user controls git commits
 
 ## Context
+
+**Shipped v1.0 MVP** with ~12,000 lines of TypeScript across 58 source files.
+
+**Tech stack:**
+- TypeScript (ESM, NodeNext resolution)
+- better-sqlite3 for state management
+- simple-git for change detection
+- gpt-tokenizer for budget tracking
+- picocolors for terminal output
 
 **Problem**: AI coding assistants struggle with brownfield codebases because context docs either don't exist or go stale quickly. Manually maintaining docs is tedious and gets deprioritized.
 
@@ -58,11 +73,16 @@ Documentation that stays fresh automatically. When code changes, docs update —
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| One file per LLM call | Keeps context focused, works for any repo size | — Pending |
-| Host tool does analysis | No external API needed, leverages existing agent | — Pending |
-| Visible .sum files | Serve as context for agents AND human reference | — Pending |
-| CLAUDE.md as pointer | Anthropic compatibility without duplication | — Pending |
-| Git diff for updates | Natural integration, tracks what actually changed | — Pending |
+| One file per LLM call | Keeps context focused, works for any repo size | Good |
+| Host tool does analysis | No external API needed, leverages existing agent | Good |
+| Visible .sum files | Serve as context for agents AND human reference | Good |
+| CLAUDE.md as pointer | Anthropic compatibility without duplication | Good |
+| Git diff for updates | Natural integration, tracks what actually changed | Good |
+| SQLite for state | Sync API via better-sqlite3, WAL mode for reads | Good |
+| ESM-only project | Modern Node.js with NodeNext module resolution | Good |
+| Zero-dep prompts | Node.js readline instead of inquirer for installer | Good |
+| Multi-runtime templates | Same commands work across Claude/OpenCode/Gemini | Good |
+| Session hooks for all | Claude and Gemini get SessionEnd auto-updates | Good |
 
 ---
-*Last updated: 2025-01-25 after initialization*
+*Last updated: 2026-02-02 after v1.0 milestone*
