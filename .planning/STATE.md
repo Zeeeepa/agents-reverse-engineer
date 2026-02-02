@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2025-01-25)
 
 Phase: 5 of 5 (Installation Workflow)
 Plan: 5 of 5 in current phase
-Status: Milestone complete
-Last activity: 2026-02-02 - Phase 5 verified and complete
+Status: Milestone complete + gap closure
+Last activity: 2026-02-02 - Completed 04-05-PLAN.md (gap closure)
 
 Progress: [████████████████████████] 100%
 
@@ -21,9 +21,9 @@ Progress: [███████████████████████
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25
+- Total plans completed: 26
 - Average duration: 3 min
-- Total execution time: 86 min
+- Total execution time: 89 min
 
 **By Phase:**
 
@@ -32,7 +32,7 @@ Progress: [███████████████████████
 | 1. Foundation & Discovery | 5/5 | 15 min | 3 min |
 | 2. Documentation Generation | 6/6 | 21 min | 4 min |
 | 3. Incremental Updates | 5/5 | 11 min | 2 min |
-| 4. Integration & Commands | 4/4 | 13 min | 3 min |
+| 4. Integration & Commands | 5/5 | 16 min | 3 min |
 | 5. Installation Workflow | 5/5 | 26 min | 5 min |
 
 **Recent Trend:**
@@ -120,6 +120,7 @@ Recent decisions affecting current work:
 | All runtimes get init command | 05-05 | Parity: OpenCode/Gemini templates now include are-init.md |
 | Local hooks registration | 05-05 | Local installs benefit from session hooks same as global |
 | Gemini hook support | 05-05 | Gemini CLI has SessionEnd hooks with flat object format |
+| Decoupled init control flow | 04-05 | Track configCreated flag instead of early return for --integration |
 
 ### Roadmap Evolution
 
@@ -136,7 +137,7 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-02
-Stopped at: Completed 05-04-PLAN.md
+Stopped at: Completed 04-05-PLAN.md (gap closure)
 Resume file: None
 
 ## Phase 5 Progress
@@ -155,6 +156,7 @@ Phase 4 (Integration & Commands) complete:
 - 04-02: Init command integration (complete)
 - 04-03: Session hooks (complete)
 - 04-04: OpenCode integration (complete)
+- 04-05: Fix --integration flag bug (complete, gap closure)
 
 ## Project Summary
 
