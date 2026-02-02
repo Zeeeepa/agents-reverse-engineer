@@ -266,6 +266,52 @@ Suggest running \`/are:discover\` to start fresh.
 </execution>
 `,
     },
+    {
+      filename: 'help.md',
+      path: '.claude/commands/are/help.md',
+      content: `---
+name: are:help
+description: Show available ARE commands and usage guide
+---
+
+Show help for agents-reverse-engineer commands.
+
+<execution>
+Display the following help information:
+
+## agents-reverse-engineer (ARE) Commands
+
+| Command | Description |
+|---------|-------------|
+| \`/are:help\` | Show this help message |
+| \`/are:init\` | Initialize configuration file |
+| \`/are:discover\` | Discover files and create GENERATION-PLAN.md |
+| \`/are:generate\` | Generate documentation from the plan |
+| \`/are:update\` | Update docs for changed files only |
+| \`/are:clean\` | Remove all generated documentation |
+
+## Typical Workflow
+
+1. **\`/are:init\`** — Create \`.agents-reverse-engineer/config.yaml\`
+2. **\`/are:discover\`** — Scan codebase, create \`GENERATION-PLAN.md\`
+3. **\`/are:generate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
+4. **\`/are:update\`** — After code changes, update only what changed
+
+## Generated Files
+
+- \`*.sum\` — Per-file summaries (purpose, exports, dependencies)
+- \`AGENTS.md\` — Per-directory overviews
+- \`CLAUDE.md\` — Project entry point
+- \`ARCHITECTURE.md\` — System design overview
+- \`STACK.md\` — Technology stack
+
+## More Info
+
+- Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer
+- Update: \`npx agents-reverse-engineer@latest\`
+</execution>
+`,
+    },
   ];
 }
 
@@ -368,6 +414,37 @@ To install commands and hooks, use the interactive installer:
 \`npx agents-reverse-engineer install\`
 `,
     },
+    {
+      filename: 'are-help.md',
+      path: '.opencode/commands/are-help.md',
+      content: `---
+description: Show available ARE commands and usage guide
+agent: build
+---
+
+## agents-reverse-engineer (ARE) Commands
+
+| Command | Description |
+|---------|-------------|
+| \`/are-help\` | Show this help message |
+| \`/are-init\` | Initialize configuration file |
+| \`/are-discover\` | Discover files and create GENERATION-PLAN.md |
+| \`/are-generate\` | Generate documentation from the plan |
+| \`/are-update\` | Update docs for changed files only |
+| \`/are-clean\` | Remove all generated documentation |
+
+## Typical Workflow
+
+1. **\`/are-init\`** — Create \`.agents-reverse-engineer/config.yaml\`
+2. **\`/are-discover\`** — Scan codebase, create \`GENERATION-PLAN.md\`
+3. **\`/are-generate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
+4. **\`/are-update\`** — After code changes, update only what changed
+
+## More Info
+
+Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer
+`,
+    },
   ];
 }
 
@@ -465,6 +542,36 @@ This creates \`.agents-reverse-engineer.yaml\` configuration file.
 
 To install commands and hooks, use the interactive installer:
 \`npx agents-reverse-engineer install\`
+`,
+    },
+    {
+      filename: 'are-help.md',
+      path: '.gemini/commands/are-help.md',
+      content: `---
+description: Show available ARE commands and usage guide
+---
+
+## agents-reverse-engineer (ARE) Commands
+
+| Command | Description |
+|---------|-------------|
+| \`/are-help\` | Show this help message |
+| \`/are-init\` | Initialize configuration file |
+| \`/are-discover\` | Discover files and create GENERATION-PLAN.md |
+| \`/are-generate\` | Generate documentation from the plan |
+| \`/are-update\` | Update docs for changed files only |
+| \`/are-clean\` | Remove all generated documentation |
+
+## Typical Workflow
+
+1. **\`/are-init\`** — Create \`.agents-reverse-engineer/config.yaml\`
+2. **\`/are-discover\`** — Scan codebase, create \`GENERATION-PLAN.md\`
+3. **\`/are-generate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
+4. **\`/are-update\`** — After code changes, update only what changed
+
+## More Info
+
+Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer
 `,
     },
   ];
