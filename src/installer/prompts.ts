@@ -8,7 +8,7 @@
  */
 
 import * as readline from 'node:readline';
-import * as pc from 'picocolors';
+import pc from 'picocolors';
 import type { Runtime, Location } from './types.js';
 
 /**

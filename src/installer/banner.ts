@@ -5,7 +5,7 @@
  * Uses picocolors for terminal coloring.
  */
 
-import * as pc from 'picocolors';
+import pc from 'picocolors';
 
 /** Package version - updated at build time */
 export const VERSION = '0.1.2';

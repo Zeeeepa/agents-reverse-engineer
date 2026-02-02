@@ -14,17 +14,26 @@ import { discoverCommand, type DiscoverOptions } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
 import type { EnvironmentType } from '../integration/types.js';
+import { runInstaller, parseInstallerArgs } from '../installer/index.js';
 
 const USAGE = `
 agents-reverse-engineer - AI-friendly codebase documentation
 
 Commands:
+  install           Install commands and hooks to AI assistant
   init              Create default configuration
   discover [path]   Discover files to analyze (default: current directory)
   generate [path]   Generate documentation plan (default: current directory)
   update [path]     Update docs incrementally (default: current directory)
 
-Options:
+Install Options:
+  --runtime <name>  Runtime to install (claude, opencode, gemini, all)
+  -g, --global      Install to global config directory
+  -l, --local       Install to current project directory
+  -u, --uninstall   Remove installed files
+  --force           Overwrite existing files
+
+General Options:
   --quiet, -q       Suppress output except errors
   --verbose, -v     Show detailed output
   --show-excluded   List each excluded file (discover only)
@@ -39,6 +48,8 @@ Options:
   --help, -h        Show this help
 
 Examples:
+  are install
+  are install --runtime claude -g
   are init
   are init --integration claude
   are discover
@@ -79,7 +90,7 @@ function parseArgs(args: string[]): {
         flags.add(flagName);
       }
     } else if (arg.startsWith('-')) {
-      // Handle short flags (e.g., -q, -h, -v)
+      // Handle short flags (e.g., -q, -h, -v, -g, -l, -u)
       for (const char of arg.slice(1)) {
         switch (char) {
           case 'q':
@@ -90,6 +101,15 @@ function parseArgs(args: string[]): {
             break;
           case 'v':
             flags.add('verbose');
+            break;
+          case 'g':
+            flags.add('global');
+            break;
+          case 'l':
+            flags.add('local');
+            break;
+          case 'u':
+            flags.add('uninstall');
             break;
           default:
             // Unknown short flag - ignore
@@ -126,19 +146,53 @@ function showUnknownCommand(command: string): void {
 }
 
 /**
+ * Check if command-line has installer-related flags.
+ *
+ * Used to detect direct installer invocation without 'install' command.
+ */
+function hasInstallerFlags(flags: Set<string>, values: Map<string, string>): boolean {
+  return (
+    flags.has('global') ||
+    flags.has('local') ||
+    flags.has('uninstall') ||
+    values.has('runtime')
+  );
+}
+
+/**
  * Main CLI entry point.
  */
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const { command, positional, flags, values } = parseArgs(args);
 
-  // Handle help flag anywhere
-  if (flags.has('help') || args.length === 0) {
+  // Handle help flag anywhere (but not if --help is for install command)
+  if (flags.has('help') && !command && !hasInstallerFlags(flags, values)) {
     showHelp();
+  }
+
+  // No command and no args - show help
+  if (args.length === 0) {
+    showHelp();
+  }
+
+  // Direct installer invocation without 'install' command
+  // Supports: npx agents-reverse-engineer --runtime claude -g
+  if (!command && hasInstallerFlags(flags, values)) {
+    const installerArgs = parseInstallerArgs(args);
+    await runInstaller(installerArgs);
+    return;
   }
 
   // Route to command handlers
   switch (command) {
+    case 'install': {
+      // Re-parse args for installer-specific flags
+      const installerArgs = parseInstallerArgs(args);
+      await runInstaller(installerArgs);
+      break;
+    }
+
     case 'init': {
       const integrationValue = values.get('integration');
       const validEnvironments: EnvironmentType[] = ['claude', 'opencode', 'gemini', 'aider'];
