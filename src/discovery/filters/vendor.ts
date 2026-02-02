@@ -29,31 +29,51 @@ export const DEFAULT_VENDOR_DIRS = [
 /**
  * Creates a vendor filter that excludes files within specified directories.
  *
- * @param vendorDirs - Array of directory names to exclude. Files within
- *                     any of these directories (at any nesting level) will
- *                     be excluded.
+ * Supports two patterns:
+ * - Single directory names (e.g., 'node_modules') - matches anywhere in path
+ * - Path patterns (e.g., 'apps/vendor' or '.agents/skills') - matches path containing this sequence
+ *
+ * @param vendorDirs - Array of directory names or path patterns to exclude.
  * @returns A FileFilter that checks if a path is within a vendor directory
  *
  * @example
  * ```typescript
- * const filter = createVendorFilter(['node_modules', 'vendor']);
+ * const filter = createVendorFilter(['node_modules', '.agents/skills']);
  * filter.shouldExclude('/project/node_modules/lodash/index.js'); // true
+ * filter.shouldExclude('/project/apps/foo/.agents/skills/bar.md'); // true
  * filter.shouldExclude('/project/src/utils.js'); // false
  * ```
  */
 export function createVendorFilter(vendorDirs: string[]): FileFilter {
-  // Convert to Set for O(1) lookup
-  const vendorSet = new Set(vendorDirs);
+  // Separate single segments from path patterns
+  const singleSegments = new Set<string>();
+  const pathPatterns: string[] = [];
+
+  for (const dir of vendorDirs) {
+    // Normalize path separators to current OS
+    const normalized = dir.replace(/[\\/]/g, path.sep);
+    if (normalized.includes(path.sep)) {
+      pathPatterns.push(normalized);
+    } else {
+      singleSegments.add(dir);
+    }
+  }
 
   return {
     name: 'vendor',
 
     shouldExclude(absolutePath: string): boolean {
-      // Split path by separator and check if any segment matches vendor dirs
+      // Check single segment matches
       const segments = absolutePath.split(path.sep);
-
       for (const segment of segments) {
-        if (vendorSet.has(segment)) {
+        if (singleSegments.has(segment)) {
+          return true;
+        }
+      }
+
+      // Check path pattern matches
+      for (const pattern of pathPatterns) {
+        if (absolutePath.includes(pattern)) {
           return true;
         }
       }
