@@ -5,8 +5,8 @@
 | JavaScript/TypeScript | `package.json` | npm, yarn, pnpm | ✓ |
 | Python | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | pip, poetry, pipenv | ✓ |
 | Ruby | `Gemfile` | bundler | |
-| Go | `go.mod` | go modules | |
-| Rust | `Cargo.toml` | cargo | |
+| Go | `go.mod` | go modules | ✓ |
+| Rust | `Cargo.toml` | cargo | ✓ |
 | Java | `pom.xml` (Maven), `build.gradle` (Gradle) | Maven, Gradle | |
 | Kotlin | `build.gradle.kts`, `build.gradle` | Gradle | |
 | C#/.NET | `*.csproj`, `packages.config`, `*.fsproj` | NuGet | |

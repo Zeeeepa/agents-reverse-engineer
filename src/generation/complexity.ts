@@ -3,7 +3,7 @@ import * as path from 'node:path';
 /**
  * Package manifest type indicator.
  */
-export type PackageType = 'node' | 'python';
+export type PackageType = 'node' | 'python' | 'go' | 'rust';
 
 /**
  * Detected package root information.
@@ -13,7 +13,7 @@ export interface PackageRoot {
   path: string;
   /** Absolute path */
   absolutePath: string;
-  /** Type of package (node for package.json, python for requirements.txt/pyproject.toml) */
+  /** Type of package (node for package.json, python for requirements.txt/pyproject.toml, go for go.mod, rust for Cargo.toml) */
   type: PackageType;
   /** Manifest file that triggered detection */
   manifestFile: string;
@@ -35,7 +35,7 @@ export interface ComplexityMetrics {
   files: string[];
   /** Unique directory paths */
   directories: Set<string>;
-  /** Detected package roots (directories with package.json, requirements.txt, pyproject.toml) */
+  /** Detected package roots (directories with package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml) */
   packageRoots: PackageRoot[];
 }
 
@@ -155,11 +155,13 @@ const PACKAGE_MANIFESTS: Array<{ file: string; type: PackageType }> = [
   { file: 'package.json', type: 'node' },
   { file: 'requirements.txt', type: 'python' },
   { file: 'pyproject.toml', type: 'python' },
+  { file: 'go.mod', type: 'go' },
+  { file: 'Cargo.toml', type: 'rust' },
 ];
 
 /**
  * Detect package roots from discovered files.
- * A package root is a directory containing package.json, requirements.txt, or pyproject.toml.
+ * A package root is a directory containing package.json, requirements.txt, pyproject.toml, go.mod, or Cargo.toml.
  */
 function detectPackageRoots(files: string[], projectRoot: string): PackageRoot[] {
   const packageRoots: PackageRoot[] = [];
@@ -245,10 +247,10 @@ export function shouldGenerateArchitecture(metrics: ComplexityMetrics): boolean 
 /**
  * Determine if STACK.md should be generated.
  *
- * Always generate if package.json exists (has dependencies to document).
+ * Always generate if a package manifest exists (has dependencies to document).
  */
-export function shouldGenerateStack(hasPackageJson: boolean): boolean {
-  return hasPackageJson;
+export function shouldGenerateStack(hasPackageManifest: boolean): boolean {
+  return hasPackageManifest;
 }
 
 /**

@@ -296,8 +296,8 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
     const dirTasks = this.createDirectorySummaryTasks(files);
     const tasks = [...fileTasks, ...dirTasks];
 
-    // Check for package.json to determine STACK.md generation
-    const hasPackageJson = await this.hasPackageJson();
+    // Check for package manifest to determine STACK.md generation
+    const hasPackageManifest = await this.hasPackageManifest();
 
     return {
       files,
@@ -306,8 +306,8 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       generateArchitecture: this.config.generation.generateArchitecture &&
         shouldGenerateArchitecture(complexity),
       generateStack: this.config.generation.generateStack &&
-        hasPackageJson &&
-        shouldGenerateStack(hasPackageJson),
+        hasPackageManifest &&
+        shouldGenerateStack(hasPackageManifest),
       generateStructure: this.config.generation.generateStructure,
       generateConventions: this.config.generation.generateConventions,
       generateTesting: this.config.generation.generateTesting,
@@ -324,15 +324,19 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
   }
 
   /**
-   * Check if package.json exists in project root.
+   * Check if a package manifest (package.json, pyproject.toml, go.mod, Cargo.toml) exists in project root.
    */
-  private async hasPackageJson(): Promise<boolean> {
-    try {
-      await readFile(path.join(this.projectRoot, 'package.json'), 'utf-8');
-      return true;
-    } catch {
-      return false;
+  private async hasPackageManifest(): Promise<boolean> {
+    const manifests = ['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml'];
+    for (const manifest of manifests) {
+      try {
+        await readFile(path.join(this.projectRoot, manifest), 'utf-8');
+        return true;
+      } catch {
+        // Continue checking other manifests
+      }
     }
+    return false;
   }
 
   /**

@@ -298,6 +298,272 @@ export async function analyzePackageJson(
 }
 
 /**
+ * Parse go.mod to extract stack information.
+ */
+export async function analyzeGoMod(
+  goModPath: string
+): Promise<StackInfo | null> {
+  try {
+    const content = await readFile(goModPath, 'utf-8');
+    const lines = content.split('\n');
+
+    const stackInfo: StackInfo = {
+      runtime: 'Go',
+      dependencies: {
+        'Core': [],
+        'Framework': [],
+        'Database': [],
+        'Testing': [],
+        'Build Tools': [],
+        'Other': [],
+      },
+      devTools: [],
+    };
+
+    // Extract module name
+    const moduleMatch = content.match(/^module\s+(.+)$/m);
+    if (moduleMatch) {
+      stackInfo.framework = moduleMatch[1].trim();
+    }
+
+    // Extract Go version
+    const goVersionMatch = content.match(/^go\s+(\d+\.\d+(?:\.\d+)?)$/m);
+    if (goVersionMatch) {
+      stackInfo.runtime = `Go ${goVersionMatch[1]}`;
+    }
+
+    // Categorization rules for Go packages
+    const categoryRules: Array<{ category: string; patterns: string[] }> = [
+      { category: 'Framework', patterns: ['gin', 'echo', 'fiber', 'chi', 'gorilla/mux', 'labstack/echo', 'gofiber/fiber', 'beego', 'revel'] },
+      { category: 'Database', patterns: ['gorm', 'sqlx', 'pgx', 'mongo-driver', 'go-redis', 'ent', 'sqlc', 'database/sql', 'jackc/pgx'] },
+      { category: 'Testing', patterns: ['testify', 'gomock', 'ginkgo', 'gomega', 'goconvey', 'httptest'] },
+      { category: 'Build Tools', patterns: ['cobra', 'viper', 'wire', 'fx', 'cli'] },
+    ];
+
+    // Parse require blocks
+    let inRequireBlock = false;
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // Check for require block start
+      if (trimmedLine.startsWith('require (') || trimmedLine === 'require(') {
+        inRequireBlock = true;
+        continue;
+      }
+
+      // Check for block end
+      if (trimmedLine === ')') {
+        inRequireBlock = false;
+        continue;
+      }
+
+      // Parse single-line require
+      const singleRequireMatch = trimmedLine.match(/^require\s+(\S+)\s+(\S+)/);
+      if (singleRequireMatch) {
+        const [, pkg, version] = singleRequireMatch;
+        const isIndirect = trimmedLine.includes('// indirect');
+        if (!isIndirect) {
+          addGoDependency(stackInfo, pkg, version, categoryRules);
+        }
+        continue;
+      }
+
+      // Parse dependency line inside require block
+      if (inRequireBlock && trimmedLine && !trimmedLine.startsWith('//')) {
+        const depMatch = trimmedLine.match(/^(\S+)\s+(\S+)/);
+        if (depMatch) {
+          const [, pkg, version] = depMatch;
+          const isIndirect = trimmedLine.includes('// indirect');
+          if (!isIndirect) {
+            addGoDependency(stackInfo, pkg, version, categoryRules);
+          }
+        }
+      }
+    }
+
+    // Detect framework from dependencies
+    const allDeps = Object.values(stackInfo.dependencies).flat();
+    const frameworkPatterns = ['gin', 'echo', 'fiber', 'chi', 'mux', 'beego'];
+    for (const dep of allDeps) {
+      for (const fw of frameworkPatterns) {
+        if (dep.name.toLowerCase().includes(fw)) {
+          stackInfo.framework = dep.name;
+          break;
+        }
+      }
+    }
+
+    return stackInfo;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Helper to add a Go dependency to the appropriate category.
+ */
+function addGoDependency(
+  stackInfo: StackInfo,
+  pkg: string,
+  version: string,
+  categoryRules: Array<{ category: string; patterns: string[] }>
+): void {
+  let categorized = false;
+  for (const rule of categoryRules) {
+    if (rule.patterns.some(p => pkg.toLowerCase().includes(p.toLowerCase()))) {
+      stackInfo.dependencies[rule.category].push({ name: pkg, version });
+      categorized = true;
+      break;
+    }
+  }
+  if (!categorized) {
+    stackInfo.dependencies['Other'].push({ name: pkg, version });
+  }
+}
+
+/**
+ * Parse Cargo.toml to extract stack information for Rust projects.
+ */
+export async function analyzeCargoToml(
+  cargoTomlPath: string
+): Promise<StackInfo | null> {
+  try {
+    const content = await readFile(cargoTomlPath, 'utf-8');
+
+    const stackInfo: StackInfo = {
+      runtime: 'Rust',
+      dependencies: {
+        'Core': [],
+        'Framework': [],
+        'Database': [],
+        'Testing': [],
+        'Build Tools': [],
+        'Other': [],
+      },
+      devTools: [],
+    };
+
+    // Extract package name
+    const nameMatch = content.match(/^\[package\][\s\S]*?^name\s*=\s*"([^"]+)"/m);
+    if (nameMatch) {
+      stackInfo.framework = nameMatch[1];
+    }
+
+    // Extract Rust edition
+    const editionMatch = content.match(/^edition\s*=\s*"(\d+)"/m);
+    if (editionMatch) {
+      stackInfo.runtime = `Rust (${editionMatch[1]} edition)`;
+    }
+
+    // Categorization rules for Rust crates
+    const categoryRules: Array<{ category: string; patterns: string[] }> = [
+      { category: 'Framework', patterns: ['actix', 'axum', 'rocket', 'warp', 'tide', 'hyper', 'tower', 'tonic', 'poem'] },
+      { category: 'Database', patterns: ['diesel', 'sqlx', 'sea-orm', 'mongodb', 'redis', 'rusqlite', 'tokio-postgres', 'deadpool'] },
+      { category: 'Testing', patterns: ['criterion', 'proptest', 'quickcheck', 'mockall', 'fake', 'rstest'] },
+      { category: 'Build Tools', patterns: ['clap', 'structopt', 'config', 'dotenv', 'tracing', 'log', 'env_logger'] },
+    ];
+
+    // Parse [dependencies] section
+    const depsMatch = content.match(/^\[dependencies\]([\s\S]*?)(?=^\[|$)/m);
+    if (depsMatch) {
+      parseCargoDependencies(depsMatch[1], stackInfo, categoryRules, false);
+    }
+
+    // Parse [dev-dependencies] section
+    const devDepsMatch = content.match(/^\[dev-dependencies\]([\s\S]*?)(?=^\[|$)/m);
+    if (devDepsMatch) {
+      parseCargoDependencies(devDepsMatch[1], stackInfo, categoryRules, true);
+    }
+
+    // Detect framework from dependencies
+    const allDeps = Object.values(stackInfo.dependencies).flat();
+    const frameworkPatterns = ['actix', 'axum', 'rocket', 'warp', 'tide'];
+    for (const dep of allDeps) {
+      for (const fw of frameworkPatterns) {
+        if (dep.name.toLowerCase().includes(fw)) {
+          stackInfo.framework = dep.name;
+          break;
+        }
+      }
+    }
+
+    return stackInfo;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Helper to parse Cargo.toml dependencies section.
+ */
+function parseCargoDependencies(
+  section: string,
+  stackInfo: StackInfo,
+  categoryRules: Array<{ category: string; patterns: string[] }>,
+  isDevDep: boolean
+): void {
+  const lines = section.split('\n');
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith('#') || trimmedLine.startsWith('[')) {
+      continue;
+    }
+
+    // Match simple format: crate_name = "version"
+    const simpleMatch = trimmedLine.match(/^([a-zA-Z0-9_-]+)\s*=\s*"([^"]+)"/);
+    if (simpleMatch) {
+      const [, name, version] = simpleMatch;
+      addRustDependency(stackInfo, name, version, categoryRules, isDevDep);
+      continue;
+    }
+
+    // Match table format: crate_name = { version = "x.x" }
+    const tableMatch = trimmedLine.match(/^([a-zA-Z0-9_-]+)\s*=\s*\{.*version\s*=\s*"([^"]+)"/);
+    if (tableMatch) {
+      const [, name, version] = tableMatch;
+      addRustDependency(stackInfo, name, version, categoryRules, isDevDep);
+      continue;
+    }
+
+    // Match workspace format: crate_name.workspace = true
+    const workspaceMatch = trimmedLine.match(/^([a-zA-Z0-9_-]+)\.workspace\s*=\s*true/);
+    if (workspaceMatch) {
+      const [, name] = workspaceMatch;
+      addRustDependency(stackInfo, name, 'workspace', categoryRules, isDevDep);
+    }
+  }
+}
+
+/**
+ * Helper to add a Rust dependency to the appropriate category.
+ */
+function addRustDependency(
+  stackInfo: StackInfo,
+  name: string,
+  version: string,
+  categoryRules: Array<{ category: string; patterns: string[] }>,
+  isDevDep: boolean
+): void {
+  if (isDevDep) {
+    stackInfo.devTools.push(name);
+    return;
+  }
+
+  let categorized = false;
+  for (const rule of categoryRules) {
+    if (rule.patterns.some(p => name.toLowerCase().includes(p.toLowerCase()))) {
+      stackInfo.dependencies[rule.category].push({ name, version });
+      categorized = true;
+      break;
+    }
+  }
+  if (!categorized) {
+    stackInfo.dependencies['Other'].push({ name, version });
+  }
+}
+
+/**
  * Write ARCHITECTURE.md to the configured location.
  *
  * If a user-defined ARCHITECTURE.md exists (not generated by us), it will be
@@ -341,8 +607,21 @@ export async function writeStackMd(
 ): Promise<string | null> {
   if (!config.generateStack) return null;
 
+  // Try package.json first, then go.mod, then Cargo.toml
+  let stackInfo: StackInfo | null = null;
+
   const packageJsonPath = path.join(projectRoot, 'package.json');
-  const stackInfo = await analyzePackageJson(packageJsonPath);
+  stackInfo = await analyzePackageJson(packageJsonPath);
+
+  if (!stackInfo) {
+    const goModPath = path.join(projectRoot, 'go.mod');
+    stackInfo = await analyzeGoMod(goModPath);
+  }
+
+  if (!stackInfo) {
+    const cargoTomlPath = path.join(projectRoot, 'Cargo.toml');
+    stackInfo = await analyzeCargoToml(cargoTomlPath);
+  }
 
   if (!stackInfo) return null;
 
