@@ -291,7 +291,7 @@ interface PlatformConfig {
 const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
   claude: {
     commandPrefix: '/are:',
-    pathPrefix: '.claude/commands/are/',
+    pathPrefix: '.claude/skills/',
     filenameSeparator: '.',
     usesName: true,
   },
@@ -343,9 +343,13 @@ function buildTemplate(
   command: (typeof COMMANDS)[keyof typeof COMMANDS]
 ): IntegrationTemplate {
   const config = PLATFORM_CONFIGS[platform];
-  const filename =
-    platform === 'claude' ? `${commandName}.md` : `are-${commandName}.md`;
-  const path = `${config.pathPrefix}${filename}`;
+  // Claude uses skills format: .claude/skills/are-{command}/SKILL.md
+  // OpenCode and Gemini use commands format: .{runtime}/commands/are-{command}.md
+  const filename = platform === 'claude' ? 'SKILL.md' : `are-${commandName}.md`;
+  const path =
+    platform === 'claude'
+      ? `${config.pathPrefix}are-${commandName}/${filename}`
+      : `${config.pathPrefix}${filename}`;
 
   const frontmatter = buildFrontmatter(
     platform,

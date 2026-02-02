@@ -176,13 +176,16 @@ function uninstallFilesForRuntime(
 
   // Try to clean up empty directories
   if (!dryRun) {
-    // Clean up are/ commands directory
-    const areCommandsDir = path.join(basePath, 'commands', 'are');
-    cleanupEmptyDirs(areCommandsDir);
-
-    // Clean up commands/ directory if empty
-    const commandsDir = path.join(basePath, 'commands');
-    cleanupEmptyDirs(commandsDir);
+    if (runtime === 'claude') {
+      // Claude uses skills format: clean up skills/are-* directories
+      const skillsDir = path.join(basePath, 'skills');
+      cleanupAreSkillDirs(skillsDir);
+      cleanupEmptyDirs(skillsDir);
+    } else {
+      // OpenCode and Gemini use commands format
+      const commandsDir = path.join(basePath, 'commands');
+      cleanupEmptyDirs(commandsDir);
+    }
 
     // Clean up hooks/ directory if empty (Claude and Gemini)
     if (runtime === 'claude' || runtime === 'gemini') {
@@ -414,6 +417,32 @@ function unregisterGeminiHook(basePath: string, dryRun: boolean): boolean {
   }
 
   return true;
+}
+
+/**
+ * Clean up ARE skill directories
+ *
+ * Removes all empty are-* skill directories from the skills folder.
+ *
+ * @param skillsDir - Path to the skills directory
+ */
+function cleanupAreSkillDirs(skillsDir: string): void {
+  try {
+    if (!existsSync(skillsDir)) {
+      return;
+    }
+
+    const entries = readdirSync(skillsDir);
+    for (const entry of entries) {
+      // Only clean up are-* directories
+      if (entry.startsWith('are-')) {
+        const skillDir = path.join(skillsDir, entry);
+        cleanupEmptyDirs(skillDir);
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
 }
 
 /**
