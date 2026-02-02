@@ -183,31 +183,26 @@ npx agents-reverse-engineer install
       content: `---
 name: are:discover
 description: Discover files and create execution plan (GENERATION-PLAN.md)
-argument-hint: "[path] [--show-excluded]"
+argument-hint: "[path] [--plan] [--show-excluded]"
 ---
 
-Discover files to analyze and create the GENERATION-PLAN.md for documentation generation.
+Discover files to analyze and optionally create the GENERATION-PLAN.md for documentation generation.
 
 <execution>
 Run the agents-reverse-engineer discover command:
 
 \`\`\`bash
-npx are discover --plan $ARGUMENTS
+npx are discover $ARGUMENTS
 \`\`\`
 
-This will:
-1. Discover all files matching configuration filters
-2. Generate \`.agents-reverse-engineer/GENERATION-PLAN.md\` using post-order traversal (deepest directories first)
-
 Common options:
+- \`--plan\` - Generate GENERATION-PLAN.md file (required before /are:generate)
 - \`--show-excluded\` - Show excluded files with reasons
 - \`--quiet\` - Only show the summary count
-- \`--plan\` - Generate GENERATION-PLAN.md file (included by default)
 
 After completion, summarize:
 - Number of files discovered
-- Path to GENERATION-PLAN.md
-- Suggest running \`/are:generate\` to execute the plan
+- If --plan was used: path to GENERATION-PLAN.md and suggest running \`/are:generate\`
 </execution>
 `,
     },
@@ -370,14 +365,14 @@ description: Discover files and create execution plan (GENERATION-PLAN.md)
 agent: build
 ---
 
-Discover files to analyze and create the GENERATION-PLAN.md for documentation generation.
+Discover files to analyze and optionally create the GENERATION-PLAN.md for documentation generation.
 
-Run: \`npx are discover --plan $ARGUMENTS\`
+Run: \`npx are discover $ARGUMENTS\`
 
 Arguments supported:
+- \`--plan\` - Generate GENERATION-PLAN.md file (required before /are-generate)
 - \`--show-excluded\` - Show excluded files with reasons
 - \`--quiet\` - Only show the summary count
-- \`--plan\` - Generate GENERATION-PLAN.md file
 `,
     },
     {
@@ -502,14 +497,14 @@ Arguments supported:
 description: Discover files and create execution plan (GENERATION-PLAN.md)
 ---
 
-Discover files to analyze and create the GENERATION-PLAN.md for documentation generation.
+Discover files to analyze and optionally create the GENERATION-PLAN.md for documentation generation.
 
-Run: \`npx are discover --plan $ARGUMENTS\`
+Run: \`npx are discover $ARGUMENTS\`
 
 Arguments supported:
+- \`--plan\` - Generate GENERATION-PLAN.md file (required before /are-generate)
 - \`--show-excluded\` - Show excluded files with reasons
 - \`--quiet\` - Only show the summary count
-- \`--plan\` - Generate GENERATION-PLAN.md file
 `,
     },
     {

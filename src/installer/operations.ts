@@ -145,6 +145,12 @@ function installFilesForRuntime(
 
     // Register hook in settings.json
     hookRegistered = registerHooks(basePath, runtime, options.dryRun);
+
+    // Register permissions for Claude (reduces friction for users)
+    if (runtime === 'claude') {
+      const settingsPath = path.join(basePath, 'settings.json');
+      registerPermissions(settingsPath, options.dryRun);
+    }
   }
 
   // Write VERSION file if files were created and not dry run
@@ -199,6 +205,10 @@ interface HookEvent {
 interface SettingsJson {
   hooks?: {
     SessionEnd?: HookEvent[];
+  };
+  permissions?: {
+    allow?: string[];
+    deny?: string[];
   };
   [key: string]: unknown;
 }
@@ -297,6 +307,69 @@ function registerClaudeHook(settingsPath: string, hookCommand: string, dryRun: b
 
   // Add the hook
   settings.hooks.SessionEnd.push(newHook);
+
+  // Write settings if not dry run
+  if (!dryRun) {
+    ensureDir(settingsPath);
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+  }
+
+  return true;
+}
+
+/**
+ * Permissions to auto-allow for ARE commands
+ */
+const ARE_PERMISSIONS = [
+  'Bash(npx are init*)',
+  'Bash(npx are discover*)',
+  'Bash(npx are generate*)',
+  'Bash(npx are update*)',
+  'Bash(npx are clean*)',
+];
+
+/**
+ * Register ARE permissions in Claude Code settings.json
+ *
+ * Adds bash command permissions for ARE commands to reduce friction.
+ *
+ * @param settingsPath - Path to settings.json
+ * @param dryRun - If true, don't write changes
+ * @returns true if permissions were added, false if already existed
+ */
+export function registerPermissions(settingsPath: string, dryRun: boolean): boolean {
+  // Load or create settings
+  let settings: SettingsJson = {};
+  if (existsSync(settingsPath)) {
+    try {
+      const content = readFileSync(settingsPath, 'utf-8');
+      settings = JSON.parse(content) as SettingsJson;
+    } catch {
+      // If can't parse, start fresh
+      settings = {};
+    }
+  }
+
+  // Ensure permissions structure exists
+  if (!settings.permissions) {
+    settings.permissions = {};
+  }
+  if (!settings.permissions.allow) {
+    settings.permissions.allow = [];
+  }
+
+  // Add any missing ARE permissions
+  let addedAny = false;
+  for (const perm of ARE_PERMISSIONS) {
+    if (!settings.permissions.allow.includes(perm)) {
+      settings.permissions.allow.push(perm);
+      addedAny = true;
+    }
+  }
+
+  if (!addedAny) {
+    return false;
+  }
 
   // Write settings if not dry run
   if (!dryRun) {
