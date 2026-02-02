@@ -50,11 +50,12 @@ Read \`.agents-reverse-engineer/GENERATION-PLAN.md\` and find unchecked tasks (\
 
 \`\`\`
 Analyze and document this file:
-1. Read: <file_path>
-2. Generate .sum content following the format below
-3. Write to: <file_path>.sum
-4. Verify: Read back the .sum file to confirm success
-5. Report: "SUCCESS: <file_path>.sum created" or "FAILED: <reason>"
+1. Compute content hash: sha256sum <file_path> | cut -d' ' -f1
+2. Read: <file_path>
+3. Generate .sum content following the format below (include the content_hash)
+4. Write to: <file_path>.sum
+5. Verify: Read back the .sum file to confirm success
+6. Report: "SUCCESS: <file_path>.sum created" or "FAILED: <reason>"
 \`\`\`
 
 ### .sum File Format
@@ -63,6 +64,7 @@ Analyze and document this file:
 ---
 file_type: <generic|type|config|test|component|service|api|hook|model|schema>
 generated_at: <ISO timestamp>
+content_hash: <SHA-256 hash of source file - compute with: sha256sum <file> | cut -d' ' -f1>
 ---
 
 ## Purpose
