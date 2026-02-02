@@ -20,9 +20,11 @@ export const DEFAULT_VENDOR_DIRS = [
   '.cargo',
   '.gradle',
   // AI assistant tooling directories
+  '.agents-reverse-engineer',
   '.planning',
   '.claude',
   '.opencode',
+  '.gemini',
 ] as const;
 
 /**
@@ -63,6 +65,19 @@ export const DEFAULT_BINARY_EXTENSIONS = [
   // Compiled
   '.class',
   '.pyc',
+  // Project
+  '.gitignore',
+  '.gitattributes',
+  '.gitkeep',
+  // Configuration
+  '.env',
+  // Logs
+  '.log',
+  // AI assistant
+  'AGENTS.md',
+  'CLAUDE.md',
+  'OPENCODE.md',
+  'GEMINI.md',
 ] as const;
 
 /**
