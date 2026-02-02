@@ -1,33 +1,20 @@
 /**
  * Template generators for AI coding assistant integration files
  *
- * Generates command file templates for Claude Code, OpenCode, and session hooks.
+ * Generates command file templates for Claude Code, OpenCode, Gemini CLI, and session hooks.
  */
 
 import type { IntegrationTemplate } from './types.js';
 
-/**
- * Get Claude Code command file templates
- *
- * Returns templates for:
- * - generate.md: Full documentation generation command
- * - update.md: Incremental documentation update command
- * - init.md: Initialize agents-reverse-engineer in a project
- *
- * @returns Array of Claude Code command templates
- */
-export function getClaudeTemplates(): IntegrationTemplate[] {
-  return [
-    {
-      filename: 'generate.md',
-      path: '.claude/commands/are/generate.md',
-      content: `---
-name: are:generate
-description: Generate AI-friendly documentation for the entire codebase
-argument-hint: "[--budget N] [--dry-run]"
----
+// =============================================================================
+// Shared Command Content
+// =============================================================================
 
-Generate comprehensive documentation for this codebase using agents-reverse-engineer.
+const COMMANDS = {
+  generate: {
+    description: 'Generate AI-friendly documentation for the entire codebase',
+    argumentHint: '[--budget N] [--dry-run]',
+    content: `Generate comprehensive documentation for this codebase using agents-reverse-engineer.
 
 <execution>
 ## Phase 0: Check for Existing Plan
@@ -38,7 +25,7 @@ First, check if a resumable plan exists:
 cat .agents-reverse-engineer/GENERATION-PLAN.md 2>/dev/null | head -20
 \`\`\`
 
-**If NO plan exists**: Run \`/are:discover\` first to create the GENERATION-PLAN.md, then return here.
+**If NO plan exists**: Run \`/are:discover --plan\` first to create the GENERATION-PLAN.md, then return here.
 
 **If plan exists**: Continue to **Resume Execution** below.
 
@@ -120,19 +107,13 @@ After all tasks complete:
 - Report number of files analyzed
 - Report number of directories documented
 - Mark plan as complete (change header to show ✓ COMPLETE)
-</execution>
-`,
-    },
-    {
-      filename: 'update.md',
-      path: '.claude/commands/are/update.md',
-      content: `---
-name: are:update
-description: Incrementally update documentation for changed files
-argument-hint: "[--uncommitted] [--dry-run] [--verbose]"
----
+</execution>`,
+  },
 
-Update documentation for files that changed since last run.
+  update: {
+    description: 'Incrementally update documentation for changed files',
+    argumentHint: '[--uncommitted] [--dry-run] [--verbose]',
+    content: `Update documentation for files that changed since last run.
 
 <execution>
 Run the agents-reverse-engineer update command:
@@ -147,18 +128,13 @@ After completion, summarize:
 - Any orphaned docs cleaned up
 
 Use \`--uncommitted\` to include staged but uncommitted changes.
-</execution>
-`,
-    },
-    {
-      filename: 'init.md',
-      path: '.claude/commands/are/init.md',
-      content: `---
-name: are:init
-description: Initialize agents-reverse-engineer configuration
----
+</execution>`,
+  },
 
-Initialize agents-reverse-engineer configuration in this project.
+  init: {
+    description: 'Initialize agents-reverse-engineer configuration',
+    argumentHint: '',
+    content: `Initialize agents-reverse-engineer configuration in this project.
 
 <execution>
 Run the agents-reverse-engineer init command:
@@ -174,48 +150,36 @@ To install commands and hooks, use the interactive installer:
 \`\`\`bash
 npx agents-reverse-engineer install
 \`\`\`
-</execution>
-`,
-    },
-    {
-      filename: 'discover.md',
-      path: '.claude/commands/are/discover.md',
-      content: `---
-name: are:discover
-description: Discover files to analyze (use --plan to create GENERATION-PLAN.md)
-argument-hint: "[path] [--plan] [--show-excluded]"
----
+</execution>`,
+  },
 
-Discover files that will be analyzed for documentation.
+  discover: {
+    description: 'Discover files in codebase',
+    argumentHint: '[path] [--plan] [--show-excluded] [--quiet]',
+    content: `List files that would be analyzed for documentation.
 
 <execution>
-Run the agents-reverse-engineer discover command with EXACTLY the arguments provided by the user:
+**CRITICAL**: Run this command EXACTLY as shown. Do NOT add any flags unless the user explicitly provided them in $ARGUMENTS.
 
 \`\`\`bash
 npx agents-reverse-engineer@latest discover $ARGUMENTS
 \`\`\`
 
-**IMPORTANT**: Do NOT add flags that the user did not request. Pass $ARGUMENTS exactly as provided.
+If $ARGUMENTS is empty, run: \`npx agents-reverse-engineer@latest discover\` (with NO additional flags)
 
-Options (only use if user requests):
-- \`--plan\` - Generate GENERATION-PLAN.md file
-- \`--show-excluded\` - Show excluded files with reasons
-- \`--quiet\` - Only show the summary count
+Available flags (ONLY use if user requested):
+- \`--plan\` - Generate GENERATION-PLAN.md
+- \`--show-excluded\` - Show excluded files
+- \`--quiet\` - Summary only
 
-After completion, summarize what was done based on the flags actually used.
-</execution>
-`,
-    },
-    {
-      filename: 'clean.md',
-      path: '.claude/commands/are/clean.md',
-      content: `---
-name: are:clean
-description: Delete all generated documentation artifacts (.sum, AGENTS.md, plan)
-argument-hint: "[--dry-run]"
----
+After completion: Report number of files found.
+</execution>`,
+  },
 
-Remove all documentation artifacts generated by agents-reverse-engineer.
+  clean: {
+    description: 'Delete all generated documentation artifacts (.sum, AGENTS.md, plan)',
+    argumentHint: '[--dry-run]',
+    content: `Remove all documentation artifacts generated by agents-reverse-engineer.
 
 <execution>
 ## What Gets Deleted
@@ -257,19 +221,15 @@ Report:
 - Root documents deleted
 - Plan file deleted
 
-Suggest running \`/are:discover\` to start fresh.
-</execution>
-`,
-    },
-    {
-      filename: 'help.md',
-      path: '.claude/commands/are/help.md',
-      content: `---
-name: are:help
-description: Show available ARE commands and usage guide
----
+Suggest running \`/are:discover --plan\` to start fresh.
+</execution>`,
+  },
 
-Show help for agents-reverse-engineer commands.
+  help: {
+    description: 'Show available ARE commands and usage guide',
+    argumentHint: '',
+    // Content uses COMMAND_PREFIX placeholder, replaced per platform
+    content: `Show help for agents-reverse-engineer commands.
 
 <execution>
 Display the following help information:
@@ -278,19 +238,19 @@ Display the following help information:
 
 | Command | Description |
 |---------|-------------|
-| \`/are:help\` | Show this help message |
-| \`/are:init\` | Initialize configuration file |
-| \`/are:discover\` | Discover files and create GENERATION-PLAN.md |
-| \`/are:generate\` | Generate documentation from the plan |
-| \`/are:update\` | Update docs for changed files only |
-| \`/are:clean\` | Remove all generated documentation |
+| \`COMMAND_PREFIXhelp\` | Show this help message |
+| \`COMMAND_PREFIXinit\` | Initialize configuration file |
+| \`COMMAND_PREFIXdiscover\` | Discover files (use --plan for GENERATION-PLAN.md) |
+| \`COMMAND_PREFIXgenerate\` | Generate documentation from the plan |
+| \`COMMAND_PREFIXupdate\` | Update docs for changed files only |
+| \`COMMAND_PREFIXclean\` | Remove all generated documentation |
 
 ## Typical Workflow
 
-1. **\`/are:init\`** — Create \`.agents-reverse-engineer/config.yaml\`
-2. **\`/are:discover\`** — Scan codebase, create \`GENERATION-PLAN.md\`
-3. **\`/are:generate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
-4. **\`/are:update\`** — After code changes, update only what changed
+1. **\`COMMAND_PREFIXinit\`** — Create \`.agents-reverse-engineer/config.yaml\`
+2. **\`COMMAND_PREFIXdiscover --plan\`** — Scan codebase, create \`GENERATION-PLAN.md\`
+3. **\`COMMAND_PREFIXgenerate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
+4. **\`COMMAND_PREFIXupdate\`** — After code changes, update only what changed
 
 ## Generated Files
 
@@ -304,290 +264,133 @@ Display the following help information:
 
 - Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer
 - Update: \`npx agents-reverse-engineer@latest\`
-</execution>
-`,
-    },
-  ];
+</execution>`,
+  },
+} as const;
+
+// =============================================================================
+// Platform-specific template generators
+// =============================================================================
+
+type Platform = 'claude' | 'opencode' | 'gemini';
+
+interface PlatformConfig {
+  commandPrefix: string; // /are: or /are-
+  pathPrefix: string; // .claude/commands/are/ or .opencode/commands/ etc
+  filenameSeparator: string; // . or -
+  extraFrontmatter?: string; // e.g., "agent: build" for OpenCode
+  usesName: boolean; // Claude uses "name:" in frontmatter
+}
+
+const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
+  claude: {
+    commandPrefix: '/are:',
+    pathPrefix: '.claude/commands/are/',
+    filenameSeparator: '.',
+    usesName: true,
+  },
+  opencode: {
+    commandPrefix: '/are-',
+    pathPrefix: '.opencode/commands/',
+    filenameSeparator: '-',
+    extraFrontmatter: 'agent: build',
+    usesName: false,
+  },
+  gemini: {
+    commandPrefix: '/are-',
+    pathPrefix: '.gemini/commands/',
+    filenameSeparator: '-',
+    usesName: false,
+  },
+};
+
+function buildFrontmatter(
+  platform: Platform,
+  commandName: string,
+  description: string,
+  argumentHint?: string
+): string {
+  const config = PLATFORM_CONFIGS[platform];
+  const lines = ['---'];
+
+  if (config.usesName) {
+    lines.push(`name: are:${commandName}`);
+  }
+
+  lines.push(`description: ${description}`);
+
+  if (argumentHint) {
+    lines.push(`argument-hint: "${argumentHint}"`);
+  }
+
+  if (config.extraFrontmatter) {
+    lines.push(config.extraFrontmatter);
+  }
+
+  lines.push('---');
+  return lines.join('\n');
+}
+
+function buildTemplate(
+  platform: Platform,
+  commandName: string,
+  command: (typeof COMMANDS)[keyof typeof COMMANDS]
+): IntegrationTemplate {
+  const config = PLATFORM_CONFIGS[platform];
+  const filename =
+    platform === 'claude' ? `${commandName}.md` : `are-${commandName}.md`;
+  const path = `${config.pathPrefix}${filename}`;
+
+  const frontmatter = buildFrontmatter(
+    platform,
+    commandName,
+    command.description,
+    command.argumentHint || undefined
+  );
+
+  // Replace command prefix placeholder in help content
+  const content = command.content.replace(/COMMAND_PREFIX/g, config.commandPrefix);
+
+  return {
+    filename,
+    path,
+    content: `${frontmatter}\n\n${content}\n`,
+  };
+}
+
+function getTemplatesForPlatform(platform: Platform): IntegrationTemplate[] {
+  return Object.entries(COMMANDS).map(([name, command]) =>
+    buildTemplate(platform, name, command)
+  );
+}
+
+// =============================================================================
+// Public API
+// =============================================================================
+
+/**
+ * Get Claude Code command file templates
+ */
+export function getClaudeTemplates(): IntegrationTemplate[] {
+  return getTemplatesForPlatform('claude');
 }
 
 /**
  * Get OpenCode command file templates
- *
- * Returns templates for:
- * - are-generate.md: Full documentation generation command
- * - are-update.md: Incremental documentation update command
- *
- * @returns Array of OpenCode command templates
  */
 export function getOpenCodeTemplates(): IntegrationTemplate[] {
-  return [
-    {
-      filename: 'are-generate.md',
-      path: '.opencode/commands/are-generate.md',
-      content: `---
-description: Generate AI-friendly documentation for the entire codebase
-agent: build
----
-
-Generate comprehensive documentation for this codebase using agents-reverse-engineer.
-
-Run: \`npx agents-reverse-engineer@latest generate $ARGUMENTS\`
-
-Arguments supported:
-- \`--budget N\` - Override token budget
-- \`--dry-run\` - Show plan without writing files
-- \`--verbose\` - Show detailed output
-`,
-    },
-    {
-      filename: 'are-update.md',
-      path: '.opencode/commands/are-update.md',
-      content: `---
-description: Incrementally update documentation for changed files
-agent: build
----
-
-Update documentation for files that changed since last run.
-
-Run: \`npx agents-reverse-engineer@latest update $ARGUMENTS\`
-
-Arguments supported:
-- \`--uncommitted\` - Include staged but uncommitted changes
-- \`--dry-run\` - Show plan without writing files
-- \`--verbose\` - Show detailed output
-`,
-    },
-    {
-      filename: 'are-discover.md',
-      path: '.opencode/commands/are-discover.md',
-      content: `---
-description: Discover files to analyze (use --plan to create GENERATION-PLAN.md)
-agent: build
----
-
-Discover files that will be analyzed for documentation.
-
-Run: \`npx agents-reverse-engineer@latest discover $ARGUMENTS\`
-
-**IMPORTANT**: Pass $ARGUMENTS exactly as provided. Do NOT add flags the user did not request.
-
-Options (only use if user requests):
-- \`--plan\` - Generate GENERATION-PLAN.md file
-- \`--show-excluded\` - Show excluded files with reasons
-- \`--quiet\` - Only show the summary count
-`,
-    },
-    {
-      filename: 'are-clean.md',
-      path: '.opencode/commands/are-clean.md',
-      content: `---
-description: Delete all generated documentation artifacts (.sum, AGENTS.md, plan)
-agent: build
----
-
-Remove all documentation artifacts generated by agents-reverse-engineer.
-
-Run: \`npx agents-reverse-engineer@latest clean $ARGUMENTS\`
-
-Arguments supported:
-- \`--dry-run\` - Preview what would be deleted without deleting
-`,
-    },
-    {
-      filename: 'are-init.md',
-      path: '.opencode/commands/are-init.md',
-      content: `---
-description: Initialize agents-reverse-engineer configuration
-agent: build
----
-
-Initialize agents-reverse-engineer configuration in this project.
-
-Run: \`npx agents-reverse-engineer@latest init\`
-
-This creates \`.agents-reverse-engineer.yaml\` configuration file.
-
-To install commands and hooks, use the interactive installer:
-\`npx agents-reverse-engineer install\`
-`,
-    },
-    {
-      filename: 'are-help.md',
-      path: '.opencode/commands/are-help.md',
-      content: `---
-description: Show available ARE commands and usage guide
-agent: build
----
-
-## agents-reverse-engineer (ARE) Commands
-
-| Command | Description |
-|---------|-------------|
-| \`/are-help\` | Show this help message |
-| \`/are-init\` | Initialize configuration file |
-| \`/are-discover\` | Discover files and create GENERATION-PLAN.md |
-| \`/are-generate\` | Generate documentation from the plan |
-| \`/are-update\` | Update docs for changed files only |
-| \`/are-clean\` | Remove all generated documentation |
-
-## Typical Workflow
-
-1. **\`/are-init\`** — Create \`.agents-reverse-engineer/config.yaml\`
-2. **\`/are-discover\`** — Scan codebase, create \`GENERATION-PLAN.md\`
-3. **\`/are-generate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
-4. **\`/are-update\`** — After code changes, update only what changed
-
-## More Info
-
-Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer
-`,
-    },
-  ];
+  return getTemplatesForPlatform('opencode');
 }
 
 /**
  * Get Gemini CLI command file templates
- *
- * Returns templates for:
- * - are-generate.md: Full documentation generation command
- * - are-update.md: Incremental documentation update command
- * - are-discover.md: Discover files and create execution plan
- * - are-clean.md: Delete generated documentation artifacts
- *
- * @returns Array of Gemini CLI command templates
  */
 export function getGeminiTemplates(): IntegrationTemplate[] {
-  return [
-    {
-      filename: 'are-generate.md',
-      path: '.gemini/commands/are-generate.md',
-      content: `---
-description: Generate AI-friendly documentation for the entire codebase
----
-
-Generate comprehensive documentation for this codebase using agents-reverse-engineer.
-
-Run: \`npx agents-reverse-engineer@latest generate $ARGUMENTS\`
-
-Arguments supported:
-- \`--budget N\` - Override token budget
-- \`--dry-run\` - Show plan without writing files
-- \`--verbose\` - Show detailed output
-`,
-    },
-    {
-      filename: 'are-update.md',
-      path: '.gemini/commands/are-update.md',
-      content: `---
-description: Incrementally update documentation for changed files
----
-
-Update documentation for files that changed since last run.
-
-Run: \`npx agents-reverse-engineer@latest update $ARGUMENTS\`
-
-Arguments supported:
-- \`--uncommitted\` - Include staged but uncommitted changes
-- \`--dry-run\` - Show plan without writing files
-- \`--verbose\` - Show detailed output
-`,
-    },
-    {
-      filename: 'are-discover.md',
-      path: '.gemini/commands/are-discover.md',
-      content: `---
-description: Discover files to analyze (use --plan to create GENERATION-PLAN.md)
----
-
-Discover files that will be analyzed for documentation.
-
-Run: \`npx agents-reverse-engineer@latest discover $ARGUMENTS\`
-
-**IMPORTANT**: Pass $ARGUMENTS exactly as provided. Do NOT add flags the user did not request.
-
-Options (only use if user requests):
-- \`--plan\` - Generate GENERATION-PLAN.md file
-- \`--show-excluded\` - Show excluded files with reasons
-- \`--quiet\` - Only show the summary count
-`,
-    },
-    {
-      filename: 'are-clean.md',
-      path: '.gemini/commands/are-clean.md',
-      content: `---
-description: Delete all generated documentation artifacts (.sum, AGENTS.md, plan)
----
-
-Remove all documentation artifacts generated by agents-reverse-engineer.
-
-Run: \`npx agents-reverse-engineer@latest clean $ARGUMENTS\`
-
-Arguments supported:
-- \`--dry-run\` - Preview what would be deleted without deleting
-`,
-    },
-    {
-      filename: 'are-init.md',
-      path: '.gemini/commands/are-init.md',
-      content: `---
-description: Initialize agents-reverse-engineer configuration
----
-
-Initialize agents-reverse-engineer configuration in this project.
-
-Run: \`npx agents-reverse-engineer@latest init\`
-
-This creates \`.agents-reverse-engineer.yaml\` configuration file.
-
-To install commands and hooks, use the interactive installer:
-\`npx agents-reverse-engineer install\`
-`,
-    },
-    {
-      filename: 'are-help.md',
-      path: '.gemini/commands/are-help.md',
-      content: `---
-description: Show available ARE commands and usage guide
----
-
-## agents-reverse-engineer (ARE) Commands
-
-| Command | Description |
-|---------|-------------|
-| \`/are-help\` | Show this help message |
-| \`/are-init\` | Initialize configuration file |
-| \`/are-discover\` | Discover files and create GENERATION-PLAN.md |
-| \`/are-generate\` | Generate documentation from the plan |
-| \`/are-update\` | Update docs for changed files only |
-| \`/are-clean\` | Remove all generated documentation |
-
-## Typical Workflow
-
-1. **\`/are-init\`** — Create \`.agents-reverse-engineer/config.yaml\`
-2. **\`/are-discover\`** — Scan codebase, create \`GENERATION-PLAN.md\`
-3. **\`/are-generate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
-4. **\`/are-update\`** — After code changes, update only what changed
-
-## More Info
-
-Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer
-`,
-    },
-  ];
+  return getTemplatesForPlatform('gemini');
 }
 
 /**
  * Get session-end hook template for automatic documentation updates
- *
- * The hook:
- * - Checks ARE_DISABLE_HOOK env var for temporary disable
- * - Checks config file for permanent disable (hook_enabled: false)
- * - Checks git status and exits silently if no changes
- * - Spawns are update --quiet in background (detached, unref'd)
- *
- * Uses CommonJS (require) since hooks run via node directly.
- *
- * @returns JavaScript hook code as a string
  */
 export function getHookTemplate(): string {
   return `#!/usr/bin/env node

@@ -1,29 +1,24 @@
 ---
 name: are:discover
-description: Discover files and create execution plan (GENERATION-PLAN.md)
-argument-hint: "[path] [--show-excluded]"
+description: Discover files in codebase
+argument-hint: "[path] [--plan] [--show-excluded] [--quiet]"
 ---
 
-Discover files to analyze and create the GENERATION-PLAN.md for documentation generation.
+List files that would be analyzed for documentation.
 
 <execution>
-Run the agents-reverse-engineer discover command:
+**CRITICAL**: Run this command EXACTLY as shown. Do NOT add any flags unless the user explicitly provided them in $ARGUMENTS.
 
 ```bash
-npx are discover --plan $ARGUMENTS
+npx are discover $ARGUMENTS
 ```
 
-This will:
-1. Discover all files matching configuration filters
-2. Generate `.agents-reverse-engineer/GENERATION-PLAN.md` using post-order traversal (deepest directories first)
+If $ARGUMENTS is empty, run: `npx are discover` (with NO additional flags)
 
-Common options:
-- `--show-excluded` - Show excluded files with reasons
-- `--quiet` - Only show the summary count
-- `--plan` - Generate GENERATION-PLAN.md file (included by default)
+Available flags (ONLY use if user requested):
+- `--plan` - Generate GENERATION-PLAN.md
+- `--show-excluded` - Show excluded files
+- `--quiet` - Summary only
 
-After completion, summarize:
-- Number of files discovered
-- Path to GENERATION-PLAN.md
-- Suggest running `/are:generate` to execute the plan
+After completion: Report number of files found.
 </execution>
