@@ -18,7 +18,7 @@ import {
 } from './banner.js';
 import { selectRuntime, selectLocation, confirmAction, isInteractive } from './prompts.js';
 import { installFiles, verifyInstallation, formatInstallResult } from './operations.js';
-import { uninstallFiles } from './uninstall.js';
+import { uninstallFiles, deleteConfigFolder } from './uninstall.js';
 
 // Re-export types for external consumers
 export type { InstallerArgs, InstallerResult, Runtime, Location, RuntimePaths } from './types.js';
@@ -148,13 +148,14 @@ export async function runInstaller(args: InstallerArgs): Promise<InstallerResult
   }
 
   // Interactive mode: prompt for missing values
+  const mode = args.uninstall ? 'uninstall' : 'install';
   let selectedRuntime: Runtime | undefined = runtimeArg;
   if (!selectedRuntime && isInteractive()) {
-    selectedRuntime = await selectRuntime();
+    selectedRuntime = await selectRuntime(mode);
   }
 
   if (!location && isInteractive()) {
-    location = await selectLocation();
+    location = await selectLocation(mode);
   }
 
   // Safety check - should not reach here without values
@@ -224,9 +225,12 @@ function runUninstall(
 ): InstallerResult[] {
   const results = uninstallFiles(runtime, location, false);
 
+  // Delete .agents-reverse-engineer config folder (local only)
+  const configDeleted = deleteConfigFolder(location, false);
+
   // Display results
   if (!quiet) {
-    displayUninstallResults(results);
+    displayUninstallResults(results, configDeleted);
   }
 
   return results;
@@ -290,8 +294,9 @@ function displayInstallResults(results: InstallerResult[]): void {
  * Display uninstallation results with styled output
  *
  * @param results - Array of uninstallation results
+ * @param configDeleted - Whether the .agents-reverse-engineer folder was deleted
  */
-function displayUninstallResults(results: InstallerResult[]): void {
+function displayUninstallResults(results: InstallerResult[], configDeleted: boolean = false): void {
   console.log();
 
   let totalDeleted = 0;
@@ -331,7 +336,10 @@ function displayUninstallResults(results: InstallerResult[]): void {
   if (hooksUnregistered > 0) {
     showSuccess(`Unregistered ${hooksUnregistered} session hook(s)`);
   }
-  if (totalDeleted === 0) {
+  if (configDeleted) {
+    showSuccess(`Removed .agents-reverse-engineer folder`);
+  }
+  if (totalDeleted === 0 && !configDeleted) {
     showInfo('No files were removed');
   }
 }

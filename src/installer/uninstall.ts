@@ -5,7 +5,7 @@
  * Mirrors the installation logic in operations.ts for clean reversal.
  */
 
-import { existsSync, unlinkSync, readFileSync, writeFileSync, readdirSync, rmdirSync } from 'node:fs';
+import { existsSync, unlinkSync, readFileSync, writeFileSync, readdirSync, rmdirSync, rmSync } from 'node:fs';
 import * as path from 'node:path';
 import type { Runtime, Location, InstallerResult } from './types.js';
 import { resolveInstallPath, getAllRuntimes, getRuntimePaths } from './paths.js';
@@ -32,8 +32,23 @@ interface SettingsJson {
   hooks?: {
     SessionEnd?: HookEvent[];
   };
+  permissions?: {
+    allow?: string[];
+    deny?: string[];
+  };
   [key: string]: unknown;
 }
+
+/**
+ * Permissions to remove during uninstall (must match operations.ts)
+ */
+const ARE_PERMISSIONS = [
+  'Bash(npx are init*)',
+  'Bash(npx are discover*)',
+  'Bash(npx are generate*)',
+  'Bash(npx are update*)',
+  'Bash(npx are clean*)',
+];
 
 /**
  * Get templates for a specific runtime
@@ -137,6 +152,11 @@ function uninstallFilesForRuntime(
 
     // Unregister hook from settings.json
     hookUnregistered = unregisterHooks(basePath, runtime, dryRun);
+
+    // Unregister permissions from settings.json (Claude only)
+    if (runtime === 'claude') {
+      unregisterPermissions(basePath, dryRun);
+    }
   }
 
   // Remove VERSION file if exists
@@ -279,6 +299,66 @@ function unregisterClaudeHook(basePath: string, dryRun: boolean): boolean {
 }
 
 /**
+ * Unregister ARE permissions from Claude Code settings.json
+ *
+ * Removes all ARE-related bash command permissions from the allow list.
+ *
+ * @param basePath - Base installation path (e.g., ~/.claude)
+ * @param dryRun - If true, don't write changes
+ * @returns true if any permissions were removed, false if none found
+ */
+export function unregisterPermissions(basePath: string, dryRun: boolean): boolean {
+  const settingsPath = path.join(basePath, 'settings.json');
+
+  // Settings file must exist
+  if (!existsSync(settingsPath)) {
+    return false;
+  }
+
+  // Load settings
+  let settings: SettingsJson;
+  try {
+    const content = readFileSync(settingsPath, 'utf-8');
+    settings = JSON.parse(content) as SettingsJson;
+  } catch {
+    return false;
+  }
+
+  // Check if permissions.allow exists
+  if (!settings.permissions?.allow) {
+    return false;
+  }
+
+  const originalLength = settings.permissions.allow.length;
+
+  // Remove all ARE permissions
+  settings.permissions.allow = settings.permissions.allow.filter(
+    (perm) => !ARE_PERMISSIONS.includes(perm),
+  );
+
+  // Check if we actually removed something
+  if (settings.permissions.allow.length === originalLength) {
+    return false;
+  }
+
+  // Clean up empty structures
+  if (settings.permissions.allow.length === 0) {
+    delete settings.permissions.allow;
+  }
+
+  if (settings.permissions && Object.keys(settings.permissions).length === 0) {
+    delete settings.permissions;
+  }
+
+  // Write updated settings
+  if (!dryRun) {
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+  }
+
+  return true;
+}
+
+/**
  * Unregister hook from Gemini CLI settings.json
  */
 function unregisterGeminiHook(basePath: string, dryRun: boolean): boolean {
@@ -370,4 +450,42 @@ function cleanupEmptyDirs(dirPath: string): void {
   } catch {
     // Ignore errors - directory might be in use or we don't have permissions
   }
+}
+
+/**
+ * Configuration directory name (matches config/loader.ts)
+ */
+const CONFIG_DIR = '.agents-reverse-engineer';
+
+/**
+ * Delete the .agents-reverse-engineer configuration folder
+ *
+ * Only applicable for local installations. Removes the entire folder
+ * including configuration files and generation plans.
+ *
+ * @param location - Installation location (only 'local' triggers deletion)
+ * @param dryRun - If true, don't actually delete
+ * @returns true if folder was deleted, false if not found or not local
+ */
+export function deleteConfigFolder(location: Location, dryRun: boolean): boolean {
+  // Only delete for local installations
+  if (location !== 'local') {
+    return false;
+  }
+
+  const configPath = path.join(process.cwd(), CONFIG_DIR);
+
+  if (!existsSync(configPath)) {
+    return false;
+  }
+
+  if (!dryRun) {
+    try {
+      rmSync(configPath, { recursive: true, force: true });
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
 }

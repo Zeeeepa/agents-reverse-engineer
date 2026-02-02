@@ -198,10 +198,12 @@ async function numberedSelect<T>(
 /**
  * Prompt user to select a runtime
  *
+ * @param mode - 'install' or 'uninstall' to customize prompt text
  * @returns Selected runtime value
  */
-export async function selectRuntime(): Promise<Runtime> {
-  return selectOption<Runtime>('Select runtime to install:', [
+export async function selectRuntime(mode: 'install' | 'uninstall' = 'install'): Promise<Runtime> {
+  const prompt = mode === 'uninstall' ? 'Select runtime to uninstall:' : 'Select runtime to install:';
+  return selectOption<Runtime>(prompt, [
     { label: 'Claude Code', value: 'claude' },
     { label: 'OpenCode', value: 'opencode' },
     { label: 'Gemini CLI', value: 'gemini' },
@@ -212,10 +214,12 @@ export async function selectRuntime(): Promise<Runtime> {
 /**
  * Prompt user to select installation location
  *
+ * @param mode - 'install' or 'uninstall' to customize prompt text
  * @returns Selected location value
  */
-export async function selectLocation(): Promise<Location> {
-  return selectOption<Location>('Select installation location:', [
+export async function selectLocation(mode: 'install' | 'uninstall' = 'install'): Promise<Location> {
+  const prompt = mode === 'uninstall' ? 'Select uninstallation location:' : 'Select installation location:';
+  return selectOption<Location>(prompt, [
     { label: 'Global (~/.claude, ~/.config/opencode, etc.)', value: 'global' },
     { label: 'Local (./.claude, ./.opencode, etc.)', value: 'local' },
   ]);
