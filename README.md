@@ -107,10 +107,10 @@ npx agents-reverse-engineer@latest --runtime all -l
 ### Uninstall
 
 ```bash
-npx agents-reverse-engineer@latest install -u
+npx agents-reverse-engineer@latest uninstall
 ```
 
-Removes all installed files and hooks.
+Removes all installed files and hooks. Use `--runtime` and `-g`/`-l` flags for specific targets.
 
 ### Checking Version
 

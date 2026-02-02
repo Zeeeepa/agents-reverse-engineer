@@ -39,17 +39,17 @@ agents-reverse-engineer - AI-friendly codebase documentation
 
 Commands:
   install           Install commands and hooks to AI assistant
+  uninstall         Remove installed commands and hooks
   init              Create default configuration
   discover [path]   Discover files to analyze (default: current directory)
   generate [path]   Generate documentation plan (default: current directory)
   update [path]     Update docs incrementally (default: current directory)
 
-Install Options:
-  --runtime <name>  Runtime to install (claude, opencode, gemini, all)
-  -g, --global      Install to global config directory
-  -l, --local       Install to current project directory
-  -u, --uninstall   Remove installed files
-  --force           Overwrite existing files
+Install/Uninstall Options:
+  --runtime <name>  Runtime to target (claude, opencode, gemini, all)
+  -g, --global      Target global config directory
+  -l, --local       Target current project directory
+  --force           Overwrite existing files (install only)
 
 General Options:
   --quiet, -q       Suppress output except errors
@@ -67,6 +67,8 @@ General Options:
 Examples:
   are install
   are install --runtime claude -g
+  are uninstall
+  are uninstall --runtime claude -g
   are init
   are discover
   are discover --plan
@@ -242,6 +244,14 @@ async function main(): Promise<void> {
     case 'install': {
       // Re-parse args for installer-specific flags
       const installerArgs = parseInstallerArgs(args);
+      await runInstaller(installerArgs);
+      break;
+    }
+
+    case 'uninstall': {
+      // Re-parse args and force uninstall mode
+      const installerArgs = parseInstallerArgs(args);
+      installerArgs.uninstall = true;
       await runInstaller(installerArgs);
       break;
     }
