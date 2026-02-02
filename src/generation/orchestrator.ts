@@ -82,6 +82,16 @@ export interface GenerationPlan {
   generateArchitecture: boolean;
   /** Whether to generate STACK.md */
   generateStack: boolean;
+  /** Whether to generate STRUCTURE.md */
+  generateStructure: boolean;
+  /** Whether to generate CONVENTIONS.md */
+  generateConventions: boolean;
+  /** Whether to generate TESTING.md */
+  generateTesting: boolean;
+  /** Whether to generate INTEGRATIONS.md */
+  generateIntegrations: boolean;
+  /** Whether to generate CONCERNS.md */
+  generateConcerns: boolean;
   /** Budget tracker state */
   budget: {
     total: number;
@@ -296,6 +306,11 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       generateStack: this.config.generation.generateStack &&
         hasPackageJson &&
         shouldGenerateStack(hasPackageJson),
+      generateStructure: this.config.generation.generateStructure,
+      generateConventions: this.config.generation.generateConventions,
+      generateTesting: this.config.generation.generateTesting,
+      generateIntegrations: this.config.generation.generateIntegrations,
+      generateConcerns: this.config.generation.generateConcerns,
       budget: {
         total: this.config.generation.tokenBudget,
         estimated: this.budgetTracker.getReport().used,

@@ -15,6 +15,16 @@ export interface SupplementaryConfig {
   generateArchitecture: boolean;
   /** Whether to generate STACK.md */
   generateStack: boolean;
+  /** Whether to generate STRUCTURE.md */
+  generateStructure: boolean;
+  /** Whether to generate CONVENTIONS.md */
+  generateConventions: boolean;
+  /** Whether to generate TESTING.md */
+  generateTesting: boolean;
+  /** Whether to generate INTEGRATIONS.md */
+  generateIntegrations: boolean;
+  /** Whether to generate CONCERNS.md */
+  generateConcerns: boolean;
 }
 
 /**
@@ -350,6 +360,838 @@ export async function writeStackMd(
 
   const projectName = path.basename(projectRoot);
   const content = buildStackMd(stackInfo, projectName, hasLocal);
+
+  await writeFile(filePath, content, 'utf-8');
+  return filePath;
+}
+
+/**
+ * Information about codebase structure.
+ */
+export interface StructureInfo {
+  /** Top-level directories with descriptions */
+  directories: Array<{ name: string; description: string; fileCount: number }>;
+  /** Key entry points */
+  entryPoints: string[];
+  /** Notable patterns in organization */
+  organizationPatterns: string[];
+}
+
+/**
+ * Information about coding conventions.
+ */
+export interface ConventionsInfo {
+  /** Naming conventions detected */
+  namingConventions: string[];
+  /** File organization patterns */
+  filePatterns: string[];
+  /** Code style indicators */
+  codeStyle: string[];
+  /** Import/export patterns */
+  importPatterns: string[];
+}
+
+/**
+ * Information about testing setup.
+ */
+export interface TestingInfo {
+  /** Testing framework(s) used */
+  frameworks: string[];
+  /** Test file patterns */
+  testPatterns: string[];
+  /** Test directories */
+  testDirs: string[];
+  /** Coverage tool if any */
+  coverageTool?: string;
+  /** Estimated test file count */
+  testFileCount: number;
+}
+
+/**
+ * Information about external integrations.
+ */
+export interface IntegrationsInfo {
+  /** External APIs/services */
+  apis: Array<{ name: string; type: string }>;
+  /** Database connections */
+  databases: string[];
+  /** Third-party services */
+  services: string[];
+  /** Environment variables referenced */
+  envVars: string[];
+}
+
+/**
+ * Information about technical concerns.
+ */
+export interface ConcernsInfo {
+  /** TODO/FIXME comments found */
+  todoCount: number;
+  /** Files with high complexity */
+  complexFiles: string[];
+  /** Deprecated patterns detected */
+  deprecatedPatterns: string[];
+  /** Missing documentation areas */
+  missingDocs: string[];
+}
+
+/**
+ * Analyze codebase structure from directories and files.
+ */
+export async function analyzeStructure(
+  projectRoot: string,
+  metrics: ComplexityMetrics
+): Promise<StructureInfo> {
+  const directories: StructureInfo['directories'] = [];
+  const topLevelDirs = getTopLevelDirectories(metrics.directories);
+
+  // Common directory descriptions
+  const dirDescriptions: Record<string, string> = {
+    src: 'Source code',
+    lib: 'Library code',
+    test: 'Test files',
+    tests: 'Test files',
+    __tests__: 'Test files',
+    spec: 'Test specifications',
+    docs: 'Documentation',
+    config: 'Configuration files',
+    scripts: 'Build/utility scripts',
+    public: 'Static assets',
+    assets: 'Static assets',
+    components: 'UI components',
+    pages: 'Page components',
+    api: 'API routes/handlers',
+    utils: 'Utility functions',
+    helpers: 'Helper functions',
+    hooks: 'React hooks',
+    services: 'Service layer',
+    models: 'Data models',
+    types: 'Type definitions',
+    interfaces: 'Interface definitions',
+    constants: 'Constants and enums',
+    store: 'State management',
+    styles: 'Stylesheets',
+    middleware: 'Middleware functions',
+    controllers: 'Controller logic',
+    routes: 'Route definitions',
+    views: 'View templates',
+    dist: 'Build output',
+    build: 'Build output',
+    bin: 'Executable scripts',
+  };
+
+  for (const dir of topLevelDirs.sort()) {
+    directories.push({
+      name: dir,
+      description: dirDescriptions[dir.toLowerCase()] || 'Project directory',
+      fileCount: countFilesInDir(dir, metrics.directories),
+    });
+  }
+
+  // Detect entry points
+  const entryPoints: string[] = [];
+  const commonEntryPoints = ['index.ts', 'index.js', 'main.ts', 'main.js', 'app.ts', 'app.js', 'server.ts', 'server.js'];
+  // Entry points would be detected from actual file list
+
+  // Detect organization patterns
+  const organizationPatterns: string[] = [];
+  if (topLevelDirs.includes('src')) {
+    organizationPatterns.push('Source code in src/ directory');
+  }
+  if (topLevelDirs.some(d => ['test', 'tests', '__tests__', 'spec'].includes(d.toLowerCase()))) {
+    organizationPatterns.push('Separate test directory');
+  }
+  if (topLevelDirs.includes('lib')) {
+    organizationPatterns.push('Library code in lib/ directory');
+  }
+
+  return {
+    directories,
+    entryPoints,
+    organizationPatterns,
+  };
+}
+
+/**
+ * Count files in a directory based on metrics.
+ */
+function countFilesInDir(dirName: string, directories: Set<string>): number {
+  let count = 0;
+  for (const dir of directories) {
+    if (dir.startsWith(dirName + path.sep) || dir === dirName) {
+      count++;
+    }
+  }
+  return Math.max(count, 1);
+}
+
+/**
+ * Analyze coding conventions from package.json and common patterns.
+ */
+export async function analyzeConventions(
+  projectRoot: string
+): Promise<ConventionsInfo> {
+  const conventions: ConventionsInfo = {
+    namingConventions: [],
+    filePatterns: [],
+    codeStyle: [],
+    importPatterns: [],
+  };
+
+  try {
+    const packageJsonPath = path.join(projectRoot, 'package.json');
+    const content = await readFile(packageJsonPath, 'utf-8');
+    const pkg = JSON.parse(content);
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+    // Detect code style tools
+    if (deps['eslint']) {
+      conventions.codeStyle.push('ESLint for code linting');
+    }
+    if (deps['prettier']) {
+      conventions.codeStyle.push('Prettier for code formatting');
+    }
+    if (deps['typescript']) {
+      conventions.codeStyle.push('TypeScript for type safety');
+      conventions.namingConventions.push('TypeScript naming conventions');
+    }
+
+    // Detect naming patterns from config files
+    try {
+      await stat(path.join(projectRoot, '.eslintrc.js'));
+      conventions.filePatterns.push('ESLint configuration present');
+    } catch { /* no eslintrc */ }
+
+    try {
+      await stat(path.join(projectRoot, '.prettierrc'));
+      conventions.filePatterns.push('Prettier configuration present');
+    } catch { /* no prettierrc */ }
+
+    try {
+      await stat(path.join(projectRoot, 'tsconfig.json'));
+      conventions.filePatterns.push('TypeScript configuration present');
+    } catch { /* no tsconfig */ }
+
+    // Detect import patterns
+    if (pkg.type === 'module') {
+      conventions.importPatterns.push('ES modules (import/export)');
+    } else {
+      conventions.importPatterns.push('CommonJS modules (require/exports)');
+    }
+
+  } catch {
+    // No package.json
+  }
+
+  return conventions;
+}
+
+/**
+ * Analyze testing setup from package.json and directory structure.
+ */
+export async function analyzeTestingSetup(
+  projectRoot: string,
+  metrics: ComplexityMetrics
+): Promise<TestingInfo> {
+  const testing: TestingInfo = {
+    frameworks: [],
+    testPatterns: [],
+    testDirs: [],
+    testFileCount: 0,
+  };
+
+  try {
+    const packageJsonPath = path.join(projectRoot, 'package.json');
+    const content = await readFile(packageJsonPath, 'utf-8');
+    const pkg = JSON.parse(content);
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+    // Detect testing frameworks
+    if (deps['vitest']) {
+      testing.frameworks.push('Vitest');
+      testing.testPatterns.push('*.test.ts', '*.spec.ts');
+    }
+    if (deps['jest']) {
+      testing.frameworks.push('Jest');
+      testing.testPatterns.push('*.test.js', '*.spec.js', '*.test.ts', '*.spec.ts');
+    }
+    if (deps['mocha']) {
+      testing.frameworks.push('Mocha');
+      testing.testPatterns.push('*.test.js', '*.spec.js');
+    }
+    if (deps['playwright'] || deps['@playwright/test']) {
+      testing.frameworks.push('Playwright (E2E)');
+    }
+    if (deps['cypress']) {
+      testing.frameworks.push('Cypress (E2E)');
+    }
+    if (deps['@testing-library/react'] || deps['@testing-library/vue']) {
+      testing.frameworks.push('Testing Library');
+    }
+
+    // Detect coverage tools
+    if (deps['c8'] || deps['nyc'] || deps['istanbul']) {
+      testing.coverageTool = deps['c8'] ? 'c8' : deps['nyc'] ? 'nyc' : 'istanbul';
+    }
+
+  } catch {
+    // No package.json
+  }
+
+  // Detect test directories
+  const testDirNames = ['test', 'tests', '__tests__', 'spec', 'e2e'];
+  const topLevelDirs = getTopLevelDirectories(metrics.directories);
+  for (const dir of topLevelDirs) {
+    if (testDirNames.includes(dir.toLowerCase())) {
+      testing.testDirs.push(dir);
+    }
+  }
+
+  return testing;
+}
+
+/**
+ * Analyze external integrations from package.json.
+ */
+export async function analyzeIntegrations(
+  projectRoot: string
+): Promise<IntegrationsInfo> {
+  const integrations: IntegrationsInfo = {
+    apis: [],
+    databases: [],
+    services: [],
+    envVars: [],
+  };
+
+  try {
+    const packageJsonPath = path.join(projectRoot, 'package.json');
+    const content = await readFile(packageJsonPath, 'utf-8');
+    const pkg = JSON.parse(content);
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+
+    // Detect database integrations
+    const dbPackages: Record<string, string> = {
+      'pg': 'PostgreSQL',
+      'mysql': 'MySQL',
+      'mysql2': 'MySQL',
+      'mongodb': 'MongoDB',
+      'mongoose': 'MongoDB (Mongoose)',
+      'redis': 'Redis',
+      'ioredis': 'Redis (ioredis)',
+      'sqlite3': 'SQLite',
+      'better-sqlite3': 'SQLite',
+      'prisma': 'Prisma ORM',
+      '@prisma/client': 'Prisma ORM',
+      'typeorm': 'TypeORM',
+      'sequelize': 'Sequelize ORM',
+      'drizzle-orm': 'Drizzle ORM',
+    };
+
+    for (const [pkg, name] of Object.entries(dbPackages)) {
+      if (deps[pkg]) {
+        integrations.databases.push(name);
+      }
+    }
+
+    // Detect API/HTTP clients
+    const apiPackages: Record<string, string> = {
+      'axios': 'HTTP client',
+      'node-fetch': 'HTTP client',
+      'got': 'HTTP client',
+      '@anthropic-ai/sdk': 'Anthropic AI API',
+      'openai': 'OpenAI API',
+      'stripe': 'Stripe payments',
+      'twilio': 'Twilio communications',
+      '@aws-sdk/client-s3': 'AWS S3',
+      '@google-cloud/storage': 'Google Cloud Storage',
+    };
+
+    for (const [pkg, type] of Object.entries(apiPackages)) {
+      if (deps[pkg]) {
+        integrations.apis.push({ name: pkg, type });
+      }
+    }
+
+    // Detect third-party services
+    const servicePackages: Record<string, string> = {
+      'firebase': 'Firebase',
+      'firebase-admin': 'Firebase Admin',
+      '@supabase/supabase-js': 'Supabase',
+      '@auth0/auth0-spa-js': 'Auth0',
+      'next-auth': 'NextAuth.js',
+      '@clerk/clerk-sdk-node': 'Clerk',
+      'nodemailer': 'Email (Nodemailer)',
+      '@sendgrid/mail': 'SendGrid Email',
+    };
+
+    for (const [pkg, name] of Object.entries(servicePackages)) {
+      if (deps[pkg]) {
+        integrations.services.push(name);
+      }
+    }
+
+  } catch {
+    // No package.json
+  }
+
+  return integrations;
+}
+
+/**
+ * Analyze potential technical concerns.
+ */
+export async function analyzeConcerns(
+  projectRoot: string,
+  metrics: ComplexityMetrics
+): Promise<ConcernsInfo> {
+  const concerns: ConcernsInfo = {
+    todoCount: 0,
+    complexFiles: [],
+    deprecatedPatterns: [],
+    missingDocs: [],
+  };
+
+  // This would scan for TODO/FIXME comments in actual implementation
+  // For now, provide template sections
+
+  // Check for common missing docs
+  const docFiles = ['README.md', 'CONTRIBUTING.md', 'CHANGELOG.md'];
+  for (const doc of docFiles) {
+    try {
+      await stat(path.join(projectRoot, doc));
+    } catch {
+      concerns.missingDocs.push(doc);
+    }
+  }
+
+  return concerns;
+}
+
+/**
+ * Build STRUCTURE.md content.
+ */
+export function buildStructureMd(
+  info: StructureInfo,
+  projectName: string,
+  hasLocalFile: boolean = false
+): string {
+  const sections: string[] = [];
+
+  sections.push(GENERATED_MARKER);
+  sections.push('');
+
+  if (hasLocalFile) {
+    sections.push('> **Note:** This project has additional structure documentation in [STRUCTURE.local.md](./STRUCTURE.local.md)');
+    sections.push('');
+  }
+
+  sections.push(`# Codebase Structure: ${projectName}\n`);
+  sections.push('> Auto-generated codebase structure overview.\n');
+
+  // Directory overview
+  sections.push('## Directory Overview\n');
+  sections.push('| Directory | Description | Files |');
+  sections.push('|-----------|-------------|-------|');
+  for (const dir of info.directories) {
+    sections.push(`| \`${dir.name}/\` | ${dir.description} | ${dir.fileCount} |`);
+  }
+  sections.push('');
+
+  // Organization patterns
+  if (info.organizationPatterns.length > 0) {
+    sections.push('## Organization Patterns\n');
+    for (const pattern of info.organizationPatterns) {
+      sections.push(`- ${pattern}`);
+    }
+    sections.push('');
+  }
+
+  // Entry points
+  sections.push('## Entry Points\n');
+  sections.push('<!-- List main entry points and their purposes -->\n');
+
+  // Key modules
+  sections.push('## Key Modules\n');
+  sections.push('<!-- Describe the main modules and their responsibilities -->\n');
+
+  return sections.join('\n');
+}
+
+/**
+ * Build CONVENTIONS.md content.
+ */
+export function buildConventionsMd(
+  info: ConventionsInfo,
+  projectName: string,
+  hasLocalFile: boolean = false
+): string {
+  const sections: string[] = [];
+
+  sections.push(GENERATED_MARKER);
+  sections.push('');
+
+  if (hasLocalFile) {
+    sections.push('> **Note:** This project has additional conventions documentation in [CONVENTIONS.local.md](./CONVENTIONS.local.md)');
+    sections.push('');
+  }
+
+  sections.push(`# Coding Conventions: ${projectName}\n`);
+  sections.push('> Auto-generated coding conventions and patterns guide.\n');
+
+  // Code style
+  if (info.codeStyle.length > 0) {
+    sections.push('## Code Style\n');
+    for (const style of info.codeStyle) {
+      sections.push(`- ${style}`);
+    }
+    sections.push('');
+  }
+
+  // File patterns
+  if (info.filePatterns.length > 0) {
+    sections.push('## Configuration Files\n');
+    for (const pattern of info.filePatterns) {
+      sections.push(`- ${pattern}`);
+    }
+    sections.push('');
+  }
+
+  // Import patterns
+  if (info.importPatterns.length > 0) {
+    sections.push('## Module System\n');
+    for (const pattern of info.importPatterns) {
+      sections.push(`- ${pattern}`);
+    }
+    sections.push('');
+  }
+
+  // Naming conventions
+  sections.push('## Naming Conventions\n');
+  sections.push('<!-- Describe naming conventions for files, functions, classes, etc. -->\n');
+
+  // Patterns
+  sections.push('## Common Patterns\n');
+  sections.push('<!-- Describe common code patterns used in this project -->\n');
+
+  return sections.join('\n');
+}
+
+/**
+ * Build TESTING.md content.
+ */
+export function buildTestingMd(
+  info: TestingInfo,
+  projectName: string,
+  hasLocalFile: boolean = false
+): string {
+  const sections: string[] = [];
+
+  sections.push(GENERATED_MARKER);
+  sections.push('');
+
+  if (hasLocalFile) {
+    sections.push('> **Note:** This project has additional testing documentation in [TESTING.local.md](./TESTING.local.md)');
+    sections.push('');
+  }
+
+  sections.push(`# Testing: ${projectName}\n`);
+  sections.push('> Auto-generated testing approach and coverage documentation.\n');
+
+  // Frameworks
+  if (info.frameworks.length > 0) {
+    sections.push('## Testing Frameworks\n');
+    for (const fw of info.frameworks) {
+      sections.push(`- ${fw}`);
+    }
+    sections.push('');
+  } else {
+    sections.push('## Testing Frameworks\n');
+    sections.push('No testing frameworks detected.\n');
+  }
+
+  // Test directories
+  if (info.testDirs.length > 0) {
+    sections.push('## Test Directories\n');
+    for (const dir of info.testDirs) {
+      sections.push(`- \`${dir}/\``);
+    }
+    sections.push('');
+  }
+
+  // Test patterns
+  if (info.testPatterns.length > 0) {
+    sections.push('## Test File Patterns\n');
+    for (const pattern of info.testPatterns) {
+      sections.push(`- \`${pattern}\``);
+    }
+    sections.push('');
+  }
+
+  // Coverage
+  if (info.coverageTool) {
+    sections.push('## Coverage\n');
+    sections.push(`Coverage tool: ${info.coverageTool}\n`);
+  }
+
+  // Running tests
+  sections.push('## Running Tests\n');
+  sections.push('<!-- Describe how to run tests -->\n');
+
+  // Test strategy
+  sections.push('## Test Strategy\n');
+  sections.push('<!-- Describe the testing strategy and coverage goals -->\n');
+
+  return sections.join('\n');
+}
+
+/**
+ * Build INTEGRATIONS.md content.
+ */
+export function buildIntegrationsMd(
+  info: IntegrationsInfo,
+  projectName: string,
+  hasLocalFile: boolean = false
+): string {
+  const sections: string[] = [];
+
+  sections.push(GENERATED_MARKER);
+  sections.push('');
+
+  if (hasLocalFile) {
+    sections.push('> **Note:** This project has additional integrations documentation in [INTEGRATIONS.local.md](./INTEGRATIONS.local.md)');
+    sections.push('');
+  }
+
+  sections.push(`# External Integrations: ${projectName}\n`);
+  sections.push('> Auto-generated external dependencies and API documentation.\n');
+
+  // Databases
+  if (info.databases.length > 0) {
+    sections.push('## Databases\n');
+    for (const db of info.databases) {
+      sections.push(`- ${db}`);
+    }
+    sections.push('');
+  }
+
+  // APIs
+  if (info.apis.length > 0) {
+    sections.push('## External APIs\n');
+    sections.push('| Package | Type |');
+    sections.push('|---------|------|');
+    for (const api of info.apis) {
+      sections.push(`| \`${api.name}\` | ${api.type} |`);
+    }
+    sections.push('');
+  }
+
+  // Services
+  if (info.services.length > 0) {
+    sections.push('## Third-Party Services\n');
+    for (const service of info.services) {
+      sections.push(`- ${service}`);
+    }
+    sections.push('');
+  }
+
+  // Environment variables
+  sections.push('## Environment Variables\n');
+  sections.push('<!-- List required environment variables for integrations -->\n');
+
+  // Authentication
+  sections.push('## Authentication\n');
+  sections.push('<!-- Describe authentication methods for external services -->\n');
+
+  return sections.join('\n');
+}
+
+/**
+ * Build CONCERNS.md content.
+ */
+export function buildConcernsMd(
+  info: ConcernsInfo,
+  projectName: string,
+  hasLocalFile: boolean = false
+): string {
+  const sections: string[] = [];
+
+  sections.push(GENERATED_MARKER);
+  sections.push('');
+
+  if (hasLocalFile) {
+    sections.push('> **Note:** This project has additional concerns documentation in [CONCERNS.local.md](./CONCERNS.local.md)');
+    sections.push('');
+  }
+
+  sections.push(`# Technical Concerns: ${projectName}\n`);
+  sections.push('> Auto-generated technical debt and known issues documentation.\n');
+
+  // Missing documentation
+  if (info.missingDocs.length > 0) {
+    sections.push('## Missing Documentation\n');
+    for (const doc of info.missingDocs) {
+      sections.push(`- ${doc}`);
+    }
+    sections.push('');
+  }
+
+  // Technical debt
+  sections.push('## Technical Debt\n');
+  sections.push('<!-- List known technical debt items -->\n');
+
+  // Known issues
+  sections.push('## Known Issues\n');
+  sections.push('<!-- List known bugs or limitations -->\n');
+
+  // Improvement areas
+  sections.push('## Improvement Areas\n');
+  sections.push('<!-- List areas that could be improved -->\n');
+
+  // Security considerations
+  sections.push('## Security Considerations\n');
+  sections.push('<!-- List security-related concerns or requirements -->\n');
+
+  return sections.join('\n');
+}
+
+/**
+ * Write STRUCTURE.md to the configured location.
+ */
+export async function writeStructureMd(
+  projectRoot: string,
+  metrics: ComplexityMetrics,
+  config: SupplementaryConfig
+): Promise<string | null> {
+  if (!config.generateStructure) return null;
+
+  const outputDir = config.outputDir
+    ? path.join(projectRoot, config.outputDir)
+    : projectRoot;
+
+  await mkdir(outputDir, { recursive: true });
+
+  const filePath = path.join(outputDir, 'STRUCTURE.md');
+  const localPath = path.join(outputDir, 'STRUCTURE.local.md');
+
+  const hasLocal = await preserveUserFile(filePath, localPath);
+
+  const info = await analyzeStructure(projectRoot, metrics);
+  const projectName = path.basename(projectRoot);
+  const content = buildStructureMd(info, projectName, hasLocal);
+
+  await writeFile(filePath, content, 'utf-8');
+  return filePath;
+}
+
+/**
+ * Write CONVENTIONS.md to the configured location.
+ */
+export async function writeConventionsMd(
+  projectRoot: string,
+  config: SupplementaryConfig
+): Promise<string | null> {
+  if (!config.generateConventions) return null;
+
+  const outputDir = config.outputDir
+    ? path.join(projectRoot, config.outputDir)
+    : projectRoot;
+
+  await mkdir(outputDir, { recursive: true });
+
+  const filePath = path.join(outputDir, 'CONVENTIONS.md');
+  const localPath = path.join(outputDir, 'CONVENTIONS.local.md');
+
+  const hasLocal = await preserveUserFile(filePath, localPath);
+
+  const info = await analyzeConventions(projectRoot);
+  const projectName = path.basename(projectRoot);
+  const content = buildConventionsMd(info, projectName, hasLocal);
+
+  await writeFile(filePath, content, 'utf-8');
+  return filePath;
+}
+
+/**
+ * Write TESTING.md to the configured location.
+ */
+export async function writeTestingMd(
+  projectRoot: string,
+  metrics: ComplexityMetrics,
+  config: SupplementaryConfig
+): Promise<string | null> {
+  if (!config.generateTesting) return null;
+
+  const outputDir = config.outputDir
+    ? path.join(projectRoot, config.outputDir)
+    : projectRoot;
+
+  await mkdir(outputDir, { recursive: true });
+
+  const filePath = path.join(outputDir, 'TESTING.md');
+  const localPath = path.join(outputDir, 'TESTING.local.md');
+
+  const hasLocal = await preserveUserFile(filePath, localPath);
+
+  const info = await analyzeTestingSetup(projectRoot, metrics);
+  const projectName = path.basename(projectRoot);
+  const content = buildTestingMd(info, projectName, hasLocal);
+
+  await writeFile(filePath, content, 'utf-8');
+  return filePath;
+}
+
+/**
+ * Write INTEGRATIONS.md to the configured location.
+ */
+export async function writeIntegrationsMd(
+  projectRoot: string,
+  config: SupplementaryConfig
+): Promise<string | null> {
+  if (!config.generateIntegrations) return null;
+
+  const outputDir = config.outputDir
+    ? path.join(projectRoot, config.outputDir)
+    : projectRoot;
+
+  await mkdir(outputDir, { recursive: true });
+
+  const filePath = path.join(outputDir, 'INTEGRATIONS.md');
+  const localPath = path.join(outputDir, 'INTEGRATIONS.local.md');
+
+  const hasLocal = await preserveUserFile(filePath, localPath);
+
+  const info = await analyzeIntegrations(projectRoot);
+  const projectName = path.basename(projectRoot);
+  const content = buildIntegrationsMd(info, projectName, hasLocal);
+
+  await writeFile(filePath, content, 'utf-8');
+  return filePath;
+}
+
+/**
+ * Write CONCERNS.md to the configured location.
+ */
+export async function writeConcernsMd(
+  projectRoot: string,
+  metrics: ComplexityMetrics,
+  config: SupplementaryConfig
+): Promise<string | null> {
+  if (!config.generateConcerns) return null;
+
+  const outputDir = config.outputDir
+    ? path.join(projectRoot, config.outputDir)
+    : projectRoot;
+
+  await mkdir(outputDir, { recursive: true });
+
+  const filePath = path.join(outputDir, 'CONCERNS.md');
+  const localPath = path.join(outputDir, 'CONCERNS.local.md');
+
+  const hasLocal = await preserveUserFile(filePath, localPath);
+
+  const info = await analyzeConcerns(projectRoot, metrics);
+  const projectName = path.basename(projectRoot);
+  const content = buildConcernsMd(info, projectName, hasLocal);
 
   await writeFile(filePath, content, 'utf-8');
   return filePath;

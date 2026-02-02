@@ -54,6 +54,16 @@ const GenerationSchema = z.object({
   generateArchitecture: z.boolean().default(true),
   /** Generate STACK.md from package.json (default: true) */
   generateStack: z.boolean().default(true),
+  /** Generate STRUCTURE.md codebase structure overview (default: true) */
+  generateStructure: z.boolean().default(true),
+  /** Generate CONVENTIONS.md coding conventions and patterns (default: true) */
+  generateConventions: z.boolean().default(true),
+  /** Generate TESTING.md testing approach and coverage (default: true) */
+  generateTesting: z.boolean().default(true),
+  /** Generate INTEGRATIONS.md external dependencies and APIs (default: true) */
+  generateIntegrations: z.boolean().default(true),
+  /** Generate CONCERNS.md technical debt and known issues (default: true) */
+  generateConcerns: z.boolean().default(true),
   /** Output directory for supplementary docs (default: project root) */
   supplementaryDocsDir: z.string().optional(),
   /** Chunk size for large files in tokens (default: 3000) */
