@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "name": "are-session-end",
+        "type": "command",
+        "command": "node hooks/are-session-end.js"
+      }
+    ]
+  }
+}

@@ -5,8 +5,6 @@ node_modules/
 dist/
 
 # IDE
-.idea/
-.vscode/
 *.swp
 *.swo
 

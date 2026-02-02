@@ -15,7 +15,5 @@ npx are init $ARGUMENTS
 
 This creates:
 - `.agents-reverse-engineer.yaml` configuration file
-- With `--integration <name>`: command files for the specified AI assistant
-
-Supported integrations: `claude`, `opencode`, `gemini`, `aider`
+- With `--integration <name>`: command files for the specified AI assistant (claude, opencode, gemini)
 </execution>

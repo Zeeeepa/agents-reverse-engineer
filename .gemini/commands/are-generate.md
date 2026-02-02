@@ -1,6 +1,5 @@
 ---
 description: Generate AI-friendly documentation for the entire codebase
-agent: build
 ---
 
 Generate comprehensive documentation for this codebase using agents-reverse-engineer.

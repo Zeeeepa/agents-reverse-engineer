@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 04-integration-commands
 source: 04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md
 started: 2026-01-26T23:10:00Z
-updated: 2026-01-26T23:25:00Z
+updated: 2026-02-02T12:00:00Z
 ---
 
 ## Current Test
@@ -53,5 +53,12 @@ skipped: 0
   reason: "User reported: When config already exists, --integration flag is ignored. Early return at line 59 skips integration code."
   severity: major
   test: 1
-  artifacts: []
-  missing: []
+  root_cause: "Early return at line 62 when config exists prevents execution of integration file generation code at lines 76-106, regardless of --integration flag value"
+  artifacts:
+    - path: "src/cli/init.ts"
+      issue: "Early return at line 62 exits before checking options.integration flag"
+  missing:
+    - "Move integration file generation outside the config-exists early return path"
+    - "Decouple config creation from integration file generation"
+    - "Allow --integration to proceed independently when config already exists"
+  debug_session: ".planning/debug/init-integration-flag-ignored.md"
