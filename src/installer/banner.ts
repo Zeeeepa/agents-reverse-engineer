@@ -13,7 +13,7 @@ import * as pc from 'picocolors';
  * Shows big ASCII art "ARE" letters in cyan with tagline below.
  */
 export function displayBanner(): void {
-  const art = pc.cyan;
+  const art = pc.green;
   const tagline = pc.dim;
 
   console.log();
