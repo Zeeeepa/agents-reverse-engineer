@@ -22,12 +22,14 @@ Verified and enhanced the complete installation workflow:
 | Missing are-init.md for OpenCode/Gemini | Added init template to both runtimes | 2058cd4 |
 | Hooks only for global installs | Enabled hooks for local installs too | 01c356d |
 | No Gemini hook support | Added Gemini CLI SessionEnd hooks | 14d9e49 |
+| Hook path wrong in settings.json | Use `.claude/hooks/` path like GSD | 5a44d36 |
 
 ## Deliverables
 
 - All 6 verification tests passing
-- 3 bug fixes committed during verification
+- 4 bug fixes committed during verification
 - Hook support extended to Gemini CLI
+- Uninstall handles both old and new hook paths
 
 ## Commits
 
@@ -36,6 +38,7 @@ Verified and enhanced the complete installation workflow:
 | 2058cd4 | fix | Add missing are-init.md to OpenCode and Gemini templates |
 | 01c356d | fix | Register hooks for local installs too |
 | 14d9e49 | feat | Add Gemini CLI hook support |
+| 5a44d36 | fix | Use full hook path in settings.json |
 
 ## Verification Results
 

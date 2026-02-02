@@ -10,20 +10,20 @@ See: .planning/PROJECT.md (updated 2025-01-25)
 ## Current Position
 
 Phase: 5 of 5 (Installation Workflow)
-Plan: 4 of 5 in current phase
-Status: In progress
-Last activity: 2026-02-02 - Completed 05-04-PLAN.md
+Plan: 5 of 5 in current phase
+Status: Milestone complete
+Last activity: 2026-02-02 - Phase 5 verified and complete
 
-Progress: [██████████████████████░] 96%
+Progress: [████████████████████████] 100%
 
-**Next plan:** 05-05 - TUI Entry Point
+**Next:** Milestone audit
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24
+- Total plans completed: 25
 - Average duration: 3 min
-- Total execution time: 71 min
+- Total execution time: 86 min
 
 **By Phase:**
 
@@ -33,11 +33,11 @@ Progress: [██████████████████████░
 | 2. Documentation Generation | 6/6 | 21 min | 4 min |
 | 3. Incremental Updates | 5/5 | 11 min | 2 min |
 | 4. Integration & Commands | 4/4 | 13 min | 3 min |
-| 5. Installation Workflow | 4/5 | 11 min | 3 min |
+| 5. Installation Workflow | 5/5 | 26 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-04 (4 min), 05-01 (2 min), 05-02 (3 min), 05-03 (2 min), 05-04 (4 min)
-- Trend: Consistent pace
+- Last 5 plans: 05-01 (2 min), 05-02 (3 min), 05-03 (2 min), 05-04 (4 min), 05-05 (15 min)
+- Trend: 05-05 longer due to human verification checkpoint with fixes
 
 *Updated after each plan completion*
 
@@ -117,6 +117,9 @@ Recent decisions affecting current work:
 | hookRegistered repurpose | 05-04 | Reuse InstallerResult.hookRegistered for uninstall status |
 | Direct flag routing | 05-04 | npx are --runtime claude -g works without 'install' command |
 | picocolors default import | 05-04 | Match existing codebase pattern for ESM compatibility |
+| All runtimes get init command | 05-05 | Parity: OpenCode/Gemini templates now include are-init.md |
+| Local hooks registration | 05-05 | Local installs benefit from session hooks same as global |
+| Gemini hook support | 05-05 | Gemini CLI has SessionEnd hooks with flat object format |
 
 ### Roadmap Evolution
 
@@ -124,7 +127,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None.
+- **OpenCode plugin development**: Create `.opencode/plugin/` based hook for SessionEnd. OpenCode uses a plugin architecture rather than settings.json hooks. Research plugin format and implement for parity with Claude/Gemini.
 
 ### Blockers/Concerns
 
@@ -138,12 +141,12 @@ Resume file: None
 
 ## Phase 5 Progress
 
-Phase 5 (Installation Workflow) in progress:
+Phase 5 (Installation Workflow) complete:
 - 05-01: Foundation types & paths (complete)
 - 05-02: Interactive prompts (complete)
 - 05-03: File operations (complete)
 - 05-04: Uninstall logic (complete)
-- 05-05: TUI entry point (pending)
+- 05-05: End-to-end verification (complete)
 
 ## Phase 4 Progress
 
