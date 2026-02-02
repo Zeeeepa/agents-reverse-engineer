@@ -7,10 +7,14 @@
 
 import type { InstallerArgs, InstallerResult, Runtime, Location } from './types.js';
 import { getAllRuntimes, resolveInstallPath } from './paths.js';
+import { displayBanner, showHelp, showSuccess, showError, showWarning, showInfo } from './banner.js';
+import { selectRuntime, selectLocation, confirmAction, isInteractive } from './prompts.js';
 
 // Re-export types for external consumers
 export type { InstallerArgs, InstallerResult, Runtime, Location, RuntimePaths } from './types.js';
 export { getRuntimePaths, getAllRuntimes, resolveInstallPath, getSettingsPath } from './paths.js';
+export { displayBanner, showHelp, showSuccess, showError, showWarning, showInfo } from './banner.js';
+export { selectRuntime, selectLocation, confirmAction, isInteractive } from './prompts.js';
 
 /**
  * Parse command-line arguments for the installer
@@ -39,6 +43,8 @@ export function parseInstallerArgs(args: string[]): InstallerArgs {
       flags.add('uninstall');
     } else if (arg === '--force') {
       flags.add('force');
+    } else if (arg === '-q' || arg === '--quiet') {
+      flags.add('quiet');
     } else if (arg === '-h' || arg === '--help') {
       flags.add('help');
     }
@@ -58,6 +64,7 @@ export function parseInstallerArgs(args: string[]): InstallerArgs {
     uninstall: flags.has('uninstall'),
     force: flags.has('force'),
     help: flags.has('help'),
+    quiet: flags.has('quiet'),
   };
 }
 
@@ -105,18 +112,41 @@ function determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime,
  * @returns Array of installation results (one per runtime/location combination)
  */
 export async function runInstaller(args: InstallerArgs): Promise<InstallerResult[]> {
-  // Help is handled by caller (shows usage and exits)
+  // Handle help flag
   if (args.help) {
+    showHelp();
     return [];
   }
 
-  // Determine location and runtimes
-  const location = determineLocation(args);
-  const runtimes = determineRuntimes(args.runtime);
+  // Display banner unless quiet mode
+  if (!args.quiet) {
+    displayBanner();
+  }
 
-  // TODO (Plan 02): Interactive prompts for missing location/runtime
-  // If location is undefined and not in CI mode, prompt user
-  // If runtimes is empty and not in CI mode, prompt user
+  // Determine location and runtimes from flags
+  let location = determineLocation(args);
+  let runtimes = determineRuntimes(args.runtime);
+
+  // Non-interactive mode: require all flags
+  if (!isInteractive()) {
+    if (runtimes.length === 0) {
+      showError('Missing --runtime flag (required in non-interactive mode)');
+      process.exit(1);
+    }
+    if (!location) {
+      showError('Missing -g/--global or -l/--local flag (required in non-interactive mode)');
+      process.exit(1);
+    }
+  } else {
+    // Interactive mode: prompt for missing values
+    if (runtimes.length === 0) {
+      const selectedRuntime = await selectRuntime();
+      runtimes = determineRuntimes(selectedRuntime);
+    }
+    if (!location) {
+      location = await selectLocation();
+    }
+  }
 
   // TODO (Plan 03): File operations
   // For each runtime/location combination:
@@ -130,30 +160,25 @@ export async function runInstaller(args: InstallerArgs): Promise<InstallerResult
   // - Unregister hooks from settings.json
   // - Remove VERSION file
 
-  // For now, return empty results
+  // For now, return placeholder results
   // This skeleton establishes the API contract for subsequent plans
   const results: InstallerResult[] = [];
 
-  // Log placeholder info for development
-  if (runtimes.length > 0 && location) {
-    for (const runtime of runtimes) {
-      const installPath = resolveInstallPath(runtime, location);
-      console.log(`Would install ${runtime} to ${location}: ${installPath}`);
+  for (const runtime of runtimes) {
+    const installPath = resolveInstallPath(runtime, location!);
 
-      results.push({
-        success: true,
-        runtime,
-        location,
-        filesCreated: [],
-        filesSkipped: [],
-        errors: [],
-      });
+    if (!args.quiet) {
+      showInfo(`Would install ${runtime} to ${location}: ${installPath}`);
     }
-  } else {
-    // Missing required info - would prompt in interactive mode
-    console.log('Interactive mode: would prompt for runtime and location');
-    console.log(`  runtime: ${args.runtime || '(needs prompt)'}`);
-    console.log(`  location: ${location || '(needs prompt)'}`);
+
+    results.push({
+      success: true,
+      runtime,
+      location: location!,
+      filesCreated: [],
+      filesSkipped: [],
+      errors: [],
+    });
   }
 
   return results;

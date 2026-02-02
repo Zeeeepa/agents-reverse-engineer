@@ -41,6 +41,8 @@ export interface InstallerArgs {
   force: boolean;
   /** Show help and exit */
   help: boolean;
+  /** Suppress banner and info messages */
+  quiet: boolean;
 }
 
 /**
