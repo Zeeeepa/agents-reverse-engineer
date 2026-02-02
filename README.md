@@ -57,6 +57,8 @@ Developers using AI coding assistants (Claude Code, OpenCode, Gemini CLI, or any
 
 ## Getting Started
 
+### 1. Install Commands
+
 ```bash
 npx agents-reverse-engineer
 ```
@@ -66,45 +68,46 @@ The interactive installer prompts you to:
 1. **Select runtime** — Claude Code, OpenCode, Gemini CLI, or all
 2. **Select location** — Global (`~/.claude/`) or local (`./.claude/`)
 
-This creates:
+This installs:
 
-- **Config** — `.agents-reverse-engineer/config.yaml`
-- **Commands** — `/are:generate`, `/are:update`, etc.
+- **Commands** — `/are:generate`, `/are:update`, `/are:init`, etc.
 - **Session hook** — Auto-updates docs when session ends (Claude/Gemini)
+
+### 2. Initialize Configuration
+
+After installation, create the configuration file in your AI assistant:
+
+```bash
+/are:init
+```
+
+This creates `.agents-reverse-engineer/config.yaml` with default settings.
+
+### 3. Generate Documentation
+
+In your AI assistant:
+
+```
+/are:discover
+/are:generate
+```
+
+The assistant creates the plan and generates all documentation.
 
 ### Non-Interactive Installation
 
 ```bash
 # Install for Claude Code globally
-npx are install --runtime claude --global
+npx agents-reverse-engineer --runtime claude -g
 
 # Install for all runtimes locally
-npx are install --runtime all --local
-
-# Short flags
-npx are install -r claude -g
+npx agents-reverse-engineer --runtime all -l
 ```
-
-### After Installation
-
-Discover your files and create the plan:
-
-```bash
-npx are discover --plan
-```
-
-Then in your AI assistant:
-
-```
-/are:generate
-```
-
-The assistant reads the plan and generates all documentation.
 
 ### Uninstall
 
 ```bash
-npx are uninstall
+npx agents-reverse-engineer install -u
 ```
 
 Removes all installed files and hooks.
@@ -119,22 +122,32 @@ npx agents-reverse-engineer@latest
 
 ## How It Works
 
-### 1. Install
+### 1. Install Commands
 
 ```bash
 npx agents-reverse-engineer
 ```
 
-Interactive installer creates configuration and commands for your chosen runtime(s).
+Interactive installer installs commands and hooks for your chosen runtime(s).
 
 **Runtimes:** Claude Code, OpenCode, Gemini CLI (or all at once)
 
 ---
 
-### 2. Discover & Plan
+### 2. Initialize Configuration
 
-```bash
-are discover --plan
+```
+/are:init
+```
+
+Creates `.agents-reverse-engineer/config.yaml` with exclusion patterns and options.
+
+---
+
+### 3. Discover & Plan
+
+```
+/are:discover
 ```
 
 Scans your codebase (respecting `.gitignore`), detects file types, and creates `GENERATION-PLAN.md` with all files to analyze.
@@ -143,7 +156,7 @@ Uses **post-order traversal** — deepest directories first, so child documentat
 
 ---
 
-### 3. Generate (in your AI assistant)
+### 4. Generate (in your AI assistant)
 
 ```
 /are:generate
@@ -157,7 +170,7 @@ Your AI assistant executes the plan:
 
 ---
 
-### 4. Update Incrementally
+### 5. Update Incrementally
 
 ```
 /are:update
@@ -169,32 +182,32 @@ Only regenerates documentation for files that changed since last run.
 
 ## Commands
 
-| Command                           | Description                          |
-| --------------------------------- | ------------------------------------ |
-| `are`                             | Interactive installer (default)      |
-| `are install`                     | Install with prompts                 |
-| `are install -r <runtime> -g`     | Install to runtime globally          |
-| `are install -r <runtime> -l`     | Install to runtime locally           |
-| `are uninstall`                   | Remove all installed files/hooks     |
-| `are init`                        | Create configuration file            |
-| `are discover`                    | List files that will be analyzed     |
-| `are discover --plan`             | Create GENERATION-PLAN.md            |
-| `are discover --show-excluded`    | Show excluded files with reasons     |
-| `are generate`                    | Generate all documentation           |
-| `are update`                      | Update changed files only            |
-| `are clean`                       | Remove all generated docs            |
+| Command                         | Description                      |
+| ------------------------------- | -------------------------------- |
+| `are`                           | Interactive installer (default)  |
+| `are install`                   | Install with prompts             |
+| `are install --runtime <rt> -g` | Install to runtime globally      |
+| `are install --runtime <rt> -l` | Install to runtime locally       |
+| `are install -u`                | Uninstall (remove files/hooks)   |
+| `are init`                      | Create configuration file        |
+| `are discover`                  | List files that will be analyzed |
+| `are discover --plan`           | Create GENERATION-PLAN.md        |
+| `are discover --show-excluded`  | Show excluded files with reasons |
+| `are generate`                  | Generate all documentation       |
+| `are update`                    | Update changed files only        |
+| `are clean`                     | Remove all generated docs        |
 
 **Runtimes:** `claude`, `opencode`, `gemini`, `all`
 
 ### AI Assistant Commands
 
-| Command         | Description                    | Supported Runtimes        |
-| --------------- | ------------------------------ | ------------------------- |
-| `/are:init`     | Initialize config and commands | Claude, OpenCode, Gemini  |
-| `/are:discover` | Rediscover and regenerate plan | Claude, OpenCode, Gemini  |
-| `/are:generate` | Generate all documentation     | Claude, OpenCode, Gemini  |
-| `/are:update`   | Update changed files only      | Claude, OpenCode, Gemini  |
-| `/are:clean`    | Remove all generated docs      | Claude, OpenCode, Gemini  |
+| Command         | Description                    | Supported Runtimes       |
+| --------------- | ------------------------------ | ------------------------ |
+| `/are:init`     | Initialize config and commands | Claude, OpenCode, Gemini |
+| `/are:discover` | Rediscover and regenerate plan | Claude, OpenCode, Gemini |
+| `/are:generate` | Generate all documentation     | Claude, OpenCode, Gemini |
+| `/are:update`   | Update changed files only      | Claude, OpenCode, Gemini |
+| `/are:clean`    | Remove all generated docs      | Claude, OpenCode, Gemini |
 
 ---
 

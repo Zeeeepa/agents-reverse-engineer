@@ -167,9 +167,17 @@ async function main(): Promise<void> {
     showHelp();
   }
 
-  // No command and no args - show help
+  // No command and no args - launch interactive installer
   if (args.length === 0) {
-    showHelp();
+    await runInstaller({
+      global: false,
+      local: false,
+      uninstall: false,
+      force: false,
+      help: false,
+      quiet: false,
+    });
+    return;
   }
 
   // Direct installer invocation without 'install' command
