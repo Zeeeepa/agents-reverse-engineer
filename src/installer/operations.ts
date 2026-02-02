@@ -123,9 +123,9 @@ function installFilesForRuntime(
     }
   }
 
-  // For Claude runtime, also install the session hook
+  // For Claude and Gemini runtimes, also install the session hook
   let hookRegistered = false;
-  if (runtime === 'claude') {
+  if (runtime === 'claude' || runtime === 'gemini') {
     const hookPath = path.join(basePath, 'hooks', 'are-session-end.js');
     if (existsSync(hookPath) && !options.force) {
       filesSkipped.push(hookPath);
@@ -144,7 +144,7 @@ function installFilesForRuntime(
     }
 
     // Register hook in settings.json
-    hookRegistered = registerHooks(basePath, options.dryRun);
+    hookRegistered = registerHooks(basePath, runtime, options.dryRun);
   }
 
   // Write VERSION file if files were created and not dry run
@@ -204,23 +204,56 @@ interface SettingsJson {
 }
 
 /**
- * Register session-end hook in Claude Code settings.json
+ * Gemini hook configuration (simpler format)
+ */
+interface GeminiHook {
+  name: string;
+  type: 'command';
+  command: string;
+}
+
+interface GeminiSettingsJson {
+  hooks?: {
+    SessionEnd?: GeminiHook[];
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * Register session-end hook in settings.json
  *
- * Only applicable for Claude global installations.
+ * Supports both Claude Code and Gemini CLI formats.
  * Merges with existing hooks, doesn't overwrite.
  *
- * @param basePath - Base installation path (e.g., ~/.claude)
+ * @param basePath - Base installation path (e.g., ~/.claude or ~/.gemini)
+ * @param runtime - Target runtime (claude or gemini)
  * @param dryRun - If true, don't write changes
  * @returns true if hook was added, false if already existed
  */
-export function registerHooks(basePath: string, dryRun: boolean): boolean {
-  // Only for Claude installations
-  if (!basePath.includes('.claude')) {
+export function registerHooks(
+  basePath: string,
+  runtime: Exclude<Runtime, 'all'>,
+  dryRun: boolean,
+): boolean {
+  // Only for Claude and Gemini installations
+  if (runtime !== 'claude' && runtime !== 'gemini') {
     return false;
   }
 
   const settingsPath = path.join(basePath, 'settings.json');
+  const hookCommand = 'node hooks/are-session-end.js';
 
+  if (runtime === 'gemini') {
+    return registerGeminiHook(settingsPath, hookCommand, dryRun);
+  }
+
+  return registerClaudeHook(settingsPath, hookCommand, dryRun);
+}
+
+/**
+ * Register hook in Claude Code settings.json format
+ */
+function registerClaudeHook(settingsPath: string, hookCommand: string, dryRun: boolean): boolean {
   // Load or create settings
   let settings: SettingsJson = {};
   if (existsSync(settingsPath)) {
@@ -241,8 +274,7 @@ export function registerHooks(basePath: string, dryRun: boolean): boolean {
     settings.hooks.SessionEnd = [];
   }
 
-  // Define our hook
-  const hookCommand = 'node hooks/are-session-end.js';
+  // Define our hook (Claude format: nested hooks array)
   const newHook: HookEvent = {
     hooks: [
       {
@@ -256,6 +288,56 @@ export function registerHooks(basePath: string, dryRun: boolean): boolean {
   const hookExists = settings.hooks.SessionEnd.some((event) =>
     event.hooks?.some((h) => h.command === hookCommand),
   );
+
+  if (hookExists) {
+    return false;
+  }
+
+  // Add the hook
+  settings.hooks.SessionEnd.push(newHook);
+
+  // Write settings if not dry run
+  if (!dryRun) {
+    ensureDir(settingsPath);
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+  }
+
+  return true;
+}
+
+/**
+ * Register hook in Gemini CLI settings.json format
+ */
+function registerGeminiHook(settingsPath: string, hookCommand: string, dryRun: boolean): boolean {
+  // Load or create settings
+  let settings: GeminiSettingsJson = {};
+  if (existsSync(settingsPath)) {
+    try {
+      const content = readFileSync(settingsPath, 'utf-8');
+      settings = JSON.parse(content) as GeminiSettingsJson;
+    } catch {
+      // If can't parse, start fresh
+      settings = {};
+    }
+  }
+
+  // Ensure hooks structure exists
+  if (!settings.hooks) {
+    settings.hooks = {};
+  }
+  if (!settings.hooks.SessionEnd) {
+    settings.hooks.SessionEnd = [];
+  }
+
+  // Define our hook (Gemini format: flat object with name)
+  const newHook: GeminiHook = {
+    name: 'are-session-end',
+    type: 'command',
+    command: hookCommand,
+  };
+
+  // Check if hook already exists (by command string match)
+  const hookExists = settings.hooks.SessionEnd.some((h) => h.command === hookCommand);
 
   if (hookExists) {
     return false;
