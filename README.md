@@ -110,7 +110,13 @@ npx agents-reverse-engineer@latest --runtime all -l
 npx agents-reverse-engineer@latest uninstall
 ```
 
-Removes all installed files and hooks. Use `--runtime` and `-g`/`-l` flags for specific targets.
+Removes:
+- Command files (`/are:*` commands)
+- Session hooks (Claude/Gemini)
+- ARE permissions from settings.json
+- `.agents-reverse-engineer` folder (local installs only)
+
+Use `--runtime` and `-g`/`-l` flags for specific targets.
 
 ### Checking Version
 
