@@ -536,7 +536,7 @@ export function getPackageVersion(): string {
 }
 
 /**
- * Write VERSION file to track installed version
+ * Write ARE-VERSION file to track installed version
  *
  * @param basePath - Base installation path
  * @param dryRun - If true, don't write the file
@@ -546,7 +546,7 @@ export function writeVersionFile(basePath: string, dryRun: boolean): void {
     return;
   }
 
-  const versionPath = path.join(basePath, 'VERSION');
+  const versionPath = path.join(basePath, 'ARE-VERSION');
   const version = getPackageVersion();
 
   ensureDir(versionPath);

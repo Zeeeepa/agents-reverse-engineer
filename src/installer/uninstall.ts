@@ -175,17 +175,17 @@ function uninstallFilesForRuntime(
     }
   }
 
-  // Remove VERSION file if exists
-  const versionPath = path.join(basePath, 'VERSION');
+  // Remove ARE-VERSION file if exists
+  const versionPath = path.join(basePath, 'ARE-VERSION');
   if (existsSync(versionPath)) {
     if (!dryRun) {
       try {
         unlinkSync(versionPath);
       } catch (err) {
-        errors.push(`Failed to delete VERSION: ${err}`);
+        errors.push(`Failed to delete ARE-VERSION: ${err}`);
       }
     }
-    if (!errors.some((e) => e.includes('VERSION'))) {
+    if (!errors.some((e) => e.includes('ARE-VERSION'))) {
       filesCreated.push(versionPath);
     }
   }

@@ -18,9 +18,9 @@ const cwd = process.cwd();
 const cacheDir = join(homeDir, '.claude', 'cache');
 const cacheFile = join(cacheDir, 'are-update-check.json');
 
-// VERSION file locations (check project first, then global)
-const projectVersionFile = join(cwd, '.claude', 'VERSION');
-const globalVersionFile = join(homeDir, '.claude', 'VERSION');
+// ARE-VERSION file locations (check project first, then global)
+const projectVersionFile = join(cwd, '.claude', 'ARE-VERSION');
+const globalVersionFile = join(homeDir, '.claude', 'ARE-VERSION');
 
 // Ensure cache directory exists
 if (!existsSync(cacheDir)) {
