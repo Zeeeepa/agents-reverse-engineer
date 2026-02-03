@@ -559,8 +559,8 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     usesName: false,
   },
   gemini: {
-    commandPrefix: '/are-',
-    pathPrefix: '.gemini/commands/',
+    commandPrefix: '/are:',
+    pathPrefix: '.gemini/commands/are/', // Nested dir for /are:* namespace
     filenameSeparator: '-',
     usesName: false,
   },
@@ -593,14 +593,58 @@ function buildFrontmatter(
   return lines.join('\n');
 }
 
+/**
+ * Build TOML content for Gemini CLI commands
+ *
+ * Gemini uses TOML format with description and prompt fields.
+ * See: https://geminicli.com/docs/cli/custom-commands/
+ */
+function buildGeminiToml(
+  commandName: string,
+  command: (typeof COMMANDS)[keyof typeof COMMANDS]
+): string {
+  const config = PLATFORM_CONFIGS.gemini;
+  // Replace command prefix placeholder in content
+  const promptContent = command.content.replace(/COMMAND_PREFIX/g, config.commandPrefix);
+
+  // Build TOML content
+  // Use triple quotes for multi-line prompt
+  const lines = [`description = "${command.description}"`];
+
+  if (command.argumentHint) {
+    lines.push(`# Arguments: ${command.argumentHint}`);
+  }
+
+  lines.push(`prompt = """`);
+  lines.push(promptContent);
+  lines.push(`"""`);
+
+  return lines.join('\n');
+}
+
 function buildTemplate(
   platform: Platform,
   commandName: string,
   command: (typeof COMMANDS)[keyof typeof COMMANDS]
 ): IntegrationTemplate {
   const config = PLATFORM_CONFIGS[platform];
-  // Claude uses skills format: .claude/skills/are-{command}/SKILL.md
-  // OpenCode and Gemini use commands format: .{runtime}/commands/are-{command}.md
+
+  // Platform-specific file naming:
+  // - Claude: .claude/skills/are-{command}/SKILL.md
+  // - OpenCode: .opencode/commands/are-{command}.md
+  // - Gemini: .gemini/commands/are/{command}.toml (TOML format, nested dir for /are:* namespace)
+  if (platform === 'gemini') {
+    const filename = `${commandName}.toml`;
+    const path = `${config.pathPrefix}${filename}`;
+    const content = buildGeminiToml(commandName, command);
+
+    return {
+      filename,
+      path,
+      content: `${content}\n`,
+    };
+  }
+
   const filename = platform === 'claude' ? 'SKILL.md' : `are-${commandName}.md`;
   const path =
     platform === 'claude'

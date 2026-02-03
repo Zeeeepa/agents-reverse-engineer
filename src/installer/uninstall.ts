@@ -197,8 +197,16 @@ function uninstallFilesForRuntime(
       const skillsDir = path.join(basePath, 'skills');
       cleanupAreSkillDirs(skillsDir);
       cleanupEmptyDirs(skillsDir);
+    } else if (runtime === 'gemini') {
+      // Gemini uses nested commands/are/ directory for TOML files
+      const commandsDir = path.join(basePath, 'commands');
+      const areDir = path.join(commandsDir, 'are');
+      cleanupEmptyDirs(areDir);
+      cleanupEmptyDirs(commandsDir);
+      // Also clean up legacy .md files from old installations
+      cleanupLegacyGeminiFiles(commandsDir);
     } else {
-      // OpenCode and Gemini use commands format
+      // OpenCode uses commands format with flat .md files
       const commandsDir = path.join(basePath, 'commands');
       cleanupEmptyDirs(commandsDir);
     }
@@ -525,6 +533,37 @@ function cleanupEmptyDirs(dirPath: string): void {
     }
   } catch {
     // Ignore errors - directory might be in use or we don't have permissions
+  }
+}
+
+/**
+ * Clean up legacy Gemini markdown files
+ *
+ * Removes old are-*.md files from .gemini/commands/ that were created
+ * before the switch to TOML format.
+ *
+ * @param commandsDir - Path to the commands directory
+ */
+function cleanupLegacyGeminiFiles(commandsDir: string): void {
+  try {
+    if (!existsSync(commandsDir)) {
+      return;
+    }
+
+    const entries = readdirSync(commandsDir);
+    for (const entry of entries) {
+      // Remove legacy are-*.md files
+      if (entry.startsWith('are-') && entry.endsWith('.md')) {
+        const filePath = path.join(commandsDir, entry);
+        try {
+          unlinkSync(filePath);
+        } catch {
+          // Ignore errors
+        }
+      }
+    }
+  } catch {
+    // Ignore errors
   }
 }
 
