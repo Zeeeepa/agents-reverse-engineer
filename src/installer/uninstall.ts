@@ -29,6 +29,7 @@ interface HookEvent {
 
 interface SettingsJson {
   hooks?: {
+    SessionStart?: HookEvent[];
     SessionEnd?: HookEvent[];
   };
   permissions?: {
@@ -37,6 +38,19 @@ interface SettingsJson {
   };
   [key: string]: unknown;
 }
+
+/**
+ * Hook definitions for ARE (must match operations.ts)
+ */
+interface HookDefinition {
+  event: 'SessionStart' | 'SessionEnd';
+  filename: string;
+}
+
+const ARE_HOOKS: HookDefinition[] = [
+  { event: 'SessionStart', filename: 'are-check-update.js' },
+  { event: 'SessionEnd', filename: 'are-session-end.js' },
+];
 
 /**
  * Permissions to remove during uninstall (must match operations.ts)
@@ -132,24 +146,27 @@ function uninstallFilesForRuntime(
     }
   }
 
-  // For Claude and Gemini runtimes, also remove the session hook file
+  // For Claude and Gemini runtimes, also remove the session hook files
   let hookUnregistered = false;
   if (runtime === 'claude' || runtime === 'gemini') {
-    const hookPath = path.join(basePath, 'hooks', 'are-session-end.js');
-    if (existsSync(hookPath)) {
-      if (!dryRun) {
-        try {
-          unlinkSync(hookPath);
-        } catch (err) {
-          errors.push(`Failed to delete hook ${hookPath}: ${err}`);
+    // Remove all ARE hook files
+    for (const hookDef of ARE_HOOKS) {
+      const hookPath = path.join(basePath, 'hooks', hookDef.filename);
+      if (existsSync(hookPath)) {
+        if (!dryRun) {
+          try {
+            unlinkSync(hookPath);
+          } catch (err) {
+            errors.push(`Failed to delete hook ${hookPath}: ${err}`);
+          }
         }
-      }
-      if (!errors.some((e) => e.includes(hookPath))) {
-        filesCreated.push(hookPath);
+        if (!errors.some((e) => e.includes(hookPath))) {
+          filesCreated.push(hookPath);
+        }
       }
     }
 
-    // Unregister hook from settings.json
+    // Unregister hooks from settings.json
     hookUnregistered = unregisterHooks(basePath, runtime, dryRun);
 
     // Unregister permissions from settings.json (Claude only)
@@ -215,21 +232,22 @@ interface GeminiHook {
 
 interface GeminiSettingsJson {
   hooks?: {
+    SessionStart?: GeminiHook[];
     SessionEnd?: GeminiHook[];
   };
   [key: string]: unknown;
 }
 
 /**
- * Unregister session-end hook from settings.json
+ * Unregister ARE hooks from settings.json
  *
- * Removes the ARE hook entry from the SessionEnd hooks array.
+ * Removes all ARE hook entries from SessionStart and SessionEnd arrays.
  * Cleans up empty hooks structures. Handles both old and new hook paths.
  *
  * @param basePath - Base installation path (e.g., ~/.claude or ~/.gemini)
  * @param runtime - Target runtime (claude or gemini)
  * @param dryRun - If true, don't write changes
- * @returns true if hook was removed, false if not found
+ * @returns true if any hook was removed, false if none found
  */
 export function unregisterHooks(
   basePath: string,
@@ -237,15 +255,29 @@ export function unregisterHooks(
   dryRun: boolean,
 ): boolean {
   if (runtime === 'gemini') {
-    return unregisterGeminiHook(basePath, dryRun);
+    return unregisterGeminiHooks(basePath, dryRun);
   }
-  return unregisterClaudeHook(basePath, dryRun);
+  return unregisterClaudeHooks(basePath, dryRun);
 }
 
 /**
- * Unregister hook from Claude Code settings.json
+ * Build hook command patterns for matching (includes legacy paths)
  */
-function unregisterClaudeHook(basePath: string, dryRun: boolean): boolean {
+function getHookPatterns(runtimeDir: string): string[] {
+  const patterns: string[] = [];
+  for (const hookDef of ARE_HOOKS) {
+    // Current path format
+    patterns.push(`node ${runtimeDir}/hooks/${hookDef.filename}`);
+    // Legacy path format
+    patterns.push(`node hooks/${hookDef.filename}`);
+  }
+  return patterns;
+}
+
+/**
+ * Unregister ARE hooks from Claude Code settings.json
+ */
+function unregisterClaudeHooks(basePath: string, dryRun: boolean): boolean {
   const settingsPath = path.join(basePath, 'settings.json');
 
   // Settings file must exist
@@ -262,33 +294,41 @@ function unregisterClaudeHook(basePath: string, dryRun: boolean): boolean {
     return false;
   }
 
-  // Check if hooks.SessionEnd exists
-  if (!settings.hooks?.SessionEnd) {
+  if (!settings.hooks) {
     return false;
   }
 
-  // Match both old and new hook command paths
-  const hookPatterns = [
-    'node hooks/are-session-end.js',
-    'node .claude/hooks/are-session-end.js',
-  ];
-  const originalLength = settings.hooks.SessionEnd.length;
+  const hookPatterns = getHookPatterns('.claude');
+  let removedAny = false;
 
-  settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-    (event) => !event.hooks?.some((h) => hookPatterns.includes(h.command)),
-  );
+  // Process both SessionStart and SessionEnd
+  for (const eventType of ['SessionStart', 'SessionEnd'] as const) {
+    if (!settings.hooks[eventType]) {
+      continue;
+    }
 
-  // Check if we actually removed something
-  if (settings.hooks.SessionEnd.length === originalLength) {
+    const originalLength = settings.hooks[eventType]!.length;
+
+    settings.hooks[eventType] = settings.hooks[eventType]!.filter(
+      (event) => !event.hooks?.some((h) => hookPatterns.includes(h.command)),
+    );
+
+    if (settings.hooks[eventType]!.length < originalLength) {
+      removedAny = true;
+    }
+
+    // Clean up empty array
+    if (settings.hooks[eventType]!.length === 0) {
+      delete settings.hooks[eventType];
+    }
+  }
+
+  if (!removedAny) {
     return false;
   }
 
-  // Clean up empty structures
-  if (settings.hooks.SessionEnd.length === 0) {
-    delete settings.hooks.SessionEnd;
-  }
-
-  if (settings.hooks && Object.keys(settings.hooks).length === 0) {
+  // Clean up empty hooks object
+  if (Object.keys(settings.hooks).length === 0) {
     delete settings.hooks;
   }
 
@@ -361,9 +401,9 @@ export function unregisterPermissions(basePath: string, dryRun: boolean): boolea
 }
 
 /**
- * Unregister hook from Gemini CLI settings.json
+ * Unregister ARE hooks from Gemini CLI settings.json
  */
-function unregisterGeminiHook(basePath: string, dryRun: boolean): boolean {
+function unregisterGeminiHooks(basePath: string, dryRun: boolean): boolean {
   const settingsPath = path.join(basePath, 'settings.json');
 
   // Settings file must exist
@@ -380,33 +420,41 @@ function unregisterGeminiHook(basePath: string, dryRun: boolean): boolean {
     return false;
   }
 
-  // Check if hooks.SessionEnd exists
-  if (!settings.hooks?.SessionEnd) {
+  if (!settings.hooks) {
     return false;
   }
 
-  // Match both old and new hook command paths
-  const hookPatterns = [
-    'node hooks/are-session-end.js',
-    'node .gemini/hooks/are-session-end.js',
-  ];
-  const originalLength = settings.hooks.SessionEnd.length;
+  const hookPatterns = getHookPatterns('.gemini');
+  let removedAny = false;
 
-  settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-    (h) => !hookPatterns.includes(h.command),
-  );
+  // Process both SessionStart and SessionEnd
+  for (const eventType of ['SessionStart', 'SessionEnd'] as const) {
+    if (!settings.hooks[eventType]) {
+      continue;
+    }
 
-  // Check if we actually removed something
-  if (settings.hooks.SessionEnd.length === originalLength) {
+    const originalLength = settings.hooks[eventType]!.length;
+
+    settings.hooks[eventType] = settings.hooks[eventType]!.filter(
+      (h) => !hookPatterns.includes(h.command),
+    );
+
+    if (settings.hooks[eventType]!.length < originalLength) {
+      removedAny = true;
+    }
+
+    // Clean up empty array
+    if (settings.hooks[eventType]!.length === 0) {
+      delete settings.hooks[eventType];
+    }
+  }
+
+  if (!removedAny) {
     return false;
   }
 
-  // Clean up empty structures
-  if (settings.hooks.SessionEnd.length === 0) {
-    delete settings.hooks.SessionEnd;
-  }
-
-  if (settings.hooks && Object.keys(settings.hooks).length === 0) {
+  // Clean up empty hooks object
+  if (Object.keys(settings.hooks).length === 0) {
     delete settings.hooks;
   }
 

@@ -153,28 +153,48 @@ function installFilesForRuntime(
     }
   }
 
-  // For Claude and Gemini runtimes, also install the session hook
+  // For Claude and Gemini runtimes, also install the session hooks
   let hookRegistered = false;
   if (runtime === 'claude' || runtime === 'gemini') {
-    const hookPath = path.join(basePath, 'hooks', 'are-session-end.js');
-    if (existsSync(hookPath) && !options.force) {
-      filesSkipped.push(hookPath);
+    // Install session-end hook (triggers update on session close)
+    const sessionEndHookPath = path.join(basePath, 'hooks', 'are-session-end.js');
+    if (existsSync(sessionEndHookPath) && !options.force) {
+      filesSkipped.push(sessionEndHookPath);
     } else {
       if (!options.dryRun) {
         try {
-          ensureDir(hookPath);
+          ensureDir(sessionEndHookPath);
           const hookContent = readBundledHook('are-session-end.js');
-          writeFileSync(hookPath, hookContent, 'utf-8');
+          writeFileSync(sessionEndHookPath, hookContent, 'utf-8');
         } catch (err) {
-          errors.push(`Failed to write hook ${hookPath}: ${err}`);
+          errors.push(`Failed to write hook ${sessionEndHookPath}: ${err}`);
         }
       }
-      if (!errors.some((e) => e.includes(hookPath))) {
-        filesCreated.push(hookPath);
+      if (!errors.some((e) => e.includes(sessionEndHookPath))) {
+        filesCreated.push(sessionEndHookPath);
       }
     }
 
-    // Register hook in settings.json
+    // Install check-update hook (checks for updates on session start)
+    const checkUpdateHookPath = path.join(basePath, 'hooks', 'are-check-update.js');
+    if (existsSync(checkUpdateHookPath) && !options.force) {
+      filesSkipped.push(checkUpdateHookPath);
+    } else {
+      if (!options.dryRun) {
+        try {
+          ensureDir(checkUpdateHookPath);
+          const hookContent = readBundledHook('are-check-update.js');
+          writeFileSync(checkUpdateHookPath, hookContent, 'utf-8');
+        } catch (err) {
+          errors.push(`Failed to write hook ${checkUpdateHookPath}: ${err}`);
+        }
+      }
+      if (!errors.some((e) => e.includes(checkUpdateHookPath))) {
+        filesCreated.push(checkUpdateHookPath);
+      }
+    }
+
+    // Register hooks in settings.json
     hookRegistered = registerHooks(basePath, runtime, options.dryRun);
 
     // Register permissions for Claude (reduces friction for users)
@@ -235,6 +255,7 @@ interface HookEvent {
 
 interface SettingsJson {
   hooks?: {
+    SessionStart?: HookEvent[];
     SessionEnd?: HookEvent[];
   };
   permissions?: {
@@ -255,21 +276,37 @@ interface GeminiHook {
 
 interface GeminiSettingsJson {
   hooks?: {
+    SessionStart?: GeminiHook[];
     SessionEnd?: GeminiHook[];
   };
   [key: string]: unknown;
 }
 
 /**
- * Register session-end hook in settings.json
+ * Hook definitions for ARE
+ */
+interface HookDefinition {
+  event: 'SessionStart' | 'SessionEnd';
+  filename: string;
+  name: string; // For Gemini format
+}
+
+const ARE_HOOKS: HookDefinition[] = [
+  { event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' },
+  { event: 'SessionEnd', filename: 'are-session-end.js', name: 'are-session-end' },
+];
+
+/**
+ * Register ARE hooks in settings.json
  *
+ * Registers both SessionStart (update check) and SessionEnd (auto-update) hooks.
  * Supports both Claude Code and Gemini CLI formats.
  * Merges with existing hooks, doesn't overwrite.
  *
  * @param basePath - Base installation path (e.g., ~/.claude or ~/.gemini)
  * @param runtime - Target runtime (claude or gemini)
  * @param dryRun - If true, don't write changes
- * @returns true if hook was added, false if already existed
+ * @returns true if any hook was added, false if all already existed
  */
 export function registerHooks(
   basePath: string,
@@ -282,21 +319,19 @@ export function registerHooks(
   }
 
   const settingsPath = path.join(basePath, 'settings.json');
-  // Use full path from project root (e.g., .claude/hooks/are-session-end.js)
   const runtimeDir = runtime === 'claude' ? '.claude' : '.gemini';
-  const hookCommand = `node ${runtimeDir}/hooks/are-session-end.js`;
 
   if (runtime === 'gemini') {
-    return registerGeminiHook(settingsPath, hookCommand, dryRun);
+    return registerGeminiHooks(settingsPath, runtimeDir, dryRun);
   }
 
-  return registerClaudeHook(settingsPath, hookCommand, dryRun);
+  return registerClaudeHooks(settingsPath, runtimeDir, dryRun);
 }
 
 /**
- * Register hook in Claude Code settings.json format
+ * Register ARE hooks in Claude Code settings.json format
  */
-function registerClaudeHook(settingsPath: string, hookCommand: string, dryRun: boolean): boolean {
+function registerClaudeHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean {
   // Load or create settings
   let settings: SettingsJson = {};
   if (existsSync(settingsPath)) {
@@ -313,31 +348,40 @@ function registerClaudeHook(settingsPath: string, hookCommand: string, dryRun: b
   if (!settings.hooks) {
     settings.hooks = {};
   }
-  if (!settings.hooks.SessionEnd) {
-    settings.hooks.SessionEnd = [];
+
+  let addedAny = false;
+
+  for (const hookDef of ARE_HOOKS) {
+    const hookCommand = `node ${runtimeDir}/hooks/${hookDef.filename}`;
+
+    // Ensure event array exists
+    if (!settings.hooks[hookDef.event]) {
+      settings.hooks[hookDef.event] = [];
+    }
+
+    // Check if hook already exists (by command string match)
+    const hookExists = settings.hooks[hookDef.event]!.some((event) =>
+      event.hooks?.some((h) => h.command === hookCommand),
+    );
+
+    if (!hookExists) {
+      // Define our hook (Claude format: nested hooks array)
+      const newHook: HookEvent = {
+        hooks: [
+          {
+            type: 'command',
+            command: hookCommand,
+          },
+        ],
+      };
+      settings.hooks[hookDef.event]!.push(newHook);
+      addedAny = true;
+    }
   }
 
-  // Define our hook (Claude format: nested hooks array)
-  const newHook: HookEvent = {
-    hooks: [
-      {
-        type: 'command',
-        command: hookCommand,
-      },
-    ],
-  };
-
-  // Check if hook already exists (by command string match)
-  const hookExists = settings.hooks.SessionEnd.some((event) =>
-    event.hooks?.some((h) => h.command === hookCommand),
-  );
-
-  if (hookExists) {
+  if (!addedAny) {
     return false;
   }
-
-  // Add the hook
-  settings.hooks.SessionEnd.push(newHook);
 
   // Write settings if not dry run
   if (!dryRun) {
@@ -412,9 +456,9 @@ export function registerPermissions(settingsPath: string, dryRun: boolean): bool
 }
 
 /**
- * Register hook in Gemini CLI settings.json format
+ * Register ARE hooks in Gemini CLI settings.json format
  */
-function registerGeminiHook(settingsPath: string, hookCommand: string, dryRun: boolean): boolean {
+function registerGeminiHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean {
   // Load or create settings
   let settings: GeminiSettingsJson = {};
   if (existsSync(settingsPath)) {
@@ -431,26 +475,35 @@ function registerGeminiHook(settingsPath: string, hookCommand: string, dryRun: b
   if (!settings.hooks) {
     settings.hooks = {};
   }
-  if (!settings.hooks.SessionEnd) {
-    settings.hooks.SessionEnd = [];
+
+  let addedAny = false;
+
+  for (const hookDef of ARE_HOOKS) {
+    const hookCommand = `node ${runtimeDir}/hooks/${hookDef.filename}`;
+
+    // Ensure event array exists
+    if (!settings.hooks[hookDef.event]) {
+      settings.hooks[hookDef.event] = [];
+    }
+
+    // Check if hook already exists (by command string match)
+    const hookExists = settings.hooks[hookDef.event]!.some((h) => h.command === hookCommand);
+
+    if (!hookExists) {
+      // Define our hook (Gemini format: flat object with name)
+      const newHook: GeminiHook = {
+        name: hookDef.name,
+        type: 'command',
+        command: hookCommand,
+      };
+      settings.hooks[hookDef.event]!.push(newHook);
+      addedAny = true;
+    }
   }
 
-  // Define our hook (Gemini format: flat object with name)
-  const newHook: GeminiHook = {
-    name: 'are-session-end',
-    type: 'command',
-    command: hookCommand,
-  };
-
-  // Check if hook already exists (by command string match)
-  const hookExists = settings.hooks.SessionEnd.some((h) => h.command === hookCommand);
-
-  if (hookExists) {
+  if (!addedAny) {
     return false;
   }
-
-  // Add the hook
-  settings.hooks.SessionEnd.push(newHook);
 
   // Write settings if not dry run
   if (!dryRun) {
