@@ -14,7 +14,6 @@ import {
   getClaudeTemplates,
   getOpenCodeTemplates,
   getGeminiTemplates,
-  getHookTemplate,
 } from '../integration/templates.js';
 
 /**
@@ -37,6 +36,37 @@ function ensureDir(filePath: string): void {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
+}
+
+/**
+ * Get the path to a bundled hook file
+ *
+ * Hooks are bundled in hooks/dist/ during npm prepublishOnly.
+ *
+ * @param hookName - Name of the hook file (e.g., 'are-session-end.js')
+ * @returns Absolute path to the bundled hook file
+ */
+function getBundledHookPath(hookName: string): string {
+  // Navigate from dist/installer/operations.js to hooks/dist/
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  // From dist/installer/ go up two levels to project root, then to hooks/dist/
+  return path.join(__dirname, '..', '..', 'hooks', 'dist', hookName);
+}
+
+/**
+ * Read bundled hook content
+ *
+ * @param hookName - Name of the hook file
+ * @returns Hook file content as string
+ * @throws Error if hook file not found
+ */
+function readBundledHook(hookName: string): string {
+  const hookPath = getBundledHookPath(hookName);
+  if (!existsSync(hookPath)) {
+    throw new Error(`Bundled hook not found: ${hookPath}`);
+  }
+  return readFileSync(hookPath, 'utf-8');
 }
 
 /**
@@ -133,7 +163,8 @@ function installFilesForRuntime(
       if (!options.dryRun) {
         try {
           ensureDir(hookPath);
-          writeFileSync(hookPath, getHookTemplate(), 'utf-8');
+          const hookContent = readBundledHook('are-session-end.js');
+          writeFileSync(hookPath, hookContent, 'utf-8');
         } catch (err) {
           errors.push(`Failed to write hook ${hookPath}: ${err}`);
         }

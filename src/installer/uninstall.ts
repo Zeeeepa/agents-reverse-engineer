@@ -13,7 +13,6 @@ import {
   getClaudeTemplates,
   getOpenCodeTemplates,
   getGeminiTemplates,
-  getHookTemplate,
 } from '../integration/templates.js';
 
 /**

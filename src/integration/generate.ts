@@ -5,16 +5,44 @@
  * Handles file creation with directory creation and skip-if-exists behavior.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { IntegrationResult, EnvironmentType } from './types.js';
 import { detectEnvironments } from './detect.js';
 import {
   getClaudeTemplates,
   getOpenCodeTemplates,
   getGeminiTemplates,
-  getHookTemplate,
 } from './templates.js';
+
+/**
+ * Get the path to a bundled hook file
+ *
+ * @param hookName - Name of the hook file (e.g., 'are-session-end.js')
+ * @returns Absolute path to the bundled hook file
+ */
+function getBundledHookPath(hookName: string): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  // From dist/integration/ go up two levels to project root, then to hooks/dist/
+  return path.join(__dirname, '..', '..', 'hooks', 'dist', hookName);
+}
+
+/**
+ * Read bundled hook content
+ *
+ * @param hookName - Name of the hook file
+ * @returns Hook file content as string
+ * @throws Error if hook file not found
+ */
+function readBundledHook(hookName: string): string {
+  const hookPath = getBundledHookPath(hookName);
+  if (!existsSync(hookPath)) {
+    throw new Error(`Bundled hook not found: ${hookPath}`);
+  }
+  return readFileSync(hookPath, 'utf-8');
+}
 
 /**
  * Options for generating integration files
@@ -110,7 +138,7 @@ export async function generateIntegrationFiles(
 
     // For Claude, also generate the hook file
     if (env.type === 'claude') {
-      const hookPath = '.claude/hooks/ar-session-end.js';
+      const hookPath = '.claude/hooks/are-session-end.js';
       const fullHookPath = path.join(projectRoot, hookPath);
 
       if (existsSync(fullHookPath) && !force) {
@@ -118,7 +146,8 @@ export async function generateIntegrationFiles(
       } else {
         if (!dryRun) {
           ensureDir(fullHookPath);
-          writeFileSync(fullHookPath, getHookTemplate(), 'utf-8');
+          const hookContent = readBundledHook('are-session-end.js');
+          writeFileSync(fullHookPath, hookContent, 'utf-8');
         }
         result.filesCreated.push(hookPath);
       }

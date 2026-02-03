@@ -9,6 +9,8 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:hooks": "node scripts/build-hooks.js",
+    "prepublishOnly": "npm run build && npm run build:hooks",
     "dev": "tsx watch src/cli/index.ts",
     "test": "vitest"
   },
@@ -46,6 +48,7 @@
   "main": "dist/cli/index.js",
   "files": [
     "dist",
+    "hooks/dist",
     "README.md",
     "LICENSE"
   ],
