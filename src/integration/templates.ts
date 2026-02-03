@@ -105,8 +105,17 @@ For each directory (in post-order):
 Generate root documents:
 
 1. **CLAUDE.md** - Synthesize all AGENTS.md into project overview
-2. **ARCHITECTURE.md** - Document system architecture
-3. **STACK.md** - Document technology stack from package.json
+2. **ARCHITECTURE.md** - Document system architecture (if 20+ source files)
+
+Generate per-package documents (at each directory containing package.json, requirements.txt, Cargo.toml, etc.):
+
+1. **STACK.md** - Technology stack from manifest file
+2. **STRUCTURE.md** - Codebase structure and organization
+3. **CONVENTIONS.md** - Coding conventions and patterns
+4. **TESTING.md** - Test setup and patterns
+5. **INTEGRATIONS.md** - External services and APIs
+
+In monorepos, these appear in each package directory (e.g., \`packages/api/STACK.md\`).
 
 ## Completion
 
@@ -235,42 +244,289 @@ Suggest running \`/are:discover --plan\` to start fresh.
     description: 'Show available ARE commands and usage guide',
     argumentHint: '',
     // Content uses COMMAND_PREFIX placeholder, replaced per platform
-    content: `Show help for agents-reverse-engineer commands.
+    content: `<objective>
+Display the complete ARE command reference.
 
-<execution>
-Display the following help information:
+Output ONLY the reference content below. Do NOT add:
+- Project-specific analysis
+- Git status or file context
+- Next-step suggestions
+- Any commentary beyond the reference
+</objective>
 
-## agents-reverse-engineer (ARE) Commands
+<reference>
+# agents-reverse-engineer (ARE) Command Reference
 
-| Command | Description |
-|---------|-------------|
-| \`COMMAND_PREFIXhelp\` | Show this help message |
-| \`COMMAND_PREFIXinit\` | Initialize configuration file |
-| \`COMMAND_PREFIXdiscover\` | Discover files (use --plan for GENERATION-PLAN.md) |
-| \`COMMAND_PREFIXgenerate\` | Generate documentation from the plan |
-| \`COMMAND_PREFIXupdate\` | Update docs for changed files only |
-| \`COMMAND_PREFIXclean\` | Remove all generated documentation |
+**ARE** generates AI-friendly documentation for codebases, creating structured summaries optimized for AI assistants.
 
-## Typical Workflow
+## Quick Start
 
-1. **\`COMMAND_PREFIXinit\`** — Create \`.agents-reverse-engineer/config.yaml\`
-2. **\`COMMAND_PREFIXdiscover --plan\`** — Scan codebase, create \`GENERATION-PLAN.md\`
-3. **\`COMMAND_PREFIXgenerate\`** — Execute plan, generate \`.sum\` and \`AGENTS.md\` files
-4. **\`COMMAND_PREFIXupdate\`** — After code changes, update only what changed
+1. \`COMMAND_PREFIXinit\` — Create configuration file
+2. \`COMMAND_PREFIXdiscover --plan\` — Scan codebase, create execution plan
+3. \`COMMAND_PREFIXgenerate\` — Generate documentation from the plan
+4. \`COMMAND_PREFIXupdate\` — Keep docs in sync after code changes
+
+## Commands Reference
+
+### \`COMMAND_PREFIXinit\`
+Initialize configuration in this project.
+
+Creates \`.agents-reverse-engineer/config.yaml\` with customizable settings.
+
+**Usage:** \`COMMAND_PREFIXinit\`
+**CLI:** \`npx are init\`
+
+---
+
+### \`COMMAND_PREFIXdiscover\`
+Discover files that would be analyzed for documentation.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| \`[path]\` | Target directory (default: current directory) |
+| \`--plan\` | Generate \`GENERATION-PLAN.md\` execution plan |
+| \`--show-excluded\` | List excluded files with reasons |
+| \`--quiet, -q\` | Suppress output except errors |
+
+**Usage:**
+- \`COMMAND_PREFIXdiscover\` — List discoverable files
+- \`COMMAND_PREFIXdiscover --plan\` — Create execution plan for generate
+- \`COMMAND_PREFIXdiscover --show-excluded\` — Debug exclusion rules
+
+**CLI:**
+\`\`\`bash
+npx are discover
+npx are discover --plan
+npx are discover ./src --show-excluded
+\`\`\`
+
+---
+
+### \`COMMAND_PREFIXgenerate\`
+Generate comprehensive documentation for the codebase.
+
+**Requires:** Run \`COMMAND_PREFIXdiscover --plan\` first to create \`GENERATION-PLAN.md\`.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| \`--budget N\` | Override token budget (default: from config) |
+| \`--dry-run\` | Show what would be generated without writing |
+| \`--execute\` | Output JSON execution plan for AI agents |
+| \`--stream\` | Output tasks as streaming JSON, one per line |
+| \`--verbose, -v\` | Show detailed task breakdown |
+| \`--quiet, -q\` | Suppress output except errors |
+
+**Usage:**
+- \`COMMAND_PREFIXgenerate\` — Generate docs (resumes from plan)
+- \`COMMAND_PREFIXgenerate --dry-run\` — Preview without writing
+
+**CLI:**
+\`\`\`bash
+npx are generate
+npx are generate --dry-run
+npx are generate --budget 50000
+npx are generate --execute  # For programmatic use
+\`\`\`
+
+**How it works:**
+1. Reads \`GENERATION-PLAN.md\` and finds unchecked tasks
+2. Spawns parallel subagents to analyze each file
+3. Writes \`.sum\` summary files alongside source files
+4. Generates \`AGENTS.md\` for each directory (post-order)
+5. Creates root documents: \`CLAUDE.md\`, \`ARCHITECTURE.md\`
+6. Creates per-package documents at each manifest location: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`
+
+---
+
+### \`COMMAND_PREFIXupdate\`
+Incrementally update documentation for changed files.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| \`--uncommitted\` | Include staged but uncommitted changes |
+| \`--dry-run\` | Show what would be updated without writing |
+| \`--budget N\` | Override token budget |
+| \`--verbose, -v\` | Show detailed output |
+| \`--quiet, -q\` | Suppress output except errors |
+
+**Usage:**
+- \`COMMAND_PREFIXupdate\` — Update docs for committed changes
+- \`COMMAND_PREFIXupdate --uncommitted\` — Include uncommitted changes
+
+**CLI:**
+\`\`\`bash
+npx are update
+npx are update --uncommitted --verbose
+npx are update --dry-run
+\`\`\`
+
+---
+
+### \`COMMAND_PREFIXclean\`
+Remove all generated documentation artifacts.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| \`--dry-run\` | Show what would be deleted without deleting |
+
+**What gets deleted:**
+- \`.agents-reverse-engineer/GENERATION-PLAN.md\`
+- All \`*.sum\` files
+- All \`AGENTS.md\` files
+- Root docs: \`CLAUDE.md\`, \`ARCHITECTURE.md\`
+- Per-package docs: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`
+
+**Usage:**
+- \`COMMAND_PREFIXclean --dry-run\` — Preview deletions
+- \`COMMAND_PREFIXclean\` — Delete all artifacts
+
+---
+
+### \`COMMAND_PREFIXhelp\`
+Show this command reference.
+
+## CLI Installation
+
+Install ARE commands to your AI assistant:
+
+\`\`\`bash
+npx agents-reverse-engineer install              # Interactive mode
+npx agents-reverse-engineer install --runtime claude -g  # Global Claude
+npx agents-reverse-engineer install --runtime claude -l  # Local project
+npx agents-reverse-engineer install --runtime all -g     # All runtimes
+\`\`\`
+
+**Install/Uninstall Options:**
+| Flag | Description |
+|------|-------------|
+| \`--runtime <name>\` | Target: \`claude\`, \`opencode\`, \`gemini\`, \`all\` |
+| \`-g, --global\` | Install to global config directory |
+| \`-l, --local\` | Install to current project directory |
+| \`--force\` | Overwrite existing files (install only) |
+
+## Configuration
+
+**File:** \`.agents-reverse-engineer/config.yaml\`
+
+\`\`\`yaml
+# Exclusion patterns
+exclude:
+  patterns:
+    - "**/*.test.ts"
+    - "**/__mocks__/**"
+  vendorDirs:
+    - node_modules
+    - dist
+    - .git
+  binaryExtensions:
+    - .png
+    - .jpg
+    - .pdf
+
+# Options
+options:
+  followSymlinks: false
+  maxFileSize: 100000
+
+# Output settings
+output:
+  verbose: false
+  colors: true
+
+# Generation settings
+generation:
+  tokenBudget: 50000
+\`\`\`
 
 ## Generated Files
 
-- \`*.sum\` — Per-file summaries (purpose, exports, dependencies)
-- \`AGENTS.md\` — Per-directory overviews
-- \`CLAUDE.md\` — Project entry point
-- \`ARCHITECTURE.md\` — System design overview
-- \`STACK.md\` — Technology stack
+### Per Source File
 
-## More Info
+**\`*.sum\`** — File summaries with YAML frontmatter + detailed prose.
 
-- Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer
-- Update: \`npx agents-reverse-engineer@latest\`
-</execution>`,
+\`\`\`yaml
+---
+file_type: service
+generated_at: 2025-01-15T10:30:00Z
+content_hash: abc123...
+purpose: Handles user authentication and session management
+public_interface: [login(), logout(), refreshToken(), AuthService]
+dependencies: [express, jsonwebtoken, ./user-model]
+patterns: [singleton, factory, observer]
+related_files: [./types.ts, ./middleware.ts]
+---
+
+<300-500 word summary covering implementation, patterns, edge cases>
+\`\`\`
+
+### Per Directory
+
+**\`AGENTS.md\`** — Directory overview synthesized from \`.sum\` files. Groups files by purpose and links to subdirectories.
+
+### Root Documents
+
+| File | Purpose |
+|------|---------|
+| \`CLAUDE.md\` | Project entry point — synthesizes all AGENTS.md |
+| \`ARCHITECTURE.md\` | System design, layers, data flow (if 20+ files) |
+
+### Per-Package Documents (at each manifest file location)
+
+Generated alongside \`package.json\`, \`requirements.txt\`, \`Cargo.toml\`, etc.:
+
+| File | Purpose |
+|------|---------|
+| \`STACK.md\` | Technology stack from manifest |
+| \`STRUCTURE.md\` | Codebase structure and organization |
+| \`CONVENTIONS.md\` | Coding conventions and patterns |
+| \`TESTING.md\` | Test setup and patterns |
+| \`INTEGRATIONS.md\` | External services and APIs |
+
+In monorepos, these appear in each package directory (e.g., \`packages/api/STACK.md\`).
+
+## Common Workflows
+
+**Initial documentation:**
+\`\`\`
+COMMAND_PREFIXinit
+COMMAND_PREFIXdiscover --plan
+COMMAND_PREFIXgenerate
+\`\`\`
+
+**After code changes:**
+\`\`\`
+COMMAND_PREFIXupdate
+\`\`\`
+
+**Full regeneration:**
+\`\`\`
+COMMAND_PREFIXclean
+COMMAND_PREFIXdiscover --plan
+COMMAND_PREFIXgenerate
+\`\`\`
+
+**Preview before generating:**
+\`\`\`
+COMMAND_PREFIXdiscover --show-excluded  # Check exclusions
+COMMAND_PREFIXgenerate --dry-run         # Preview generation
+\`\`\`
+
+## Tips
+
+- **Resume generation**: If interrupted, run \`COMMAND_PREFIXgenerate\` again — it resumes from unchecked tasks in \`GENERATION-PLAN.md\`
+- **Large codebases**: Use \`--budget N\` to limit token usage per run
+- **Custom exclusions**: Edit \`.agents-reverse-engineer/config.yaml\` to skip files
+- **Hook auto-update**: Install creates a session-end hook that auto-runs update
+
+## Resources
+
+- **Repository:** https://github.com/GeoloeG-IsT/agents-reverse-engineer
+- **Update:** \`npx agents-reverse-engineer@latest install --force\`
+</reference>`,
   },
 } as const;
 
@@ -401,14 +657,15 @@ export function getGeminiTemplates(): IntegrationTemplate[] {
 
 /**
  * Get session-end hook template for automatic documentation updates
+ * Uses ES module syntax for compatibility with ESM projects
  */
 export function getHookTemplate(): string {
   return `#!/usr/bin/env node
 // .claude/hooks/are-session-end.js
 // Triggers are update when session ends (if there are uncommitted changes)
 
-const { execSync, spawn } = require('child_process');
-const fs = require('fs');
+import { execSync, spawn } from 'child_process';
+import { existsSync, readFileSync } from 'fs';
 
 // Check for disable flag
 if (process.env.ARE_DISABLE_HOOK === '1') {
@@ -417,8 +674,8 @@ if (process.env.ARE_DISABLE_HOOK === '1') {
 
 // Check config file for permanent disable
 const configPath = '.agents-reverse-engineer.yaml';
-if (fs.existsSync(configPath)) {
-  const config = fs.readFileSync(configPath, 'utf-8');
+if (existsSync(configPath)) {
+  const config = readFileSync(configPath, 'utf-8');
   if (config.includes('hook_enabled: false')) {
     process.exit(0);
   }
