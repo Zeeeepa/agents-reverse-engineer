@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-02-03
+
+### Changed
+- Enhanced `/are:help` command with comprehensive documentation including all options, workflows, and generated file details
+- Updated generate skill to document per-package files (`STACK.md`, `STRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md`) at manifest locations
+
 ## [0.3.2] - 2026-02-02
 
 ### Changed
@@ -178,7 +184,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.2.12...v0.3.0
