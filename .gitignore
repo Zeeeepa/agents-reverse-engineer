@@ -24,7 +24,14 @@ coverage/
 *.log
 npm-debug.log*
 
+# AI assistant
+.claude/
+.gemini/
+.opencode/
+
 # agents-reverse-engineer
 .agents-reverse-engineer/
 *.sum
+
+
 
