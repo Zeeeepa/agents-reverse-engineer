@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-02-03
+
+### Fixed
+- Gemini CLI commands now use TOML format (`.toml` files) instead of markdown, matching Gemini CLI's expected format
+- Gemini commands now installed to `.gemini/commands/are/{cmd}.toml` for proper `/are:*` namespace
+
+### Changed
+- Uninstall now cleans up legacy Gemini markdown files from previous installations
+
 ## [0.3.5] - 2026-02-03
 
 ### Changed
@@ -196,7 +205,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.2...v0.3.3
