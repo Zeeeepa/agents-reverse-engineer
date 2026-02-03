@@ -23,27 +23,3 @@ export function isWithinLimit(content: string, limit: number): boolean {
   // checkLimit returns token count if within limit, false if exceeded
   return checkLimit(content, limit) !== false;
 }
-
-/**
- * Estimate prompt overhead for a given file type.
- * Includes template tokens + system prompt portion.
- *
- * @param fileType - Type of file being summarized
- * @returns Estimated overhead in tokens
- */
-export function estimatePromptOverhead(fileType: string): number {
-  // Base overhead for all prompts (system instructions, formatting)
-  const BASE_OVERHEAD = 500;
-
-  // Additional overhead by file type (templates vary in size)
-  const TYPE_OVERHEAD: Record<string, number> = {
-    component: 200,
-    service: 150,
-    api: 180,
-    model: 120,
-    schema: 100,
-    generic: 100,
-  };
-
-  return BASE_OVERHEAD + (TYPE_OVERHEAD[fileType] ?? 100);
-}
