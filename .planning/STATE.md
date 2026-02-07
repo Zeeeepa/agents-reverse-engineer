@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 9 (AI Service Foundation)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 06-01-PLAN.md
+Last activity: 2026-02-07 -- Completed 06-02-PLAN.md
 
-Progress: [███░░░░░░░░░░░░░░░░░░░░░] 8% (v2.0 -- 1/12 plans)
+Progress: [██████░░░░░░░░░░░░░░░░░░] 17% (v2.0 -- 2/12 plans)
 
-**Next:** Execute 06-02-PLAN.md (Backend adapters)
+**Next:** Execute 06-03-PLAN.md (AI service orchestrator, telemetry, index)
 
 ## Performance Metrics
 
@@ -40,7 +40,7 @@ Progress: [███░░░░░░░░░░░░░░░░░░░░
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 6. AI Service Foundation | 1/3 | 3 min | 3 min |
+| 6. AI Service Foundation | 2/3 | 5 min | 3 min |
 
 ## Accumulated Context
 
@@ -55,6 +55,8 @@ v2.0 decisions:
 - runSubprocess always resolves -- callers decide how to handle errors via SubprocessResult fields
 - AIServiceError uses string literal union codes for typed error branching
 - DEFAULT_RETRY_OPTIONS omits isRetryable/onRetry since those are caller-specific
+- isCommandOnPath exported from claude.ts for reuse by stub backends (avoids premature utility module)
+- resolveBackend is the single entry point for all backend selection (auto and explicit)
 
 ### Pending Todos
 
@@ -67,5 +69,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 06-01-PLAN.md
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
