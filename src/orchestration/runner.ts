@@ -6,21 +6,21 @@
  *
  * The three execution phases match the {@link ExecutionPlan} dependency graph:
  * 1. **File analysis** -- concurrent AI calls with configurable parallelism
- * 2. **Directory docs** -- sequential, post-order AGENTS.md generation
+ * 2. **Directory docs** -- concurrent per depth level, post-order AGENTS.md generation
  * 3. **Root documents** -- sequential AI calls for CLAUDE.md, ARCHITECTURE.md, etc.
  *
  * @module
  */
 
 import * as path from 'node:path';
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import type { AIService } from '../ai/index.js';
 import type { AIResponse } from '../ai/types.js';
 import type { ExecutionPlan, ExecutionTask } from '../generation/executor.js';
 import { writeSumFile, readSumFile } from '../generation/writers/sum.js';
 import type { SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
-import { computeContentHash } from '../change-detection/index.js';
+import { computeContentHashFromString } from '../change-detection/index.js';
 import type { FileChange } from '../change-detection/types.js';
 import { detectFileType } from '../generation/detection/detector.js';
 import { buildPrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
@@ -116,20 +116,25 @@ export class CommandRunner {
     // -------------------------------------------------------------------
 
     const oldSumCache = new Map<string, SumFileContent>();
-    for (const task of plan.fileTasks) {
-      try {
-        const existing = await readSumFile(`${task.absolutePath}.sum`);
-        if (existing) {
-          oldSumCache.set(task.path, existing);
+    await Promise.all(
+      plan.fileTasks.map(async (task) => {
+        try {
+          const existing = await readSumFile(`${task.absolutePath}.sum`);
+          if (existing) {
+            oldSumCache.set(task.path, existing);
+          }
+        } catch {
+          // No old .sum to compare -- skip
         }
-      } catch {
-        // No old .sum to compare -- skip
-      }
-    }
+      }),
+    );
 
     // -------------------------------------------------------------------
     // Phase 1: File analysis (concurrent)
     // -------------------------------------------------------------------
+
+    // Cache source content during Phase 1, reused for inconsistency detection
+    const sourceContentCache = new Map<string, string>();
 
     const fileTasks = plan.fileTasks.map(
       (task: ExecutionTask, taskIndex: number) => async (): Promise<FileTaskResult> => {
@@ -139,6 +144,7 @@ export class CommandRunner {
 
         // Read the source file
         const sourceContent = await readFile(task.absolutePath, 'utf-8');
+        sourceContentCache.set(task.path, sourceContent);
 
         // Call AI with the task's prompts
         const response: AIResponse = await this.aiService.call({
@@ -146,15 +152,14 @@ export class CommandRunner {
           systemPrompt: task.systemPrompt,
         });
 
-        // Track file size for telemetry
-        const fileStat = await stat(task.absolutePath);
+        // Track file size for telemetry (from in-memory content, avoids stat syscall)
         this.aiService.addFilesReadToLastEntry([{
           path: task.path,
-          sizeBytes: fileStat.size,
+          sizeBytes: Buffer.byteLength(sourceContent, 'utf-8'),
         }]);
 
-        // Compute content hash for change detection
-        const contentHash = await computeContentHash(task.absolutePath);
+        // Compute content hash from already-loaded content (avoids second readFile)
+        const contentHash = computeContentHashFromString(sourceContent);
 
         // Build .sum file content
         const sumContent: SumFileContent = {
@@ -239,49 +244,67 @@ export class CommandRunner {
         }
       }
 
-      // Run checks per directory group
-      for (const [, groupPaths] of dirGroups) {
-        const filesForCodeVsCode: Array<{ path: string; content: string }> = [];
+      // Run checks per directory group (parallelized across groups)
+      const dirCheckResults = await Promise.all(
+        Array.from(dirGroups.entries()).map(async ([, groupPaths]) => {
+          const dirIssues: Inconsistency[] = [];
+          const filesForCodeVsCode: Array<{ path: string; content: string }> = [];
 
-        for (const filePath of groupPaths) {
-          const absoluteFilePath = `${plan.projectRoot}/${filePath}`;
-          let sourceContent: string;
-          try {
-            sourceContent = await readFile(absoluteFilePath, 'utf-8');
-          } catch {
-            continue; // File unreadable, skip
-          }
+          // Read .sum files in parallel within this group
+          await Promise.all(
+            groupPaths.map(async (filePath) => {
+              const absoluteFilePath = `${plan.projectRoot}/${filePath}`;
 
-          filesForCodeVsCode.push({ path: filePath, content: sourceContent });
-
-          // Old-doc check: detects stale documentation
-          const oldSum = oldSumCache.get(filePath);
-          if (oldSum) {
-            const oldIssue = checkCodeVsDoc(sourceContent, oldSum, filePath);
-            if (oldIssue) {
-              oldIssue.description += ' (stale documentation)';
-              allIssues.push(oldIssue);
-            }
-          }
-
-          // New-doc check: detects LLM omissions in freshly generated .sum
-          try {
-            const newSum = await readSumFile(`${absoluteFilePath}.sum`);
-            if (newSum) {
-              const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
-              if (newIssue) {
-                allIssues.push(newIssue);
+              // Use cached content from Phase 1 (avoids re-read)
+              let sourceContent = sourceContentCache.get(filePath);
+              if (!sourceContent) {
+                try {
+                  sourceContent = await readFile(absoluteFilePath, 'utf-8');
+                } catch {
+                  return; // File unreadable, skip
+                }
               }
-            }
-          } catch {
-            // Freshly written .sum unreadable -- skip
-          }
-        }
 
-        // Code-vs-code check scoped to this directory group
-        const codeIssues = checkCodeVsCode(filesForCodeVsCode);
-        allIssues.push(...codeIssues);
-      }
+              filesForCodeVsCode.push({ path: filePath, content: sourceContent });
+
+              // Old-doc check: detects stale documentation
+              const oldSum = oldSumCache.get(filePath);
+              if (oldSum) {
+                const oldIssue = checkCodeVsDoc(sourceContent, oldSum, filePath);
+                if (oldIssue) {
+                  oldIssue.description += ' (stale documentation)';
+                  dirIssues.push(oldIssue);
+                }
+              }
+
+              // New-doc check: detects LLM omissions in freshly generated .sum
+              try {
+                const newSum = await readSumFile(`${absoluteFilePath}.sum`);
+                if (newSum) {
+                  const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
+                  if (newIssue) {
+                    dirIssues.push(newIssue);
+                  }
+                }
+              } catch {
+                // Freshly written .sum unreadable -- skip
+              }
+            }),
+          );
+
+          // Code-vs-code check scoped to this directory group
+          const codeIssues = checkCodeVsCode(filesForCodeVsCode);
+          dirIssues.push(...codeIssues);
+
+          return dirIssues;
+        }),
+      );
+
+      const allIssuesFlat = dirCheckResults.flat();
+      allIssues.push(...allIssuesFlat);
+
+      // Release cached source content to free memory
+      sourceContentCache.clear();
 
       if (allIssues.length > 0) {
         const report = buildInconsistencyReport(allIssues, {
@@ -302,18 +325,45 @@ export class CommandRunner {
     }
 
     // -------------------------------------------------------------------
-    // Phase 2: Directory docs (sequential, post-order)
+    // Phase 2: Directory docs (concurrent per depth level, post-order)
     // -------------------------------------------------------------------
 
+    // Group directory tasks by depth so same-depth dirs run in parallel
+    // while maintaining post-order (children before parents)
+    const dirsByDepth = new Map<number, typeof plan.directoryTasks>();
     for (const dirTask of plan.directoryTasks) {
-      const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot);
-      const dirResponse: AIResponse = await this.aiService.call({
-        prompt: prompt.user,
-        systemPrompt: prompt.system,
+      const depth = (dirTask.metadata.depth as number) ?? 0;
+      const group = dirsByDepth.get(depth);
+      if (group) {
+        group.push(dirTask);
+      } else {
+        dirsByDepth.set(depth, [dirTask]);
+      }
+    }
+
+    // Process depth levels in descending order (deepest first = post-order)
+    const depthLevels = Array.from(dirsByDepth.keys()).sort((a, b) => b - a);
+
+    for (const depth of depthLevels) {
+      const dirsAtDepth = dirsByDepth.get(depth)!;
+
+      const dirTasks = dirsAtDepth.map(
+        (dirTask) => async () => {
+          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot);
+          const dirResponse: AIResponse = await this.aiService.call({
+            prompt: prompt.user,
+            systemPrompt: prompt.system,
+          });
+          await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
+          reporter.onDirectoryDone(dirTask.path);
+          planTracker.markDone(`${dirTask.path}/AGENTS.md`);
+        },
+      );
+
+      await runPool(dirTasks, {
+        concurrency: Math.min(this.options.concurrency, dirsAtDepth.length),
+        failFast: this.options.failFast,
       });
-      await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
-      reporter.onDirectoryDone(dirTask.path);
-      planTracker.markDone(`${dirTask.path}/AGENTS.md`);
     }
 
     // -------------------------------------------------------------------
@@ -391,6 +441,9 @@ export class CommandRunner {
     let filesProcessed = 0;
     let filesFailed = 0;
 
+    // Cache source content during update, reused for inconsistency detection
+    const updateSourceCache = new Map<string, string>();
+
     const updateTasks = filesToAnalyze.map(
       (file: FileChange, fileIndex: number) => async (): Promise<FileTaskResult> => {
         reporter.onFileStart(file.path);
@@ -400,6 +453,7 @@ export class CommandRunner {
 
         // Read the source file
         const sourceContent = await readFile(absolutePath, 'utf-8');
+        updateSourceCache.set(file.path, sourceContent);
 
         // Detect file type and build prompt
         const fileType = detectFileType(file.path, sourceContent);
@@ -415,15 +469,14 @@ export class CommandRunner {
           systemPrompt: prompt.system,
         });
 
-        // Track file size for telemetry
-        const fileStat = await stat(absolutePath);
+        // Track file size for telemetry (from in-memory content, avoids stat syscall)
         this.aiService.addFilesReadToLastEntry([{
           path: file.path,
-          sizeBytes: fileStat.size,
+          sizeBytes: Buffer.byteLength(sourceContent, 'utf-8'),
         }]);
 
-        // Compute content hash for change detection
-        const contentHash = await computeContentHash(absolutePath);
+        // Compute content hash from already-loaded content (avoids second readFile)
+        const contentHash = computeContentHashFromString(sourceContent);
 
         // Build .sum file content
         const sumContent: SumFileContent = {
@@ -507,39 +560,56 @@ export class CommandRunner {
         }
       }
 
-      // Run checks per directory group
-      for (const [, groupPaths] of dirGroups) {
-        const filesForCodeVsCode: Array<{ path: string; content: string }> = [];
+      // Run checks per directory group (parallelized across groups)
+      const updateDirResults = await Promise.all(
+        Array.from(dirGroups.entries()).map(async ([, groupPaths]) => {
+          const dirIssues: Inconsistency[] = [];
+          const filesForCodeVsCode: Array<{ path: string; content: string }> = [];
 
-        for (const filePath of groupPaths) {
-          const absoluteFilePath = `${projectRoot}/${filePath}`;
-          let sourceContent: string;
-          try {
-            sourceContent = await readFile(absoluteFilePath, 'utf-8');
-          } catch {
-            continue;
-          }
+          await Promise.all(
+            groupPaths.map(async (filePath) => {
+              const absoluteFilePath = `${projectRoot}/${filePath}`;
 
-          filesForCodeVsCode.push({ path: filePath, content: sourceContent });
-
-          // New-doc check: detects LLM omissions in freshly generated .sum
-          try {
-            const newSum = await readSumFile(`${absoluteFilePath}.sum`);
-            if (newSum) {
-              const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
-              if (newIssue) {
-                allIssues.push(newIssue);
+              // Use cached content from update phase (avoids re-read)
+              let sourceContent = updateSourceCache.get(filePath);
+              if (!sourceContent) {
+                try {
+                  sourceContent = await readFile(absoluteFilePath, 'utf-8');
+                } catch {
+                  return;
+                }
               }
-            }
-          } catch {
-            // .sum unreadable -- skip
-          }
-        }
 
-        // Code-vs-code check scoped to this directory group
-        const codeIssues = checkCodeVsCode(filesForCodeVsCode);
-        allIssues.push(...codeIssues);
-      }
+              filesForCodeVsCode.push({ path: filePath, content: sourceContent });
+
+              // New-doc check: detects LLM omissions in freshly generated .sum
+              try {
+                const newSum = await readSumFile(`${absoluteFilePath}.sum`);
+                if (newSum) {
+                  const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
+                  if (newIssue) {
+                    dirIssues.push(newIssue);
+                  }
+                }
+              } catch {
+                // .sum unreadable -- skip
+              }
+            }),
+          );
+
+          // Code-vs-code check scoped to this directory group
+          const codeIssues = checkCodeVsCode(filesForCodeVsCode);
+          dirIssues.push(...codeIssues);
+
+          return dirIssues;
+        }),
+      );
+
+      const allIssuesFlat = updateDirResults.flat();
+      allIssues.push(...allIssuesFlat);
+
+      // Release cached source content to free memory
+      updateSourceCache.clear();
 
       if (allIssues.length > 0) {
         const report = buildInconsistencyReport(allIssues, {

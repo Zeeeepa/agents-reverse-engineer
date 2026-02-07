@@ -127,3 +127,16 @@ export async function computeContentHash(filePath: string): Promise<string> {
   const content = await readFile(filePath);
   return createHash('sha256').update(content).digest('hex');
 }
+
+/**
+ * Compute SHA-256 hash from an already-loaded string.
+ *
+ * Use this when the file content is already in memory to avoid
+ * a redundant disk read.
+ *
+ * @param content - The file content as a string
+ * @returns Hex-encoded SHA-256 hash
+ */
+export function computeContentHashFromString(content: string): string {
+  return createHash('sha256').update(content).digest('hex');
+}

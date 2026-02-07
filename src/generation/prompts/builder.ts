@@ -190,35 +190,40 @@ export async function buildDirectoryPrompt(
   const relativePath = path.relative(projectRoot, dirPath) || '.';
   const dirName = path.basename(dirPath) || 'root';
 
-  // Collect .sum file summaries
+  // Collect .sum file summaries and subdirectory sections in parallel
   const entries = await readdir(dirPath, { withFileTypes: true });
-  const fileSummaries: string[] = [];
-  const subdirSections: string[] = [];
 
-  for (const entry of entries) {
-    const entryPath = path.join(dirPath, entry.name);
+  const fileEntries = entries.filter(
+    (e) => e.isFile() && !e.name.endsWith('.sum') && !e.name.startsWith('.'),
+  );
+  const dirEntries = entries.filter((e) => e.isDirectory());
 
-    if (entry.isFile() && !entry.name.endsWith('.sum') && !entry.name.startsWith('.')) {
+  // Read all .sum files in parallel
+  const fileResults = await Promise.all(
+    fileEntries.map(async (entry) => {
+      const entryPath = path.join(dirPath, entry.name);
       const sumPath = getSumPath(entryPath);
       const sumContent = await readSumFile(sumPath);
       if (sumContent) {
-        fileSummaries.push(
-          `### ${entry.name}\n**Type:** ${sumContent.fileType}\n**Purpose:** ${sumContent.metadata.purpose}\n\n${sumContent.summary}`
-        );
+        return `### ${entry.name}\n**Type:** ${sumContent.fileType}\n**Purpose:** ${sumContent.metadata.purpose}\n\n${sumContent.summary}`;
       }
-    }
+      return null;
+    }),
+  );
+  const fileSummaries = fileResults.filter((r): r is string => r !== null);
 
-    if (entry.isDirectory()) {
-      // Read child AGENTS.md if it exists (post-order means it's already generated)
-      const childAgentsPath = path.join(entryPath, 'AGENTS.md');
+  // Read all child AGENTS.md in parallel
+  const subdirSections = await Promise.all(
+    dirEntries.map(async (entry) => {
+      const childAgentsPath = path.join(dirPath, entry.name, 'AGENTS.md');
       try {
         const childContent = await readFile(childAgentsPath, 'utf-8');
-        subdirSections.push(`### ${entry.name}/\n${childContent}`);
+        return `### ${entry.name}/\n${childContent}`;
       } catch {
-        subdirSections.push(`### ${entry.name}/\n(no AGENTS.md yet)`);
+        return `### ${entry.name}/\n(no AGENTS.md yet)`;
       }
-    }
-  }
+    }),
+  );
 
   // Check for user-defined AGENTS.local.md
   let localSection = '';

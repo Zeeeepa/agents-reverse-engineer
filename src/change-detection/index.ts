@@ -9,6 +9,7 @@ export {
   getCurrentCommit,
   getChangedFiles,
   computeContentHash,
+  computeContentHashFromString,
 } from './detector.js';
 
 export type {
