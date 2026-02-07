@@ -81,13 +81,7 @@ Run the agents-reverse-engineer init command:
 npx agents-reverse-engineer@latest init
 \`\`\`
 
-This creates \`.agents-reverse-engineer.yaml\` configuration file.
-
-To install commands and hooks, use the interactive installer:
-
-\`\`\`bash
-npx agents-reverse-engineer install
-\`\`\`
+This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 </execution>`,
   },
 

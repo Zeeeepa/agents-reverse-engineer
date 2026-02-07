@@ -71,7 +71,7 @@ The interactive installer prompts you to:
 
 This installs:
 
-- **Commands** — `/are:generate`, `/are:update`, `/are:init`, etc.
+- **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, etc.
 - **Session hook** — Auto-updates docs when session ends (Claude/Gemini)
 
 ### 2. Initialize Configuration
@@ -79,7 +79,7 @@ This installs:
 After installation, create the configuration file in your AI assistant:
 
 ```bash
-/are:init
+/are-init
 ```
 
 This creates `.agents-reverse-engineer/config.yaml` with default settings.
@@ -89,8 +89,8 @@ This creates `.agents-reverse-engineer/config.yaml` with default settings.
 In your AI assistant:
 
 ```
-/are:discover
-/are:generate
+/are-discover
+/are-generate
 ```
 
 The assistant creates the plan and generates all documentation.
@@ -112,7 +112,7 @@ npx agents-reverse-engineer@latest uninstall
 ```
 
 Removes:
-- Command files (`/are:*` commands)
+- Command files (`/are-*` commands)
 - Session hooks (Claude/Gemini)
 - ARE permissions from settings.json
 - `.agents-reverse-engineer` folder (local installs only)
@@ -144,7 +144,7 @@ Interactive installer installs commands and hooks for your chosen runtime(s).
 ### 2. Initialize Configuration
 
 ```
-/are:init
+/are-init
 ```
 
 Creates `.agents-reverse-engineer/config.yaml` with exclusion patterns and options.
@@ -154,7 +154,7 @@ Creates `.agents-reverse-engineer/config.yaml` with exclusion patterns and optio
 ### 3. Discover & Plan
 
 ```
-/are:discover
+/are-discover
 ```
 
 Scans your codebase (respecting `.gitignore`), detects file types, and creates `GENERATION-PLAN.md` with all files to analyze.
@@ -166,7 +166,7 @@ Uses **post-order traversal** — deepest directories first, so child documentat
 ### 4. Generate (in your AI assistant)
 
 ```
-/are:generate
+/are-generate
 ```
 
 Your AI assistant executes the plan:
@@ -180,7 +180,7 @@ Your AI assistant executes the plan:
 ### 5. Update Incrementally
 
 ```
-/are:update
+/are-update
 ```
 
 Only regenerates documentation for files that changed since last run.
@@ -210,11 +210,11 @@ Only regenerates documentation for files that changed since last run.
 
 | Command         | Description                    | Supported Runtimes       |
 | --------------- | ------------------------------ | ------------------------ |
-| `/are:init`     | Initialize config and commands | Claude, OpenCode, Gemini |
-| `/are:discover` | Rediscover and regenerate plan | Claude, OpenCode, Gemini |
-| `/are:generate` | Generate all documentation     | Claude, OpenCode, Gemini |
-| `/are:update`   | Update changed files only      | Claude, OpenCode, Gemini |
-| `/are:clean`    | Remove all generated docs      | Claude, OpenCode, Gemini |
+| `/are-init`     | Initialize config and commands | Claude, OpenCode, Gemini |
+| `/are-discover` | Rediscover and regenerate plan | Claude, OpenCode, Gemini |
+| `/are-generate` | Generate all documentation     | Claude, OpenCode, Gemini |
+| `/are-update`   | Update changed files only      | Claude, OpenCode, Gemini |
+| `/are-clean`    | Remove all generated docs      | Claude, OpenCode, Gemini |
 
 ---
 

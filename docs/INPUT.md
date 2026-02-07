@@ -36,6 +36,6 @@ Look at how they are approaching a brownfiled project, speical command and detai
 To use Agents Reverse Engineer, simply run the following command in your terminal:
 
 ```bash
-/are:generate
-/are:update
+/are-generate
+/are-update
 ```

@@ -61,9 +61,6 @@ export async function initCommand(root: string, options: InitOptions): Promise<v
       logger.info('  - exclude.patterns: Add custom glob patterns to exclude');
       logger.info('  - exclude.vendorDirs: Modify vendor directories list');
       logger.info('  - options.maxFileSize: Adjust large file threshold');
-      logger.info('');
-      logger.info('To install AI assistant commands, run:');
-      logger.info('  npx agents-reverse-engineer install');
     }
   } catch (err) {
     const error = err as NodeJS.ErrnoException;
