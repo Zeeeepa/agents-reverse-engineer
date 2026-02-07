@@ -8,13 +8,15 @@
  * @module
  */
 
-import type { AIBackend, AICallOptions, AIResponse, TelemetryEntry, RunLog } from './types.js';
+import type { AIBackend, AICallOptions, AIResponse, TelemetryEntry, RunLog, FileRead } from './types.js';
 import { AIServiceError } from './types.js';
 import { runSubprocess } from './subprocess.js';
 import { withRetry, DEFAULT_RETRY_OPTIONS } from './retry.js';
 import { TelemetryLogger } from './telemetry/logger.js';
 import { writeRunLog } from './telemetry/run-log.js';
 import { cleanupOldLogs } from './telemetry/cleanup.js';
+import { estimateCost } from './pricing.js';
+import type { ModelPricing } from './pricing.js';
 
 // ---------------------------------------------------------------------------
 // Rate-limit detection patterns
@@ -57,7 +59,11 @@ export interface AIServiceOptions {
   telemetry: {
     /** Number of most recent run logs to keep on disk */
     keepRuns: number;
+    /** Optional cost threshold in USD. Warn when exceeded. */
+    costThresholdUsd?: number;
   };
+  /** Custom pricing overrides from config */
+  pricingOverrides?: Record<string, ModelPricing>;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +198,15 @@ export class AIService {
         },
       );
 
+      // Compute cost via pricing engine
+      const costResult = estimateCost(
+        response.model,
+        response.inputTokens,
+        response.outputTokens,
+        response.costUsd > 0 ? response.costUsd : undefined,
+        this.options.pricingOverrides,
+      );
+
       // Record successful call
       this.logger.addEntry({
         timestamp,
@@ -203,10 +218,13 @@ export class AIService {
         outputTokens: response.outputTokens,
         cacheReadTokens: response.cacheReadTokens,
         cacheCreationTokens: response.cacheCreationTokens,
-        costUsd: response.costUsd,
+        costUsd: costResult.costUsd,
         latencyMs: response.durationMs,
         exitCode: response.exitCode,
         retryCount,
+        thinking: 'not supported',
+        filesRead: [],
+        costSource: costResult.source,
       });
 
       return response;
@@ -230,6 +248,9 @@ export class AIService {
         exitCode: 1,
         error: errorMessage,
         retryCount,
+        thinking: 'not supported',
+        filesRead: [],
+        costSource: 'unavailable' as const,
       });
 
       throw error;
@@ -250,6 +271,18 @@ export class AIService {
     const logPath = await writeRunLog(projectRoot, runLog);
     await cleanupOldLogs(projectRoot, this.options.telemetry.keepRuns);
     return { logPath, summary: runLog.summary };
+  }
+
+  /**
+   * Attach file-read metadata to the most recent telemetry entry.
+   *
+   * Called by the command runner after an AI call completes, to record
+   * which source files were sent as context for that call.
+   *
+   * @param filesRead - Array of file-read records (path + size)
+   */
+  addFilesReadToLastEntry(filesRead: FileRead[]): void {
+    this.logger.setFilesReadOnLastEntry(filesRead);
   }
 
   /**

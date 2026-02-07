@@ -8,7 +8,7 @@
  * @module
  */
 
-import type { TelemetryEntry, RunLog } from '../types.js';
+import type { TelemetryEntry, RunLog, FileRead } from '../types.js';
 
 /**
  * Accumulates per-call telemetry entries in memory and produces a
@@ -61,6 +61,19 @@ export class TelemetryLogger {
   }
 
   /**
+   * Update the most recent entry's filesRead array.
+   *
+   * Called by the AI service after the command runner attaches file
+   * metadata to the last call.
+   *
+   * @param filesRead - Array of file-read records to attach
+   */
+  setFilesReadOnLastEntry(filesRead: FileRead[]): void {
+    if (this.entries.length === 0) return;
+    this.entries[this.entries.length - 1]!.filesRead = filesRead;
+  }
+
+  /**
    * Compute aggregate summary statistics from all recorded entries.
    *
    * Totals are computed on every call (not cached) so the summary
@@ -74,6 +87,9 @@ export class TelemetryLogger {
     let totalCostUsd = 0;
     let totalDurationMs = 0;
     let errorCount = 0;
+    let costAvailable = false;
+    let totalFilesRead = 0;
+    const uniqueFilePaths = new Set<string>();
 
     for (const entry of this.entries) {
       totalInputTokens += entry.inputTokens;
@@ -82,6 +98,13 @@ export class TelemetryLogger {
       totalDurationMs += entry.latencyMs;
       if (entry.error !== undefined) {
         errorCount++;
+      }
+      if (entry.costSource !== 'unavailable') {
+        costAvailable = true;
+      }
+      totalFilesRead += entry.filesRead.length;
+      for (const file of entry.filesRead) {
+        uniqueFilePaths.add(file.path);
       }
     }
 
@@ -92,6 +115,9 @@ export class TelemetryLogger {
       totalCostUsd,
       totalDurationMs,
       errorCount,
+      costAvailable,
+      totalFilesRead,
+      uniqueFilesRead: uniqueFilePaths.size,
     };
   }
 
