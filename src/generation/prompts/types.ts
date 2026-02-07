@@ -37,7 +37,7 @@ export interface PromptContext {
  */
 export const SUMMARY_GUIDELINES = {
   /** Target word count range */
-  targetLength: { min: 300, max: 500 },
+  targetLength: { min: 200, max: 300 },
   /** What to include */
   include: [
     'Purpose and responsibility',

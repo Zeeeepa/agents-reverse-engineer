@@ -3,13 +3,37 @@ import type { PromptTemplate } from './types.js';
 
 const BASE_SYSTEM_PROMPT = `You are analyzing source code to generate documentation for AI coding assistants.
 
-Guidelines:
-- Be concise but comprehensive (300-500 words)
-- Focus on what the code DOES and HOW to use it
-- Include key function signatures as code snippets
-- Note dependencies and their purposes
-- Mention only critical TODOs (security, breaking issues)
-- Reference tightly coupled files (used together)`;
+OUTPUT FORMAT:
+- Lead with a single-line purpose statement (what this file IS, not what it does)
+- List all public exports with their type signatures
+- For each export: one sentence explaining its role
+- End with dependencies and coupled files
+
+DENSITY RULES (MANDATORY):
+- Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
+- Never use filler phrases: "this file", "this module", "provides", "responsible for", "is used to", "basically", "essentially", "provides functionality for"
+- Use the pattern: "[ExportName] does X" not "The ExportName function is responsible for doing X"
+- Use technical shorthand: "exports X, Y, Z" not "this module exports a function called X..."
+- Compress descriptions: "parses YAML frontmatter from .sum files" not "responsible for the parsing of YAML-style frontmatter..."
+- Maximum 300 words. Every word must earn its place.
+
+ANCHOR TERM PRESERVATION (MANDATORY):
+- All exported function/class/type/const names MUST appear in the summary exactly as written in source
+- Key parameter types and return types MUST be mentioned
+- Preserve exact casing of identifiers (e.g., buildAgentsMd, not "build agents md")
+- Missing any exported identifier is a failure
+
+WHAT TO INCLUDE:
+- All exported function/class/type/const names
+- Parameter types and return types for public functions
+- Key dependencies and what they're used for
+- Coupled sibling files
+- Only critical TODOs (security, breaking issues)
+
+WHAT TO EXCLUDE:
+- Internal implementation details
+- Generic descriptions without identifiers
+- Filler phrases and transitions`;
 
 const COMPONENT_TEMPLATE: PromptTemplate = {
   fileType: 'component',
