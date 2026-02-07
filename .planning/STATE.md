@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 Phase 6 -- AI Service Foundation
+**Current focus:** v2.0 Phase 7 -- AI-Powered Generation
 
 ## Current Position
 
 Phase: 6 of 9 (AI Service Foundation)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 06-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-07 -- Completed 06-03-PLAN.md
 
-Progress: [██████░░░░░░░░░░░░░░░░░░] 17% (v2.0 -- 2/12 plans)
+Progress: [████████░░░░░░░░░░░░░░░░] 25% (v2.0 -- 3/12 plans)
 
-**Next:** Execute 06-03-PLAN.md (AI service orchestrator, telemetry, index)
+**Next:** Begin Phase 7 (AI-Powered Generation)
 
 ## Performance Metrics
 
@@ -40,7 +40,7 @@ Progress: [██████░░░░░░░░░░░░░░░░░
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 6. AI Service Foundation | 2/3 | 5 min | 3 min |
+| 6. AI Service Foundation | 3/3 | 8 min | 3 min |
 
 ## Accumulated Context
 
@@ -57,6 +57,9 @@ v2.0 decisions:
 - DEFAULT_RETRY_OPTIONS omits isRetryable/onRetry since those are caller-specific
 - isCommandOnPath exported from claude.ts for reuse by stub backends (avoids premature utility module)
 - resolveBackend is the single entry point for all backend selection (auto and explicit)
+- Rate-limit detection uses case-insensitive stderr substring matching (rate limit, 429, too many requests, overloaded)
+- Telemetry records both successful and failed calls (error entries have zero tokens but actual latency)
+- Config ai section uses nested .default({}) for full backward compatibility
 
 ### Pending Todos
 
@@ -69,5 +72,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 06-02-PLAN.md
+Stopped at: Completed 06-03-PLAN.md (Phase 6 complete)
 Resume file: None
