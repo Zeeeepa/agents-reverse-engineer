@@ -34,16 +34,16 @@ Requirements for the AI Service & Quality milestone. Each maps to roadmap phases
 
 ### Inconsistency Detection
 
-- [ ] **INCON-01**: Detect code-vs-doc inconsistencies -- flag when existing .sum content doesn't match current code semantics
-- [ ] **INCON-02**: Detect code-vs-code inconsistencies -- flag conflicting patterns, duplicated logic, or contradictory implementations across files
-- [ ] **INCON-03**: Inconsistency report output -- structured summary of flagged issues with file locations and descriptions
+- [x] **INCON-01**: Detect code-vs-doc inconsistencies -- flag when existing .sum content doesn't match current code semantics
+- [x] **INCON-02**: Detect code-vs-code inconsistencies -- flag conflicting patterns, duplicated logic, or contradictory implementations across files
+- [x] **INCON-03**: Inconsistency report output -- structured summary of flagged issues with file locations and descriptions
 
 ### Context Density
 
-- [ ] **DENSE-01**: Revised prompts producing higher information density in .sum files -- more compressed, less filler
-- [ ] **DENSE-02**: Anchor term preservation -- key function names, class names, and concepts survive all summarization levels
-- [ ] **DENSE-03**: Hierarchical deduplication -- parent AGENTS.md doesn't repeat information already in child summaries
-- [ ] **DENSE-04**: Information-dense AGENTS.md format validated against "can an AI find the right file?" test
+- [x] **DENSE-01**: Revised prompts producing higher information density in .sum files -- more compressed, less filler
+- [x] **DENSE-02**: Anchor term preservation -- key function names, class names, and concepts survive all summarization levels
+- [x] **DENSE-03**: Hierarchical deduplication -- parent AGENTS.md doesn't repeat information already in child summaries
+- [x] **DENSE-04**: Information-dense AGENTS.md format validated against "can an AI find the right file?" test
 
 ## Future Requirements
 
@@ -96,13 +96,13 @@ Deferred to later milestones.
 | CMD-02 | Phase 7 | Complete |
 | CMD-03 | Phase 7 | Complete |
 | CMD-04 | Phase 7 | Complete |
-| INCON-01 | Phase 9 | Pending |
-| INCON-02 | Phase 9 | Pending |
-| INCON-03 | Phase 9 | Pending |
-| DENSE-01 | Phase 9 | Pending |
-| DENSE-02 | Phase 9 | Pending |
-| DENSE-03 | Phase 9 | Pending |
-| DENSE-04 | Phase 9 | Pending |
+| INCON-01 | Phase 9 | Complete |
+| INCON-02 | Phase 9 | Complete |
+| INCON-03 | Phase 9 | Complete |
+| DENSE-01 | Phase 9 | Complete |
+| DENSE-02 | Phase 9 | Complete |
+| DENSE-03 | Phase 9 | Complete |
+| DENSE-04 | Phase 9 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 23 total
@@ -111,4 +111,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 (Phase 8 complete)*
+*Last updated: 2026-02-07 (v2.0 complete)*

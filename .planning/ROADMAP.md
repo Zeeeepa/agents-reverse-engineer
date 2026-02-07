@@ -3,7 +3,7 @@
 ## Milestones
 
 - [x] **v1.0 MVP** - Phases 1-5 (shipped 2026-02-02)
-- [ ] **v2.0 AI Service & Quality** - Phases 6-9 (in progress)
+- [x] **v2.0 AI Service & Quality** - Phases 6-9 (shipped 2026-02-07)
 
 ## Phases
 
@@ -43,7 +43,7 @@
 - [x] **Phase 6: AI Service Foundation** - Subprocess layer that spawns AI CLIs, captures responses, and logs telemetry
 - [x] **Phase 7: Orchestration & Commands** - Wire AI service into generate/update/discover commands with concurrency and progress
 - [x] **Phase 8: Full Telemetry** - Complete observability with thinking capture, file tracking, and cost estimation
-- [ ] **Phase 9: Quality Improvements** - Inconsistency detection and higher-density documentation output
+- [x] **Phase 9: Quality Improvements** - Inconsistency detection and higher-density documentation output
 
 ## Phase Details
 
@@ -106,12 +106,12 @@ Plans:
   3. After a run with detected inconsistencies, a structured report lists all flagged issues
   4. Generated .sum files are measurably more information-dense -- key function names, class names, and concepts are preserved while filler text is eliminated
   5. Parent AGENTS.md files do not repeat information already present in child summaries -- each level adds unique value
-**Plans**: 3 plans
+**Plans**: 3/3 complete
 
 Plans:
-- [ ] 09-01-PLAN.md -- Quality types and code-vs-doc inconsistency detection (TDD, Wave 1)
-- [ ] 09-02-PLAN.md -- Density-aware prompts, hierarchical dedup, findability validator (Wave 1)
-- [ ] 09-03-PLAN.md -- Code-vs-code detection, report builder, CLI pipeline wiring (Wave 2)
+- [x] 09-01-PLAN.md -- Quality types and code-vs-doc inconsistency detection (TDD, Wave 1)
+- [x] 09-02-PLAN.md -- Density-aware prompts, hierarchical dedup, findability validator (Wave 1)
+- [x] 09-03-PLAN.md -- Code-vs-code detection, report builder, CLI pipeline wiring (Wave 2)
 
 ## Progress
 
@@ -125,8 +125,8 @@ Phase 9 can start after Phase 7 completes (independent of Phase 8).
 | 6. AI Service Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 7. Orchestration & Commands | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 8. Full Telemetry | v2.0 | 3/3 | Complete | 2026-02-07 |
-| 9. Quality Improvements | v2.0 | 0/3 | Not started | - |
+| 9. Quality Improvements | v2.0 | 3/3 | Complete | 2026-02-07 |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-07 (Phase 9 planned)*
+*Last updated: 2026-02-07 (v2.0 complete)*
