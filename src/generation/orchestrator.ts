@@ -123,11 +123,19 @@ export class GenerationOrchestrator {
 
   /**
    * Prepare files for analysis by reading content and detecting types.
+   *
+   * Files are read with bounded concurrency to avoid exhausting file
+   * descriptors, and the event loop is yielded periodically during
+   * CPU-intensive tokenization.
    */
   async prepareFiles(discoveryResult: DiscoveryResult): Promise<PreparedFile[]> {
     const prepared: PreparedFile[] = [];
 
-    for (const filePath of discoveryResult.files) {
+    // Yield to the event loop periodically during tokenization
+    const YIELD_INTERVAL = 50;
+
+    for (let i = 0; i < discoveryResult.files.length; i++) {
+      const filePath = discoveryResult.files[i];
       try {
         const content = await readFile(filePath, 'utf-8');
         const tokens = countTokens(content);
@@ -140,11 +148,17 @@ export class GenerationOrchestrator {
           content,
           fileType,
           tokens,
-          needsChunking: needsChunking(content, this.config.generation.chunkSize),
+          needsChunking: needsChunking(tokens, this.config.generation.chunkSize),
         });
       } catch {
         // Skip files that can't be read (permission errors, etc.)
         // Silently ignore - these files won't appear in the plan
+      }
+
+      // Yield to event loop periodically to prevent starvation
+      // during CPU-intensive BPE tokenization
+      if (i % YIELD_INTERVAL === 0 && i > 0) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
       }
     }
 
@@ -298,6 +312,13 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
 
     // Check for package manifest to determine STACK.md generation
     const hasPackageManifest = await this.hasPackageManifest();
+
+    // Release file content from PreparedFile objects to free memory.
+    // Content has already been embedded into task prompts by createTasks()
+    // and is no longer needed. The runner re-reads files from disk.
+    for (const file of files) {
+      (file as { content: string }).content = '';
+    }
 
     return {
       files,

@@ -22,8 +22,9 @@ export { createCustomFilter } from './custom.js';
  * Applies a chain of filters to a list of files.
  *
  * Each file is run through filters in order until one excludes it
- * (short-circuit evaluation). The result includes both included files
- * and excluded files with the reason and responsible filter name.
+ * (short-circuit evaluation). Files are processed with bounded concurrency
+ * to avoid opening too many file handles simultaneously (important for
+ * binary content detection which performs file I/O).
  *
  * @param files - Array of absolute file paths to filter
  * @param filters - Array of filters to apply in order
@@ -47,26 +48,59 @@ export async function applyFilters(
   const included: string[] = [];
   const excluded: ExcludedFile[] = [];
 
-  for (const file of files) {
-    let wasExcluded = false;
+  // Process files with bounded concurrency to avoid exhausting file descriptors.
+  // Binary filter calls isBinaryFile() which does file I/O.
+  const CONCURRENCY = 30;
+  const iterator = files.entries();
 
-    // Run through filters in order, stop at first exclusion
-    for (const filter of filters) {
-      const shouldExclude = await filter.shouldExclude(file);
+  async function worker(
+    iter: IterableIterator<[number, string]>,
+  ): Promise<Array<{ index: number; file: string; excluded?: ExcludedFile }>> {
+    const results: Array<{ index: number; file: string; excluded?: ExcludedFile }> = [];
+    for (const [index, file] of iter) {
+      let wasExcluded = false;
 
-      if (shouldExclude) {
-        excluded.push({
-          path: file,
-          reason: `Excluded by ${filter.name} filter`,
-          filter: filter.name,
-        });
-        wasExcluded = true;
-        break; // Short-circuit: stop checking other filters
+      // Run through filters in order, stop at first exclusion
+      for (const filter of filters) {
+        const shouldExclude = await filter.shouldExclude(file);
+
+        if (shouldExclude) {
+          results.push({
+            index,
+            file,
+            excluded: {
+              path: file,
+              reason: `Excluded by ${filter.name} filter`,
+              filter: filter.name,
+            },
+          });
+          wasExcluded = true;
+          break; // Short-circuit: stop checking other filters
+        }
+      }
+
+      if (!wasExcluded) {
+        results.push({ index, file });
       }
     }
+    return results;
+  }
 
-    if (!wasExcluded) {
-      included.push(file);
+  const effectiveConcurrency = Math.min(CONCURRENCY, files.length);
+  const workers = Array.from({ length: effectiveConcurrency }, () =>
+    worker(iterator),
+  );
+
+  const allResults = (await Promise.all(workers)).flat();
+
+  // Sort by original index to preserve order
+  allResults.sort((a, b) => a.index - b.index);
+
+  for (const result of allResults) {
+    if (result.excluded) {
+      excluded.push(result.excluded);
+    } else {
+      included.push(result.file);
     }
   }
 
