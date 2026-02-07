@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 7 of 9 (Orchestration & Commands)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 07-01-PLAN.md
+Last activity: 2026-02-07 -- Completed 07-02-PLAN.md
 
-Progress: [██████████░░░░░░░░░░░░░░] 33% (v2.0 -- 4/12 plans)
+Progress: [████████████░░░░░░░░░░░░] 42% (v2.0 -- 5/12 plans)
 
-**Next:** Plan 02 (generate command rewrite)
+**Next:** Plan 03 (update command rewrite)
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: [██████████░░░░░░░░░░░░░
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 6. AI Service Foundation | 3/3 | 8 min | 3 min |
-| 7. Orchestration & Commands | 1/3 | 3 min | 3 min |
+| 7. Orchestration & Commands | 2/3 | 5 min | 3 min |
 
 ## Accumulated Context
 
@@ -65,6 +65,9 @@ v2.0 decisions:
 - ProgressReporter ETA uses sliding window of 10 recent completions (not global average)
 - executeUpdate runs only file analysis phase -- directory AGENTS.md regeneration is caller responsibility
 - extractPurpose takes first non-header non-empty line from AI response, truncated to 120 chars
+- Dry-run builds execution plan without backend resolution (works without AI CLI installed)
+- Deprecated CLI flags (--execute, --stream) print notice to stderr to preserve JSON output on stdout
+- UpdateCommandOptions pre-extended with concurrency/failFast/debug for Plan 03
 
 ### Pending Todos
 
@@ -77,5 +80,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 07-01-PLAN.md
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
