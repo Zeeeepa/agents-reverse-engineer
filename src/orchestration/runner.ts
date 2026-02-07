@@ -219,7 +219,7 @@ export class CommandRunner {
       uniqueFilesRead: aiSummary.uniqueFilesRead,
     };
 
-    reporter.printSummary(summary);
+    reporter.printSummary(summary, this.options.costThresholdUsd);
 
     return summary;
   }
@@ -354,7 +354,7 @@ export class CommandRunner {
       uniqueFilesRead: aiSummary.uniqueFilesRead,
     };
 
-    reporter.printSummary(summary);
+    reporter.printSummary(summary, this.options.costThresholdUsd);
 
     return summary;
   }

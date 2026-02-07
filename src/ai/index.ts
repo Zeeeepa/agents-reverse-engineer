@@ -86,5 +86,5 @@ export { isCommandOnPath } from './backends/claude.js';
 // Pricing
 // ---------------------------------------------------------------------------
 
-export { estimateCost, lookupPricing, formatCost, formatTokens } from './pricing.js';
+export { DEFAULT_MODEL_PRICING, estimateCost, lookupPricing, formatCost, formatTokens } from './pricing.js';
 export type { ModelPricing, CostEstimate } from './pricing.js';

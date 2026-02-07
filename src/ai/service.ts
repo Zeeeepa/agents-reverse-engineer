@@ -109,6 +109,9 @@ export class AIService {
   /** Running count of calls made (used for entry tracking) */
   private callCount: number = 0;
 
+  /** Set of model IDs for which an unknown-pricing warning has already been emitted */
+  private readonly warnedModels = new Set<string>();
+
   /**
    * Create a new AI service instance.
    *
@@ -206,6 +209,14 @@ export class AIService {
         response.costUsd > 0 ? response.costUsd : undefined,
         this.options.pricingOverrides,
       );
+
+      // Warn once per unknown model (stderr to preserve JSON stdout)
+      if (costResult.source === 'unavailable' && !this.warnedModels.has(response.model)) {
+        this.warnedModels.add(response.model);
+        console.error(
+          `Warning: No pricing data for model "${response.model}". Cost shown as N/A. Add pricing in config under ai.pricing.`,
+        );
+      }
 
       // Record successful call
       this.logger.addEntry({

@@ -130,4 +130,6 @@ export interface CommandRunOptions {
   debug?: boolean;
   /** List files that would be processed without executing */
   dryRun?: boolean;
+  /** Cost threshold in USD for warning when exceeded */
+  costThresholdUsd?: number;
 }
