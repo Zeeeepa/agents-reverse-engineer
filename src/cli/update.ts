@@ -35,6 +35,12 @@ export interface UpdateCommandOptions {
   dryRun?: boolean;
   /** Override token budget */
   budget?: number;
+  /** Number of concurrent AI calls */
+  concurrency?: number;
+  /** Stop on first file analysis failure */
+  failFast?: boolean;
+  /** Show AI prompts and backend details */
+  debug?: boolean;
 }
 
 /**

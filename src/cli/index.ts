@@ -58,8 +58,11 @@ General Options:
   --plan            Generate GENERATION-PLAN.md file (discover only)
   --dry-run         Show plan without writing files (generate, update)
   --budget <n>      Override token budget (generate, update)
-  --execute         Output JSON execution plan for AI agents (generate)
-  --stream          Output tasks as streaming JSON, one per line (generate)
+  --concurrency <n> Number of concurrent AI calls (default: 5)
+  --fail-fast       Stop on first file analysis failure
+  --debug           Show AI prompts and backend details
+  --execute         [deprecated] Output JSON execution plan (generate)
+  --stream          [deprecated] Output tasks as streaming JSON (generate)
   --uncommitted     Include uncommitted changes (update only)
   --help, -h        Show this help
   --version, -V     Show version number
@@ -73,7 +76,7 @@ Examples:
   are discover
   are discover --plan
   are generate --dry-run
-  are generate --execute
+  are generate --concurrency 3
   are generate ./my-project --budget 50000
   are update
   are update --uncommitted --verbose
@@ -277,6 +280,9 @@ async function main(): Promise<void> {
         verbose: flags.has('verbose'),
         dryRun: flags.has('dry-run'),
         budget: values.has('budget') ? parseInt(values.get('budget')!, 10) : undefined,
+        concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
+        failFast: flags.has('fail-fast'),
+        debug: flags.has('debug'),
         execute: flags.has('execute'),
         stream: flags.has('stream'),
       };
@@ -291,6 +297,9 @@ async function main(): Promise<void> {
         verbose: flags.has('verbose'),
         dryRun: flags.has('dry-run'),
         budget: values.has('budget') ? parseInt(values.get('budget')!, 10) : undefined,
+        concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
+        failFast: flags.has('fail-fast'),
+        debug: flags.has('debug'),
       };
       await updateCommand(positional[0] || '.', options);
       break;
