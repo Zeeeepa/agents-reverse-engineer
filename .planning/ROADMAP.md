@@ -41,7 +41,7 @@
 - Decimal phases (7.1, 7.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 6: AI Service Foundation** - Subprocess layer that spawns AI CLIs, captures responses, and logs telemetry
-- [ ] **Phase 7: Orchestration & Commands** - Wire AI service into generate/update/discover commands with concurrency and progress
+- [x] **Phase 7: Orchestration & Commands** - Wire AI service into generate/update/discover commands with concurrency and progress
 - [ ] **Phase 8: Full Telemetry** - Complete observability with thinking capture, file tracking, and cost estimation
 - [ ] **Phase 9: Quality Improvements** - Inconsistency detection and higher-density documentation output
 
@@ -74,12 +74,12 @@ Plans:
   3. Multiple files are processed concurrently (observable via interleaved progress output), respecting a configurable parallelism limit
   4. During execution, the terminal shows progress: current file name, X of Y complete, and estimated time remaining
   5. After a run completes, a summary line shows total calls, total tokens (in/out), total time, and error count
-**Plans**: 3 plans
+**Plans**: 3/3 complete
 
 Plans:
-- [ ] 07-01-PLAN.md -- Orchestration engine: concurrency pool, progress reporter, command runner, config extension (Wave 1)
-- [ ] 07-02-PLAN.md -- Generate command rewrite + CLI flags (Wave 2)
-- [ ] 07-03-PLAN.md -- Update command rewrite + discover cleanup (Wave 3)
+- [x] 07-01-PLAN.md -- Orchestration engine: concurrency pool, progress reporter, command runner, config extension (Wave 1)
+- [x] 07-02-PLAN.md -- Generate command rewrite + CLI flags (Wave 2)
+- [x] 07-03-PLAN.md -- Update command rewrite + discover cleanup (Wave 3)
 
 ### Phase 8: Full Telemetry
 **Goal**: Complete observability -- every AI call captures thinking content, files read, and estimated cost
@@ -120,10 +120,10 @@ Phase 9 can start after Phase 7 completes (independent of Phase 8).
 |-------|-----------|----------------|--------|-----------|
 | 1-5 | v1.0 | 26/26 | Complete | 2026-02-02 |
 | 6. AI Service Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
-| 7. Orchestration & Commands | v2.0 | 0/TBD | Not started | - |
+| 7. Orchestration & Commands | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 8. Full Telemetry | v2.0 | 0/TBD | Not started | - |
 | 9. Quality Improvements | v2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-07 (Phase 6 complete)*
+*Last updated: 2026-02-07 (Phase 7 complete)*
