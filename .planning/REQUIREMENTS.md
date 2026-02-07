@@ -9,21 +9,21 @@ Requirements for the AI Service & Quality milestone. Each maps to roadmap phases
 
 ### AI Service
 
-- [ ] **AISVC-01**: Tool spawns AI CLI (claude) as subprocess with prompt via stdin and captures JSON response from stdout
-- [ ] **AISVC-02**: Backend interface abstracts CLI differences -- implementations for Claude (primary), Gemini (experimental), OpenCode (experimental)
-- [ ] **AISVC-03**: Subprocess lifecycle management -- timeout, graceful kill, zombie prevention, exit code handling
+- [x] **AISVC-01**: Tool spawns AI CLI (claude) as subprocess with prompt via stdin and captures JSON response from stdout
+- [x] **AISVC-02**: Backend interface abstracts CLI differences -- implementations for Claude (primary), Gemini (experimental), OpenCode (experimental)
+- [x] **AISVC-03**: Subprocess lifecycle management -- timeout, graceful kill, zombie prevention, exit code handling
 - [ ] **AISVC-04**: Concurrent execution of multiple AI calls with configurable parallelism limit
-- [ ] **AISVC-05**: Automatic retry with exponential backoff on transient failures (rate limits, timeouts)
-- [ ] **AISVC-06**: Runtime detection -- auto-detect which AI CLIs are available on the system
+- [x] **AISVC-05**: Automatic retry with exponential backoff on transient failures (rate limits, timeouts)
+- [x] **AISVC-06**: Runtime detection -- auto-detect which AI CLIs are available on the system
 
 ### Telemetry
 
-- [ ] **TELEM-01**: Per-call JSON log entry capturing: prompt sent, response received, model used, input/output tokens, latency, exit code
+- [x] **TELEM-01**: Per-call JSON log entry capturing: prompt sent, response received, model used, input/output tokens, latency, exit code
 - [ ] **TELEM-02**: Thinking/reasoning content captured when available from CLI output
 - [ ] **TELEM-03**: Files read by the AI tracked per call (from CLI output metadata)
 - [ ] **TELEM-04**: Per-run summary log: total calls, total tokens (in/out), total time, error count, files processed
 - [ ] **TELEM-05**: Cost estimation per run based on model and token counts
-- [ ] **TELEM-06**: JSON log files stored per run in `.agents-reverse/logs/` with timestamped filenames
+- [x] **TELEM-06**: JSON log files stored per run in `.agents-reverse/logs/` with timestamped filenames
 
 ### Command Refactors
 
@@ -80,18 +80,18 @@ Deferred to later milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AISVC-01 | Phase 6 | Pending |
-| AISVC-02 | Phase 6 | Pending |
-| AISVC-03 | Phase 6 | Pending |
+| AISVC-01 | Phase 6 | Complete |
+| AISVC-02 | Phase 6 | Complete |
+| AISVC-03 | Phase 6 | Complete |
 | AISVC-04 | Phase 7 | Pending |
-| AISVC-05 | Phase 6 | Pending |
-| AISVC-06 | Phase 6 | Pending |
-| TELEM-01 | Phase 6 | Pending |
+| AISVC-05 | Phase 6 | Complete |
+| AISVC-06 | Phase 6 | Complete |
+| TELEM-01 | Phase 6 | Complete |
 | TELEM-02 | Phase 8 | Pending |
 | TELEM-03 | Phase 8 | Pending |
 | TELEM-04 | Phase 7 | Pending |
 | TELEM-05 | Phase 8 | Pending |
-| TELEM-06 | Phase 6 | Pending |
+| TELEM-06 | Phase 6 | Complete |
 | CMD-01 | Phase 7 | Pending |
 | CMD-02 | Phase 7 | Pending |
 | CMD-03 | Phase 7 | Pending |
@@ -111,4 +111,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after roadmap creation*
+*Last updated: 2026-02-07 (Phase 6 complete)*
