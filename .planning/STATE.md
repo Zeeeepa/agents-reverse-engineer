@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 Phase 9 planned -- ready for execution
+**Current focus:** v2.0 Phase 9 executing -- plan 01 complete
 
 ## Current Position
 
-Phase: 9 of 9 (Quality Improvements) -- PLANNED
-Plan: 0/3 executed
-Status: Planning complete, verified
-Last activity: 2026-02-07 -- Phase 9 planned (3 plans, 2 waves, verified)
+Phase: 9 of 9 (Quality Improvements) -- IN PROGRESS
+Plan: 1/3 executed
+Status: In progress
+Last activity: 2026-02-07 -- Completed 09-01-PLAN.md (quality types + code-vs-doc detection)
 
-Progress: [██████████████████░░░░░░] 75% (v2.0 -- 9/12 plans)
+Progress: [████████████████████░░░░] 83% (v2.0 -- 10/12 plans)
 
-**Next:** Execute Phase 9 (3 plans in 2 waves)
+**Next:** Execute 09-02 (code-vs-code detection + reporter, wave 1)
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Progress: [██████████████████░░░░░
 | 6. AI Service Foundation | 3/3 | 8 min | 3 min |
 | 7. Orchestration & Commands | 3/3 | 8 min | 3 min |
 | 8. Full Telemetry | 3/3 | 9 min | 3 min |
+| 9. Quality Improvements | 1/3 | 2 min | 2 min |
 
 ## Accumulated Context
 
@@ -82,6 +83,8 @@ v2.0 decisions:
 - costThresholdUsd on CommandRunOptions (display-layer concern) passed through to printSummary
 - Unknown model warning uses console.error (stderr) and warnedModels Set for once-per-model dedup
 - DEFAULT_MODEL_PRICING exported from AI barrel for consumer access to pricing table
+- Line-anchored regex (^[ \t]*export) to skip commented-out exports without AST parsing
+- missingFromCode uses partial match (iface.includes(exportName)) since publicInterface contains signatures
 
 ### Pending Todos
 
@@ -95,5 +98,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 9 planned and verified -- ready for execution
+Stopped at: Completed 09-01-PLAN.md (quality types + code-vs-doc detection)
 Resume file: None
