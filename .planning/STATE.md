@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 Phase 8 in progress -- telemetry wiring complete
+**Current focus:** v2.0 Phase 8 complete -- full telemetry pipeline done
 
 ## Current Position
 
 Phase: 8 of 9 (Full Telemetry)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 08-02-PLAN.md (telemetry wiring)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-07 -- Completed 08-03-PLAN.md (dashboard display)
 
-Progress: [████████████████░░░░░░░░] 67% (v2.0 -- 8/12 plans)
+Progress: [██████████████████░░░░░░] 75% (v2.0 -- 9/12 plans)
 
-**Next:** Plan 08-03 (dashboard display)
+**Next:** Phase 9 (polish)
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [████████████████░░░░░░░
 |-------|-------|-------|----------|
 | 6. AI Service Foundation | 3/3 | 8 min | 3 min |
 | 7. Orchestration & Commands | 3/3 | 8 min | 3 min |
-| 8. Full Telemetry | 2/3 | 7 min | 4 min |
+| 8. Full Telemetry | 3/3 | 9 min | 3 min |
 
 ## Accumulated Context
 
@@ -79,6 +79,9 @@ v2.0 decisions:
 - Root document tasks leave filesRead empty (aggregated content, no single source file)
 - costAvailable is true if any entry has costSource !== "unavailable" (any-match semantics)
 - pricingOverrides and costThresholdUsd optional on AIServiceOptions for backward compatibility
+- costThresholdUsd on CommandRunOptions (display-layer concern) passed through to printSummary
+- Unknown model warning uses console.error (stderr) and warnedModels Set for once-per-model dedup
+- DEFAULT_MODEL_PRICING exported from AI barrel for consumer access to pricing table
 
 ### Pending Todos
 
@@ -91,5 +94,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 08-02-PLAN.md (telemetry wiring)
+Stopped at: Completed 08-03-PLAN.md (dashboard display) -- Phase 8 complete
 Resume file: None
