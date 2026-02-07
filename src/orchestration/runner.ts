@@ -12,11 +12,12 @@
  * @module
  */
 
+import * as path from 'node:path';
 import { readFile, writeFile, stat } from 'node:fs/promises';
 import type { AIService } from '../ai/index.js';
 import type { AIResponse } from '../ai/types.js';
 import type { ExecutionPlan, ExecutionTask } from '../generation/executor.js';
-import { writeSumFile } from '../generation/writers/sum.js';
+import { writeSumFile, readSumFile } from '../generation/writers/sum.js';
 import type { SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
 import { computeContentHash } from '../change-detection/index.js';
@@ -24,6 +25,13 @@ import type { FileChange } from '../change-detection/types.js';
 import { detectFileType } from '../generation/detection/detector.js';
 import { buildPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
+import {
+  checkCodeVsDoc,
+  checkCodeVsCode,
+  buildInconsistencyReport,
+  formatReportForCli,
+} from '../quality/index.js';
+import type { Inconsistency } from '../quality/index.js';
 import { runPool } from './pool.js';
 import { ProgressReporter } from './progress.js';
 import type {
@@ -93,6 +101,22 @@ export class CommandRunner {
     const runStart = Date.now();
     let filesProcessed = 0;
     let filesFailed = 0;
+
+    // -------------------------------------------------------------------
+    // Pre-Phase 1: Cache old .sum content for stale documentation detection
+    // -------------------------------------------------------------------
+
+    const oldSumCache = new Map<string, SumFileContent>();
+    for (const task of plan.fileTasks) {
+      try {
+        const existing = await readSumFile(`${task.absolutePath}.sum`);
+        if (existing) {
+          oldSumCache.set(task.path, existing);
+        }
+      } catch {
+        // No old .sum to compare -- skip
+      }
+    }
 
     // -------------------------------------------------------------------
     // Phase 1: File analysis (concurrent)
@@ -174,6 +198,100 @@ export class CommandRunner {
     );
 
     // -------------------------------------------------------------------
+    // Post-Phase 1: Inconsistency detection (non-throwing)
+    // -------------------------------------------------------------------
+
+    let inconsistenciesCodeVsDoc = 0;
+    let inconsistenciesCodeVsCode = 0;
+    let inconsistencyReport: import('../quality/index.js').InconsistencyReport | undefined;
+
+    try {
+      const inconsistencyStart = Date.now();
+      const allIssues: Inconsistency[] = [];
+
+      // Collect successfully processed file paths from pool results
+      const processedPaths: string[] = [];
+      for (const result of poolResults) {
+        if (result.success && result.value) {
+          processedPaths.push(result.value.path);
+        }
+      }
+
+      // Group files by directory
+      const dirGroups = new Map<string, string[]>();
+      for (const filePath of processedPaths) {
+        const dir = path.dirname(filePath);
+        const group = dirGroups.get(dir);
+        if (group) {
+          group.push(filePath);
+        } else {
+          dirGroups.set(dir, [filePath]);
+        }
+      }
+
+      // Run checks per directory group
+      for (const [, groupPaths] of dirGroups) {
+        const filesForCodeVsCode: Array<{ path: string; content: string }> = [];
+
+        for (const filePath of groupPaths) {
+          const absoluteFilePath = `${plan.projectRoot}/${filePath}`;
+          let sourceContent: string;
+          try {
+            sourceContent = await readFile(absoluteFilePath, 'utf-8');
+          } catch {
+            continue; // File unreadable, skip
+          }
+
+          filesForCodeVsCode.push({ path: filePath, content: sourceContent });
+
+          // Old-doc check: detects stale documentation
+          const oldSum = oldSumCache.get(filePath);
+          if (oldSum) {
+            const oldIssue = checkCodeVsDoc(sourceContent, oldSum, filePath);
+            if (oldIssue) {
+              oldIssue.description += ' (stale documentation)';
+              allIssues.push(oldIssue);
+            }
+          }
+
+          // New-doc check: detects LLM omissions in freshly generated .sum
+          try {
+            const newSum = await readSumFile(`${absoluteFilePath}.sum`);
+            if (newSum) {
+              const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
+              if (newIssue) {
+                allIssues.push(newIssue);
+              }
+            }
+          } catch {
+            // Freshly written .sum unreadable -- skip
+          }
+        }
+
+        // Code-vs-code check scoped to this directory group
+        const codeIssues = checkCodeVsCode(filesForCodeVsCode);
+        allIssues.push(...codeIssues);
+      }
+
+      if (allIssues.length > 0) {
+        const report = buildInconsistencyReport(allIssues, {
+          projectRoot: plan.projectRoot,
+          filesChecked: processedPaths.length,
+          durationMs: Date.now() - inconsistencyStart,
+        });
+
+        inconsistenciesCodeVsDoc = report.summary.codeVsDoc;
+        inconsistenciesCodeVsCode = report.summary.codeVsCode;
+        inconsistencyReport = report;
+
+        console.error(formatReportForCli(report));
+      }
+    } catch (err) {
+      // Inconsistency detection must not break the pipeline
+      console.error(`[quality] Inconsistency detection failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // -------------------------------------------------------------------
     // Phase 2: Directory docs (sequential, post-order)
     // -------------------------------------------------------------------
 
@@ -217,6 +335,9 @@ export class CommandRunner {
       costAvailable: aiSummary.costAvailable,
       totalFilesRead: aiSummary.totalFilesRead,
       uniqueFilesRead: aiSummary.uniqueFilesRead,
+      inconsistenciesCodeVsDoc,
+      inconsistenciesCodeVsCode,
+      inconsistencyReport,
     };
 
     reporter.printSummary(summary, this.options.costThresholdUsd);
@@ -334,6 +455,89 @@ export class CommandRunner {
       },
     );
 
+    // -------------------------------------------------------------------
+    // Post-analysis: Inconsistency detection (non-throwing)
+    // -------------------------------------------------------------------
+
+    let updateInconsistenciesCodeVsDoc = 0;
+    let updateInconsistenciesCodeVsCode = 0;
+    let updateInconsistencyReport: import('../quality/index.js').InconsistencyReport | undefined;
+
+    try {
+      const inconsistencyStart = Date.now();
+      const allIssues: Inconsistency[] = [];
+
+      // Collect successfully processed file paths
+      const processedPaths: string[] = [];
+      for (const result of poolResults) {
+        if (result.success && result.value) {
+          processedPaths.push(result.value.path);
+        }
+      }
+
+      // Group files by directory
+      const dirGroups = new Map<string, string[]>();
+      for (const filePath of processedPaths) {
+        const dir = path.dirname(filePath);
+        const group = dirGroups.get(dir);
+        if (group) {
+          group.push(filePath);
+        } else {
+          dirGroups.set(dir, [filePath]);
+        }
+      }
+
+      // Run checks per directory group
+      for (const [, groupPaths] of dirGroups) {
+        const filesForCodeVsCode: Array<{ path: string; content: string }> = [];
+
+        for (const filePath of groupPaths) {
+          const absoluteFilePath = `${projectRoot}/${filePath}`;
+          let sourceContent: string;
+          try {
+            sourceContent = await readFile(absoluteFilePath, 'utf-8');
+          } catch {
+            continue;
+          }
+
+          filesForCodeVsCode.push({ path: filePath, content: sourceContent });
+
+          // New-doc check: detects LLM omissions in freshly generated .sum
+          try {
+            const newSum = await readSumFile(`${absoluteFilePath}.sum`);
+            if (newSum) {
+              const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
+              if (newIssue) {
+                allIssues.push(newIssue);
+              }
+            }
+          } catch {
+            // .sum unreadable -- skip
+          }
+        }
+
+        // Code-vs-code check scoped to this directory group
+        const codeIssues = checkCodeVsCode(filesForCodeVsCode);
+        allIssues.push(...codeIssues);
+      }
+
+      if (allIssues.length > 0) {
+        const report = buildInconsistencyReport(allIssues, {
+          projectRoot,
+          filesChecked: processedPaths.length,
+          durationMs: Date.now() - inconsistencyStart,
+        });
+
+        updateInconsistenciesCodeVsDoc = report.summary.codeVsDoc;
+        updateInconsistenciesCodeVsCode = report.summary.codeVsCode;
+        updateInconsistencyReport = report;
+
+        console.error(formatReportForCli(report));
+      }
+    } catch (err) {
+      console.error(`[quality] Inconsistency detection failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     // Build and print summary
     const aiSummary = this.aiService.getSummary();
     const totalDurationMs = Date.now() - runStart;
@@ -352,6 +556,9 @@ export class CommandRunner {
       costAvailable: aiSummary.costAvailable,
       totalFilesRead: aiSummary.totalFilesRead,
       uniqueFilesRead: aiSummary.uniqueFilesRead,
+      inconsistenciesCodeVsDoc: updateInconsistenciesCodeVsDoc,
+      inconsistenciesCodeVsCode: updateInconsistenciesCodeVsCode,
+      inconsistencyReport: updateInconsistencyReport,
     };
 
     reporter.printSummary(summary, this.options.costThresholdUsd);

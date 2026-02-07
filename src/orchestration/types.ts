@@ -8,6 +8,8 @@
  * @module
  */
 
+import type { InconsistencyReport } from '../quality/index.js';
+
 // ---------------------------------------------------------------------------
 // File task result
 // ---------------------------------------------------------------------------
@@ -72,6 +74,12 @@ export interface RunSummary {
   totalFilesRead: number;
   /** Unique files read (deduped by path) */
   uniqueFilesRead: number;
+  /** Number of code-vs-doc inconsistencies detected */
+  inconsistenciesCodeVsDoc?: number;
+  /** Number of code-vs-code inconsistencies detected */
+  inconsistenciesCodeVsCode?: number;
+  /** Full inconsistency report (undefined if no checks ran) */
+  inconsistencyReport?: InconsistencyReport;
 }
 
 // ---------------------------------------------------------------------------
