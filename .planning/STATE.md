@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 Phase 7 -- Orchestration & Commands
+**Current focus:** v2.0 Phase 7 complete -- ready for Phase 8
 
 ## Current Position
 
 Phase: 7 of 9 (Orchestration & Commands)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 07-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-02-07 -- Completed 07-03-PLAN.md
 
-Progress: [████████████░░░░░░░░░░░░] 42% (v2.0 -- 5/12 plans)
+Progress: [██████████████░░░░░░░░░░] 50% (v2.0 -- 6/12 plans)
 
-**Next:** Plan 03 (update command rewrite)
+**Next:** Phase 8 (Telemetry & Cost)
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: [████████████░░░░░░░░░░░
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 6. AI Service Foundation | 3/3 | 8 min | 3 min |
-| 7. Orchestration & Commands | 2/3 | 5 min | 3 min |
+| 7. Orchestration & Commands | 3/3 | 8 min | 3 min |
 
 ## Accumulated Context
 
@@ -67,7 +67,9 @@ v2.0 decisions:
 - extractPurpose takes first non-header non-empty line from AI response, truncated to 120 chars
 - Dry-run builds execution plan without backend resolution (works without AI CLI installed)
 - Deprecated CLI flags (--execute, --stream) print notice to stderr to preserve JSON output on stdout
-- UpdateCommandOptions pre-extended with concurrency/failFast/debug for Plan 03
+- Update command delegates to CommandRunner.executeUpdate (not inline pool logic)
+- AGENTS.md regeneration after executeUpdate uses separate ProgressReporter for directory events
+- Discover command returns normally (no process.exit(0)) for consistency and testability
 
 ### Pending Todos
 
@@ -80,5 +82,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 07-02-PLAN.md
+Stopped at: Completed 07-03-PLAN.md (Phase 7 complete)
 Resume file: None
