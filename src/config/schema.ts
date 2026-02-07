@@ -91,7 +91,16 @@ const AISchema = z.object({
   telemetry: z.object({
     /** Number of most recent run logs to keep on disk */
     keepRuns: z.number().min(0).default(10),
+    /** Optional cost threshold in USD. Warn when exceeded. */
+    costThresholdUsd: z.number().min(0).optional(),
   }).default({}),
+  /** Custom model pricing overrides (model ID -> rates) */
+  pricing: z.record(z.object({
+    /** Cost in USD per 1 million input tokens */
+    inputCostPerMTok: z.number(),
+    /** Cost in USD per 1 million output tokens */
+    outputCostPerMTok: z.number(),
+  })).optional(),
 }).default({});
 
 /**

@@ -64,6 +64,14 @@ export interface RunSummary {
   errorCount: number;
   /** Number of retries that occurred */
   retryCount: number;
+  /** Total estimated cost in USD */
+  totalCostUsd: number;
+  /** Whether cost data was available */
+  costAvailable: boolean;
+  /** Total file reads across all calls */
+  totalFilesRead: number;
+  /** Unique files read (deduped by path) */
+  uniqueFilesRead: number;
 }
 
 // ---------------------------------------------------------------------------

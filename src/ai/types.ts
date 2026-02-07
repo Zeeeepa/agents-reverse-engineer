@@ -148,6 +148,19 @@ export interface RetryOptions {
 // Telemetry
 // ---------------------------------------------------------------------------
 
+import type { CostSource } from './pricing.js';
+export type { CostSource } from './pricing.js';
+
+/**
+ * Record of a single file read that was sent as context to an AI call.
+ */
+export interface FileRead {
+  /** File path relative to project root */
+  path: string;
+  /** File size in bytes at time of read */
+  sizeBytes: number;
+}
+
 /**
  * Per-call telemetry log entry.
  *
@@ -183,6 +196,12 @@ export interface TelemetryEntry {
   error?: string;
   /** Number of retries that occurred before this result */
   retryCount: number;
+  /** AI thinking/reasoning content. "not supported" when backend doesn't provide it */
+  thinking: string;
+  /** Files sent as context for this call */
+  filesRead: FileRead[];
+  /** How the cost was determined */
+  costSource: CostSource;
 }
 
 /**
@@ -214,6 +233,12 @@ export interface RunLog {
     totalDurationMs: number;
     /** Number of calls that resulted in an error */
     errorCount: number;
+    /** Whether cost data is available for all/most entries */
+    costAvailable: boolean;
+    /** Total file reads across all calls (including duplicates) */
+    totalFilesRead: number;
+    /** Unique files read (deduped by path) */
+    uniqueFilesRead: number;
   };
 }
 
