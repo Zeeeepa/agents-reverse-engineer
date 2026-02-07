@@ -71,6 +71,28 @@ const GenerationSchema = z.object({
 }).default({});
 
 /**
+ * Schema for AI service configuration.
+ *
+ * Controls backend selection, model, timeout, retry behavior, and
+ * telemetry log retention. All fields have sensible defaults.
+ */
+const AISchema = z.object({
+  /** AI CLI backend to use ('auto' detects from PATH) */
+  backend: z.enum(['claude', 'gemini', 'opencode', 'auto']).default('auto'),
+  /** Model identifier (backend-specific, e.g., "sonnet", "opus") */
+  model: z.string().default('sonnet'),
+  /** Default subprocess timeout in milliseconds */
+  timeoutMs: z.number().positive().default(120_000),
+  /** Maximum number of retries for transient errors */
+  maxRetries: z.number().min(0).default(3),
+  /** Telemetry settings */
+  telemetry: z.object({
+    /** Number of most recent run logs to keep on disk */
+    keepRuns: z.number().min(0).default(10),
+  }).default({}),
+}).default({});
+
+/**
  * Main configuration schema for agents-reverse.
  *
  * All fields have sensible defaults, so an empty object `{}` is valid
@@ -83,7 +105,8 @@ const GenerationSchema = z.object({
  *
  * // Parse with partial overrides
  * const config = ConfigSchema.parse({
- *   exclude: { patterns: ['*.log'] }
+ *   exclude: { patterns: ['*.log'] },
+ *   ai: { backend: 'claude', model: 'opus' },
  * });
  * ```
  */
@@ -96,6 +119,8 @@ export const ConfigSchema = z.object({
   output: OutputSchema,
   /** Generation options */
   generation: GenerationSchema,
+  /** AI service configuration */
+  ai: AISchema,
 }).default({});
 
 /**
@@ -123,3 +148,8 @@ export type OutputConfig = z.infer<typeof OutputSchema>;
  * Type for the generation section of config
  */
 export type GenerationConfig = z.infer<typeof GenerationSchema>;
+
+/**
+ * Type for the AI service section of config
+ */
+export type AIConfig = z.infer<typeof AISchema>;
