@@ -106,11 +106,12 @@ Plans:
   3. After a run with detected inconsistencies, a structured report lists all flagged issues
   4. Generated .sum files are measurably more information-dense -- key function names, class names, and concepts are preserved while filler text is eliminated
   5. Parent AGENTS.md files do not repeat information already present in child summaries -- each level adds unique value
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md -- Quality types and code-vs-doc inconsistency detection (TDD, Wave 1)
+- [ ] 09-02-PLAN.md -- Density-aware prompts, hierarchical dedup, findability validator (Wave 1)
+- [ ] 09-03-PLAN.md -- Code-vs-code detection, report builder, CLI pipeline wiring (Wave 2)
 
 ## Progress
 
@@ -124,8 +125,8 @@ Phase 9 can start after Phase 7 completes (independent of Phase 8).
 | 6. AI Service Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 7. Orchestration & Commands | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 8. Full Telemetry | v2.0 | 3/3 | Complete | 2026-02-07 |
-| 9. Quality Improvements | v2.0 | 0/TBD | Not started | - |
+| 9. Quality Improvements | v2.0 | 0/3 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-07 (Phase 8 complete)*
+*Last updated: 2026-02-07 (Phase 9 planned)*
