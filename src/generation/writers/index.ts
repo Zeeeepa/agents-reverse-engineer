@@ -8,12 +8,6 @@ export {
 
 export {
   writeAgentsMd,
-  buildAgentsMd,
-  buildDirectoryDoc,
-  type DirectoryDoc,
-  type FileGroup,
-  type FileRef,
-  type SubdirSummary,
 } from './agents-md.js';
 
 export {

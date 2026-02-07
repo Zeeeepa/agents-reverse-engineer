@@ -15,6 +15,7 @@ import {
   type UpdatePlan,
 } from '../update/index.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
+import { buildDirectoryPrompt } from '../generation/prompts/index.js';
 import {
   AIService,
   AIServiceError,
@@ -284,7 +285,12 @@ export async function updateCommand(
       for (const dir of plan.affectedDirs) {
         const dirPath = dir === '.' ? absolutePath : path.join(absolutePath, dir);
         try {
-          await writeAgentsMd(dirPath, absolutePath);
+          const prompt = await buildDirectoryPrompt(dirPath, absolutePath);
+          const response = await aiService.call({
+            prompt: prompt.user,
+            systemPrompt: prompt.system,
+          });
+          await writeAgentsMd(dirPath, absolutePath, response.text);
           dirReporter.onDirectoryDone(dir || '.');
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);

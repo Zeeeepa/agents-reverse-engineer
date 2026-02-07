@@ -10,6 +10,7 @@ export {
   buildPrompt,
   buildChunkPrompt,
   buildSynthesisPrompt,
+  buildDirectoryPrompt,
   detectLanguage,
   detectFramework,
 } from './builder.js';

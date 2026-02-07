@@ -23,7 +23,7 @@ import { writeAgentsMd } from '../generation/writers/agents-md.js';
 import { computeContentHash } from '../change-detection/index.js';
 import type { FileChange } from '../change-detection/types.js';
 import { detectFileType } from '../generation/detection/detector.js';
-import { buildPrompt } from '../generation/prompts/index.js';
+import { buildPrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
 import {
   checkCodeVsDoc,
@@ -296,7 +296,12 @@ export class CommandRunner {
     // -------------------------------------------------------------------
 
     for (const dirTask of plan.directoryTasks) {
-      await writeAgentsMd(dirTask.absolutePath, plan.projectRoot);
+      const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot);
+      const dirResponse: AIResponse = await this.aiService.call({
+        prompt: prompt.user,
+        systemPrompt: prompt.system,
+      });
+      await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
       reporter.onDirectoryDone(dirTask.path);
     }
 

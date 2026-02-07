@@ -156,6 +156,7 @@ export class ClaudeBackend implements AIBackend {
       '-p',                        // Non-interactive print mode
       '--output-format', 'json',   // Structured JSON output
       '--no-session-persistence',  // Don't save session to disk
+      '--permission-mode', 'bypassPermissions',  // Non-interactive: skip permission prompts (PITFALLS.md §8)
     ];
 
     if (options.model) {

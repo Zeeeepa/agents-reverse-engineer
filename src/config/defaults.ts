@@ -78,6 +78,8 @@ export const DEFAULT_BINARY_EXTENSIONS = [
   'CLAUDE.md',
   'OPENCODE.md',
   'GEMINI.md',
+  // Generated artifacts (agents-reverse-engineer output)
+  '.sum',
 ] as const;
 
 /**

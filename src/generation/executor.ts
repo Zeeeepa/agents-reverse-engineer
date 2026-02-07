@@ -153,11 +153,8 @@ export function buildExecutionPlan(
       type: 'directory',
       path: dir,
       absolutePath: dirAbsPath,
-      systemPrompt: `You are generating AGENTS.md for a directory.
-Read all .sum files in this directory and create a comprehensive directory overview.
-Group files by purpose, describe the directory's role, and note patterns.`,
-      userPrompt: `Generate AGENTS.md for directory "${dir}" containing ${files.length} analyzed files.
-First verify all .sum files exist, then synthesize them into a directory overview.`,
+      systemPrompt: 'Built at execution time by buildDirectoryPrompt()',
+      userPrompt: `Directory "${dir}" — ${files.length} files. Prompt populated from .sum files at runtime.`,
       dependencies: fileTaskIds,
       outputPath: path.join(dirAbsPath, 'AGENTS.md'),
       metadata: {
