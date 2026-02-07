@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-07
+
+### Added
+- **AI Service Layer** — New backend abstraction with Claude, Gemini, and OpenCode adapters, auto-detection, and Zod response parsing
+- **Orchestration Engine** — Concurrent command runner with configurable concurrency pool, progress reporting, and `--concurrency`, `--fail-fast`, `--debug` CLI flags
+- **Cost Estimation** — Pricing engine with per-model token costs, cost thresholds, and unknown model warnings
+- **Full Telemetry** — Track file sizes, token usage, and cost per run with dashboard display in `printSummary`
+- **Quality Analysis** — Code-vs-doc drift detection (`extractExports`, `checkCodeVsDoc`), cross-file inconsistency detection wired into generate/update pipeline
+- **Density-Aware Prompts** — Anchor term preservation and hierarchical deduplication in AGENTS.md builder
+- **LLM-Generated Content** — Integrate LLM-generated content into AGENTS.md writing process with directory-level prompt generation
+- **Findability Validator** — Validates generated documentation meets findability criteria
+
+### Changed
+- Rewrote `generate` command to use AIService + CommandRunner for real AI-powered analysis
+- Rewrote `update` command to use AIService for real analysis instead of stubs
+- Rewrote `discover` command for consistency with new orchestration layer
+
+### Fixed
+- Relative paths now correctly returned in `UpdateOrchestrator`
+- Improved directory checks in orphan cleaner
+
 ## [0.3.6] - 2026-02-03
 
 ### Fixed
@@ -205,7 +226,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.6...v0.4.0
 [0.3.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.3...v0.3.4
