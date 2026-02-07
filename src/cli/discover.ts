@@ -17,7 +17,7 @@ import {
   createCustomFilter,
 } from '../discovery/filters/index.js';
 import { loadConfig } from '../config/loader.js';
-import { createLogger, type Logger } from '../output/logger.js';
+import { createLogger } from '../output/logger.js';
 import { createOrchestrator } from '../generation/orchestrator.js';
 import { buildExecutionPlan, formatExecutionPlanAsMarkdown } from '../generation/executor.js';
 import type { DiscoveryResult } from '../types/index.js';
@@ -180,6 +180,4 @@ export async function discoverCommand(
     }
   }
 
-  // Exit with code 0 on success
-  process.exit(0);
 }
