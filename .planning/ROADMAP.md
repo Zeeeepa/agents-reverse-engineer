@@ -57,12 +57,12 @@
   3. When a subprocess hangs beyond timeout, the tool kills it cleanly with no zombie processes left behind
   4. When a transient failure occurs (rate limit, timeout), the tool retries automatically with backoff and succeeds on retry
   5. Each AI call produces a JSON log entry in `.agents-reverse/logs/` containing prompt, response, tokens, latency, and exit code
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
-- [ ] 06-03: TBD
+- [ ] 06-01-PLAN.md -- Types, subprocess wrapper, and retry utility (Wave 1)
+- [ ] 06-02-PLAN.md -- Claude backend, Gemini/OpenCode stubs, registry + auto-detection (Wave 2)
+- [ ] 06-03-PLAN.md -- Telemetry subsystem, AIService orchestrator, config extension, barrel export (Wave 3)
 
 ### Phase 7: Orchestration & Commands
 **Goal**: The generate, update, and discover commands use the AI service to execute analysis directly, with concurrent processing and visible progress
@@ -119,11 +119,11 @@ Phase 9 can start after Phase 7 completes (independent of Phase 8).
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-5 | v1.0 | 26/26 | Complete | 2026-02-02 |
-| 6. AI Service Foundation | v2.0 | 0/TBD | Not started | - |
+| 6. AI Service Foundation | v2.0 | 0/3 | Planned | - |
 | 7. Orchestration & Commands | v2.0 | 0/TBD | Not started | - |
 | 8. Full Telemetry | v2.0 | 0/TBD | Not started | - |
 | 9. Quality Improvements | v2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-07*
+*Last updated: 2026-02-07 (Phase 6 planned)*
