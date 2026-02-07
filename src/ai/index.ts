@@ -39,6 +39,8 @@ export type {
   RetryOptions,
   TelemetryEntry,
   RunLog,
+  FileRead,
+  CostSource,
 } from './types.js';
 
 export { AIServiceError } from './types.js';
@@ -79,3 +81,10 @@ export { runSubprocess } from './subprocess.js';
 // ---------------------------------------------------------------------------
 
 export { isCommandOnPath } from './backends/claude.js';
+
+// ---------------------------------------------------------------------------
+// Pricing
+// ---------------------------------------------------------------------------
+
+export { estimateCost, lookupPricing, formatCost, formatTokens } from './pricing.js';
+export type { ModelPricing, CostEstimate } from './pricing.js';
