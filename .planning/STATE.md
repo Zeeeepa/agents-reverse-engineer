@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 — AI Service & Quality
+**Current focus:** v2.0 Phase 6 -- AI Service Foundation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-02-07 — Milestone v2.0 started
+Phase: 6 of 9 (AI Service Foundation)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-02-07 -- Roadmap created for v2.0
 
 Progress: [░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v2.0)
 
-**Next:** Define requirements → create roadmap
+**Next:** Plan Phase 6
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [░░░░░░░░░░░░░░░░░░░░░░░
 - Total plans completed: 26
 - Total execution time: 89 min
 - Average duration: 3 min per plan
-- Timeline: 8 days (2026-01-25 → 2026-02-02)
+- Timeline: 8 days (2026-01-25 -> 2026-02-02)
 
-**By Phase:**
+**By Phase (v1.0):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
@@ -43,9 +43,9 @@ Progress: [░░░░░░░░░░░░░░░░░░░░░░░
 Key decisions are logged in PROJECT.md Key Decisions table.
 v1.0 decisions archived in milestones/v1.0-ROADMAP.md.
 
-### Roadmap Evolution
-
-v1.0 roadmap archived. v2.0 roadmap being created.
+v2.0 pending decisions:
+- Tool drives LLM via CLI subprocess (full control over orchestration, telemetry, error handling)
+- JSON log files for telemetry (human-readable, one file per run)
 
 ### Pending Todos
 
@@ -58,5 +58,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Defining v2.0 requirements
+Stopped at: Roadmap created for v2.0 milestone
 Resume file: None
