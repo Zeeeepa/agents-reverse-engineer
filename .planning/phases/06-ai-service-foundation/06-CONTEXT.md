@@ -4,6 +4,7 @@
 **Status:** Ready for planning
 
 <domain>
+
 ## Phase Boundary
 
 A working AI service layer that can spawn CLI subprocesses, capture structured responses, and log per-call telemetry. This phase delivers the backend abstraction, Claude adapter, subprocess management, retry logic, and telemetry logging. It does NOT wire into generate/update commands (Phase 7) or add inconsistency detection (Phase 9).
@@ -11,6 +12,7 @@ A working AI service layer that can spawn CLI subprocesses, capture structured r
 </domain>
 
 <decisions>
+
 ## Implementation Decisions
 
 ### Backend scope
@@ -49,6 +51,7 @@ A working AI service layer that can spawn CLI subprocesses, capture structured r
 </decisions>
 
 <specifics>
+
 ## Specific Ideas
 
 - Auto-detection should feel seamless: user just runs the command, tool finds the right backend
@@ -58,6 +61,7 @@ A working AI service layer that can spawn CLI subprocesses, capture structured r
 </specifics>
 
 <deferred>
+
 ## Deferred Ideas
 
 None -- discussion stayed within phase scope
