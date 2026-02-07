@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-02-07
+
+### Added
+- `computeContentHashFromString` function for in-memory hash computation without writing temporary files
+- `PlanTracker` for real-time progress tracking in GENERATION-PLAN.md during documentation generation
+
+### Changed
+- Optimized directory processing with parallel file reads in orchestration runner
+
+### Fixed
+- Command syntax in documentation and installer messages now consistent across README, docs, and CLI output
+
 ## [0.4.1] - 2026-02-07
 
 ### Fixed
@@ -234,7 +246,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.6...v0.4.0
 [0.3.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.5...v0.3.6
