@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 Phase 8 complete -- full telemetry pipeline done
+**Current focus:** v2.0 Phase 8 verified -- ready for Phase 9
 
 ## Current Position
 
-Phase: 8 of 9 (Full Telemetry)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-02-07 -- Completed 08-03-PLAN.md (dashboard display)
+Phase: 8 of 9 (Full Telemetry) -- COMPLETE
+Plan: 3/3 complete, verified, approved
+Status: Phase verified and approved
+Last activity: 2026-02-07 -- Phase 8 verified (3/3 truths, approved)
 
 Progress: [██████████████████░░░░░░] 75% (v2.0 -- 9/12 plans)
 
-**Next:** Phase 9 (polish)
+**Next:** Phase 9 (Quality Improvements -- inconsistency detection & context density)
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ v2.0 decisions:
 ### Pending Todos
 
 - **OpenCode plugin development**: Create `.opencode/plugin/` based hook for SessionEnd (deferred from v1.0, not in v2.0 scope)
+- **Thinking content support**: Raise issue in AI assistant repository requesting thinking/reasoning content in `--output-format json` output. Infrastructure is ready in telemetry layer (TelemetryEntry.thinking field); just needs backend wiring when CLI adds support.
 
 ### Blockers/Concerns
 
@@ -94,5 +95,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 08-03-PLAN.md (dashboard display) -- Phase 8 complete
+Stopped at: Phase 8 verified and approved -- ready for Phase 9
 Resume file: None

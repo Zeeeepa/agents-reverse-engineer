@@ -19,10 +19,10 @@ Requirements for the AI Service & Quality milestone. Each maps to roadmap phases
 ### Telemetry
 
 - [x] **TELEM-01**: Per-call JSON log entry capturing: prompt sent, response received, model used, input/output tokens, latency, exit code
-- [ ] **TELEM-02**: Thinking/reasoning content captured when available from CLI output
-- [ ] **TELEM-03**: Files read by the AI tracked per call (from CLI output metadata)
+- [x] **TELEM-02**: Thinking/reasoning content captured when available from CLI output (infrastructure ready; CLI doesn't currently provide thinking in JSON output)
+- [x] **TELEM-03**: Files read by the AI tracked per call (from CLI output metadata)
 - [x] **TELEM-04**: Per-run summary log: total calls, total tokens (in/out), total time, error count, files processed
-- [ ] **TELEM-05**: Cost estimation per run based on model and token counts
+- [x] **TELEM-05**: Cost estimation per run based on model and token counts
 - [x] **TELEM-06**: JSON log files stored per run in `.agents-reverse/logs/` with timestamped filenames
 
 ### Command Refactors
@@ -87,10 +87,10 @@ Deferred to later milestones.
 | AISVC-05 | Phase 6 | Complete |
 | AISVC-06 | Phase 6 | Complete |
 | TELEM-01 | Phase 6 | Complete |
-| TELEM-02 | Phase 8 | Pending |
-| TELEM-03 | Phase 8 | Pending |
+| TELEM-02 | Phase 8 | Complete |
+| TELEM-03 | Phase 8 | Complete |
 | TELEM-04 | Phase 7 | Complete |
-| TELEM-05 | Phase 8 | Pending |
+| TELEM-05 | Phase 8 | Complete |
 | TELEM-06 | Phase 6 | Complete |
 | CMD-01 | Phase 7 | Complete |
 | CMD-02 | Phase 7 | Complete |
@@ -111,4 +111,4 @@ Deferred to later milestones.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 (Phase 7 complete)*
+*Last updated: 2026-02-07 (Phase 8 complete)*

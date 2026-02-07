@@ -42,7 +42,7 @@
 
 - [x] **Phase 6: AI Service Foundation** - Subprocess layer that spawns AI CLIs, captures responses, and logs telemetry
 - [x] **Phase 7: Orchestration & Commands** - Wire AI service into generate/update/discover commands with concurrency and progress
-- [ ] **Phase 8: Full Telemetry** - Complete observability with thinking capture, file tracking, and cost estimation
+- [x] **Phase 8: Full Telemetry** - Complete observability with thinking capture, file tracking, and cost estimation
 - [ ] **Phase 9: Quality Improvements** - Inconsistency detection and higher-density documentation output
 
 ## Phase Details
@@ -89,12 +89,12 @@ Plans:
   1. When the AI CLI returns reasoning/thinking content, it appears in the telemetry log entry for that call
   2. Files read by the AI during a call are tracked and recorded in the telemetry log entry
   3. After a run completes, the summary includes estimated cost in USD based on model and token counts
-**Plans**: 3 plans
+**Plans**: 3/3 complete
 
 Plans:
-- [ ] 08-01-PLAN.md -- Cost estimation engine with pricing table and tests (TDD, Wave 1)
-- [ ] 08-02-PLAN.md -- Type extensions, telemetry wiring, config schema (Wave 2)
-- [ ] 08-03-PLAN.md -- Summary display, barrel export, cost threshold warnings (Wave 3)
+- [x] 08-01-PLAN.md -- Cost estimation engine with pricing table and tests (TDD, Wave 1)
+- [x] 08-02-PLAN.md -- Type extensions, telemetry wiring, config schema (Wave 2)
+- [x] 08-03-PLAN.md -- Summary display, barrel export, cost threshold warnings (Wave 3)
 
 ### Phase 9: Quality Improvements
 **Goal**: The tool detects inconsistencies during analysis and produces higher-density, more useful documentation
@@ -123,9 +123,9 @@ Phase 9 can start after Phase 7 completes (independent of Phase 8).
 | 1-5 | v1.0 | 26/26 | Complete | 2026-02-02 |
 | 6. AI Service Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 7. Orchestration & Commands | v2.0 | 3/3 | Complete | 2026-02-07 |
-| 8. Full Telemetry | v2.0 | 0/3 | Not started | - |
+| 8. Full Telemetry | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 9. Quality Improvements | v2.0 | 0/TBD | Not started | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-07 (Phase 8 planned)*
+*Last updated: 2026-02-07 (Phase 8 complete)*
