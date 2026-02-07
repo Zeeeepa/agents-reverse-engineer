@@ -75,13 +75,10 @@ export function buildAgentsMd(doc: DirectoryDoc, hasLocalFile: boolean = false):
     sections.push('');
   }
 
-  // Header
+  // Header (clean -- no description here; moved to "How Files Relate")
   sections.push(`# ${dirName}\n`);
-  if (doc.description) {
-    sections.push(`${doc.description}\n`);
-  }
 
-  // Files grouped by purpose (not flat listing)
+  // Files grouped by purpose -- abbreviated links without repeating .sum descriptions
   if (doc.files.length > 0) {
     sections.push('## Contents\n');
     for (const group of doc.files) {
@@ -90,7 +87,7 @@ export function buildAgentsMd(doc: DirectoryDoc, hasLocalFile: boolean = false):
       sections.push(`### ${group.purpose}\n`);
       for (const file of group.files) {
         const marker = file.critical ? ' **[critical]**' : '';
-        sections.push(`- [${file.name}](./${file.name}) - ${file.description}${marker}`);
+        sections.push(`- [${file.name}](./${file.name})${marker}`);
       }
       sections.push('');
     }
@@ -114,13 +111,19 @@ export function buildAgentsMd(doc: DirectoryDoc, hasLocalFile: boolean = false):
     sections.push('');
   }
 
-  // Patterns/Conventions
+  // Patterns/Conventions (cross-cutting, unique to parent)
   if (doc.patterns.length > 0) {
     sections.push('## Patterns\n');
     for (const pattern of doc.patterns) {
       sections.push(`- ${pattern}`);
     }
     sections.push('');
+  }
+
+  // How Files Relate -- synthesized directory description (parent-unique value)
+  if (doc.description) {
+    sections.push('## How Files Relate\n');
+    sections.push(`${doc.description}\n`);
   }
 
   return sections.join('\n').trim() + '\n';
