@@ -32,7 +32,9 @@ import {
   formatReportForCli,
 } from '../quality/index.js';
 import type { Inconsistency } from '../quality/index.js';
+import { formatExecutionPlanAsMarkdown } from '../generation/executor.js';
 import { runPool } from './pool.js';
+import { PlanTracker } from './plan-tracker.js';
 import { ProgressReporter } from './progress.js';
 import type {
   FileTaskResult,
@@ -97,6 +99,13 @@ export class CommandRunner {
       plan.fileTasks.length,
       this.options.quiet ?? false,
     );
+
+    // Initialize plan tracker (writes GENERATION-PLAN.md with checkboxes)
+    const planTracker = new PlanTracker(
+      plan.projectRoot,
+      formatExecutionPlanAsMarkdown(plan),
+    );
+    await planTracker.initialize();
 
     const runStart = Date.now();
     let filesProcessed = 0;
@@ -188,6 +197,7 @@ export class CommandRunner {
           const v = result.value;
           filesProcessed++;
           reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model);
+          planTracker.markDone(v.path);
         } else {
           filesFailed++;
           const errorMsg = result.error?.message ?? 'Unknown error';
@@ -303,6 +313,7 @@ export class CommandRunner {
       });
       await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
       reporter.onDirectoryDone(dirTask.path);
+      planTracker.markDone(`${dirTask.path}/AGENTS.md`);
     }
 
     // -------------------------------------------------------------------
@@ -317,7 +328,11 @@ export class CommandRunner {
 
       await writeFile(rootTask.outputPath, response.text, 'utf-8');
       reporter.onRootDone(rootTask.path);
+      planTracker.markDone(rootTask.path);
     }
+
+    // Ensure all plan tracker writes are flushed
+    await planTracker.flush();
 
     // -------------------------------------------------------------------
     // Build and print summary
