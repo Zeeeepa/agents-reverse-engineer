@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 Phase 7 complete (verified ✓) -- ready for Phase 8
+**Current focus:** v2.0 Phase 8 in progress -- cost estimation engine complete
 
 ## Current Position
 
-Phase: 7 of 9 (Orchestration & Commands)
-Plan: 3 of 3 in current phase
-Status: Phase complete (verified ✓)
-Last activity: 2026-02-07 -- Phase 7 verified, 5/5 success criteria passed
+Phase: 8 of 9 (Full Telemetry)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-07 -- Completed 08-01-PLAN.md (TDD: pricing engine)
 
-Progress: [██████████████░░░░░░░░░░] 50% (v2.0 -- 6/12 plans)
+Progress: [███████████████░░░░░░░░░] 58% (v2.0 -- 7/12 plans)
 
-**Next:** Begin Phase 8 (Full Telemetry)
+**Next:** Plan 08-02 (telemetry wiring)
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [██████████████░░░░░░░░░
 |-------|-------|-------|----------|
 | 6. AI Service Foundation | 3/3 | 8 min | 3 min |
 | 7. Orchestration & Commands | 3/3 | 8 min | 3 min |
+| 8. Full Telemetry | 1/3 | 2 min | 2 min |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ v2.0 decisions:
 - Update command delegates to CommandRunner.executeUpdate (not inline pool logic)
 - AGENTS.md regeneration after executeUpdate uses separate ProgressReporter for directory events
 - Discover command returns normally (no process.exit(0)) for consistency and testability
+- Prefix matching in lookupPricing sorts keys longest-first to avoid ambiguity between model ID prefixes
+- Config pricing overrides spread over defaults before lookup so overrides always win
+- formatTokens uses parseFloat to strip trailing zeros (1.0M becomes 1M)
 
 ### Pending Todos
 
@@ -82,5 +86,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 7 complete and verified
+Stopped at: Completed 08-01-PLAN.md (TDD: pricing engine)
 Resume file: None
