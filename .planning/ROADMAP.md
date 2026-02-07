@@ -74,12 +74,12 @@ Plans:
   3. Multiple files are processed concurrently (observable via interleaved progress output), respecting a configurable parallelism limit
   4. During execution, the terminal shows progress: current file name, X of Y complete, and estimated time remaining
   5. After a run completes, a summary line shows total calls, total tokens (in/out), total time, and error count
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
-- [ ] 07-03: TBD
+- [ ] 07-01-PLAN.md -- Orchestration engine: concurrency pool, progress reporter, command runner, config extension (Wave 1)
+- [ ] 07-02-PLAN.md -- Generate command rewrite + CLI flags (Wave 2)
+- [ ] 07-03-PLAN.md -- Update command rewrite + discover cleanup (Wave 3)
 
 ### Phase 8: Full Telemetry
 **Goal**: Complete observability -- every AI call captures thinking content, files read, and estimated cost
