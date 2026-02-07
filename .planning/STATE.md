@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 Phase 9 executing -- plan 01 complete
+**Current focus:** v2.0 Phase 9 executing -- plans 01-02 complete
 
 ## Current Position
 
 Phase: 9 of 9 (Quality Improvements) -- IN PROGRESS
-Plan: 1/3 executed
+Plan: 2/3 executed
 Status: In progress
-Last activity: 2026-02-07 -- Completed 09-01-PLAN.md (quality types + code-vs-doc detection)
+Last activity: 2026-02-07 -- Completed 09-02-PLAN.md (density prompts + hierarchical dedup)
 
-Progress: [████████████████████░░░░] 83% (v2.0 -- 10/12 plans)
+Progress: [█████████████████████░░░] 92% (v2.0 -- 11/12 plans)
 
-**Next:** Execute 09-02 (code-vs-code detection + reporter, wave 1)
+**Next:** Execute 09-03 (wave 2)
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [████████████████████░░░
 | 6. AI Service Foundation | 3/3 | 8 min | 3 min |
 | 7. Orchestration & Commands | 3/3 | 8 min | 3 min |
 | 8. Full Telemetry | 3/3 | 9 min | 3 min |
-| 9. Quality Improvements | 1/3 | 2 min | 2 min |
+| 9. Quality Improvements | 2/3 | 5 min | 3 min |
 
 ## Accumulated Context
 
@@ -85,6 +85,9 @@ v2.0 decisions:
 - DEFAULT_MODEL_PRICING exported from AI barrel for consumer access to pricing table
 - Line-anchored regex (^[ \t]*export) to skip commented-out exports without AST parsing
 - missingFromCode uses partial match (iface.includes(exportName)) since publicInterface contains signatures
+- Single-pass density prompt adaptation (not multi-pass Chain of Density) for cost efficiency
+- Contents section links files without descriptions -- full description lives in .sum only
+- Findability validator uses case-sensitive string.includes for symbol matching
 
 ### Pending Todos
 
@@ -98,5 +101,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 09-01-PLAN.md (quality types + code-vs-doc detection)
+Stopped at: Completed 09-02-PLAN.md (density prompts + hierarchical dedup)
 Resume file: None
