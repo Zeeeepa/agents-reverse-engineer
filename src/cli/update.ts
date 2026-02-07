@@ -2,11 +2,11 @@
  * CLI update command
  *
  * Updates documentation incrementally based on git changes since last run.
- * Integrates with generation module to analyze changed files and update .sum files.
- * Regenerates AGENTS.md for affected directories.
+ * Uses the AI service for real file analysis (not placeholders) and processes
+ * changed files concurrently via the CommandRunner orchestration engine.
+ * Regenerates AGENTS.md for affected directories after analysis.
  */
 import * as path from 'node:path';
-import { readFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import { loadConfig } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
@@ -14,12 +14,15 @@ import {
   createUpdateOrchestrator,
   type UpdatePlan,
 } from '../update/index.js';
-import { detectFileType } from '../generation/detection/detector.js';
-import { countTokens } from '../generation/budget/index.js';
-import { buildPrompt } from '../generation/prompts/index.js';
-import { writeSumFile, type SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
-import { computeContentHash, type FileChange } from '../change-detection/index.js';
+import {
+  AIService,
+  AIServiceError,
+  createBackendRegistry,
+  resolveBackend,
+  getInstallInstructions,
+} from '../ai/index.js';
+import { CommandRunner, ProgressReporter } from '../orchestration/index.js';
 
 /**
  * Options for the update command.
@@ -41,16 +44,6 @@ export interface UpdateCommandOptions {
   failFast?: boolean;
   /** Show AI prompts and backend details */
   debug?: boolean;
-}
-
-/**
- * Result of analyzing a single file.
- */
-interface FileAnalysisResult {
-  path: string;
-  success: boolean;
-  tokensUsed: number;
-  error?: string;
 }
 
 /**
@@ -155,116 +148,18 @@ function formatPlan(plan: UpdatePlan, verbose: boolean): string {
 }
 
 /**
- * Analyze a single changed file and generate its .sum file.
- *
- * Uses the generation module's prompt builder and sum writer.
- * Note: This generates a placeholder summary since the actual LLM analysis
- * requires host integration. The prompt is generated for potential future use.
- */
-async function analyzeFile(
-  projectRoot: string,
-  change: FileChange,
-  verbose: boolean
-): Promise<FileAnalysisResult & { contentHash?: string }> {
-  const filePath = path.join(projectRoot, change.path);
-
-  try {
-    // Read file content
-    const content = await readFile(filePath, 'utf-8');
-    const tokens = countTokens(content);
-
-    // Compute content hash for change detection
-    const contentHash = await computeContentHash(filePath);
-
-    // Detect file type and build prompt
-    const fileType = detectFileType(filePath, content);
-    const prompt = buildPrompt({
-      filePath: change.path,
-      content,
-      fileType,
-    });
-
-    // Generate summary content
-    // In a full implementation, this would call an LLM with the prompt.
-    // For now, we create a structured summary placeholder that captures
-    // the file's purpose and key elements.
-    const sumContent: SumFileContent = {
-      summary: `## Purpose\n\nFile at \`${change.path}\`.\n\n## Analysis Pending\n\nThis summary was generated during incremental update. Full analysis requires LLM integration.`,
-      metadata: {
-        purpose: `File at ${change.path}`,
-        publicInterface: [],
-        dependencies: [],
-        patterns: [],
-      },
-      fileType,
-      generatedAt: new Date().toISOString(),
-      contentHash,
-    };
-
-    // Write .sum file
-    await writeSumFile(filePath, sumContent);
-
-    if (verbose) {
-      console.log(`  ${pc.green('\u2713')} ${change.path} (${tokens} tokens)`);
-    }
-
-    return {
-      path: change.path,
-      success: true,
-      tokensUsed: tokens,
-      contentHash,
-    };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    if (verbose) {
-      console.log(`  ${pc.red('\u2717')} ${change.path}: ${errorMsg}`);
-    }
-
-    return {
-      path: change.path,
-      success: false,
-      tokensUsed: 0,
-      error: errorMsg,
-    };
-  }
-}
-
-/**
- * Regenerate AGENTS.md for affected directories.
- *
- * Reads existing .sum files in each directory and creates/updates AGENTS.md.
- */
-async function regenerateAgentsMd(
-  projectRoot: string,
-  directories: string[],
-  verbose: boolean
-): Promise<void> {
-  for (const dir of directories) {
-    const dirPath = dir === '.' ? projectRoot : path.join(projectRoot, dir);
-    try {
-      await writeAgentsMd(dirPath, projectRoot);
-      if (verbose) {
-        console.log(`  ${pc.green('\u2713')} AGENTS.md: ${dir || '.'}`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      if (verbose) {
-        console.log(`  ${pc.yellow('!')} AGENTS.md: ${dir || '.'}: ${errorMsg}`);
-      }
-    }
-  }
-}
-
-/**
  * Update command - incrementally updates documentation based on git changes.
  *
  * This command:
  * 1. Checks git repository status
- * 2. Detects files changed since last run
+ * 2. Detects files changed since last run (via content-hash comparison)
  * 3. Cleans up orphaned .sum files
- * 4. Analyzes changed files and generates .sum files
- * 5. Regenerates AGENTS.md for affected directories
- * 6. Records update state for next run
+ * 4. Resolves an AI CLI backend and creates the AI service
+ * 5. Analyzes changed files concurrently via CommandRunner
+ * 6. Regenerates AGENTS.md for affected directories
+ * 7. Writes telemetry run log and prints run summary
+ *
+ * Exit codes: 0 = all success, 1 = partial failure, 2 = total failure / no CLI
  */
 export async function updateCommand(
   targetPath: string,
@@ -325,61 +220,108 @@ export async function updateCommand(
       return;
     }
 
-    // === Execute the update workflow ===
+    // -------------------------------------------------------------------------
+    // Backend resolution (same pattern as generate command)
+    // -------------------------------------------------------------------------
 
-    let totalTokens = 0;
-    let filesAnalyzed = 0;
-    let filesFailed = 0;
+    const registry = createBackendRegistry();
+    let backend;
+    try {
+      backend = await resolveBackend(registry, config.ai.backend);
+    } catch (error) {
+      if (error instanceof AIServiceError && error.code === 'CLI_NOT_FOUND') {
+        console.error(pc.red('Error: No AI CLI found.\n'));
+        console.error(getInstallInstructions(registry));
+        process.exit(2);
+      }
+      throw error;
+    }
 
-    // Step 1: Analyze changed files and generate .sum files
-    if (plan.filesToAnalyze.length > 0) {
-      console.log('');
-      console.log(pc.bold('=== Analyzing Changed Files ==='));
+    // Debug: log backend info
+    if (options.debug) {
+      console.log(pc.dim(`[debug] Backend: ${backend.name}`));
+      console.log(pc.dim(`[debug] CLI command: ${backend.cliCommand}`));
+      console.log(pc.dim(`[debug] Model: ${config.ai.model}`));
+    }
 
-      for (const change of plan.filesToAnalyze) {
-        const result = await analyzeFile(absolutePath, change, verbose);
+    // -------------------------------------------------------------------------
+    // AI service setup
+    // -------------------------------------------------------------------------
 
-        if (result.success && result.contentHash) {
-          filesAnalyzed++;
-          totalTokens += result.tokensUsed;
+    const aiService = new AIService(backend, {
+      timeoutMs: config.ai.timeoutMs,
+      maxRetries: config.ai.maxRetries,
+      telemetry: { keepRuns: config.ai.telemetry.keepRuns },
+    });
 
-          // Update state for this file
-          await orchestrator.recordFileAnalyzed(
-            change.path,
-            result.contentHash,
-            plan.currentCommit
-          );
-        } else if (!result.success) {
-          filesFailed++;
+    // Determine concurrency
+    const concurrency = options.concurrency ?? config.ai.concurrency;
+
+    // Create command runner
+    const runner = new CommandRunner(aiService, {
+      concurrency,
+      failFast: options.failFast,
+      quiet: options.quiet,
+      debug: options.debug,
+    });
+
+    // -------------------------------------------------------------------------
+    // Phase 1: File analysis via CommandRunner (concurrent AI calls)
+    // -------------------------------------------------------------------------
+
+    const summary = await runner.executeUpdate(
+      plan.filesToAnalyze,
+      absolutePath,
+      config,
+    );
+
+    // -------------------------------------------------------------------------
+    // Phase 2: AGENTS.md regeneration for affected directories
+    // -------------------------------------------------------------------------
+
+    if (plan.affectedDirs.length > 0) {
+      const dirReporter = new ProgressReporter(plan.affectedDirs.length, quiet);
+      for (const dir of plan.affectedDirs) {
+        const dirPath = dir === '.' ? absolutePath : path.join(absolutePath, dir);
+        try {
+          await writeAgentsMd(dirPath, absolutePath);
+          dirReporter.onDirectoryDone(dir || '.');
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          if (!quiet) {
+            console.log(`${pc.dim('[dir]')} ${pc.yellow('WARN')} ${dir || '.'}: ${errorMsg}`);
+          }
         }
       }
     }
 
-    // Step 2: Regenerate AGENTS.md for affected directories
-    if (plan.affectedDirs.length > 0) {
-      console.log('');
-      console.log(pc.bold('=== Regenerating AGENTS.md ==='));
-      await regenerateAgentsMd(absolutePath, plan.affectedDirs, verbose);
-    }
+    // -------------------------------------------------------------------------
+    // Telemetry finalization
+    // -------------------------------------------------------------------------
 
-    // Step 3: Record completed run
+    await aiService.finalize(absolutePath);
+
+    // -------------------------------------------------------------------------
+    // Record run state (no-op in frontmatter mode, kept for API compatibility)
+    // -------------------------------------------------------------------------
+
     const filesSkipped = plan.filesToSkip.length;
     await orchestrator.recordRun(
       plan.currentCommit,
-      filesAnalyzed,
+      summary.filesProcessed,
       filesSkipped
     );
 
-    // Summary
-    console.log('');
-    console.log(pc.bold('=== Update Complete ==='));
-    console.log(`  Files analyzed: ${pc.green(String(filesAnalyzed))}`);
-    if (filesFailed > 0) {
-      console.log(`  Files failed: ${pc.red(String(filesFailed))}`);
+    // -------------------------------------------------------------------------
+    // Exit code: 0 = all success, 1 = partial failure, 2 = total failure
+    // -------------------------------------------------------------------------
+
+    if (summary.filesProcessed === 0 && summary.filesFailed > 0) {
+      process.exit(2);
+    } else if (summary.filesFailed > 0) {
+      process.exit(1);
     }
-    console.log(`  Files skipped: ${pc.dim(String(filesSkipped))}`);
-    console.log(`  Directories updated: ${pc.cyan(String(plan.affectedDirs.length))}`);
-    console.log(`  Token budget used: ${pc.yellow(totalTokens.toLocaleString())} / ${config.generation.tokenBudget.toLocaleString()}`);
+    // Exit code 0 -- all files succeeded (or no files to process)
 
   } finally {
     orchestrator.close();
