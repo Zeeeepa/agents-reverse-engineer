@@ -1,354 +1,332 @@
 # Project Research Summary
 
-**Project:** Agents Reverse
-**Domain:** AI-Powered Codebase Documentation Tooling
-**Researched:** 2026-01-25
-**Confidence:** HIGH
+**Project:** agents-reverse-engineer v2.0
+**Domain:** AI CLI subprocess orchestration, telemetry, inconsistency detection, context density optimization
+**Researched:** 2026-02-07
+**Confidence:** HIGH (codebase analysis, Claude CLI verified) / MEDIUM (architecture patterns) / LOW (Gemini/OpenCode CLI details)
 
 ## Executive Summary
 
-Agents Reverse is a recursive codebase documentation generator designed specifically for AI coding assistants. The research reveals a clear market gap: while tools like Repomix, GSD, and BMAD generate excellent initial documentation, **none provide git-diff-based incremental updates to maintain freshness automatically**. This is the core differentiator. The tool generates hierarchical AGENTS.md files (per-directory) and file-level .sum summaries using a bottom-up approach, then keeps them fresh via git hook triggers.
+The v2.0 milestone transforms agents-reverse-engineer from a plan generator into a direct orchestrator. Currently, the tool outputs execution plans that host AI tools (Claude Code, OpenCode, Gemini CLI) execute. v2.0 inverts this: ARE spawns AI CLIs as subprocesses, captures their output, logs comprehensive telemetry, detects inconsistencies, and optimizes for information-dense documentation.
 
-The recommended approach is to build a TypeScript/Node.js skill for Claude Code (primary integration) with clean separation between core processing logic and infrastructure concerns (git, LLM, filesystem). The architecture centers on three core components: Tree Walker (directory traversal), File Analyzer (individual file summaries), and Summary Aggregator (bottom-up rollup). The critical insight from stack research: **we don't call LLMs directly** — the host tool (Claude Code, OpenCode) handles LLM orchestration; our job is file system work, markdown generation, and providing the right interface via SKILL.md files.
+The research reveals a clear path forward: **build a subprocess adapter layer using zero new dependencies**. Node.js `child_process.spawn()` provides everything needed. Claude CLI has mature non-interactive support with `--print --output-format json` flags (verified locally). The existing `ExecutionPlan` interface already contains everything needed (prompts, dependencies, output paths) — the AI service layer simply consumes this plan by spawning CLI processes instead of outputting markdown. No fundamental architecture changes required; this is an execution strategy swap.
 
-The biggest risks identified are: (1) token budget explosion on large repositories requiring aggressive filtering and budgeting from day one, (2) summary quality degradation as information propagates up the directory tree requiring anchor term preservation, and (3) git diff-based staleness detection breaking on renames/moves requiring robust edge case handling. Mitigation strategies are well-documented in PITFALLS.md and must be addressed in Core Architecture phase, not bolted on later.
+The critical risk is subprocess management complexity: stdout deadlocks, zombie processes, shell injection, and timeout handling. The mitigation is to get process lifecycle management right from Phase 1. Testing with real CLIs (not mocks) and long-running files (>50KB) must happen early. Telemetry provides the observability layer to measure success and optimize. The finding from Vercel's research validates the approach: embedded compressed docs achieve 100% task completion versus 79% for retrieval-based systems — but only if the docs are genuinely dense, not verbose.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**Core insight:** This is a skill/plugin system for AI coding tools, not a standalone CLI application. Integration is via SKILL.md files (Claude Code) or plugin definitions (OpenCode), not traditional command-line parsing. The stack prioritizes native TypeScript/ESM for compatibility, markdown-based skill files for zero-dependency integration, and git-aware operations for diff-based updates.
+**Zero new production dependencies needed.** Everything required exists in Node.js stdlib and the project's existing dependencies.
 
 **Core technologies:**
-- **TypeScript 5.5+ / Node.js 22+**: Native ESM with emerging TypeScript support; required by chokidar v5 if file watching is added
-- **tsx 4.21+ / tsup 8.5+**: Development execution (tsx) and distribution bundling (tsup); faster and more ESM-compatible than ts-node/webpack
-- **fast-glob 3.3.3 / ignore 7.0.5**: Pattern-based file discovery (10-20% faster than node-glob) and gitignore parsing (spec-compliant, used by eslint/prettier)
-- **simple-git 3.x**: Git operations for diff detection, staged file awareness, and commit metadata; full TypeScript support
-- **gray-matter 4.0.3**: YAML frontmatter parsing for SKILL.md files; battle-tested across static site generators
-- **zod 4.3+**: Runtime validation for configuration and frontmatter; required peer dependency of MCP SDK anyway
+- **Node.js `child_process.spawn()`** — subprocess spawning; already used in hooks; handles streaming, timeout, signal handling
+- **Node.js `fs/promises`** — NDJSON log file writes; append-only telemetry with zero complexity
+- **Existing `ExecutionPlan` interface** — already defines tasks with prompts, dependencies, output paths; no refactor needed
+- **Zod (existing)** — runtime validation of CLI JSON output schemas; critical for handling CLI version drift
+- **Claude CLI with `--print --output-format json`** — mature non-interactive mode; verified flags from local `claude --help` output
+- **Gemini CLI** — secondary target; non-interactive mode needs verification; treat as experimental in v2.0
+- **OpenCode** — tertiary; TUI-first design may lack batch mode; consider skipping CLI subprocess support
 
-**Critical anti-pattern:** Do NOT add `@anthropic-ai/sdk` or similar LLM client libraries. The host tool handles all LLM calls; our code does file system work and returns structured output.
+**Critical finding:** Claude CLI `--output-format json` returns structured JSON with response text, token counts, model used, cost data. The JSON schema is NOT formally versioned, requiring runtime validation with zod to handle CLI updates gracefully.
+
+**Version requirements:**
+- Node.js 18+ (already required)
+- TypeScript 5.5+ (already 5.7.3)
+- Claude CLI (user-installed, latest version recommended)
+- Gemini CLI (optional, user-installed)
 
 ### Expected Features
 
-Research reveals that documentation freshness is the killer differentiator in this market. Most competitors generate excellent initial documentation but fail to maintain it as code evolves. Swimm has patented auto-sync for human-focused docs, but no tool has nailed git-diff-based incremental updates for AI agent context.
+**Must have (table stakes for v2.0):**
+- **CLI subprocess spawn + capture** — core mechanism; spawn `claude`/`gemini`/`opencode` as child processes
+- **Multi-CLI abstraction** — single interface for all three CLIs; user picks runtime via config or auto-detect
+- **Print mode / non-interactive** — force CLIs into non-interactive mode (`--print`) to avoid TTY issues
+- **Per-call JSON telemetry** — log input, output, tokens, timing, exit code for every LLM call
+- **Run-level JSONL log file** — one log file per `are generate` run; newline-delimited JSON for streaming reads
+- **Timing + token counts** — latency_ms, input_tokens, output_tokens; track actual vs estimated
+- **Status + error capture** — success/failure/timeout; stderr for debugging
+- **Refactored generate/update pipeline** — wire existing orchestrator → executor → new AI runner → writers
 
-**Must have (table stakes):**
-- File-level .sum generation — every tool does file summaries; baseline expectation
-- Per-directory AGENTS.md — hierarchical structure matching codebase layout
-- Root CLAUDE.md pointer — Anthropic compatibility from day one
-- Token counting per file — essential for LLM context management
-- Gitignore respect + custom exclusions — don't document node_modules, build artifacts
-- CLI interface with /are:generate and /are:update — simple command surface
+**Should have (differentiators for v2.0):**
+- **Run summary statistics** — total calls, tokens, cost, success rate printed at end and saved to summary.json
+- **Progress reporting** — show "File 15/58: src/cli/generate.ts [3.2s, 2450 tokens]" as calls complete
+- **Retry with backoff** — auto-retry failed calls with exponential backoff + jitter
+- **Concurrency control** — process N files in parallel (configurable, default 5); respects rate limits
+- **Orphan + staleness detection** — flag .sum files with no source, source files with no .sum, outdated docs
+- **Concise output prompts** — revise prompts to target information density over word count
+- **Hierarchical deduplication** — ensure directory AGENTS.md adds value beyond file .sum content
 
-**Should have (competitive advantage):**
-- **Git-diff-based incremental updates** — THE differentiator; no competitor does this well; only update changed files
-- **Bottom-up recursive analysis** — file summaries aggregate to directory summaries maintaining semantic accuracy
-- **Session hooks (end-of-session triggers)** — automatic doc updates when developer finishes work; novel UX
-- **Staleness detection & alerts** — proactively flag when docs drift from code
-- **MCP server integration** — let AI tools query documentation directly during generation
+**Defer (v2.1+):**
+- **LLM-driven inconsistency check** — during update, compare code vs existing .sum and flag mismatches
+- **Cost estimation** — calculate USD cost per run from token counts + pricing table
+- **Agent-actionable sections** — include "How to modify", "How to test" in AGENTS.md
+- **Compression ratio targeting** — aim for specific tokens-per-source-line ratio
+- **Quality scoring** — score each .sum by density metrics (identifiers-per-token)
+- **Gemini/OpenCode full support** — verify non-interactive modes; currently experimental
 
-**Defer (v2+):**
-- Semantic code understanding (AST, dependencies) — complex; GSD/Sourcegraph do this; focus on freshness first
-- Multi-model support (Ollama, etc.) — Claude focus first, expand later
-- Parallel agent processing — performance optimization after correctness proven
-- Web interface — CLI-first audience; adds maintenance burden
+**Explicitly out of scope:**
+- Direct API integration (use CLIs which manage auth)
+- Streaming response parsing (collect full stdout, simpler and reliable)
+- Multi-turn conversation (each file analysis is one-shot)
+- External telemetry services (local JSONL files, user can forward if desired)
+- AST-based inconsistency detection (contradicts LLM-driven philosophy)
 
 ### Architecture Approach
 
-The standard architecture follows a three-layer pattern: Orchestration Layer (CLI, hooks, state), Core Processing Layer (walker, analyzer, aggregator), and Infrastructure Layer (git, LLM, filesystem). The critical pattern is **bottom-up recursive processing** — process leaf files first, then aggregate summaries upward to parent directories until reaching root. This ensures each directory summary has full context from children and enables natural parallelization at the sibling level.
+**Add a new `src/ai/` layer between executor and writers.** The existing orchestrator and executor remain unchanged — they already produce the perfect input (ExecutionPlan with prompts, dependencies, output paths). The AI service layer consumes this plan by spawning CLI subprocesses instead of outputting markdown.
 
 **Major components:**
-1. **Tree Walker** — Traverses directory structure depth-first, builds file tree from root, respects gitignore and exclusion patterns
-2. **File Analyzer** — Generates summaries for individual files via LLM calls; produces {filename}.sum with compact descriptions
-3. **Summary Aggregator** — Combines child .sum files into parent AGENTS.md via LLM synthesis; maintains hierarchy
-4. **State Manager** — Tracks processed files, git hashes, update status; enables incremental updates
-5. **Git Integration** — Detects changes via diff, tracks commit hashes, computes changed paths since last processing
-6. **Hook Dispatcher** — Triggers documentation updates from git events (post-commit, post-merge) with proper fallbacks
 
-**Key architectural decisions from research:**
-- State-driven incremental updates: track git hash per file/directory; on update, diff against stored hash, only reprocess changed paths and their ancestors
-- Parallel sibling processing: process files/directories at same level concurrently (configurable concurrency to respect rate limits)
-- Separation of concerns: CLI is thin wrapper over core; infrastructure abstracted via interfaces for testing
+1. **AI Backend Interface (`src/ai/backend.ts`)** — abstract interface: `isAvailable()`, `execute(request) -> response`, `shutdown()`; implemented by Claude/Gemini/OpenCode adapters
+2. **Backend Registry (`src/ai/backends/index.ts`)** — factory pattern; auto-detect available CLIs; create appropriate adapter
+3. **AI Runner (`src/ai/runner.ts`)** — consumes ExecutionPlan; executes phases (files → directories → root) with bounded concurrency; handles retry, timeout, progress reporting
+4. **Response Parser (`src/ai/parser.ts`)** — translates raw LLM text into structured data for existing writers; bridges AI layer and writer layer
+5. **Telemetry Logger (`src/ai/telemetry.ts`)** — writes per-call NDJSON entries + run summary JSON; write-ahead logging for crash safety
+6. **Subprocess Utility (`src/ai/spawn.ts`)** — wrapper around `child_process.spawn` with timeout, stream collection, error handling
+
+**Data flow:** User runs `are generate` → Discovery (unchanged) → Orchestrator (unchanged) → Executor (unchanged) → **NEW: AI Runner** → spawns CLI subprocesses → captures output → **NEW: Parser** → existing writers (sum, agents-md, supplementary) → **NEW: Telemetry Logger**
+
+**Key architectural decisions:**
+- Backends are "dumb adapters" — accept prompt, return text; no knowledge of .sum files or AGENTS.md
+- Parser handles all domain logic — knows about .sum format, AGENTS.md structure
+- Runner owns concurrency, retry, timeout — backends are single-call only
+- Telemetry is a side-effect collector — does not block execution flow
+- Existing components (discovery, orchestration, writers) are untouched — this is an execution strategy swap, not a rewrite
+
+**Integration points:**
+- `src/cli/generate.ts` — refactored to add AI runner path; preserve existing `--execute` and `--stream` modes for backward compatibility
+- `src/config/schema.ts` — extend with `ai: { backend, concurrency, timeoutSeconds, telemetry, detectInconsistencies }`
+- `src/output/logger.ts` — add progress methods: `taskStart()`, `taskComplete()`, `taskFailed()`, `phaseStart()`, `phaseComplete()`
 
 ### Critical Pitfalls
 
-1. **Token Budget Explosion on Large Repositories** — Bottom-up summarization compounds token requirements exponentially. A 10,000-file repo can exceed 50M tokens before summarization. **Prevention:** Aggressive file filtering BEFORE LLM processing; hard token budgets per level (max 2,000 tokens/file, 5,000/directory); streaming/chunked processing; early-exit conditions. **Address in:** Core Architecture phase — token budget system must be foundational.
+1. **stdout Buffer Deadlock on Large LLM Responses** — when LLM outputs 10-50KB JSON (response + metadata), OS pipe buffer (64KB Linux, 4KB macOS) fills; if parent waits for process exit before draining stdout, process blocks on write, classic deadlock. **Prevention:** Use `spawn()` with stdout/stderr `data` listeners attached BEFORE spawning; collect chunks incrementally; set timeout to kill stuck processes.
 
-2. **Summary Quality Degradation Up the Tree** — Each summarization pass loses domain-specific terminology and relationships. Root AGENTS.md becomes vague abstractions ("utilities and helpers") instead of actionable context. **Prevention:** Preserve anchor terms (function names, key concepts) across all levels; different summarization strategies per level; include explicit "For AI assistants" sections with concrete file references; verify against "Can an AI find the right file?" test. **Address in:** Summary Generation phase — define quality metrics before implementing.
+2. **Claude CLI `--output-format json` Response Parsing Fragility** — JSON schema is not versioned; CLI updates can change field names/nesting; hardcoded expectations silently fail. **Prevention:** Parse inside try/catch; validate with zod at runtime; define minimal expected interface; fall back to text mode if JSON parsing fails; log raw output before parsing for debugging.
 
-3. **Incomplete File Exclusion Leading to Noise/Cost Explosion** — Binary files, generated code, lock files, data files get processed, wasting tokens and adding noise. .gitignore is insufficient (designed for version control, not documentation relevance). **Prevention:** Layer multiple exclusion mechanisms (gitignore + doc-specific exclusions + binary detection + generated code detection + size-based limits); make configurable via .agentsignore; default to strict exclusion (opt-in not opt-out). **Address in:** File Discovery phase — must be bulletproof before LLM processing.
+3. **Missing or Broken Timeout Management Leading to Zombie Processes** — LLM calls hang (network issue, API overload); without proper timeout, processes accumulate; naive `child.kill()` may fail (child ignores SIGTERM, has its own children, Windows behavior differs). **Prevention:** Use `AbortController` with signal option; implement two-phase kill (SIGTERM, wait 5s, SIGKILL); track all spawned processes; kill all on parent exit; adaptive timeouts based on file size.
 
-4. **Git Diff-Based Staleness Detection Breaks on Renames/Moves** — Git's rename detection is heuristic (>50% content match). Renames+modifications may appear as delete+add, orphaning old summaries and losing historical context. **Prevention:** Never rely solely on git diff output; handle delete+add pairs with similarity checking; track AGENTS.md files independently; implement orphan detection; when in doubt, regenerate. **Address in:** Incremental Update phase — needs comprehensive edge case tests.
+4. **Shell Injection via Prompt Content in CLI Arguments** — file content or paths with shell metacharacters (`$`, `` ` ``, `"`, `|`) break commands or enable injection when using `exec()` or `spawn({shell: true})`. **Prevention:** ALWAYS use `spawn()` with argument arrays; pass prompts via stdin, not CLI args; never use `{shell: true}`; validate/escape paths before including in prompts.
 
-5. **Git Hook Unreliability Across Environments** — Hooks live in .git/hooks/ (not version-controlled), can be bypassed (--no-verify), don't work in all Git UIs, vary by developer setup. **Prevention:** Hooks are convenience, not the only mechanism; provide multiple triggers (hooks + CLI + CI + watch mode); include hook installation in setup; detect stale docs independently; fail gracefully when hooks don't fire. **Address in:** Integration phase — design with fallbacks from start.
+5. **Telemetry Log File Growth Consuming Disk Space** — logging full prompts + responses for 5,000-file projects with 10-50KB prompts = 80-400MB per run; multiple runs accumulate. **Prevention:** Use NDJSON (newline-delimited JSON), not giant JSON array; log levels (METADATA vs FULL); default to metadata-only (timing, tokens, file path, exit code); full prompt/response opt-in; rotation when log exceeds 50MB; auto-prune logs older than 7 days.
 
-6. **Token Counting Inaccuracy Across Models** — Different providers use different tokenizers (tiktoken for OpenAI, custom for Anthropic, SentencePiece for LLaMA). Wrong tokenizer can undercount by 20-30%, causing context overflow. **Prevention:** Use provider-specific tokenizers; add 10-15% safety margin; validate against actual API responses; make token strategy configurable. **Address in:** LLM Integration phase.
+**Additional key pitfalls:**
+- Incomplete telemetry on crash — use write-ahead logging (STARTED entry before call, COMPLETED after)
+- Multi-CLI output format divergence — define strict internal interface first; CLI-specific details isolated in adapters
+- Claude CLI permission mode causing interactive prompts — use `--print` + `--permission-mode bypassPermissions` or `--allowedTools "Read"`
+- Concurrency cascading failures — use semaphore pattern, not raw Promise.all; adaptive concurrency on rate limit errors
+- Context density over-compression — preserve identifiers (function names, types), structured frontmatter; compress prose only
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure with clear dependency chain and risk mitigation:
+Based on research, v2.0 should be delivered in 4-5 phases with clear dependency order:
 
-### Phase 1: Foundation & File Discovery
-**Rationale:** Must establish file filtering and exclusion before any LLM processing. This phase addresses Pitfall #3 (incomplete exclusion) which directly impacts cost and quality. No value in generating summaries until we can reliably identify which files to process.
-
-**Delivers:**
-- Project initialization and configuration system
-- Gitignore parsing and respect
-- Custom exclusion patterns (.agentsignore)
-- Binary file detection (by header, not just extension)
-- Generated code detection (DO NOT EDIT markers, common paths)
-- File discovery engine with filtering
-- Token counting infrastructure with provider-specific tokenizers
-
-**Features from FEATURES.md:**
-- Gitignore/exclusion patterns (table stakes)
-- Token counting per file (table stakes)
-- Configurable file filtering (table stakes)
-
-**Stack elements:**
-- fast-glob for pattern-based discovery
-- ignore for gitignore parsing
-- zod for configuration validation
-
-**Avoids pitfalls:**
-- #3: Incomplete file exclusion (primary mitigation)
-- #6: Token counting inaccuracy (establish correct approach early)
-
-### Phase 2: Core Architecture & State Management
-**Rationale:** Before implementing any summarization logic, need solid foundation for state tracking and incremental updates. This phase establishes the token budget system (Pitfall #1) and state-driven architecture that enables all future phases.
+### Phase 1: AI Service Foundation (P0 — Must Ship)
+**Rationale:** All other v2.0 features depend on the AI service layer. Without it, there is nothing to instrument with telemetry, no subprocess output to optimize for density, no LLM calls to detect inconsistencies. This must be rock-solid before building on top.
 
 **Delivers:**
-- State management system (.agents-reverse/state.json)
-- Git integration for diff detection
-- File hash tracking per path
-- Token budget enforcement system
-- Tree walker with bottom-up traversal
-- Processing scheduler (leaf-first ordering)
-- Error recovery and resume capability
+- Backend interface + Claude adapter (verified working, includes JSON output parsing)
+- Subprocess spawn utility with timeout, stream handling, error capture
+- Backend registry with auto-detection
+- Basic telemetry (timing, tokens, exit codes) — metadata level only
+- Config schema extension for AI service settings
 
-**Architecture components:**
-- State Manager (tracker.ts, store.ts)
-- Git Integration (git.ts wrapper around simple-git)
-- Tree Walker (walker.ts with depth-first traversal)
+**Addresses pitfalls:**
+- Pitfall 1 (stdout deadlock) — spawn with stream listeners
+- Pitfall 3 (zombie processes) — AbortController, process tracking
+- Pitfall 4 (shell injection) — stdin piping, no shell mode
+- Pitfall 8 (permission mode) — explicit permission bypass flags
 
-**Stack elements:**
-- simple-git for git operations
-- Zod for state validation
-- TypeScript with strict configuration
+**Stack elements:** Node.js `child_process`, zod for validation, Claude CLI `--print --output-format json`
 
-**Avoids pitfalls:**
-- #1: Token budget explosion (hard limits enforced)
-- #4: Git diff staleness detection (robust implementation from start)
+**Research flags:** No deeper research needed — Claude CLI flags verified locally; Node.js spawn patterns well-documented. Build and test against real Claude CLI early.
 
-### Phase 3: File Analysis & Summary Generation
-**Rationale:** With filtering and state established, implement file-level summarization. This is the first LLM integration point and must address quality concerns (Pitfall #2) from the start.
+---
+
+### Phase 2: Orchestration Engine (P0 — Must Ship)
+**Rationale:** Connects the existing execution plan system to the new AI service layer. This is the "wiring phase" that makes the tool actually work end-to-end. Depends on Phase 1 being complete and stable.
 
 **Delivers:**
-- File Analyzer component
-- LLM interface abstraction
-- {filename}.sum generation
-- Anchor term preservation strategy
-- Quality verification ("Can AI find this file?" test)
-- Support for Claude via host tool (not direct API)
+- AI Runner that executes ExecutionPlan via backends
+- Concurrency control (semaphore pattern, configurable limit)
+- Retry with exponential backoff + jitter
+- Response Parser that translates LLM text → .sum files, AGENTS.md
+- Generate command refactor: add direct execution mode, preserve legacy modes
+- Logger progress methods (taskStart, phaseComplete, etc.)
 
-**Features from FEATURES.md:**
-- File-level .sum generation (table stakes)
-- Root CLAUDE.md pointer (table stakes)
+**Addresses features:**
+- Multi-CLI abstraction (complete)
+- Refactored generate pipeline (complete)
+- Concurrency control (bounded parallelism)
+- Retry logic (transient failure recovery)
+- Progress reporting (task-level visibility)
 
-**Architecture components:**
-- File Analyzer (analyzer.ts)
-- LLM Interface (llm/interface.ts — but mediated through host tool)
+**Addresses pitfalls:**
+- Pitfall 9 (concurrency cascading failures) — semaphore + adaptive concurrency
+- Pitfall 18 (breaking v1.0 flow) — strategy pattern, ExecutionPlan unchanged
 
-**Avoids pitfalls:**
-- #2: Summary quality degradation (quality metrics defined)
-- #6: Token counting inaccuracy (validated against actual usage)
+**Research flags:** Integration testing critical — run on real projects (50-200 files) against Claude CLI to validate concurrency, retry, parser robustness. Monitor for deadlocks, memory pressure.
 
-### Phase 4: Directory Aggregation & Hierarchy
-**Rationale:** Build on file summaries to create per-directory AGENTS.md files. This implements the bottom-up aggregation pattern and produces the primary deliverable for AI assistants.
+---
 
-**Delivers:**
-- Summary Aggregator component
-- Per-directory AGENTS.md generation
-- Bottom-up synthesis algorithm
-- Different summarization strategies per level (file vs directory vs root)
-- Hierarchical structure matching codebase
-
-**Features from FEATURES.md:**
-- Per-directory AGENTS.md (table stakes + differentiator)
-- Bottom-up recursive analysis (differentiator)
-
-**Architecture components:**
-- Summary Aggregator (aggregator.ts)
-
-**Avoids pitfalls:**
-- #2: Summary quality degradation (level-specific strategies)
-
-### Phase 5: Incremental Updates & Git Diff
-**Rationale:** With full generation working, add the core differentiator: git-diff-based incremental updates. This phase has highest complexity and most edge cases (Pitfall #4).
+### Phase 3: Full Telemetry + Secondary CLI Support (P1 — Should Ship)
+**Rationale:** Phase 2 ships with basic telemetry (timing, tokens). Phase 3 completes the observability story with full logging (prompts, responses, thinking), run summaries, and cost estimation. Also adds Gemini CLI adapter (after verifying non-interactive capabilities).
 
 **Delivers:**
-- Changed path detection via git diff
-- Ancestor directory identification
-- Selective regeneration (only changed files + affected directories)
-- Rename/move detection and handling
-- Orphan detection for stale AGENTS.md
-- Update command (/are:update)
+- Full telemetry level (log complete prompts, responses, thinking content)
+- Run summary statistics (aggregate tokens, costs, success rate)
+- Log rotation + cleanup (max size 50MB, auto-prune older than 7 days)
+- Cost estimation based on token counts + pricing table
+- Gemini CLI adapter (after verification)
+- OpenCode adapter investigation (may be skipped if batch mode unavailable)
 
-**Features from FEATURES.md:**
-- Git-diff-based incremental updates (THE differentiator)
+**Addresses features:**
+- Run summary statistics (complete)
+- Cost estimation (complete)
+- Gemini/OpenCode experimental support (partial)
 
-**Avoids pitfalls:**
-- #4: Git rename detection failure (comprehensive edge case handling)
+**Addresses pitfalls:**
+- Pitfall 5 (log file growth) — rotation, levels, pruning
+- Pitfall 6 (incomplete telemetry on crash) — write-ahead logging
+- Pitfall 7 (multi-CLI divergence) — normalize output formats
+- Pitfall 13 (exit code semantics) — per-adapter validation
 
-**Needs deeper research:** Yes — git rename detection edge cases, similarity heuristics, directory move handling
+**Research flags:** MUST verify Gemini CLI non-interactive mode before implementing adapter. If Gemini lacks `--print` equivalent, document as limitation and skip. OpenCode likely skipped unless TUI-to-batch bridge discovered.
 
-### Phase 6: Integration & Automation
-**Rationale:** Make the tool usable in real workflows. Hook integration is the natural trigger for incremental updates but must be designed with fallbacks (Pitfall #5).
+---
 
-**Delivers:**
-- Git hook installation (post-commit, post-merge)
-- Hook management commands
-- Multiple trigger mechanisms (hooks + CLI + CI support)
-- Staleness detection independent of hooks
-- Session-end trigger exploration
-- SKILL.md files for Claude Code integration
-
-**Features from FEATURES.md:**
-- Session hooks (end-of-session triggers) (should-have)
-- Staleness detection & alerts (should-have)
-- CLI interface (table stakes)
-
-**Stack elements:**
-- SKILL.md files in .claude/skills/
-- Hook scripts in .git/hooks/
-
-**Avoids pitfalls:**
-- #5: Git hook unreliability (multiple fallback mechanisms)
-
-**Needs deeper research:** No — git hooks are well-documented; SKILL.md pattern established
-
-### Phase 7: Enhancement & Polish
-**Rationale:** After core functionality proven, add convenience features and quality-of-life improvements.
+### Phase 4: Inconsistency Detection + Context Density (P1-P2 — Should Ship or v2.1)
+**Rationale:** These are quality improvements on top of the working orchestration system. Can be iterated independently. Inconsistency detection requires the AI service to make additional LLM calls during updates. Context density requires prompt template revisions and quality metrics.
 
 **Delivers:**
-- Progress indication for large repos
-- Multiple output formats support
-- Content-driven supplementary docs
-- Tool-agnostic output (AGENTS.md + CLAUDE.md variants)
-- Dry-run mode for exploration
-- User section preservation in AGENTS.md
+- Orphan detection (source file deleted, .sum remains)
+- Staleness flagging (source changed, .sum outdated via hash)
+- Missing doc detection (source has no .sum, directory has no AGENTS.md)
+- Revised prompt templates targeting information density
+- Hierarchical deduplication prompts (directory AGENTS.md adds value, no duplication)
+- Inconsistency report output (INCONSISTENCIES.md or append to CONCERNS.md)
 
-**Features from FEATURES.md:**
-- Tool-agnostic output (should-have)
-- Multiple output formats (should-have if time permits)
+**Addresses features:**
+- Orphan + staleness detection (complete)
+- Concise output prompts (complete)
+- Hierarchical deduplication (complete)
 
-**Needs deeper research:** No — standard patterns
+**Addresses pitfalls:**
+- Pitfall 10 (over-compression) — preserve identifiers, structured frontmatter
+- Pitfall 11 (false positives) — start with high-confidence checks only
+- Pitfall 19 (performance impact) — static checks (fast), semantic checks deferred to v2.1
+
+**Research flags:** Standard patterns — git diff-based staleness already implemented in v1.0. Prompt revision is iterative experimentation, not research-heavy. LLM-driven semantic inconsistency checks (code vs .sum comparison) deferred to v2.1 due to complexity and false positive risk.
+
+---
+
+### Phase 5: Update Command Refactor (P2 — Can Ship in v2.1)
+**Rationale:** The `are update` command currently uses git diff to determine which files changed, then regenerates their .sum files. Phase 5 refactors it to use the AI service layer (like generate does). This is lower priority because the existing update flow works; refactor is for consistency and to unlock telemetry on updates.
+
+**Delivers:**
+- Update command using AI service layer
+- Incremental update telemetry
+- Inconsistency detection during updates (optional)
+
+**Addresses:** Internal consistency (update and generate use same execution path)
+
+**Research flags:** No new research needed — reuses Phase 2 orchestration engine.
+
+---
 
 ### Phase Ordering Rationale
 
-1. **File Discovery first** because all subsequent phases depend on knowing which files to process; establishing correct filtering prevents wasted work
-2. **State Management before Summarization** because incremental updates require tracking; cheaper to establish state infrastructure early than retrofit
-3. **File Analysis before Directory Aggregation** because bottom-up pattern requires leaf summaries exist before parent processing
-4. **Full Generation before Incremental Updates** because incremental requires baseline; must prove full generation works before optimizing
-5. **Integration after Core Features** because hooks/automation only valuable once core functionality proven
-6. **Enhancement last** because quality-of-life features depend on stable foundation
+- **Phase 1 before Phase 2:** Cannot wire orchestration without working backends
+- **Phase 2 before Phase 3:** Need working end-to-end pipeline before adding full telemetry
+- **Phase 3 before Phase 4:** Inconsistency detection requires subprocess layer; cost estimation requires telemetry
+- **Phase 4 can be parallel with Phase 3:** Output quality improvements are independent of telemetry completion
+- **Phase 5 last:** Update refactor is incremental improvement, not core to v2.0 value
 
-**Dependency chain:**
+**Dependency graph:**
 ```
-Phase 1 (File Discovery)
+Phase 1 (AI Service Foundation)
     ↓
-Phase 2 (State & Git) ← required for Phase 5
+Phase 2 (Orchestration Engine) ← Core v2.0 value delivered here
     ↓
-Phase 3 (File Analysis)
+Phase 3 (Telemetry + Secondary CLIs) ← Completes observability
     ↓
-Phase 4 (Directory Aggregation)
+Phase 4 (Quality Improvements) ← Can be iterative/parallel
     ↓
-Phase 5 (Incremental Updates) ← depends on Phases 2, 3, 4
-    ↓
-Phase 6 (Integration) ← enhances Phase 5
-    ↓
-Phase 7 (Enhancement)
+Phase 5 (Update Refactor) ← Optional for v2.0
 ```
+
+**Minimum viable v2.0:** Ship after Phase 2. Phases 3-5 are enhancements.
 
 ### Research Flags
 
-**Phases needing deeper research during planning:**
-- **Phase 5 (Incremental Updates):** Complex git diff edge cases; rename detection heuristics; directory move handling; needs investigation of git plumbing commands and similarity algorithms
+**Phases with standard patterns (low/no additional research needed):**
+- **Phase 1:** Node.js subprocess patterns well-documented; Claude CLI flags verified locally
+- **Phase 2:** Existing ExecutionPlan interface is the contract; orchestration is standard promise concurrency patterns
+- **Phase 4:** Git diff-based staleness already implemented; prompt revision is iterative testing, not research
 
-**Phases with standard patterns (skip research-phase):**
-- **Phase 1:** File discovery with glob patterns is well-documented; binary detection has established approaches
-- **Phase 2:** Git integration via simple-git has extensive examples; state management is standard JSON persistence
-- **Phase 3:** LLM integration patterns established by GSD/BMAD projects
-- **Phase 4:** Bottom-up aggregation confirmed by CodeWiki research as correct approach
-- **Phase 6:** Git hooks and SKILL.md files have official documentation
-- **Phase 7:** Enhancement features are straightforward implementations
+**Phases needing validation/testing:**
+- **Phase 1:** Test Claude CLI JSON output schema with real invocations; document exact response structure
+- **Phase 3:** Verify Gemini CLI non-interactive mode (`gemini --help`) before implementation; if batch mode unavailable, document and skip
+- **Phase 3:** Investigate OpenCode batch capabilities; likely skip if TUI-only
+- **Phase 4:** A/B test prompt revisions on sample projects to validate density improvements without over-compression
+
+**Open questions to resolve during implementation (not blocking):**
+- Does Claude CLI `--output-format json` include cost_usd in response? (affects cost estimation — may need to calculate from tokens + pricing)
+- What is max stdin size for Claude CLI? (affects large file handling — test with 100KB+ files)
+- Does Gemini CLI report token usage in output? (affects telemetry completeness — may be estimation-only)
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Official documentation for all core dependencies; MCP SDK, tsx, fast-glob verified; integration pattern (SKILL.md) confirmed by Anthropic docs |
-| Features | MEDIUM | WebSearch verified with multiple sources; official AGENTS.md spec and Claude Code docs cross-referenced; gap is lack of direct competitor comparison (couldn't test Swimm/Mintlify) |
-| Architecture | HIGH | Bottom-up pattern validated by academic research (CodeWiki); component separation confirmed by Autodoc/GSD codebases; hook patterns from official Git docs |
-| Pitfalls | HIGH | Token explosion confirmed by Repomix data; git rename issues documented in Git 2.19+ release notes; quality degradation confirmed by academic summarization research |
+| **Stack** | HIGH | Zero new production dependencies; Claude CLI flags verified from `claude --help` output; Node.js child_process well-documented; existing codebase analyzed in depth |
+| **Features** | HIGH | Table stakes features are subprocess fundamentals (spawn, capture, log); differentiators are standard patterns (concurrency, retry, telemetry); no novel unknowns |
+| **Architecture** | HIGH | Integration points clearly mapped; existing ExecutionPlan interface is perfect fit; new AI layer slots in between executor and writers without refactoring existing code |
+| **Pitfalls** | MEDIUM-HIGH | Critical pitfalls (deadlock, zombies, injection, log growth) are well-known subprocess issues with documented mitigations; Claude CLI permission mode verified; multi-CLI divergence flagged as risk with mitigation strategy |
 
-**Overall confidence:** HIGH
-
-Research is based on verifiable sources (official documentation, academic papers, open-source implementations) rather than speculation. The few MEDIUM areas reflect practical validation gaps (can't test commercial tools directly) rather than technical uncertainty.
+**Overall confidence:** HIGH for Phase 1-2 (core v2.0); MEDIUM for Phase 3 (Gemini CLI details unknown); MEDIUM for Phase 4 (output quality is iterative experimentation).
 
 ### Gaps to Address
 
-**Gap 1: LLM Provider Integration Details**
-- Research assumes host tool (Claude Code) handles LLM calls via SKILL.md
-- **Resolution:** Verify during Phase 3 planning that SKILL.md files can trigger file analysis; may need to explore MCP server alternative if skill pattern insufficient
-- **Risk:** LOW — SKILL.md pattern is documented; worst case is MCP server (also documented)
+**Must resolve before Phase 1 complete:**
+- **Claude CLI JSON schema** — capture actual JSON output from `claude -p --output-format json "test prompt"` and validate structure; define zod schema based on observed reality, not assumptions
+- **Stdin size limits** — test with 100KB+ prompts to verify no truncation or errors; document max safe size
+- **Permission bypass behavior** — verify `--permission-mode bypassPermissions` or `--dangerously-skip-permissions` works in non-interactive context without hanging
 
-**Gap 2: Git Rename Detection Edge Cases**
-- Research identifies the problem (similarity heuristics) but doesn't have exhaustive edge case catalog
-- **Resolution:** During Phase 5 planning, use `/gsd:research-phase` to investigate git plumbing commands (diff-tree, ls-files) and build edge case test matrix
-- **Risk:** MEDIUM — core to incremental updates; must get right
+**Must resolve before Phase 3 starts:**
+- **Gemini CLI non-interactive mode** — run `gemini --help` to check for `--print` or equivalent; if absent, mark Gemini support as "deferred to v2.1"
+- **OpenCode batch mode** — run `opencode --help` to check for non-interactive flags; likely TUI-only, in which case continue using v1.0 integration pattern (OpenCode hosts ARE, not vice versa)
 
-**Gap 3: Token Budget Calibration**
-- Research provides guidelines (2K per file, 5K per directory) but these are estimates
-- **Resolution:** During Phase 1-2 execution, measure actual token usage on sample repositories; adjust budgets based on empirical data
-- **Risk:** LOW — easy to tune once infrastructure exists
+**Can be resolved iteratively during Phase 4:**
+- **Context density metrics** — how to measure "information density" objectively? Define metrics: identifiers per 100 tokens, action verbs per paragraph, unique-to-parent-summary ratio
+- **Prompt template effectiveness** — A/B test old prompts vs compressed prompts; measure findability (given query, can AI find right file using only summaries?)
 
-**Gap 4: Summary Quality Metrics**
-- Research identifies the problem (quality degradation) and suggests verification approach ("Can AI find the file?") but doesn't define concrete metrics
-- **Resolution:** During Phase 3 planning, define measurable quality criteria (e.g., "summary must include at least 3 concrete function/class names" or "must enable file location within 2 questions")
-- **Risk:** MEDIUM — subjective quality is hard to measure; need empirical validation
-
-**Gap 5: Hook Reliability Across Git Clients**
-- Research identifies hook unreliability but doesn't catalog which Git UIs support hooks
-- **Resolution:** During Phase 6 testing, verify hook behavior across git CLI, GitHub Desktop, GitKraken, VS Code Git integration; document limitations
-- **Risk:** LOW — fallback mechanisms (CLI command, CI) mitigate
+**No blocking gaps.** All critical unknowns have clear resolution paths (test real CLI, validate JSON output, measure output quality). Research provides sufficient foundation to begin implementation.
 
 ## Sources
 
-### Primary (HIGH confidence)
-- [MCP TypeScript SDK v1.25.3](https://github.com/modelcontextprotocol/typescript-sdk/releases) — Integration architecture, zod dependency
-- [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills) — SKILL.md pattern, integration approach
-- [AGENTS.md Official Specification](https://agents.md/) — Output format standard
-- [GitHub Blog: AGENTS.md Lessons](https://github.blog/ai-and-ml/github-copilot/how-to-write-a-great-agents-md-lessons-from-over-2500-repositories/) — Best practices from 2,500+ repos
-- [CodeWiki Research Paper](https://arxiv.org/abs/2510.24428) — Bottom-up hierarchical decomposition validation
-- [Git Directory Rename Detection](https://git-scm.com/docs/directory-rename-detection/2.22.0) — Rename handling pitfalls
-- [Token Counting Guide 2025](https://www.propelcode.ai/blog/token-counting-tiktoken-anthropic-gemini-guide-2025) — Provider-specific tokenizer differences
+### PRIMARY (HIGH confidence)
+- **Codebase analysis:** Direct reading of `src/generation/orchestrator.ts`, `executor.ts`, `prompts/`, `writers/`, `config/schema.ts`, `integration/detect.ts`, `change-detection/` — all architecture integration points verified
+- **Claude CLI flags:** Output of `claude --help` captured locally on 2026-02-07 — all flags (`--print`, `--output-format`, `--system-prompt`, `--permission-mode`, etc.) verified
+- **Node.js `child_process` API:** Training data (January 2025) — spawn, streams, signals, timeout behavior
+- **PROJECT.md:** `.planning/PROJECT.md` — v2.0 requirements, constraints, tech stack, validated v1.0 achievements
 
-### Secondary (MEDIUM confidence)
-- [GSD Repository](https://github.com/glittercowboy/get-shit-done) — Parallel agent patterns, orchestration
-- [BMAD Method](https://github.com/bmad-code-org/BMAD-METHOD) — Multi-agent coordination, step-file architecture
-- [Repomix](https://repomix.com/) — Token counting reports, large repo data
-- [Autodoc by Context Labs](https://github.com/context-labs/autodoc) — Depth-first traversal, model selection
-- [Swimm Auto-sync Blog](https://swimm.io/blog/how-does-swimm-s-auto-sync-feature-work/) — Auto-sync approach (patented)
-- [Factory.ai Context Window Research](https://factory.ai/news/context-window-problem) — Token budget optimization
-- [Kinde: AI Context Windows Engineering](https://kinde.com/learn/ai-for-software-engineering/best-practice/ai-context-windows-engineering-around-token-limits-in-large-codebases/) — Large codebase token management
+### SECONDARY (MEDIUM confidence)
+- **LLM observability patterns:** Training data on LangSmith, Helicone, Braintrust, Langfuse — common telemetry fields (tokens, latency, cost, status)
+- **Vercel embedded docs research:** Training data from LinkedIn engineering posts — 100% task completion with embedded compressed docs vs 79% with retrieval
+- **GitHub AGENTS.md analysis:** Training data from GitHub engineering blog — effective vs verbose documentation patterns
+- **Node.js best practices:** Subprocess management, NDJSON logging, concurrency patterns — established patterns from training data
 
-### Tertiary (LOW confidence - validate before use)
-- [OpenCode Plugin Architecture](https://deepwiki.com/anomalyco/opencode/8.3-mcp-server-development) — Alternative integration path
-- [jyn.dev: Pre-commit Hooks Are Broken](https://jyn.dev/pre-commit-hooks-are-fundamentally-broken/) — Hook reliability concerns
-- Various Medium articles on AI codebase analysis — Pattern observations
+### TERTIARY (LOW confidence — needs verification)
+- **Gemini CLI interface:** Training data only (January 2025) — non-interactive mode, JSON output, flags — MUST verify with `gemini --help` before Phase 3
+- **OpenCode CLI capabilities:** Training data (January 2025) — described as TUI-first; batch mode unclear — MUST verify before attempting subprocess adapter
+- **Claude CLI JSON output exact schema:** Inferred from flags; exact field names, nesting, optional fields need runtime validation
+- **LLM pricing:** Training data (January 2025) — Claude Sonnet 4, Haiku 3.5, Gemini 2.0 Flash, Gemini 2.5 Pro prices — MUST update from current provider pricing pages for accurate cost estimation
 
 ---
-*Research completed: 2026-01-25*
+
+*Research completed: 2026-02-07*
 *Ready for roadmap: YES*
+*Minimum viable v2.0: Phase 1 + Phase 2*
+*Recommended full v2.0: Phase 1 + Phase 2 + Phase 3*
