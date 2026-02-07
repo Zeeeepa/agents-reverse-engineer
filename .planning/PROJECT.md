@@ -28,18 +28,36 @@ Documentation that stays fresh automatically. When code changes, docs update —
 
 ### Active
 
-- [ ] AST-based code structure extraction for deeper understanding (v2)
-- [ ] Cross-reference detection between files (v2)
-- [ ] Dependency graph visualization (v2)
+- [ ] AI service that spawns CLI subprocesses (claude, gemini, opencode) to drive analysis directly
+- [ ] Full telemetry logging per LLM call (input, output, thinking, tokens in/out, timing, files read) as JSON log files
+- [ ] Refactor discover and generate commands to use the new AI service
+- [ ] Inconsistency detection during analysis — flag code-vs-code and code-vs-doc inconsistencies (#1)
+- [ ] Improved AGENTS.md context density — more compressed, information-dense output (#5)
+
+### Deferred
+
+- [ ] AST-based code structure extraction for deeper understanding
+- [ ] Cross-reference detection between files
+- [ ] Dependency graph visualization
 
 ### Out of Scope
 
-- External LLM API calls — uses host tool (Claude Code, etc.) for analysis
 - Language-specific parsers — relies on LLM understanding
-- GUI or web interface — CLI/command only for v1
+- GUI or web interface — CLI only
 - Proprietary/commercial features — fully open source
 - Real-time file watching — git-diff-based is sufficient
 - Auto-commit generated docs — user controls git commits
+
+## Current Milestone: v2.0 AI Service & Quality
+
+**Goal:** The tool directly orchestrates AI analysis via CLI subprocesses, with full telemetry and improved output quality.
+
+**Target features:**
+- AI service abstraction that spawns claude/gemini/opencode CLI processes
+- Per-call telemetry: input, output, thinking, tokens, timing, files read (JSON logs)
+- Refactored discover/generate pipeline using the AI service
+- Inconsistency detection (code vs code, code vs doc) during analysis
+- Higher-density AGENTS.md output (compressed, information-rich)
 
 ## Context
 
@@ -65,9 +83,10 @@ Documentation that stays fresh automatically. When code changes, docs update —
 
 ## Constraints
 
-- **Integration**: Must work within Claude Code's command/hook system (and equivalent in OpenCode, etc.)
-- **No external deps**: Analysis happens via host tool, no separate API keys required
+- **CLI availability**: Claude CLI, Gemini CLI, or OpenCode must be installed for the AI service to work
+- **No API keys in tool**: Uses installed CLI tools which handle their own auth
 - **Visible artifacts**: .sum files and AGENTS.md are committed, not hidden
+- **Backward compatible**: Existing v1.0 command/hook integration must still work
 
 ## Key Decisions
 
@@ -84,5 +103,8 @@ Documentation that stays fresh automatically. When code changes, docs update —
 | Multi-runtime templates | Same commands work across Claude/OpenCode/Gemini | Good |
 | Session hooks for all | Claude and Gemini get SessionEnd auto-updates | Good |
 
+| Tool drives LLM via CLI subprocess | Full control over orchestration, telemetry, error handling | — Pending |
+| JSON log files for telemetry | Human-readable, one file per run, easy to inspect | — Pending |
+
 ---
-*Last updated: 2026-02-02 after v1.0 milestone*
+*Last updated: 2026-02-07 after v2.0 milestone start*
