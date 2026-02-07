@@ -157,7 +157,7 @@ export function getAffectedDirectories(changes: FileChange[]): Set<string> {
 
     // Add all parent directories up to root
     let dir = path.dirname(change.path);
-    while (dir && dir !== '.') {
+    while (dir && dir !== '.' && !path.isAbsolute(dir)) {
       dirs.add(dir);
       dir = path.dirname(dir);
     }

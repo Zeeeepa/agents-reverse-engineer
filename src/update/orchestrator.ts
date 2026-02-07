@@ -105,7 +105,9 @@ export class UpdateOrchestrator {
 
     // Apply filters
     const filterResult = await applyFilters(files, filters);
-    return filterResult.included;
+
+    // Walker returns absolute paths; convert to relative for consistent usage
+    return filterResult.included.map(f => path.relative(this.projectRoot, f));
   }
 
   /**
@@ -180,7 +182,6 @@ export class UpdateOrchestrator {
 
     // Determine if this is first run (no files to skip means no existing .sum files)
     const isFirstRun = filesToSkip.length === 0 && filesToAnalyze.length > 0;
-
     return {
       filesToAnalyze,
       filesToSkip,
