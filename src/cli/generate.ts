@@ -1,16 +1,19 @@
 /**
  * CLI generate command
  *
- * Creates a documentation generation plan by:
+ * Creates and executes a documentation generation plan by:
  * 1. Discovering files to analyze
- * 2. Detecting file types
- * 3. Creating analysis tasks with prompts
- * 4. Tracking token budget
+ * 2. Detecting file types and creating analysis tasks
+ * 3. Resolving an AI CLI backend
+ * 4. Running concurrent AI analysis via CommandRunner
+ * 5. Producing .sum files, AGENTS.md, and root documents
  *
- * With --execute flag, outputs tasks as JSON for AI agent execution.
+ * With --dry-run, shows the plan without making any AI calls.
+ * With --execute or --stream (deprecated), outputs JSON for external tools.
  */
 
 import * as path from 'node:path';
+import pc from 'picocolors';
 import { loadConfig } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
 import { walkDirectory } from '../discovery/walker.js';
@@ -23,6 +26,14 @@ import {
 } from '../discovery/filters/index.js';
 import { createOrchestrator, type GenerationPlan } from '../generation/orchestrator.js';
 import { buildExecutionPlan, formatExecutionPlanAsJson, streamTasks } from '../generation/executor.js';
+import {
+  AIService,
+  AIServiceError,
+  createBackendRegistry,
+  resolveBackend,
+  getInstallInstructions,
+} from '../ai/index.js';
+import { CommandRunner } from '../orchestration/index.js';
 
 /**
  * Options for the generate command.
@@ -36,9 +47,15 @@ export interface GenerateOptions {
   dryRun?: boolean;
   /** Override token budget */
   budget?: number;
-  /** Execute mode - output JSON for AI agent execution */
+  /** Number of concurrent AI calls */
+  concurrency?: number;
+  /** Stop on first file analysis failure */
+  failFast?: boolean;
+  /** Show AI prompts and backend details */
+  debug?: boolean;
+  /** @deprecated Execute mode - output JSON for AI agent execution */
   execute?: boolean;
-  /** Stream mode - output tasks one per line */
+  /** @deprecated Stream mode - output tasks one per line */
   stream?: boolean;
 }
 
@@ -128,22 +145,22 @@ function formatPlan(plan: GenerationPlan): string {
 }
 
 /**
- * Generate command - creates documentation generation plan.
+ * Generate command - discovers files, plans analysis, and executes AI-driven
+ * documentation generation.
  *
- * This command:
- * 1. Discovers files to analyze
- * 2. Detects file types
- * 3. Creates analysis tasks (prompts)
- * 4. Reports budget and plan
+ * Default behavior: resolves an AI CLI backend, builds an execution plan,
+ * and runs concurrent AI analysis via the CommandRunner. Produces .sum files,
+ * AGENTS.md per directory, and root documents (CLAUDE.md, ARCHITECTURE.md, etc.).
  *
- * The actual analysis is performed by the host LLM using the generated prompts.
+ * @param targetPath - Directory to generate documentation for
+ * @param options - Command options (concurrency, failFast, debug, etc.)
  */
 export async function generateCommand(
   targetPath: string,
   options: GenerateOptions
 ): Promise<void> {
   const absolutePath = path.resolve(targetPath);
-  // In execute/stream mode, suppress all non-JSON output
+  // In deprecated JSON modes, suppress all non-JSON output
   const isJsonMode = options.execute || options.stream;
   const logger = createLogger({
     colors: !isJsonMode,
@@ -206,13 +223,38 @@ export async function generateCommand(
     console.log(formatPlan(plan));
   }
 
+  // ---------------------------------------------------------------------------
+  // Dry-run: show execution plan summary without making AI calls
+  // ---------------------------------------------------------------------------
+
   if (options.dryRun) {
-    logger.info('Dry run complete. No files written.');
+    const executionPlan = buildExecutionPlan(plan, absolutePath);
+    const dirCount = Object.keys(executionPlan.directoryFileMap).length;
+
+    console.log(pc.bold('\n--- Dry Run Summary ---\n'));
+    console.log(`  Files to analyze:     ${pc.cyan(String(executionPlan.fileTasks.length))}`);
+    console.log(`  Directories:          ${pc.cyan(String(dirCount))}`);
+    console.log(`  Root documents:       ${pc.cyan(String(executionPlan.rootTasks.length))}`);
+    console.log(`  Estimated AI calls:   ${pc.cyan(String(executionPlan.tasks.length))}`);
+    console.log('');
+    console.log(pc.dim('Files:'));
+    for (const task of executionPlan.fileTasks) {
+      console.log(pc.dim(`  ${task.path}`));
+    }
+    console.log('');
+    console.log(pc.dim('No AI calls made (dry run).'));
     return;
   }
 
-  // Execute mode - output JSON for AI agent execution
+  // ---------------------------------------------------------------------------
+  // Deprecated JSON modes (--execute, --stream) -- backward compatibility
+  // ---------------------------------------------------------------------------
+
   if (options.execute || options.stream) {
+    console.error(
+      pc.yellow('Note: --execute and --stream are deprecated. The default behavior now executes analysis directly.')
+    );
+
     const executionPlan = buildExecutionPlan(plan, absolutePath);
 
     if (options.stream) {
@@ -227,40 +269,66 @@ export async function generateCommand(
     return;
   }
 
-  // Default: Output task instructions for the host LLM
-  console.log('\n=== Ready for Analysis ===\n');
-  console.log(`This plan contains ${plan.tasks.length} analysis tasks.`);
-  console.log('The host LLM will process each file and generate summaries.');
-  console.log('\nTo proceed, the host should:');
-  console.log('1. Read each file and its prompt');
-  console.log('2. Generate summaries following the prompt guidelines');
-  console.log('3. Write .sum files alongside source files');
-  console.log('4. Generate AGENTS.md for each directory');
-  console.log('5. Generate CLAUDE.md at the project root');
+  // ---------------------------------------------------------------------------
+  // Direct execution (new default): resolve backend and run AI analysis
+  // ---------------------------------------------------------------------------
 
-  if (plan.generateArchitecture) {
-    console.log('6. Generate ARCHITECTURE.md (complexity threshold met)');
-  }
-
-  // Show package root supplementary docs
-  if (plan.packageRoots.length > 0) {
-    console.log(`\nFor each package root (${plan.packageRoots.length} found):`);
-    const enabledDocs: string[] = [];
-    if (plan.generateStack) enabledDocs.push('STACK.md (node only)');
-    if (plan.generateStructure) enabledDocs.push('STRUCTURE.md');
-    if (plan.generateConventions) enabledDocs.push('CONVENTIONS.md');
-    if (plan.generateTesting) enabledDocs.push('TESTING.md');
-    if (plan.generateIntegrations) enabledDocs.push('INTEGRATIONS.md');
-    if (plan.generateConcerns) enabledDocs.push('CONCERNS.md');
-    for (const doc of enabledDocs) {
-      console.log(`   - Generate ${doc}`);
+  // Resolve AI CLI backend
+  const registry = createBackendRegistry();
+  let backend;
+  try {
+    backend = await resolveBackend(registry, config.ai.backend);
+  } catch (error) {
+    if (error instanceof AIServiceError && error.code === 'CLI_NOT_FOUND') {
+      console.error(pc.red('Error: No AI CLI found.\n'));
+      console.error(getInstallInstructions(registry));
+      process.exit(2);
     }
+    throw error;
   }
 
-  console.log('\nRun with --execute to get JSON output for AI agent execution.');
-  console.log('Run with --stream for streaming task output.');
+  // Debug: log backend info
+  if (options.debug) {
+    console.log(pc.dim(`[debug] Backend: ${backend.name}`));
+    console.log(pc.dim(`[debug] CLI command: ${backend.cliCommand}`));
+    console.log(pc.dim(`[debug] Model: ${config.ai.model}`));
+  }
 
-  // Summary
-  const budgetReport = orchestrator.getBudgetReport();
-  logger.info(`\nPlan ready. Estimated tokens: ${budgetReport.used.toLocaleString()}`);
+  // Create AI service
+  const aiService = new AIService(backend, {
+    timeoutMs: config.ai.timeoutMs,
+    maxRetries: config.ai.maxRetries,
+    telemetry: { keepRuns: config.ai.telemetry.keepRuns },
+  });
+
+  // Build execution plan
+  const executionPlan = buildExecutionPlan(plan, absolutePath);
+
+  // Determine concurrency
+  const concurrency = options.concurrency ?? config.ai.concurrency;
+
+  // Create command runner
+  const runner = new CommandRunner(aiService, {
+    concurrency,
+    failFast: options.failFast,
+    quiet: options.quiet,
+    debug: options.debug,
+  });
+
+  // Execute the three-phase pipeline
+  const summary = await runner.executeGenerate(executionPlan);
+
+  // Write telemetry run log
+  await aiService.finalize(absolutePath);
+
+  // Determine exit code from RunSummary
+  //   0: all files succeeded
+  //   1: some files failed (partial failure)
+  //   2: no files succeeded (total failure)
+  if (summary.filesProcessed === 0 && summary.filesFailed > 0) {
+    process.exit(2);
+  } else if (summary.filesFailed > 0) {
+    process.exit(1);
+  }
+  // Exit code 0 -- all files succeeded (or no files to process)
 }
