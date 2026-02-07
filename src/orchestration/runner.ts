@@ -12,7 +12,7 @@
  * @module
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, stat } from 'node:fs/promises';
 import type { AIService } from '../ai/index.js';
 import type { AIResponse } from '../ai/types.js';
 import type { ExecutionPlan, ExecutionTask } from '../generation/executor.js';
@@ -113,6 +113,13 @@ export class CommandRunner {
           systemPrompt: task.systemPrompt,
         });
 
+        // Track file size for telemetry
+        const fileStat = await stat(task.absolutePath);
+        this.aiService.addFilesReadToLastEntry([{
+          path: task.path,
+          sizeBytes: fileStat.size,
+        }]);
+
         // Compute content hash for change detection
         const contentHash = await computeContentHash(task.absolutePath);
 
@@ -206,6 +213,10 @@ export class CommandRunner {
       totalDurationMs,
       errorCount: aiSummary.errorCount,
       retryCount: 0,
+      totalCostUsd: aiSummary.totalCostUsd,
+      costAvailable: aiSummary.costAvailable,
+      totalFilesRead: aiSummary.totalFilesRead,
+      uniqueFilesRead: aiSummary.uniqueFilesRead,
     };
 
     reporter.printSummary(summary);
@@ -262,6 +273,13 @@ export class CommandRunner {
           prompt: prompt.user,
           systemPrompt: prompt.system,
         });
+
+        // Track file size for telemetry
+        const fileStat = await stat(absolutePath);
+        this.aiService.addFilesReadToLastEntry([{
+          path: file.path,
+          sizeBytes: fileStat.size,
+        }]);
 
         // Compute content hash for change detection
         const contentHash = await computeContentHash(absolutePath);
@@ -330,6 +348,10 @@ export class CommandRunner {
       totalDurationMs,
       errorCount: aiSummary.errorCount,
       retryCount: 0,
+      totalCostUsd: aiSummary.totalCostUsd,
+      costAvailable: aiSummary.costAvailable,
+      totalFilesRead: aiSummary.totalFilesRead,
+      uniqueFilesRead: aiSummary.uniqueFilesRead,
     };
 
     reporter.printSummary(summary);
