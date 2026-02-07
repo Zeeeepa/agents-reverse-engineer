@@ -472,8 +472,8 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     usesName: false,
   },
   gemini: {
-    commandPrefix: '/are:',
-    pathPrefix: '.gemini/commands/are/', // Nested dir for /are:* namespace
+    commandPrefix: '/are-',
+    pathPrefix: '.gemini/commands/',
     filenameSeparator: '-',
     usesName: false,
   },
@@ -540,9 +540,9 @@ function buildTemplate(
   // Platform-specific file naming:
   // - Claude: .claude/skills/are-{command}/SKILL.md
   // - OpenCode: .opencode/commands/are-{command}.md
-  // - Gemini: .gemini/commands/are/{command}.toml (TOML format, nested dir for /are:* namespace)
+  // - Gemini: .gemini/commands/are-{command}.toml (TOML format)
   if (platform === 'gemini') {
-    const filename = `${commandName}.toml`;
+    const filename = `are-${commandName}.toml`;
     const path = `${config.pathPrefix}${filename}`;
     const content = buildGeminiToml(commandName, command);
 

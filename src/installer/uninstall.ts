@@ -53,6 +53,14 @@ const ARE_HOOKS: HookDefinition[] = [
 ];
 
 /**
+ * Plugin definitions for ARE OpenCode (must match operations.ts)
+ */
+const ARE_PLUGIN_FILENAMES = [
+  'are-check-update.js',
+  'are-session-end.js',
+];
+
+/**
  * Permissions to remove during uninstall (must match operations.ts)
  */
 const ARE_PERMISSIONS = [
@@ -146,7 +154,7 @@ function uninstallFilesForRuntime(
     }
   }
 
-  // For Claude and Gemini runtimes, also remove the session hook files
+  // Remove hooks/plugins based on runtime
   let hookUnregistered = false;
   if (runtime === 'claude' || runtime === 'gemini') {
     // Remove all ARE hook files
@@ -173,6 +181,24 @@ function uninstallFilesForRuntime(
     if (runtime === 'claude') {
       unregisterPermissions(basePath, dryRun);
     }
+  } else if (runtime === 'opencode') {
+    // Remove all ARE plugin files
+    for (const pluginFilename of ARE_PLUGIN_FILENAMES) {
+      const pluginPath = path.join(basePath, 'plugins', pluginFilename);
+      if (existsSync(pluginPath)) {
+        if (!dryRun) {
+          try {
+            unlinkSync(pluginPath);
+          } catch (err) {
+            errors.push(`Failed to delete plugin ${pluginPath}: ${err}`);
+          }
+        }
+        if (!errors.some((e) => e.includes(pluginPath))) {
+          filesCreated.push(pluginPath);
+          hookUnregistered = true;
+        }
+      }
+    }
   }
 
   // Remove ARE-VERSION file if exists
@@ -198,12 +224,10 @@ function uninstallFilesForRuntime(
       cleanupAreSkillDirs(skillsDir);
       cleanupEmptyDirs(skillsDir);
     } else if (runtime === 'gemini') {
-      // Gemini uses nested commands/are/ directory for TOML files
+      // Gemini uses flat commands/ directory for TOML files
       const commandsDir = path.join(basePath, 'commands');
-      const areDir = path.join(commandsDir, 'are');
-      cleanupEmptyDirs(areDir);
       cleanupEmptyDirs(commandsDir);
-      // Also clean up legacy .md files from old installations
+      // Clean up legacy files from old installations
       cleanupLegacyGeminiFiles(commandsDir);
     } else {
       // OpenCode uses commands format with flat .md files
@@ -211,10 +235,13 @@ function uninstallFilesForRuntime(
       cleanupEmptyDirs(commandsDir);
     }
 
-    // Clean up hooks/ directory if empty (Claude and Gemini)
+    // Clean up hooks/plugins directory if empty
     if (runtime === 'claude' || runtime === 'gemini') {
       const hooksDir = path.join(basePath, 'hooks');
       cleanupEmptyDirs(hooksDir);
+    } else if (runtime === 'opencode') {
+      const pluginsDir = path.join(basePath, 'plugins');
+      cleanupEmptyDirs(pluginsDir);
     }
   }
 
@@ -537,10 +564,11 @@ function cleanupEmptyDirs(dirPath: string): void {
 }
 
 /**
- * Clean up legacy Gemini markdown files
+ * Clean up legacy Gemini files from old installations
  *
- * Removes old are-*.md files from .gemini/commands/ that were created
- * before the switch to TOML format.
+ * Removes:
+ * - Old are-*.md files from .gemini/commands/ (pre-TOML format)
+ * - Old .toml files from .gemini/commands/are/ (pre-flat structure)
  *
  * @param commandsDir - Path to the commands directory
  */
@@ -561,6 +589,22 @@ function cleanupLegacyGeminiFiles(commandsDir: string): void {
           // Ignore errors
         }
       }
+    }
+
+    // Remove legacy nested are/ directory (old /are:* namespace structure)
+    const areDir = path.join(commandsDir, 'are');
+    if (existsSync(areDir)) {
+      const areEntries = readdirSync(areDir);
+      for (const entry of areEntries) {
+        if (entry.endsWith('.toml')) {
+          try {
+            unlinkSync(path.join(areDir, entry));
+          } catch {
+            // Ignore errors
+          }
+        }
+      }
+      cleanupEmptyDirs(areDir);
     }
   } catch {
     // Ignore errors

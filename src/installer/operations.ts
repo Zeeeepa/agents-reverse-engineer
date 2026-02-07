@@ -153,44 +153,27 @@ function installFilesForRuntime(
     }
   }
 
-  // For Claude and Gemini runtimes, also install the session hooks
+  // Install hooks/plugins based on runtime
   let hookRegistered = false;
   if (runtime === 'claude' || runtime === 'gemini') {
-    // Install session-end hook (triggers update on session close)
-    const sessionEndHookPath = path.join(basePath, 'hooks', 'are-session-end.js');
-    if (existsSync(sessionEndHookPath) && !options.force) {
-      filesSkipped.push(sessionEndHookPath);
-    } else {
-      if (!options.dryRun) {
-        try {
-          ensureDir(sessionEndHookPath);
-          const hookContent = readBundledHook('are-session-end.js');
-          writeFileSync(sessionEndHookPath, hookContent, 'utf-8');
-        } catch (err) {
-          errors.push(`Failed to write hook ${sessionEndHookPath}: ${err}`);
+    // Claude and Gemini: install session hooks
+    for (const hookDef of ARE_HOOKS) {
+      const hookPath = path.join(basePath, 'hooks', hookDef.filename);
+      if (existsSync(hookPath) && !options.force) {
+        filesSkipped.push(hookPath);
+      } else {
+        if (!options.dryRun) {
+          try {
+            ensureDir(hookPath);
+            const hookContent = readBundledHook(hookDef.filename);
+            writeFileSync(hookPath, hookContent, 'utf-8');
+          } catch (err) {
+            errors.push(`Failed to write hook ${hookPath}: ${err}`);
+          }
         }
-      }
-      if (!errors.some((e) => e.includes(sessionEndHookPath))) {
-        filesCreated.push(sessionEndHookPath);
-      }
-    }
-
-    // Install check-update hook (checks for updates on session start)
-    const checkUpdateHookPath = path.join(basePath, 'hooks', 'are-check-update.js');
-    if (existsSync(checkUpdateHookPath) && !options.force) {
-      filesSkipped.push(checkUpdateHookPath);
-    } else {
-      if (!options.dryRun) {
-        try {
-          ensureDir(checkUpdateHookPath);
-          const hookContent = readBundledHook('are-check-update.js');
-          writeFileSync(checkUpdateHookPath, hookContent, 'utf-8');
-        } catch (err) {
-          errors.push(`Failed to write hook ${checkUpdateHookPath}: ${err}`);
+        if (!errors.some((e) => e.includes(hookPath))) {
+          filesCreated.push(hookPath);
         }
-      }
-      if (!errors.some((e) => e.includes(checkUpdateHookPath))) {
-        filesCreated.push(checkUpdateHookPath);
       }
     }
 
@@ -201,6 +184,28 @@ function installFilesForRuntime(
     if (runtime === 'claude') {
       const settingsPath = path.join(basePath, 'settings.json');
       registerPermissions(settingsPath, options.dryRun);
+    }
+  } else if (runtime === 'opencode') {
+    // OpenCode: install plugins (auto-loaded from plugins/ directory)
+    for (const pluginDef of ARE_PLUGINS) {
+      const pluginPath = path.join(basePath, 'plugins', pluginDef.destFilename);
+      if (existsSync(pluginPath) && !options.force) {
+        filesSkipped.push(pluginPath);
+      } else {
+        if (!options.dryRun) {
+          try {
+            ensureDir(pluginPath);
+            const pluginContent = readBundledHook(pluginDef.srcFilename);
+            writeFileSync(pluginPath, pluginContent, 'utf-8');
+          } catch (err) {
+            errors.push(`Failed to write plugin ${pluginPath}: ${err}`);
+          }
+        }
+        if (!errors.some((e) => e.includes(pluginPath))) {
+          filesCreated.push(pluginPath);
+          hookRegistered = true;
+        }
+      }
     }
   }
 
@@ -283,7 +288,7 @@ interface GeminiSettingsJson {
 }
 
 /**
- * Hook definitions for ARE
+ * Hook definitions for ARE (Claude and Gemini)
  */
 interface HookDefinition {
   event: 'SessionStart' | 'SessionEnd';
@@ -294,6 +299,24 @@ interface HookDefinition {
 const ARE_HOOKS: HookDefinition[] = [
   { event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' },
   { event: 'SessionEnd', filename: 'are-session-end.js', name: 'are-session-end' },
+];
+
+/**
+ * Plugin definitions for ARE (OpenCode)
+ *
+ * OpenCode uses a plugin system (.opencode/plugins/) instead of hooks.
+ * Plugins are JS/TS modules that export async functions returning event handlers.
+ */
+interface PluginDefinition {
+  /** Source filename in hooks/dist/ (prefixed with opencode-) */
+  srcFilename: string;
+  /** Destination filename in .opencode/plugins/ */
+  destFilename: string;
+}
+
+const ARE_PLUGINS: PluginDefinition[] = [
+  { srcFilename: 'opencode-are-check-update.js', destFilename: 'are-check-update.js' },
+  { srcFilename: 'opencode-are-session-end.js', destFilename: 'are-session-end.js' },
 ];
 
 /**
