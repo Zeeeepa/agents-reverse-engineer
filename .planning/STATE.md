@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 9 (AI Service Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-07 -- Roadmap created for v2.0
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-07 -- Completed 06-01-PLAN.md
 
-Progress: [░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v2.0)
+Progress: [███░░░░░░░░░░░░░░░░░░░░░] 8% (v2.0 -- 1/12 plans)
 
-**Next:** Plan Phase 6
+**Next:** Execute 06-02-PLAN.md (Backend adapters)
 
 ## Performance Metrics
 
@@ -36,6 +36,12 @@ Progress: [░░░░░░░░░░░░░░░░░░░░░░░
 | 4. Integration & Commands | 5/5 | 16 min | 3 min |
 | 5. Installation Workflow | 5/5 | 26 min | 5 min |
 
+**v2.0 Progress:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 6. AI Service Foundation | 1/3 | 3 min | 3 min |
+
 ## Accumulated Context
 
 ### Decisions
@@ -43,9 +49,12 @@ Progress: [░░░░░░░░░░░░░░░░░░░░░░░
 Key decisions are logged in PROJECT.md Key Decisions table.
 v1.0 decisions archived in milestones/v1.0-ROADMAP.md.
 
-v2.0 pending decisions:
+v2.0 decisions:
 - Tool drives LLM via CLI subprocess (full control over orchestration, telemetry, error handling)
 - JSON log files for telemetry (human-readable, one file per run)
+- runSubprocess always resolves -- callers decide how to handle errors via SubprocessResult fields
+- AIServiceError uses string literal union codes for typed error branching
+- DEFAULT_RETRY_OPTIONS omits isRetryable/onRetry since those are caller-specific
 
 ### Pending Todos
 
@@ -58,5 +67,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Roadmap created for v2.0 milestone
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
