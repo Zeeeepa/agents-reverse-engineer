@@ -25,7 +25,7 @@ First, check if a resumable plan exists:
 cat .agents-reverse-engineer/GENERATION-PLAN.md 2>/dev/null | head -20
 \`\`\`
 
-**If NO plan exists**: Run \`/are:discover --plan\` first to create the GENERATION-PLAN.md, then return here.
+**If NO plan exists**: Run \`COMMAND_PREFIXdiscover --plan\` first to create the GENERATION-PLAN.md, then return here.
 
 **If plan exists**: Continue to **Resume Execution** below.
 
@@ -181,7 +181,7 @@ npx agents-reverse-engineer install
 1. Run ONLY this exact command: \`npx agents-reverse-engineer@latest discover $ARGUMENTS\`
 2. DO NOT add \`--plan\` unless user typed \`--plan\`
 3. DO NOT add ANY flags the user did not explicitly type
-4. If user typed nothing after \`/are:discover\`, run with ZERO flags
+4. If user typed nothing after \`COMMAND_PREFIXdiscover\`, run with ZERO flags
 
 \`\`\`bash
 npx agents-reverse-engineer@latest discover $ARGUMENTS
@@ -236,7 +236,7 @@ Report:
 - Root documents deleted
 - Plan file deleted
 
-Suggest running \`/are:discover --plan\` to start fresh.
+Suggest running \`COMMAND_PREFIXdiscover --plan\` to start fresh.
 </execution>`,
   },
 
@@ -537,7 +537,7 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 type Platform = 'claude' | 'opencode' | 'gemini';
 
 interface PlatformConfig {
-  commandPrefix: string; // /are: or /are-
+  commandPrefix: string; // /are- (claude, opencode) or /are: (gemini)
   pathPrefix: string; // .claude/commands/are/ or .opencode/commands/ etc
   filenameSeparator: string; // . or -
   extraFrontmatter?: string; // e.g., "agent: build" for OpenCode
@@ -546,7 +546,7 @@ interface PlatformConfig {
 
 const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
   claude: {
-    commandPrefix: '/are:',
+    commandPrefix: '/are-',
     pathPrefix: '.claude/skills/',
     filenameSeparator: '.',
     usesName: true,
@@ -569,21 +569,16 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
 function buildFrontmatter(
   platform: Platform,
   commandName: string,
-  description: string,
-  argumentHint?: string
+  description: string
 ): string {
   const config = PLATFORM_CONFIGS[platform];
   const lines = ['---'];
 
   if (config.usesName) {
-    lines.push(`name: are:${commandName}`);
+    lines.push(`name: are-${commandName}`);
   }
 
   lines.push(`description: ${description}`);
-
-  if (argumentHint) {
-    lines.push(`argument-hint: "${argumentHint}"`);
-  }
 
   if (config.extraFrontmatter) {
     lines.push(config.extraFrontmatter);
@@ -654,8 +649,7 @@ function buildTemplate(
   const frontmatter = buildFrontmatter(
     platform,
     commandName,
-    command.description,
-    command.argumentHint || undefined
+    command.description
   );
 
   // Replace command prefix placeholder in help content
