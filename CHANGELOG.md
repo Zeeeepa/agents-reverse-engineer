@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-02-07
+
+### Fixed
+- `/are-generate` skill now delegates to CLI (`npx agents-reverse-engineer generate`) instead of using an embedded prompt-based workflow — consistent with all other ARE commands
+- `/are-clean` skill now deletes all per-package documents (`STRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md`, `CONCERNS.md`) instead of only `STACK.md`
+- `/are-help` updated to reflect current CLI capabilities: removed deprecated `--execute`/`--stream` flags, added `--concurrency`/`--fail-fast`, added missing `CONCERNS.md` to generated files list
+- Quick Start and Common Workflows in help no longer reference the removed `discover --plan` step
+
 ## [0.4.0] - 2026-02-07
 
 ### Added
@@ -226,7 +234,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.6...v0.4.0
 [0.3.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.3.4...v0.3.5
