@@ -13,117 +13,38 @@ import type { IntegrationTemplate } from './types.js';
 const COMMANDS = {
   generate: {
     description: 'Generate AI-friendly documentation for the entire codebase',
-    argumentHint: '[--budget N] [--dry-run]',
+    argumentHint: '[--budget N] [--dry-run] [--concurrency N] [--verbose] [--fail-fast]',
     content: `Generate comprehensive documentation for this codebase using agents-reverse-engineer.
 
 <execution>
-## Phase 0: Check for Existing Plan
-
-First, check if a resumable plan exists:
+Run the agents-reverse-engineer generate command:
 
 \`\`\`bash
-cat .agents-reverse-engineer/GENERATION-PLAN.md 2>/dev/null | head -20
+npx agents-reverse-engineer@latest generate $ARGUMENTS
 \`\`\`
 
-**If NO plan exists**: Run \`COMMAND_PREFIXdiscover --plan\` first to create the GENERATION-PLAN.md, then return here.
+This executes a three-phase pipeline:
 
-**If plan exists**: Continue to **Resume Execution** below.
+1. **Discovery & Planning**: Walks the directory tree, applies filters (gitignore, vendor, binary, custom), detects file types, and creates a generation plan with token budget tracking.
 
-## Resume Execution
+2. **File Analysis** (concurrent): Analyzes each source file via AI and writes \`.sum\` summary files with YAML frontmatter (\`content_hash\`, \`file_type\`, \`purpose\`, \`public_interface\`, \`dependencies\`, \`patterns\`).
 
-Read \`.agents-reverse-engineer/GENERATION-PLAN.md\` and find unchecked tasks (\`- [ ]\`).
+3. **Directory & Root Documents** (sequential):
+   - Generates \`AGENTS.md\` per directory in post-order traversal (deepest first, so child summaries feed into parents)
+   - Creates root documents: \`CLAUDE.md\`, \`ARCHITECTURE.md\` (if 20+ source files)
+   - Creates per-package documents at each manifest location (package.json, go.mod, Cargo.toml): \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
 
-### For Each Unchecked File Task:
+**Options:**
+- \`--dry-run\`: Preview the plan without making AI calls
+- \`--budget N\`: Override token budget
+- \`--concurrency N\`: Control number of parallel AI calls
+- \`--verbose\`: Show detailed task breakdown
+- \`--fail-fast\`: Stop on first file analysis failure
 
-1. **Spawn ONE subagent PER FILE** (Task tool with model="sonnet") to:
-   - Read the source file
-   - Generate summary following guidelines below
-   - Write the .sum file using the Write tool
-   - **VERIFY**: Read back the .sum file to confirm it was written correctly
-   - Report success/failure
-
-2. **Mark complete** in the plan file: change \`- [ ]\` to \`- [x]\` (only after verification)
-
-3. **Parallel execution**: Spawn all file tasks in parallel (one agent per file) for maximum efficiency and easy resumption
-
-### Subagent Prompt Template:
-
-\`\`\`
-Analyze and document this file:
-1. Compute content hash: sha256sum <file_path> | cut -d' ' -f1
-2. Read: <file_path>
-3. Generate .sum content following the format below (include the content_hash)
-4. Write to: <file_path>.sum
-5. Verify: Read back the .sum file to confirm success
-6. Report: "SUCCESS: <file_path>.sum created" or "FAILED: <reason>"
-\`\`\`
-
-### .sum File Format
-
-\`\`\`yaml
----
-file_type: <generic|type|config|test|component|service|api|hook|model|schema>
-generated_at: <ISO timestamp>
-content_hash: <SHA-256 hash - compute with: sha256sum <file> | cut -d' ' -f1>
-purpose: <1-2 sentence description of what this file does>
-public_interface: [func1(), func2(), ClassName]
-dependencies: [express, lodash, ./utils]
-patterns: [singleton, factory, observer]
-related_files: [./types.ts, ./utils.ts]
----
-
-<Detailed 300-500 word summary covering:
-- What the code does and how it works
-- Key implementation details
-- Important usage patterns
-- Notable edge cases or gotchas>
-\`\`\`
-
-**Field Guidelines:**
-- \`purpose\`: One-line summary (what + why)
-- \`public_interface\`: Exported functions/classes/types
-- \`dependencies\`: External packages and internal imports
-- \`patterns\`: Design patterns used (singleton, factory, etc.)
-- \`related_files\`: Tightly coupled files (optional)
-
-### After All Files Complete, Generate AGENTS.md (Post-Order Traversal):
-
-Process directories from **deepest to shallowest** so child AGENTS.md files exist before parent directories are documented.
-
-For each directory (in post-order):
-1. Verify ALL .sum files exist for that directory
-2. Read all .sum files in the directory
-3. **Read AGENTS.md from any subdirectories** (already generated due to post-order)
-4. Generate AGENTS.md with:
-   - Directory description synthesized from file summaries
-   - Files grouped by purpose (Types, Services, Utils, etc.)
-   - Subdirectories section listing child directories with descriptions
-5. Mark the directory task complete in the plan
-
-### After All Directories Complete:
-
-Generate root documents:
-
-1. **CLAUDE.md** - Synthesize all AGENTS.md into project overview
-2. **ARCHITECTURE.md** - Document system architecture (if 20+ source files)
-
-Generate per-package documents (at each directory containing package.json, requirements.txt, Cargo.toml, etc.):
-
-1. **STACK.md** - Technology stack from manifest file
-2. **STRUCTURE.md** - Codebase structure and organization
-3. **CONVENTIONS.md** - Coding conventions and patterns
-4. **TESTING.md** - Test setup and patterns
-5. **INTEGRATIONS.md** - External services and APIs
-
-In monorepos, these appear in each package directory (e.g., \`packages/api/STACK.md\`).
-
-## Completion
-
-After all tasks complete:
-
-- Report number of files analyzed
-- Report number of directories documented
-- Mark plan as complete (change header to show ✓ COMPLETE)
+After completion, summarize:
+- Number of files analyzed and any failures
+- Number of directories documented
+- Root and per-package documents generated
 </execution>`,
   },
 
@@ -202,7 +123,8 @@ Report number of files found.
 1. **Plan file**: \`.agents-reverse-engineer/GENERATION-PLAN.md\`
 2. **Summary files**: All \`*.sum\` files
 3. **Directory docs**: All \`AGENTS.md\` files
-4. **Root docs**: \`CLAUDE.md\`, \`ARCHITECTURE.md\`, \`STACK.md\`
+4. **Root docs**: \`CLAUDE.md\`, \`ARCHITECTURE.md\`
+5. **Per-package docs**: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
 
 ## Dry Run (Preview)
 
@@ -212,7 +134,8 @@ First, show what would be deleted:
 echo "=== Files to delete ===" && \\
 find . -name "*.sum" -not -path "./node_modules/*" -not -path "./.git/*" 2>/dev/null && \\
 find . -name "AGENTS.md" -not -path "./node_modules/*" -not -path "./.git/*" 2>/dev/null && \\
-ls -la CLAUDE.md ARCHITECTURE.md STACK.md .agents-reverse-engineer/GENERATION-PLAN.md 2>/dev/null || true
+find . \\( -name "STACK.md" -o -name "STRUCTURE.md" -o -name "CONVENTIONS.md" -o -name "TESTING.md" -o -name "INTEGRATIONS.md" -o -name "CONCERNS.md" \\) -not -path "./node_modules/*" -not -path "./.git/*" 2>/dev/null && \\
+ls -la CLAUDE.md ARCHITECTURE.md .agents-reverse-engineer/GENERATION-PLAN.md 2>/dev/null || true
 \`\`\`
 
 Report the count of files that would be deleted.
@@ -226,7 +149,8 @@ After confirming with the user (or if no --dry-run flag):
 \`\`\`bash
 find . -name "*.sum" -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
 find . -name "AGENTS.md" -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
-rm -f CLAUDE.md ARCHITECTURE.md STACK.md
+find . \\( -name "STACK.md" -o -name "STRUCTURE.md" -o -name "CONVENTIONS.md" -o -name "TESTING.md" -o -name "INTEGRATIONS.md" -o -name "CONCERNS.md" \\) -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
+rm -f CLAUDE.md ARCHITECTURE.md
 rm -f .agents-reverse-engineer/GENERATION-PLAN.md
 \`\`\`
 
@@ -234,9 +158,10 @@ Report:
 - Number of .sum files deleted
 - Number of AGENTS.md files deleted
 - Root documents deleted
+- Per-package documents deleted
 - Plan file deleted
 
-Suggest running \`COMMAND_PREFIXdiscover --plan\` to start fresh.
+Suggest running \`COMMAND_PREFIXgenerate\` to start fresh.
 </execution>`,
   },
 
@@ -262,9 +187,8 @@ Output ONLY the reference content below. Do NOT add:
 ## Quick Start
 
 1. \`COMMAND_PREFIXinit\` — Create configuration file
-2. \`COMMAND_PREFIXdiscover --plan\` — Scan codebase, create execution plan
-3. \`COMMAND_PREFIXgenerate\` — Generate documentation from the plan
-4. \`COMMAND_PREFIXupdate\` — Keep docs in sync after code changes
+2. \`COMMAND_PREFIXgenerate\` — Generate documentation for the codebase
+3. \`COMMAND_PREFIXupdate\` — Keep docs in sync after code changes
 
 ## Commands Reference
 
@@ -306,20 +230,18 @@ npx are discover ./src --show-excluded
 ### \`COMMAND_PREFIXgenerate\`
 Generate comprehensive documentation for the codebase.
 
-**Requires:** Run \`COMMAND_PREFIXdiscover --plan\` first to create \`GENERATION-PLAN.md\`.
-
 **Options:**
 | Flag | Description |
 |------|-------------|
 | \`--budget N\` | Override token budget (default: from config) |
 | \`--dry-run\` | Show what would be generated without writing |
-| \`--execute\` | Output JSON execution plan for AI agents |
-| \`--stream\` | Output tasks as streaming JSON, one per line |
+| \`--concurrency N\` | Control number of parallel AI calls |
+| \`--fail-fast\` | Stop on first file analysis failure |
 | \`--verbose, -v\` | Show detailed task breakdown |
 | \`--quiet, -q\` | Suppress output except errors |
 
 **Usage:**
-- \`COMMAND_PREFIXgenerate\` — Generate docs (resumes from plan)
+- \`COMMAND_PREFIXgenerate\` — Generate docs
 - \`COMMAND_PREFIXgenerate --dry-run\` — Preview without writing
 
 **CLI:**
@@ -327,16 +249,15 @@ Generate comprehensive documentation for the codebase.
 npx are generate
 npx are generate --dry-run
 npx are generate --budget 50000
-npx are generate --execute  # For programmatic use
+npx are generate --concurrency 4
 \`\`\`
 
 **How it works:**
-1. Reads \`GENERATION-PLAN.md\` and finds unchecked tasks
-2. Spawns parallel subagents to analyze each file
-3. Writes \`.sum\` summary files alongside source files
-4. Generates \`AGENTS.md\` for each directory (post-order)
-5. Creates root documents: \`CLAUDE.md\`, \`ARCHITECTURE.md\`
-6. Creates per-package documents at each manifest location: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`
+1. Discovers files, applies filters, detects file types, and creates a generation plan
+2. Analyzes each file via concurrent AI calls, writes \`.sum\` summary files
+3. Generates \`AGENTS.md\` for each directory (post-order traversal)
+4. Creates root documents: \`CLAUDE.md\`, \`ARCHITECTURE.md\` (if 20+ files)
+5. Creates per-package documents at each manifest location: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
 
 ---
 
@@ -378,7 +299,7 @@ Remove all generated documentation artifacts.
 - All \`*.sum\` files
 - All \`AGENTS.md\` files
 - Root docs: \`CLAUDE.md\`, \`ARCHITECTURE.md\`
-- Per-package docs: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`
+- Per-package docs: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
 
 **Usage:**
 - \`COMMAND_PREFIXclean --dry-run\` — Preview deletions
@@ -485,6 +406,7 @@ Generated alongside \`package.json\`, \`requirements.txt\`, \`Cargo.toml\`, etc.
 | \`CONVENTIONS.md\` | Coding conventions and patterns |
 | \`TESTING.md\` | Test setup and patterns |
 | \`INTEGRATIONS.md\` | External services and APIs |
+| \`CONCERNS.md\` | Technical debt and known issues |
 
 In monorepos, these appear in each package directory (e.g., \`packages/api/STACK.md\`).
 
@@ -493,7 +415,6 @@ In monorepos, these appear in each package directory (e.g., \`packages/api/STACK
 **Initial documentation:**
 \`\`\`
 COMMAND_PREFIXinit
-COMMAND_PREFIXdiscover --plan
 COMMAND_PREFIXgenerate
 \`\`\`
 
@@ -505,7 +426,6 @@ COMMAND_PREFIXupdate
 **Full regeneration:**
 \`\`\`
 COMMAND_PREFIXclean
-COMMAND_PREFIXdiscover --plan
 COMMAND_PREFIXgenerate
 \`\`\`
 
@@ -517,7 +437,6 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 
 ## Tips
 
-- **Resume generation**: If interrupted, run \`COMMAND_PREFIXgenerate\` again — it resumes from unchecked tasks in \`GENERATION-PLAN.md\`
 - **Large codebases**: Use \`--budget N\` to limit token usage per run
 - **Custom exclusions**: Edit \`.agents-reverse-engineer/config.yaml\` to skip files
 - **Hook auto-update**: Install creates a session-end hook that auto-runs update
