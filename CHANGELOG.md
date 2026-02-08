@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-02-08
+
+### Fixed
+- Timeout errors no longer trigger retries — previously a timed-out subprocess (120s) would retry 3 more times, spawning heavyweight processes on an already struggling system and potentially freezing the host
+- SIGKILL escalation after SIGTERM timeout — if a subprocess doesn't exit within 5s of SIGTERM, SIGKILL is sent to prevent hung/zombie processes
+
+### Changed
+- `subprocess:spawn` trace events now emit at actual spawn time instead of after subprocess completion, making trace files accurately reflect concurrent process activity
+- `--debug` flag now logs active subprocess count, heap/RSS memory usage, PID, exit code, and duration for every subprocess spawn and exit
+- Timeout and retry warnings now always print to stderr (not gated behind `--debug`) for visibility into transient failures
+
 ## [0.4.4] - 2026-02-08
 
 ### Added
@@ -261,7 +272,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.1...v0.4.2
