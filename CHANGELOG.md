@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-02-08
+
+### Added
+- Concurrency tracing system (`--trace` flag) for subprocess lifecycle and task management with NDJSON output
+- `--debug` and `--trace` flags to generate and update command argument options
+- `ITraceWriter` interface with `NullTraceWriter` and `TraceWriter` implementations for structured trace events
+- Trace events for phase lifecycle, worker management, task processing, subprocess spawn/exit, and retries
+
 ## [0.4.3] - 2026-02-08
 
 ### Added
@@ -253,7 +261,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.0...v0.4.1
