@@ -101,9 +101,9 @@ export function runSubprocess(
     const startTime = Date.now();
     let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const activeCount = activeSubprocesses.size;
-    console.error(`[subprocess] Currently active: ${activeCount} subprocess(es)`);
-    console.error(`[subprocess] Spawning: ${command} ${args.join(' ')}`);
+    // const activeCount = activeSubprocesses.size;
+    // console.error(`[subprocess] Currently active: ${activeCount} subprocess(es)`);
+    // console.error(`[subprocess] Spawning: ${command} ${args.join(' ')}`);
 
     const child = execFile(
       command,
@@ -115,43 +115,37 @@ export function runSubprocess(
         encoding: 'utf-8',
         env: {
           ...process.env,
-          // Prevent background tasks and subagent spawning
-          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
-          // Limit heap size to prevent memory explosion (512MB per subprocess)
-          NODE_OPTIONS: '--max-old-space-size=512',
-          // Constrain libuv thread pool size to prevent thread explosion
-          UV_THREADPOOL_SIZE: '4',
         },
       },
       (error: ExecFileException | null, stdout: string, stderr: string) => {
         const durationMs = Date.now() - startTime;
-        console.error(`[subprocess:${child.pid}] Callback fired after ${durationMs}ms`);
+        // console.error(`[subprocess:${child.pid}] Callback fired after ${durationMs}ms`);
 
         // Clear SIGKILL escalation timer -- process has exited
         if (sigkillTimer !== undefined) {
-          console.error(`[subprocess:${child.pid}] Clearing SIGKILL timer`);
+          // console.error(`[subprocess:${child.pid}] Clearing SIGKILL timer`);
           clearTimeout(sigkillTimer);
         }
 
         // Ensure the process is fully terminated (no-op if already dead)
         // This handles edge cases where child processes might still be running
-        console.error(`[subprocess:${child.pid}] Attempting explicit SIGKILL cleanup`);
+        // console.error(`[subprocess:${child.pid}] Attempting explicit SIGKILL cleanup`);
         try {
           if (child.pid !== undefined) {
             // Kill the entire process tree by sending signal to process group
             // Use negative PID to target the process group
             try {
               process.kill(-child.pid, 'SIGKILL');
-              console.error(`[subprocess:${child.pid}] Sent SIGKILL to process group -${child.pid}`);
+              // console.error(`[subprocess:${child.pid}] Sent SIGKILL to process group -${child.pid}`);
             } catch (pgError) {
               // Process group kill failed, try single process
               process.kill(child.pid, 'SIGKILL');
-              console.error(`[subprocess:${child.pid}] Sent SIGKILL to single process (pg kill failed)`);
+              // console.error(`[subprocess:${child.pid}] Sent SIGKILL to single process (pg kill failed)`);
             }
           }
         } catch (killError) {
           // Process is already dead or doesn't exist -- expected in most cases
-          console.error(`[subprocess:${child.pid}] SIGKILL failed (process already dead): ${killError instanceof Error ? killError.message : String(killError)}`);
+          // console.error(`[subprocess:${child.pid}] SIGKILL failed (process already dead): ${killError instanceof Error ? killError.message : String(killError)}`);
         }
 
         // Detect timeout: execFile sets `killed = true` when the process
@@ -174,12 +168,12 @@ export function runSubprocess(
           exitCode = 1;
         }
 
-        console.error(`[subprocess:${child.pid}] Exited: code=${exitCode}, timedOut=${timedOut}, signal=${error !== null && 'signal' in error ? error.signal : null}`);
+        // console.error(`[subprocess:${child.pid}] Exited: code=${exitCode}, timedOut=${timedOut}, signal=${error !== null && 'signal' in error ? error.signal : null}`);
 
         // Remove from active tracking
         if (child.pid !== undefined) {
           activeSubprocesses.delete(child.pid);
-          console.error(`[subprocess:${child.pid}] Removed from active list (remaining: ${activeSubprocesses.size})`);
+          // console.error(`[subprocess:${child.pid}] Removed from active list (remaining: ${activeSubprocesses.size})`);
         }
 
         resolve({
@@ -194,7 +188,7 @@ export function runSubprocess(
       },
     );
 
-    console.error(`[subprocess:${child.pid}] Spawned with PID ${child.pid}`);
+    // console.error(`[subprocess:${child.pid}] Spawned with PID ${child.pid}`);
 
     // Track this subprocess
     if (child.pid !== undefined) {
@@ -202,34 +196,34 @@ export function runSubprocess(
         command: `${command} ${args.join(' ')}`,
         spawnedAt: startTime,
       });
-      console.error(`[subprocess:${child.pid}] Registered in active list (total: ${activeSubprocesses.size})`);
+      // console.error(`[subprocess:${child.pid}] Registered in active list (total: ${activeSubprocesses.size})`);
     }
 
     // Notify caller of spawn (for trace events at actual spawn time)
     options.onSpawn?.(child.pid);
-    console.error(`[subprocess:${child.pid}] onSpawn callback invoked`);
+    // console.error(`[subprocess:${child.pid}] onSpawn callback invoked`);
 
     // SIGKILL escalation: if the process doesn't exit within
     // timeout + grace period, force-kill it. This handles cases where
     // SIGTERM is caught/ignored by the child or its process tree.
     if (child.pid !== undefined) {
       const killDelay = options.timeoutMs + SIGKILL_GRACE_MS;
-      console.error(`[subprocess:${child.pid}] Setting SIGKILL timer for ${killDelay}ms (timeout=${options.timeoutMs}ms + grace=${SIGKILL_GRACE_MS}ms)`);
+      // console.error(`[subprocess:${child.pid}] Setting SIGKILL timer for ${killDelay}ms (timeout=${options.timeoutMs}ms + grace=${SIGKILL_GRACE_MS}ms)`);
 
       sigkillTimer = setTimeout(() => {
-        console.error(`[subprocess:${child.pid}] SIGKILL timer fired - process exceeded timeout+grace`);
+        // console.error(`[subprocess:${child.pid}] SIGKILL timer fired - process exceeded timeout+grace`);
         try {
           child.kill('SIGKILL');
-          console.error(`[subprocess:${child.pid}] Sent escalation SIGKILL`);
+          // console.error(`[subprocess:${child.pid}] Sent escalation SIGKILL`);
         } catch (killError) {
           // Process may already be dead -- ignore
-          console.error(`[subprocess:${child.pid}] Escalation SIGKILL failed: ${killError instanceof Error ? killError.message : String(killError)}`);
+          // console.error(`[subprocess:${child.pid}] Escalation SIGKILL failed: ${killError instanceof Error ? killError.message : String(killError)}`);
         }
       }, killDelay);
 
       // Don't let this timer keep the event loop alive
       sigkillTimer.unref();
-      console.error(`[subprocess:${child.pid}] SIGKILL timer unref'd`);
+      // console.error(`[subprocess:${child.pid}] SIGKILL timer unref'd`);
     }
 
     // Write prompt to stdin if provided, then close the stream.
@@ -237,12 +231,12 @@ export function runSubprocess(
     // for EOF on stdin otherwise (see RESEARCH.md Pitfall 1).
     if (options.input !== undefined && child.stdin !== null) {
       const inputSize = Buffer.byteLength(options.input, 'utf-8');
-      console.error(`[subprocess:${child.pid}] Writing ${inputSize} bytes to stdin`);
+      // console.error(`[subprocess:${child.pid}] Writing ${inputSize} bytes to stdin`);
       child.stdin.write(options.input);
       child.stdin.end();
-      console.error(`[subprocess:${child.pid}] Stdin closed`);
+      // console.error(`[subprocess:${child.pid}] Stdin closed`);
     } else {
-      console.error(`[subprocess:${child.pid}] No stdin input provided`);
+      // console.error(`[subprocess:${child.pid}] No stdin input provided`);
     }
   });
 }
