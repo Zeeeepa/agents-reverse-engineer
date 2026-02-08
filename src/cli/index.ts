@@ -61,8 +61,6 @@ General Options:
   --fail-fast       Stop on first file analysis failure
   --debug           Show AI prompts and backend details
   --trace           Enable concurrency tracing (.agents-reverse-engineer/traces/)
-  --execute         [deprecated] Output JSON execution plan (generate)
-  --stream          [deprecated] Output tasks as streaming JSON (generate)
   --uncommitted     Include uncommitted changes (update only)
   --help, -h        Show this help
   --version, -V     Show version number
@@ -283,8 +281,6 @@ async function main(): Promise<void> {
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),
         trace: flags.has('trace'),
-        execute: flags.has('execute'),
-        stream: flags.has('stream'),
       };
       await generateCommand(positional[0] || '.', options);
       break;

@@ -9,7 +9,6 @@
  * 5. Producing .sum files, AGENTS.md, and root documents
  *
  * With --dry-run, shows the plan without making any AI calls.
- * With --execute or --stream (deprecated), outputs JSON for external tools.
  */
 
 import * as path from 'node:path';
@@ -25,7 +24,7 @@ import {
   createCustomFilter,
 } from '../discovery/filters/index.js';
 import { createOrchestrator, type GenerationPlan } from '../generation/orchestrator.js';
-import { buildExecutionPlan, formatExecutionPlanAsJson, streamTasks } from '../generation/executor.js';
+import { buildExecutionPlan } from '../generation/executor.js';
 import {
   AIService,
   AIServiceError,
@@ -53,10 +52,6 @@ export interface GenerateOptions {
   debug?: boolean;
   /** Enable concurrency tracing to .agents-reverse-engineer/traces/ */
   trace?: boolean;
-  /** @deprecated Execute mode - output JSON for AI agent execution */
-  execute?: boolean;
-  /** @deprecated Stream mode - output tasks one per line */
-  stream?: boolean;
 }
 
 /**
@@ -122,8 +117,7 @@ export async function generateCommand(
   options: GenerateOptions
 ): Promise<void> {
   const absolutePath = path.resolve(targetPath);
-  const isJsonMode = options.execute || options.stream;
-  const logger = createLogger({ colors: !isJsonMode });
+  const logger = createLogger({ colors: true });
 
   logger.info(`Generating documentation plan for: ${absolutePath}`);
 
@@ -182,8 +176,8 @@ export async function generateCommand(
   );
   const plan = await orchestrator.createPlan(discoveryResult);
 
-  // Display plan (skip in JSON mode)
-  if (!options.quiet && !isJsonMode) {
+  // Display plan
+  if (!options.quiet) {
     console.log(formatPlan(plan));
   }
 
@@ -211,30 +205,7 @@ export async function generateCommand(
   }
 
   // ---------------------------------------------------------------------------
-  // Deprecated JSON modes (--execute, --stream) -- backward compatibility
-  // ---------------------------------------------------------------------------
-
-  if (options.execute || options.stream) {
-    console.error(
-      pc.yellow('Note: --execute and --stream are deprecated. The default behavior now executes analysis directly.')
-    );
-
-    const executionPlan = buildExecutionPlan(plan, absolutePath);
-
-    if (options.stream) {
-      // Stream mode - one task per line for incremental processing
-      for (const line of streamTasks(executionPlan)) {
-        console.log(line);
-      }
-    } else {
-      // Full JSON output
-      console.log(formatExecutionPlanAsJson(executionPlan));
-    }
-    return;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Direct execution (new default): resolve backend and run AI analysis
+  // Resolve backend and run AI analysis
   // ---------------------------------------------------------------------------
 
   // Resolve AI CLI backend

@@ -1,10 +1,10 @@
 /**
  * Plan executor for documentation generation
  *
- * Outputs tasks in a format suitable for AI agent execution:
+ * Builds execution plans from generation plans:
  * - File tasks as individual analysis jobs
  * - Directory completion tracking
- * - Streaming JSON output for incremental processing
+ * - Markdown plan output for dry-run display
  */
 
 import * as path from 'node:path';
@@ -221,104 +221,6 @@ export async function getReadyDirectories(
   }
 
   return ready;
-}
-
-/**
- * Output execution plan as JSON for AI consumption.
- */
-export function formatExecutionPlanAsJson(plan: ExecutionPlan): string {
-  return JSON.stringify({
-    projectRoot: plan.projectRoot,
-    summary: {
-      totalTasks: plan.tasks.length,
-      fileTasks: plan.fileTasks.length,
-      directoryTasks: plan.directoryTasks.length,
-      rootTasks: plan.rootTasks.length,
-      directories: Object.keys(plan.directoryFileMap).length,
-      traversal: 'post-order (deepest first)',
-    },
-    directoryFileMap: plan.directoryFileMap,
-    fileTasks: plan.fileTasks.map(t => ({
-      id: t.id,
-      path: t.path,
-      absolutePath: t.absolutePath,
-      outputPath: t.outputPath,
-      systemPrompt: t.systemPrompt,
-      userPrompt: t.userPrompt,
-      fileType: t.metadata.fileType,
-    })),
-    directoryTasks: plan.directoryTasks.map(t => ({
-      id: t.id,
-      path: t.path,
-      depth: t.metadata.depth,
-      absolutePath: t.absolutePath,
-      outputPath: t.outputPath,
-      dependencies: t.dependencies,
-      files: t.metadata.directoryFiles,
-    })),
-    rootTasks: plan.rootTasks.map(t => ({
-      id: t.id,
-      path: t.path,
-      outputPath: t.outputPath,
-      dependencies: t.dependencies,
-    })),
-  }, null, 2);
-}
-
-/**
- * Output tasks for streaming execution (one task per line as JSON).
- */
-export function* streamTasks(plan: ExecutionPlan): Generator<string> {
-  // First, yield all file tasks (can be parallelized)
-  yield JSON.stringify({ phase: 'files', count: plan.fileTasks.length });
-
-  for (const task of plan.fileTasks) {
-    yield JSON.stringify({
-      task: {
-        id: task.id,
-        type: task.type,
-        path: task.path,
-        absolutePath: task.absolutePath,
-        outputPath: task.outputPath,
-        systemPrompt: task.systemPrompt,
-        userPrompt: task.userPrompt,
-        fileType: task.metadata.fileType,
-      }
-    });
-  }
-
-  // Then yield directory tasks (post-order: deepest first)
-  yield JSON.stringify({ phase: 'directories', count: plan.directoryTasks.length, traversal: 'post-order' });
-
-  for (const task of plan.directoryTasks) {
-    yield JSON.stringify({
-      task: {
-        id: task.id,
-        type: task.type,
-        path: task.path,
-        depth: task.metadata.depth,
-        absolutePath: task.absolutePath,
-        outputPath: task.outputPath,
-        files: task.metadata.directoryFiles,
-      }
-    });
-  }
-
-  // Finally yield root tasks
-  yield JSON.stringify({ phase: 'root', count: plan.rootTasks.length });
-
-  for (const task of plan.rootTasks) {
-    yield JSON.stringify({
-      task: {
-        id: task.id,
-        type: task.type,
-        path: task.path,
-        outputPath: task.outputPath,
-      }
-    });
-  }
-
-  yield JSON.stringify({ phase: 'complete' });
 }
 
 /**
