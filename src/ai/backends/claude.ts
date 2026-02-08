@@ -158,6 +158,7 @@ export class ClaudeBackend implements AIBackend {
       '--no-session-persistence',  // Don't save session to disk
       '--permission-mode', 'bypassPermissions',  // Non-interactive: skip permission prompts (PITFALLS.md §8)
       '--disallowedTools', 'Task', // Prevent subprocess from spawning its own subagents
+      '--settings', '{"disableAllHooks":true}', // Disable SessionStart/SessionEnd hooks to prevent hook recursion
     ];
 
     if (options.model) {

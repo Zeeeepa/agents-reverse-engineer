@@ -297,8 +297,8 @@ interface HookDefinition {
 }
 
 const ARE_HOOKS: HookDefinition[] = [
-  { event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' },
-  { event: 'SessionEnd', filename: 'are-session-end.js', name: 'are-session-end' },
+  // { event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' },
+  // { event: 'SessionEnd', filename: 'are-session-end.js', name: 'are-session-end' }, // Disabled - causing issues
 ];
 
 /**
@@ -316,7 +316,7 @@ interface PluginDefinition {
 
 const ARE_PLUGINS: PluginDefinition[] = [
   { srcFilename: 'opencode-are-check-update.js', destFilename: 'are-check-update.js' },
-  { srcFilename: 'opencode-are-session-end.js', destFilename: 'are-session-end.js' },
+  // { srcFilename: 'opencode-are-session-end.js', destFilename: 'are-session-end.js' }, // Disabled - causing issues
 ];
 
 /**
