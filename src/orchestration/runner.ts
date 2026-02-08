@@ -443,7 +443,7 @@ export class CommandRunner {
         },
       );
 
-      await runPool(dirTasks, {
+      const phase2Results = await runPool(dirTasks, {
         concurrency: dirConcurrency,
         failFast: this.options.failFast,
         tracer: this.tracer,
@@ -451,12 +451,15 @@ export class CommandRunner {
         taskLabels: dirsAtDepth.map(t => t.path),
       });
 
+      const phase2Succeeded = phase2Results.filter(r => r.success).length;
+      const phase2Failed = phase2Results.filter(r => !r.success).length;
+
       this.tracer?.emit({
         type: 'phase:end',
         phase: phaseLabel,
         durationMs: Date.now() - phase2Start,
-        tasksCompleted: dirsAtDepth.length,
-        tasksFailed: 0,
+        tasksCompleted: phase2Succeeded,
+        tasksFailed: phase2Failed,
       });
     }
 
@@ -473,6 +476,7 @@ export class CommandRunner {
     });
 
     let rootTasksCompleted = 0;
+    let rootTasksFailed = 0;
     for (const rootTask of plan.rootTasks) {
       const taskStart = Date.now();
 
@@ -516,11 +520,13 @@ export class CommandRunner {
           activeTasks: 0, // Sequential, only one active at a time
         });
       } catch (error) {
+        rootTasksFailed++;
+
         // Emit task:done event (failure)
         this.tracer?.emit({
           type: 'task:done',
           workerId: 0,
-          taskIndex: rootTasksCompleted,
+          taskIndex: rootTasksCompleted + rootTasksFailed - 1,
           taskLabel: rootTask.path,
           durationMs: Date.now() - taskStart,
           success: false,
@@ -536,7 +542,7 @@ export class CommandRunner {
       phase: 'phase-3-root',
       durationMs: Date.now() - phase3Start,
       tasksCompleted: rootTasksCompleted,
-      tasksFailed: 0,
+      tasksFailed: rootTasksFailed,
     });
 
     // Ensure all plan tracker writes are flushed

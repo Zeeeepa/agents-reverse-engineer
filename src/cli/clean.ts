@@ -6,7 +6,7 @@
  */
 
 import path from 'node:path';
-import { access, unlink } from 'node:fs/promises';
+import { access, rename, unlink } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import fg from 'fast-glob';
 import pc from 'picocolors';
@@ -60,17 +60,26 @@ export async function cleanCommand(
   }
 
   // Find all artifacts
-  const [sumFiles, agentsFiles] = await Promise.all([
+  const [sumFiles, agentsFiles, localAgentsFiles] = await Promise.all([
     fg.glob('**/*.sum', {
       cwd: resolvedPath,
       absolute: true,
       onlyFiles: true,
+      dot: true,
       ignore: ['**/node_modules/**', '**/.git/**'],
     }),
     fg.glob('**/AGENTS.md', {
       cwd: resolvedPath,
       absolute: true,
       onlyFiles: true,
+      dot: true,
+      ignore: ['**/node_modules/**', '**/.git/**'],
+    }),
+    fg.glob('**/AGENTS.local.md', {
+      cwd: resolvedPath,
+      absolute: true,
+      onlyFiles: true,
+      dot: true,
       ignore: ['**/node_modules/**', '**/.git/**'],
     }),
   ]);
@@ -91,7 +100,7 @@ export async function cleanCommand(
 
   const allFiles = [...sumFiles, ...agentsFiles, ...singleFiles];
 
-  if (allFiles.length === 0) {
+  if (allFiles.length === 0 && localAgentsFiles.length === 0) {
     logger.info('No generated artifacts found.');
     return;
   }
@@ -108,20 +117,30 @@ export async function cleanCommand(
     logger.info(`  ${relativePath(file)}`);
   }
 
+  if (localAgentsFiles.length > 0) {
+    logger.info('');
+    logger.info(options.dryRun ? 'Files that would be restored:' : 'Restoring user-defined files:');
+    for (const file of localAgentsFiles) {
+      const target = path.join(path.dirname(file), 'AGENTS.md');
+      logger.info(`  ${relativePath(file)} → ${relativePath(target)}`);
+    }
+  }
+
   logger.info('');
   logger.info(
     `${pc.bold(String(sumFiles.length))} .sum file(s), ` +
     `${pc.bold(String(agentsFiles.length))} AGENTS.md file(s), ` +
-    `${pc.bold(String(singleFiles.length))} root doc(s)`
+    `${pc.bold(String(singleFiles.length))} root doc(s), ` +
+    `${pc.bold(String(localAgentsFiles.length))} AGENTS.local.md to restore`
   );
 
   if (options.dryRun) {
     logger.info('');
-    logger.info(pc.yellow('Dry run — no files were deleted.'));
+    logger.info(pc.yellow('Dry run — no files were changed.'));
     return;
   }
 
-  // Delete all files
+  // Delete all generated files
   let deleted = 0;
   for (const file of allFiles) {
     try {
@@ -132,6 +151,22 @@ export async function cleanCommand(
     }
   }
 
+  // Restore AGENTS.local.md → AGENTS.md (undo the rename from generation)
+  let restored = 0;
+  for (const localFile of localAgentsFiles) {
+    const agentsPath = path.join(path.dirname(localFile), 'AGENTS.md');
+    try {
+      await rename(localFile, agentsPath);
+      restored++;
+    } catch (err) {
+      logger.error(`Failed to restore ${relativePath(localFile)}: ${(err as Error).message}`);
+    }
+  }
+
   logger.info('');
-  logger.info(pc.green(`Deleted ${deleted} file(s).`));
+  const parts = [`Deleted ${deleted} file(s)`];
+  if (restored > 0) {
+    parts.push(`restored ${restored} AGENTS.local.md file(s)`);
+  }
+  logger.info(pc.green(`${parts.join(', ')}.`));
 }
