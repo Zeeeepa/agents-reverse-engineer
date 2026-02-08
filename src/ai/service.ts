@@ -17,8 +17,6 @@ import { withRetry, DEFAULT_RETRY_OPTIONS } from './retry.js';
 import { TelemetryLogger } from './telemetry/logger.js';
 import { writeRunLog } from './telemetry/run-log.js';
 import { cleanupOldLogs } from './telemetry/cleanup.js';
-import { estimateCost } from './pricing.js';
-import type { ModelPricing } from './pricing.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
 // ---------------------------------------------------------------------------
@@ -71,11 +69,7 @@ export interface AIServiceOptions {
   telemetry: {
     /** Number of most recent run logs to keep on disk */
     keepRuns: number;
-    /** Optional cost threshold in USD. Warn when exceeded. */
-    costThresholdUsd?: number;
   };
-  /** Custom pricing overrides from config */
-  pricingOverrides?: Record<string, ModelPricing>;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +99,7 @@ export interface AIServiceOptions {
  * console.log(response.text);
  *
  * const { logPath, summary } = await service.finalize('/path/to/project');
- * console.log(`Log written to ${logPath}, cost: $${summary.totalCostUsd}`);
+ * console.log(`Log written to ${logPath}`);
  * ```
  */
 export class AIService {
@@ -120,9 +114,6 @@ export class AIService {
 
   /** Running count of calls made (used for entry tracking) */
   private callCount: number = 0;
-
-  /** Set of model IDs for which an unknown-pricing warning has already been emitted */
-  private readonly warnedModels = new Set<string>();
 
   /** Trace writer for concurrency debugging (may be no-op) */
   private tracer: ITraceWriter | null = null;
@@ -335,23 +326,6 @@ export class AIService {
         },
       );
 
-      // Compute cost via pricing engine
-      const costResult = estimateCost(
-        response.model,
-        response.inputTokens,
-        response.outputTokens,
-        response.costUsd > 0 ? response.costUsd : undefined,
-        this.options.pricingOverrides,
-      );
-
-      // Warn once per unknown model (stderr to preserve JSON stdout)
-      if (costResult.source === 'unavailable' && !this.warnedModels.has(response.model)) {
-        this.warnedModels.add(response.model);
-        console.error(
-          `Warning: No pricing data for model "${response.model}". Cost shown as N/A. Add pricing in config under ai.pricing.`,
-        );
-      }
-
       // Record successful call
       this.logger.addEntry({
         timestamp,
@@ -363,13 +337,11 @@ export class AIService {
         outputTokens: response.outputTokens,
         cacheReadTokens: response.cacheReadTokens,
         cacheCreationTokens: response.cacheCreationTokens,
-        costUsd: costResult.costUsd,
         latencyMs: response.durationMs,
         exitCode: response.exitCode,
         retryCount,
         thinking: 'not supported',
         filesRead: [],
-        costSource: costResult.source,
       });
 
       return response;
@@ -388,14 +360,12 @@ export class AIService {
         outputTokens: 0,
         cacheReadTokens: 0,
         cacheCreationTokens: 0,
-        costUsd: 0,
         latencyMs,
         exitCode: 1,
         error: errorMessage,
         retryCount,
         thinking: 'not supported',
         filesRead: [],
-        costSource: 'unavailable' as const,
       });
 
       throw error;

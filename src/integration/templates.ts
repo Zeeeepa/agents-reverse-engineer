@@ -13,7 +13,7 @@ import type { IntegrationTemplate } from './types.js';
 const COMMANDS = {
   generate: {
     description: 'Generate AI-friendly documentation for the entire codebase',
-    argumentHint: '[path] [--budget N] [--dry-run] [--concurrency N] [--verbose] [--quiet] [--fail-fast] [--debug] [--trace]',
+    argumentHint: '[path] [--dry-run] [--concurrency N] [--verbose] [--quiet] [--fail-fast] [--debug] [--trace]',
     content: `Generate comprehensive documentation for this codebase using agents-reverse-engineer.
 
 <execution>
@@ -25,7 +25,7 @@ npx agents-reverse-engineer@latest generate $ARGUMENTS
 
 This executes a three-phase pipeline:
 
-1. **Discovery & Planning**: Walks the directory tree, applies filters (gitignore, vendor, binary, custom), detects file types, and creates a generation plan with token budget tracking.
+1. **Discovery & Planning**: Walks the directory tree, applies filters (gitignore, vendor, binary, custom), detects file types, and creates a generation plan.
 
 2. **File Analysis** (concurrent): Analyzes each source file via AI and writes \`.sum\` summary files with YAML frontmatter (\`content_hash\`, \`file_type\`, \`purpose\`, \`public_interface\`, \`dependencies\`, \`patterns\`).
 
@@ -35,7 +35,6 @@ This executes a three-phase pipeline:
 
 **Options:**
 - \`--dry-run\`: Preview the plan without making AI calls
-- \`--budget N\`: Override token budget
 - \`--concurrency N\`: Control number of parallel AI calls (default: 5)
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
@@ -52,7 +51,7 @@ After completion, summarize:
 
   update: {
     description: 'Incrementally update documentation for changed files',
-    argumentHint: '[path] [--uncommitted] [--dry-run] [--budget N] [--concurrency N] [--verbose] [--quiet] [--fail-fast] [--debug] [--trace]',
+    argumentHint: '[path] [--uncommitted] [--dry-run] [--concurrency N] [--verbose] [--quiet] [--fail-fast] [--debug] [--trace]',
     content: `Update documentation for files that changed since last run.
 
 <execution>
@@ -65,7 +64,6 @@ npx agents-reverse-engineer@latest update $ARGUMENTS
 **Options:**
 - \`--uncommitted\`: Include staged but uncommitted changes
 - \`--dry-run\`: Show what would be updated without writing
-- \`--budget N\`: Override token budget
 - \`--concurrency N\`: Control number of parallel AI calls (default: 5)
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
@@ -236,7 +234,6 @@ Generate comprehensive documentation for the codebase.
 | Flag | Description |
 |------|-------------|
 | \`[path]\` | Target directory (default: current directory) |
-| \`--budget N\` | Override token budget (default: from config) |
 | \`--concurrency N\` | Number of concurrent AI calls (default: 5) |
 | \`--dry-run\` | Show what would be generated without writing |
 | \`--fail-fast\` | Stop on first file analysis failure |
@@ -254,7 +251,6 @@ Generate comprehensive documentation for the codebase.
 \`\`\`bash
 npx are generate
 npx are generate --dry-run
-npx are generate --budget 50000
 npx are generate ./my-project --concurrency 3
 npx are generate --debug --trace
 \`\`\`
@@ -276,7 +272,6 @@ Incrementally update documentation for changed files.
 | \`[path]\` | Target directory (default: current directory) |
 | \`--uncommitted\` | Include staged but uncommitted changes |
 | \`--dry-run\` | Show what would be updated without writing |
-| \`--budget N\` | Override token budget |
 | \`--concurrency N\` | Number of concurrent AI calls (default: 5) |
 | \`--fail-fast\` | Stop on first file analysis failure |
 | \`--debug\` | Show AI prompts and backend details |
@@ -368,10 +363,6 @@ options:
 output:
   verbose: false
   colors: true
-
-# Generation settings
-generation:
-  tokenBudget: 50000
 \`\`\`
 
 ## Generated Files
@@ -432,7 +423,6 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 
 ## Tips
 
-- **Large codebases**: Use \`--budget N\` to limit token usage per run
 - **Custom exclusions**: Edit \`.agents-reverse-engineer/config.yaml\` to skip files
 - **Hook auto-update**: Install creates a session-end hook that auto-runs update
 

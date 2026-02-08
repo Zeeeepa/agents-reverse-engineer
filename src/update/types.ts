@@ -25,8 +25,6 @@ export interface UpdateOptions {
   verbose?: boolean;
   /** Dry run - show what would change without making changes */
   dryRun?: boolean;
-  /** Override token budget */
-  budget?: number;
 }
 
 /**
@@ -45,8 +43,6 @@ export interface UpdateResult {
   baseCommit: string;
   /** Git commit hash at end of update */
   currentCommit: string;
-  /** Token budget used */
-  tokensUsed: number;
   /** Whether this was a dry run */
   dryRun: boolean;
 }

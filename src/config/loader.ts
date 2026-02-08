@@ -59,7 +59,6 @@ export async function loadConfig(
   options?: { tracer?: ITraceWriter; debug?: boolean }
 ): Promise<Config> {
   const configPath = path.join(root, CONFIG_DIR, CONFIG_FILE);
-  let usingDefaults = false;
 
   try {
     const content = await readFile(configPath, 'utf-8');
@@ -74,14 +73,13 @@ export async function loadConfig(
         configPath: path.relative(root, configPath),
         model: config.ai.model,
         concurrency: config.ai.concurrency,
-        budget: config.generation.tokenBudget,
       });
 
       // Debug output
       if (options?.debug) {
         console.error(pc.dim(`[debug] Config loaded from: ${path.relative(root, configPath)}`));
         console.error(
-          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}, Budget: ${config.generation.tokenBudget}`)
+          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}`)
         );
       }
 
@@ -102,7 +100,6 @@ export async function loadConfig(
   } catch (err) {
     // File not found - return defaults
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      usingDefaults = true;
       const config = ConfigSchema.parse({});
 
       // Emit trace event for defaults
@@ -111,14 +108,13 @@ export async function loadConfig(
         configPath: '(defaults)',
         model: config.ai.model,
         concurrency: config.ai.concurrency,
-        budget: config.generation.tokenBudget,
       });
 
       // Debug output
       if (options?.debug) {
         console.error(pc.dim(`[debug] Config file not found, using defaults`));
         console.error(
-          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}, Budget: ${config.generation.tokenBudget}`)
+          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}`)
         );
       }
 
@@ -228,30 +224,6 @@ output:
   verbose: true
 
 # ============================================================================
-# DOCUMENTATION GENERATION
-# ============================================================================
-generation:
-  # Token budget for entire project (files analyzed until budget exhausted)
-  # Default: 100,000 tokens
-  tokenBudget: 100000
-
-  # Chunk size for large files in tokens
-  # Files larger than this are split into chunks
-  # Default: 3000 tokens
-  chunkSize: 3000
-
-  # Root documents (generated at project root)
-  generateArchitecture: true   # ARCHITECTURE.md - system design overview
-  generateStack: true          # STACK.md - technology stack from package manifests
-
-  # Supplementary docs (generated per package root)
-  generateStructure: true      # STRUCTURE.md - codebase organization
-  generateConventions: true    # CONVENTIONS.md - coding patterns and style
-  generateTesting: true        # TESTING.md - testing approach and coverage
-  generateIntegrations: true   # INTEGRATIONS.md - external services and APIs
-  generateConcerns: true       # CONCERNS.md - technical debt and issues
-
-# ============================================================================
 # AI SERVICE CONFIGURATION
 # ============================================================================
 ai:
@@ -285,18 +257,6 @@ ai:
     # Number of most recent run logs to keep on disk
     # Logs stored in .agents-reverse-engineer/logs/
     keepRuns: 50
-
-    # Optional: Cost threshold in USD (warns when exceeded)
-    # Uncomment to enable:
-    # costThresholdUsd: 10.0
-
-  # Optional: Custom model pricing overrides
-  # Use this to override default pricing for specific models
-  # Uncomment to enable:
-  # pricing:
-  #   claude-opus-4:
-  #     inputCostPerMTok: 15.0    # USD per 1M input tokens
-  #     outputCostPerMTok: 75.0   # USD per 1M output tokens
 `;
 
   await writeFile(configPath, configContent, 'utf-8');

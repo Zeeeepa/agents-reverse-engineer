@@ -57,7 +57,6 @@ General Options:
   --show-excluded   List each excluded file (discover only)
   --plan            Generate GENERATION-PLAN.md file (discover only)
   --dry-run         Show plan without writing files (generate, update)
-  --budget <n>      Override token budget (generate, update)
   --concurrency <n> Number of concurrent AI calls (default: 5)
   --fail-fast       Stop on first file analysis failure
   --debug           Show AI prompts and backend details
@@ -78,7 +77,7 @@ Examples:
   are discover --plan
   are generate --dry-run
   are generate --concurrency 3
-  are generate ./my-project --budget 50000
+  are generate ./my-project --concurrency 3
   are update
   are update --uncommitted --verbose
 `;
@@ -280,7 +279,6 @@ async function main(): Promise<void> {
         quiet: flags.has('quiet'),
         verbose: flags.has('verbose'),
         dryRun: flags.has('dry-run'),
-        budget: values.has('budget') ? parseInt(values.get('budget')!, 10) : undefined,
         concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),
@@ -298,7 +296,6 @@ async function main(): Promise<void> {
         quiet: flags.has('quiet'),
         verbose: flags.has('verbose'),
         dryRun: flags.has('dry-run'),
-        budget: values.has('budget') ? parseInt(values.get('budget')!, 10) : undefined,
         concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),

@@ -18,7 +18,7 @@ export interface ExecutionTask {
   /** Unique task ID */
   id: string;
   /** Task type */
-  type: 'file' | 'chunk' | 'synthesis' | 'directory' | 'root-doc';
+  type: 'file' | 'directory' | 'root-doc';
   /** File or directory path (relative) */
   path: string;
   /** Absolute path */
@@ -34,10 +34,6 @@ export interface ExecutionTask {
   /** Metadata for tracking */
   metadata: {
     fileType?: string;
-    chunkInfo?: {
-      index: number;
-      total: number;
-    };
     directoryFiles?: string[];
     /** Directory depth (for post-order traversal) */
     depth?: number;
@@ -99,13 +95,13 @@ export function buildExecutionPlan(
 
   // Create file tasks
   for (const task of plan.tasks) {
-    if (task.type === 'file' || task.type === 'chunk') {
+    if (task.type === 'file') {
       const absolutePath = path.join(projectRoot, task.filePath);
       const file = plan.files.find(f => f.relativePath === task.filePath);
 
       fileTasks.push({
-        id: `file:${task.filePath}${task.chunkInfo ? `:chunk${task.chunkInfo.index}` : ''}`,
-        type: task.type,
+        id: `file:${task.filePath}`,
+        type: 'file',
         path: task.filePath,
         absolutePath,
         systemPrompt: task.systemPrompt,
@@ -114,7 +110,6 @@ export function buildExecutionPlan(
         outputPath: `${absolutePath}.sum`,
         metadata: {
           fileType: file?.fileType,
-          chunkInfo: task.chunkInfo,
         },
       });
     }

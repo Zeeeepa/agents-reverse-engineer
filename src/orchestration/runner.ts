@@ -552,8 +552,6 @@ export class CommandRunner {
       totalDurationMs,
       errorCount: aiSummary.errorCount,
       retryCount: 0,
-      totalCostUsd: aiSummary.totalCostUsd,
-      costAvailable: aiSummary.costAvailable,
       totalFilesRead: aiSummary.totalFilesRead,
       uniqueFilesRead: aiSummary.uniqueFilesRead,
       inconsistenciesCodeVsDoc,
@@ -561,7 +559,7 @@ export class CommandRunner {
       inconsistencyReport,
     };
 
-    reporter.printSummary(summary, this.options.costThresholdUsd);
+    reporter.printSummary(summary);
 
     return summary;
   }
@@ -839,8 +837,6 @@ export class CommandRunner {
       totalDurationMs,
       errorCount: aiSummary.errorCount,
       retryCount: 0,
-      totalCostUsd: aiSummary.totalCostUsd,
-      costAvailable: aiSummary.costAvailable,
       totalFilesRead: aiSummary.totalFilesRead,
       uniqueFilesRead: aiSummary.uniqueFilesRead,
       inconsistenciesCodeVsDoc: updateInconsistenciesCodeVsDoc,
@@ -848,7 +844,7 @@ export class CommandRunner {
       inconsistencyReport: updateInconsistencyReport,
     };
 
-    reporter.printSummary(summary, this.options.costThresholdUsd);
+    reporter.printSummary(summary);
 
     return summary;
   }

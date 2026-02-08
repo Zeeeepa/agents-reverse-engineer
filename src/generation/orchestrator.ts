@@ -5,7 +5,6 @@
  * - Discovers and prepares files for analysis
  * - Detects file types
  * - Creates analysis tasks with prompts
- * - Tracks token budget
  * - Creates directory-summary tasks for LLM-generated descriptions
  */
 
@@ -16,8 +15,7 @@ import type { Config } from '../config/schema.js';
 import type { DiscoveryResult } from '../types/index.js';
 import { detectFileType } from './detection/detector.js';
 import type { FileType } from './types.js';
-import { BudgetTracker, countTokens, needsChunking, chunkFile } from './budget/index.js';
-import { buildPrompt, buildChunkPrompt } from './prompts/index.js';
+import { buildPrompt } from './prompts/index.js';
 import { analyzeComplexity } from './complexity.js';
 import type { ComplexityMetrics } from './complexity.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
@@ -34,10 +32,6 @@ export interface PreparedFile {
   content: string;
   /** Detected file type */
   fileType: FileType;
-  /** Token count of content */
-  tokens: number;
-  /** Whether file needs chunking */
-  needsChunking: boolean;
 }
 
 /**
@@ -45,22 +39,13 @@ export interface PreparedFile {
  */
 export interface AnalysisTask {
   /** Type of task */
-  type: 'file' | 'chunk' | 'synthesis' | 'directory-summary';
+  type: 'file' | 'directory-summary';
   /** File or directory path */
   filePath: string;
   /** System prompt */
   systemPrompt: string;
   /** User prompt */
   userPrompt: string;
-  /** Estimated tokens for this task */
-  estimatedTokens: number;
-  /** Chunk info if applicable */
-  chunkInfo?: {
-    index: number;
-    total: number;
-    startLine: number;
-    endLine: number;
-  };
   /** Directory info for directory-summary tasks */
   directoryInfo?: {
     /** Paths of .sum files in this directory */
@@ -80,14 +65,6 @@ export interface GenerationPlan {
   tasks: AnalysisTask[];
   /** Complexity metrics */
   complexity: ComplexityMetrics;
-  /** Budget tracker state */
-  budget: {
-    total: number;
-    estimated: number;
-    remaining: number;
-  };
-  /** Files skipped due to budget */
-  skippedFiles: string[];
 }
 
 /**
@@ -96,44 +73,31 @@ export interface GenerationPlan {
 export class GenerationOrchestrator {
   private config: Config;
   private projectRoot: string;
-  private budgetTracker: BudgetTracker;
   private tracer?: ITraceWriter;
   private debug: boolean;
 
   constructor(
     config: Config,
     projectRoot: string,
-    totalFiles: number,
+    _totalFiles: number,
     options?: { tracer?: ITraceWriter; debug?: boolean }
   ) {
     this.config = config;
     this.projectRoot = projectRoot;
-    this.budgetTracker = new BudgetTracker(
-      config.generation.tokenBudget,
-      totalFiles
-    );
     this.tracer = options?.tracer;
     this.debug = options?.debug ?? false;
   }
 
   /**
    * Prepare files for analysis by reading content and detecting types.
-   *
-   * Files are read with bounded concurrency to avoid exhausting file
-   * descriptors, and the event loop is yielded periodically during
-   * CPU-intensive tokenization.
    */
   async prepareFiles(discoveryResult: DiscoveryResult): Promise<PreparedFile[]> {
     const prepared: PreparedFile[] = [];
-
-    // Yield to the event loop periodically during tokenization
-    const YIELD_INTERVAL = 50;
 
     for (let i = 0; i < discoveryResult.files.length; i++) {
       const filePath = discoveryResult.files[i];
       try {
         const content = await readFile(filePath, 'utf-8');
-        const tokens = countTokens(content);
         const fileType = detectFileType(filePath, content);
         const relativePath = path.relative(this.projectRoot, filePath);
 
@@ -142,105 +106,38 @@ export class GenerationOrchestrator {
           relativePath,
           content,
           fileType,
-          tokens,
-          needsChunking: needsChunking(tokens, this.config.generation.chunkSize),
         });
       } catch {
         // Skip files that can't be read (permission errors, etc.)
         // Silently ignore - these files won't appear in the plan
       }
-
-      // Yield to event loop periodically to prevent starvation
-      // during CPU-intensive BPE tokenization
-      if (i % YIELD_INTERVAL === 0 && i > 0) {
-        await new Promise<void>((resolve) => setImmediate(resolve));
-      }
     }
 
-    // Sort by token count (smaller files first for breadth-first coverage)
-    return prepared.sort((a, b) => a.tokens - b.tokens);
+    return prepared;
   }
 
   /**
-   * Create analysis tasks for files within budget.
+   * Create analysis tasks for all files.
    */
-  createTasks(files: PreparedFile[]): {
-    tasks: AnalysisTask[];
-    skipped: string[];
-  } {
+  createTasks(files: PreparedFile[]): AnalysisTask[] {
     const tasks: AnalysisTask[] = [];
-    const skipped: string[] = [];
 
     for (const file of files) {
-      const promptOverhead = 600; // Approximate overhead for prompts
-      const estimatedTotal = file.tokens + promptOverhead;
+      const prompt = buildPrompt({
+        filePath: file.filePath,
+        content: file.content,
+        fileType: file.fileType,
+      });
 
-      if (!this.budgetTracker.canProcess(estimatedTotal)) {
-        this.budgetTracker.recordSkipped(file.relativePath);
-        skipped.push(file.relativePath);
-        continue;
-      }
-
-      if (file.needsChunking) {
-        // Create chunk tasks
-        const chunks = chunkFile(file.content, {
-          chunkSize: this.config.generation.chunkSize,
-        });
-
-        for (const chunk of chunks) {
-          const chunkPrompt = buildChunkPrompt({
-            filePath: file.filePath,
-            content: chunk.content,
-            fileType: file.fileType,
-            chunkIndex: chunk.index,
-            totalChunks: chunks.length,
-            lineRange: { start: chunk.startLine, end: chunk.endLine },
-          });
-
-          tasks.push({
-            type: 'chunk',
-            filePath: file.relativePath,
-            systemPrompt: chunkPrompt.system,
-            userPrompt: chunkPrompt.user,
-            estimatedTokens: chunk.tokens + promptOverhead,
-            chunkInfo: {
-              index: chunk.index,
-              total: chunks.length,
-              startLine: chunk.startLine,
-              endLine: chunk.endLine,
-            },
-          });
-        }
-
-        // Add synthesis task (will be executed after chunks)
-        tasks.push({
-          type: 'synthesis',
-          filePath: file.relativePath,
-          systemPrompt: '', // Will be set during execution
-          userPrompt: `Synthesize summaries for ${file.relativePath}`,
-          estimatedTokens: promptOverhead,
-        });
-      } else {
-        // Single file task
-        const prompt = buildPrompt({
-          filePath: file.filePath,
-          content: file.content,
-          fileType: file.fileType,
-        });
-
-        tasks.push({
-          type: 'file',
-          filePath: file.relativePath,
-          systemPrompt: prompt.system,
-          userPrompt: prompt.user,
-          estimatedTokens: estimatedTotal,
-        });
-      }
-
-      this.budgetTracker.recordProcessed(file.relativePath, estimatedTotal);
+      tasks.push({
+        type: 'file',
+        filePath: file.relativePath,
+        systemPrompt: prompt.system,
+        userPrompt: prompt.user,
+      });
     }
 
-    return { tasks, skipped };
+    return tasks;
   }
 
   /**
@@ -263,7 +160,6 @@ export class GenerationOrchestrator {
     // Create a directory-summary task for each directory with analyzed files
     for (const [dir, dirFiles] of Array.from(filesByDir.entries())) {
       const sumFilePaths = dirFiles.map(f => `${f.relativePath}.sum`);
-      const promptOverhead = 800; // Overhead for directory summary prompts
 
       tasks.push({
         type: 'directory-summary',
@@ -277,7 +173,6 @@ Focus on:
 Keep the description to 1-3 sentences.`,
         userPrompt: `Generate a directory description for "${dir || 'root'}" based on ${dirFiles.length} analyzed files.
 The .sum files contain individual file summaries - synthesize them into a cohesive directory overview.`,
-        estimatedTokens: promptOverhead,
         directoryInfo: {
           sumFiles: sumFilePaths,
           fileCount: dirFiles.length,
@@ -303,7 +198,7 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
     });
 
     if (this.debug) {
-      console.error(pc.dim('[debug] Preparing files: reading and tokenizing...'));
+      console.error(pc.dim('[debug] Preparing files: reading and detecting types...'));
     }
 
     const files = await this.prepareFiles(discoveryResult);
@@ -322,16 +217,7 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       console.error(pc.dim(`[debug] Complexity analysis: ${patterns}, depth=${complexity.directoryDepth}`));
     }
 
-    const { tasks: fileTasks, skipped } = this.createTasks(files);
-
-    const budgetUsed = this.budgetTracker.getReport().used;
-    if (this.debug) {
-      console.error(
-        pc.dim(
-          `[debug] Budget: ${budgetUsed}/${this.config.generation.tokenBudget} tokens used, ${skipped.length} files skipped`
-        )
-      );
-    }
+    const fileTasks = this.createTasks(files);
 
     // Add directory-summary tasks for LLM-generated directory descriptions
     // These run after file analysis to synthesize richer directory overviews
@@ -339,11 +225,9 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
     const tasks = [...fileTasks, ...dirTasks];
 
     if (this.debug) {
-      const chunkTasks = fileTasks.filter(t => t.type === 'chunk').length;
-      const synthesisTasks = fileTasks.filter(t => t.type === 'synthesis').length;
       console.error(
         pc.dim(
-          `[debug] Generation plan: ${files.length} files, ${tasks.length} tasks (${chunkTasks} chunks, ${synthesisTasks} synthesis, ${dirTasks.length} directories)`
+          `[debug] Generation plan: ${files.length} files, ${tasks.length} tasks (${dirTasks.length} directories)`
         )
       );
     }
@@ -359,12 +243,6 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       files,
       tasks,
       complexity,
-      budget: {
-        total: this.config.generation.tokenBudget,
-        estimated: budgetUsed,
-        remaining: this.budgetTracker.remaining,
-      },
-      skippedFiles: skipped,
     };
 
     // Emit plan created event
@@ -373,9 +251,6 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       planType: 'generate',
       fileCount: files.length,
       taskCount: tasks.length,
-      budgetUsed: budgetUsed,
-      budgetTotal: this.config.generation.tokenBudget,
-      filesSkipped: skipped.length,
     });
 
     // Emit phase end
@@ -390,13 +265,6 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
     });
 
     return plan;
-  }
-
-  /**
-   * Get budget report.
-   */
-  getBudgetReport() {
-    return this.budgetTracker.getReport();
   }
 }
 

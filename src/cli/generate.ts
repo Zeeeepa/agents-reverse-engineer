@@ -45,8 +45,6 @@ export interface GenerateOptions {
   verbose?: boolean;
   /** Dry run - show plan without generating */
   dryRun?: boolean;
-  /** Override token budget */
-  budget?: number;
   /** Number of concurrent AI calls */
   concurrency?: number;
   /** Stop on first file analysis failure */
@@ -96,13 +94,6 @@ function formatPlan(plan: GenerationPlan): string {
   lines.push(formatTypeDistribution(plan));
   lines.push('');
 
-  // Budget
-  lines.push('Token budget:');
-  lines.push(`  Total: ${plan.budget.total.toLocaleString()}`);
-  lines.push(`  Estimated: ${plan.budget.estimated.toLocaleString()}`);
-  lines.push(`  Remaining: ${plan.budget.remaining.toLocaleString()}`);
-  lines.push('');
-
   // Complexity
   lines.push('Complexity:');
   lines.push(`  Files: ${plan.complexity.fileCount}`);
@@ -111,17 +102,6 @@ function formatPlan(plan: GenerationPlan): string {
     lines.push(`  Patterns: ${plan.complexity.architecturalPatterns.join(', ')}`);
   }
   lines.push('');
-
-  // Skipped files
-  if (plan.skippedFiles.length > 0) {
-    lines.push(`Skipped (budget): ${plan.skippedFiles.length} files`);
-    if (plan.skippedFiles.length <= 5) {
-      for (const file of plan.skippedFiles) {
-        lines.push(`  - ${file}`);
-      }
-    }
-    lines.push('');
-  }
 
   return lines.join('\n');
 }
@@ -164,11 +144,6 @@ export async function generateCommand(
     tracer,
     debug: options.debug,
   });
-
-  // Override budget if specified
-  if (options.budget) {
-    config.generation.tokenBudget = options.budget;
-  }
 
   // Discover files
   logger.info('Discovering files...');

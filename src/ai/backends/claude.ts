@@ -220,7 +220,6 @@ export class ClaudeBackend implements AIBackend {
       outputTokens: parsed.usage.output_tokens,
       cacheReadTokens: parsed.usage.cache_read_input_tokens,
       cacheCreationTokens: parsed.usage.cache_creation_input_tokens,
-      costUsd: parsed.total_cost_usd,
       durationMs,
       exitCode,
       raw: parsed,

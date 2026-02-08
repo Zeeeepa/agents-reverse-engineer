@@ -76,8 +76,6 @@ export interface AIResponse {
   cacheReadTokens: number;
   /** Number of tokens written to cache */
   cacheCreationTokens: number;
-  /** Estimated cost in USD for this call */
-  costUsd: number;
   /** Wall-clock duration in milliseconds */
   durationMs: number;
   /** Process exit code from the CLI */
@@ -152,9 +150,6 @@ export interface RetryOptions {
 // Telemetry
 // ---------------------------------------------------------------------------
 
-import type { CostSource } from './pricing.js';
-export type { CostSource } from './pricing.js';
-
 /**
  * Record of a single file read that was sent as context to an AI call.
  */
@@ -190,8 +185,6 @@ export interface TelemetryEntry {
   cacheReadTokens: number;
   /** Number of tokens written to cache */
   cacheCreationTokens: number;
-  /** Estimated cost in USD */
-  costUsd: number;
   /** Wall-clock latency in milliseconds */
   latencyMs: number;
   /** Process exit code */
@@ -204,15 +197,13 @@ export interface TelemetryEntry {
   thinking: string;
   /** Files sent as context for this call */
   filesRead: FileRead[];
-  /** How the cost was determined */
-  costSource: CostSource;
 }
 
 /**
  * Per-run log file structure.
  *
  * Aggregates all {@link TelemetryEntry} instances for a single CLI run,
- * plus a computed summary for quick cost/performance review.
+ * plus a computed summary for quick performance review.
  */
 export interface RunLog {
   /** Unique run identifier (ISO timestamp-based) */
@@ -231,14 +222,10 @@ export interface RunLog {
     totalInputTokens: number;
     /** Sum of output tokens across all calls */
     totalOutputTokens: number;
-    /** Sum of estimated cost across all calls */
-    totalCostUsd: number;
     /** Total wall-clock duration in milliseconds */
     totalDurationMs: number;
     /** Number of calls that resulted in an error */
     errorCount: number;
-    /** Whether cost data is available for all/most entries */
-    costAvailable: boolean;
     /** Total file reads across all calls (including duplicates) */
     totalFilesRead: number;
     /** Unique files read (deduped by path) */

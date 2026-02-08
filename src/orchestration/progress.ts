@@ -16,7 +16,6 @@
 
 import pc from 'picocolors';
 import type { RunSummary } from './types.js';
-import { formatCost, formatTokens } from '../ai/pricing.js';
 
 // ---------------------------------------------------------------------------
 // ProgressReporter
@@ -168,16 +167,12 @@ export class ProgressReporter {
    * Print the end-of-run summary.
    *
    * Always printed, even when `quiet` is true. Shows files processed,
-   * estimated cost with token breakdown, files read with unique dedup,
-   * time elapsed, errors, and retries.
-   *
-   * When `costThresholdUsd` is provided and cost data is available, a
-   * warning is printed to stderr if the run cost exceeds the threshold.
+   * token counts, files read with unique dedup, time elapsed, errors,
+   * and retries.
    *
    * @param summary - Aggregated run summary
-   * @param costThresholdUsd - Optional cost threshold in USD for warning
    */
-  printSummary(summary: RunSummary, costThresholdUsd?: number): void {
+  printSummary(summary: RunSummary): void {
     const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);
 
     console.log('');
@@ -190,11 +185,7 @@ export class ProgressReporter {
       console.log(`  Files skipped:   ${pc.yellow(String(summary.filesSkipped))}`);
     }
     console.log(`  Total calls:     ${summary.totalCalls}`);
-
-    const costStr = formatCost(summary.totalCostUsd, summary.costAvailable);
-    const tokIn = formatTokens(summary.totalInputTokens);
-    const tokOut = formatTokens(summary.totalOutputTokens);
-    console.log(`  Estimated cost:  ${costStr} (${tokIn} in / ${tokOut} out)`);
+    console.log(`  Tokens:          ${summary.totalInputTokens} in / ${summary.totalOutputTokens} out`);
 
     if (summary.totalFilesRead > 0) {
       console.log(`  Files read:      ${summary.totalFilesRead} (${summary.uniqueFilesRead} unique)`);
@@ -204,19 +195,6 @@ export class ProgressReporter {
     console.log(`  Errors:          ${summary.errorCount}`);
     if (summary.retryCount > 0) {
       console.log(`  Retries:         ${summary.retryCount}`);
-    }
-
-    // Cost threshold warning (printed to stderr to preserve JSON stdout)
-    if (
-      costThresholdUsd !== undefined &&
-      summary.costAvailable &&
-      summary.totalCostUsd > costThresholdUsd
-    ) {
-      console.error(
-        pc.yellow(
-          `Warning: Run cost $${summary.totalCostUsd.toFixed(4)} exceeds configured threshold of $${costThresholdUsd.toFixed(4)}`,
-        ),
-      );
     }
   }
 

@@ -155,9 +155,6 @@ interface PlanCreatedEvent extends TraceEventBase {
   planType: 'generate' | 'update';
   fileCount: number;
   taskCount: number;
-  budgetUsed: number;
-  budgetTotal: number;
-  filesSkipped: number;
 }
 
 /** Emitted when configuration is loaded */
@@ -166,7 +163,6 @@ interface ConfigLoadedEvent extends TraceEventBase {
   configPath: string;
   model: string;
   concurrency: number;
-  budget: number;
 }
 
 /** Discriminated union of all trace event types */

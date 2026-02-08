@@ -46,16 +46,6 @@ const OutputSchema = z.object({
 }).default({});
 
 /**
- * Schema for generation configuration
- */
-const GenerationSchema = z.object({
-  /** Token budget for entire project (default: 100,000) */
-  tokenBudget: z.number().positive().default(100_000),
-  /** Chunk size for large files in tokens (default: 3000) */
-  chunkSize: z.number().positive().default(3000),
-}).default({});
-
-/**
  * Schema for AI service configuration.
  *
  * Controls backend selection, model, timeout, retry behavior, and
@@ -76,16 +66,7 @@ const AISchema = z.object({
   telemetry: z.object({
     /** Number of most recent run logs to keep on disk */
     keepRuns: z.number().min(0).default(50),
-    /** Optional cost threshold in USD. Warn when exceeded. */
-    costThresholdUsd: z.number().min(0).optional(),
   }).default({}),
-  /** Custom model pricing overrides (model ID -> rates) */
-  pricing: z.record(z.object({
-    /** Cost in USD per 1 million input tokens */
-    inputCostPerMTok: z.number(),
-    /** Cost in USD per 1 million output tokens */
-    outputCostPerMTok: z.number(),
-  })).optional(),
 }).default({});
 
 /**
@@ -113,8 +94,6 @@ export const ConfigSchema = z.object({
   options: OptionsSchema,
   /** Output formatting options */
   output: OutputSchema,
-  /** Generation options */
-  generation: GenerationSchema,
   /** AI service configuration */
   ai: AISchema,
 }).default({});
@@ -139,11 +118,6 @@ export type OptionsConfig = z.infer<typeof OptionsSchema>;
  * Type for the output section of config
  */
 export type OutputConfig = z.infer<typeof OutputSchema>;
-
-/**
- * Type for the generation section of config
- */
-export type GenerationConfig = z.infer<typeof GenerationSchema>;
 
 /**
  * Type for the AI service section of config

@@ -67,10 +67,6 @@ export interface RunSummary {
   errorCount: number;
   /** Number of retries that occurred */
   retryCount: number;
-  /** Total estimated cost in USD */
-  totalCostUsd: number;
-  /** Whether cost data was available */
-  costAvailable: boolean;
   /** Total file reads across all calls */
   totalFilesRead: number;
   /** Unique files read (deduped by path) */
@@ -139,8 +135,6 @@ export interface CommandRunOptions {
   debug?: boolean;
   /** List files that would be processed without executing */
   dryRun?: boolean;
-  /** Cost threshold in USD for warning when exceeded */
-  costThresholdUsd?: number;
   /** Trace writer for concurrency debugging (no-op when tracing is off) */
   tracer?: ITraceWriter;
 }

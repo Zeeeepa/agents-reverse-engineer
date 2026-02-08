@@ -37,8 +37,6 @@ export interface UpdateCommandOptions {
   verbose?: boolean;
   /** Dry run - show plan without making changes */
   dryRun?: boolean;
-  /** Override token budget */
-  budget?: number;
   /** Number of concurrent AI calls */
   concurrency?: number;
   /** Stop on first file analysis failure */
@@ -191,11 +189,6 @@ export async function updateCommand(
     tracer,
     debug: options.debug,
   });
-
-  // Override budget if specified
-  if (options.budget) {
-    config.generation.tokenBudget = options.budget;
-  }
 
   // Create orchestrator
   const orchestrator = createUpdateOrchestrator(config, absolutePath, {

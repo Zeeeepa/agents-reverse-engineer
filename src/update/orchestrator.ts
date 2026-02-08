@@ -227,9 +227,6 @@ export class UpdateOrchestrator {
       planType: 'update',
       fileCount: filesToAnalyze.length,
       taskCount: filesToAnalyze.length + affectedDirs.length, // File tasks + dir regen tasks
-      budgetUsed: 0, // Update doesn't have budget tracking
-      budgetTotal: 0,
-      filesSkipped: filesToSkip.length,
     });
 
     // Emit phase end

@@ -29,8 +29,6 @@ export interface AnalysisRequest {
   content: string;
   /** Detected file type for prompt selection */
   fileType: FileType;
-  /** Token count for the file content */
-  tokens: number;
   /** Related files for context */
   contextFiles?: string[];
 }
@@ -73,10 +71,3 @@ export interface SummaryOptions {
   includeCodeSnippets: boolean;
 }
 
-/**
- * Configuration for the generation process
- */
-export interface GenerationConfig {
-  /** Maximum token budget for generation */
-  tokenBudget: number;
-}
