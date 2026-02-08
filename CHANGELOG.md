@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-02-09
+
+### Added
+- Runtime root prompt builder (`buildRootPrompt()`) — collects all AGENTS.md files and package.json metadata at runtime, embedding full context directly in the root CLAUDE.md prompt instead of relying on static placeholder text
+- `ROOT_SYSTEM_PROMPT` template with anti-hallucination constraints — instructs the LLM to synthesize only from provided AGENTS.md content and never invent features or APIs
+- Cache token tracking in telemetry — `cacheReadTokens` and `cacheCreationTokens` fields added to `FileTaskResult`, `RunSummary`, and telemetry logger summary
+- Cache statistics display in progress summary — shows cache read/created token counts when prompt caching is active
+
+### Changed
+- `clean` command now preserves user-authored AGENTS.md files by checking for `GENERATED_MARKER` before deleting; non-ARE AGENTS.md files are listed as "Preserving user-authored" in output
+- Root CLAUDE.md generation moved from static inline prompts in `executor.ts` to runtime prompt building via `buildRootPrompt()` in `runner.ts` Phase 3
+- Progress reporter displays effective input tokens (non-cached + cache read) per file and shows separate cache line in run summary
+- Plan task count now correctly includes the root CLAUDE.md task (+1 in orchestrator trace event)
+- Root doc AI call uses `maxTurns: 1` since all context is embedded in prompt (no tool use needed)
+
 ## [0.5.2] - 2026-02-08
 
 ### Added
@@ -384,7 +399,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.11...v0.5.0
