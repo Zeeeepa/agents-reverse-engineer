@@ -42,6 +42,15 @@ function isRateLimitStderr(stderr: string): boolean {
   return RATE_LIMIT_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
+/**
+ * Format bytes as a human-readable string.
+ */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
 // ---------------------------------------------------------------------------
 // AIService options
 // ---------------------------------------------------------------------------
@@ -116,6 +125,12 @@ export class AIService {
   /** Trace writer for concurrency debugging (may be no-op) */
   private tracer: ITraceWriter | null = null;
 
+  /** Whether debug mode is enabled */
+  private debug: boolean = false;
+
+  /** Number of currently active subprocesses */
+  private activeSubprocesses: number = 0;
+
   /**
    * Create a new AI service instance.
    *
@@ -135,6 +150,13 @@ export class AIService {
    */
   setTracer(tracer: ITraceWriter): void {
     this.tracer = tracer;
+  }
+
+  /**
+   * Enable debug mode for verbose subprocess logging to stderr.
+   */
+  setDebug(enabled: boolean): void {
+    this.debug = enabled;
   }
 
   /**
@@ -167,19 +189,37 @@ export class AIService {
     try {
       const response = await withRetry(
         async () => {
+          if (this.debug) {
+            const mem = process.memoryUsage();
+            console.error(
+              `[debug] Spawning subprocess for "${taskLabel}" ` +
+              `(active: ${this.activeSubprocesses}, ` +
+              `heapUsed: ${formatBytes(mem.heapUsed)}, ` +
+              `rss: ${formatBytes(mem.rss)}, ` +
+              `timeout: ${(timeoutMs / 1000).toFixed(0)}s)`,
+            );
+          }
+
+          this.activeSubprocesses++;
+
           const result = await runSubprocess(this.backend.cliCommand, args, {
             timeoutMs,
             input: options.prompt,
+            onSpawn: (pid) => {
+              // Emit subprocess:spawn at actual spawn time (not after completion)
+              this.tracer?.emit({
+                type: 'subprocess:spawn',
+                childPid: pid ?? -1,
+                command: this.backend.cliCommand,
+                taskLabel,
+              });
+            },
           });
 
-          // Emit subprocess lifecycle trace events
+          this.activeSubprocesses--;
+
+          // Emit subprocess:exit after completion
           if (this.tracer && result.childPid !== undefined) {
-            this.tracer.emit({
-              type: 'subprocess:spawn',
-              childPid: result.childPid,
-              command: this.backend.cliCommand,
-              taskLabel,
-            });
             this.tracer.emit({
               type: 'subprocess:exit',
               childPid: result.childPid,
@@ -193,7 +233,22 @@ export class AIService {
           }
 
           if (result.timedOut) {
+            console.error(
+              `[warn] Subprocess timed out after ${(result.durationMs / 1000).toFixed(1)}s ` +
+              `for "${taskLabel}" (PID ${result.childPid ?? 'unknown'}, ` +
+              `timeout was ${(timeoutMs / 1000).toFixed(0)}s)`,
+            );
             throw new AIServiceError('TIMEOUT', 'Subprocess timed out');
+          }
+
+          if (this.debug) {
+            console.error(
+              `[debug] Subprocess exited for "${taskLabel}" ` +
+              `(PID ${result.childPid ?? 'unknown'}, ` +
+              `exitCode: ${result.exitCode}, ` +
+              `duration: ${(result.durationMs / 1000).toFixed(1)}s, ` +
+              `active: ${this.activeSubprocesses})`,
+            );
           }
 
           if (result.exitCode !== 0) {
@@ -232,9 +287,15 @@ export class AIService {
           onRetry: (attempt: number, error: unknown) => {
             retryCount++;
 
+            const errorCode = error instanceof AIServiceError ? error.code : 'UNKNOWN';
+
+            // Always warn on retry (not just debug) -- retries are noteworthy
+            console.error(
+              `[warn] Retrying "${taskLabel}" (attempt ${attempt}/${this.options.maxRetries}, reason: ${errorCode})`,
+            );
+
             // Emit retry trace event
             if (this.tracer) {
-              const errorCode = error instanceof AIServiceError ? error.code : 'UNKNOWN';
               this.tracer.emit({
                 type: 'retry',
                 attempt,

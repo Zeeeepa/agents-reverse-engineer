@@ -303,6 +303,10 @@ export async function generateCommand(
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   });
 
+  if (options.debug) {
+    aiService.setDebug(true);
+  }
+
   // Build execution plan
   const executionPlan = buildExecutionPlan(plan, absolutePath);
 

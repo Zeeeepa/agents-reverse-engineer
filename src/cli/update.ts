@@ -257,6 +257,10 @@ export async function updateCommand(
       telemetry: { keepRuns: config.ai.telemetry.keepRuns },
     });
 
+    if (options.debug) {
+      aiService.setDebug(true);
+    }
+
     // Determine concurrency
     const concurrency = options.concurrency ?? config.ai.concurrency;
 

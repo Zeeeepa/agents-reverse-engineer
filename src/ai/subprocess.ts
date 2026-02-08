@@ -3,13 +3,31 @@
  *
  * This is the ONLY place in the codebase that spawns AI CLI processes.
  * Centralizes timeout enforcement, stdin piping, zombie prevention,
- * and exit code extraction.
+ * SIGKILL escalation, and exit code extraction.
  *
  * @module
  */
 
 import { execFile } from 'node:child_process';
 import type { SubprocessResult } from './types.js';
+
+/** Grace period after SIGTERM before escalating to SIGKILL (ms) */
+const SIGKILL_GRACE_MS = 5_000;
+
+/**
+ * Options for subprocess execution.
+ */
+export interface SubprocessOptions {
+  /** Maximum time in milliseconds before the process is killed */
+  timeoutMs: number;
+  /** Optional stdin input to pipe to the process */
+  input?: string;
+  /**
+   * Callback fired synchronously when the child process is spawned.
+   * Use this for trace events that need the actual spawn time.
+   */
+  onSpawn?: (pid: number | undefined) => void;
+}
 
 /**
  * Spawn a CLI subprocess with timeout enforcement and stdin piping.
@@ -18,9 +36,14 @@ import type { SubprocessResult } from './types.js';
  * {@link SubprocessResult} fields (`exitCode`, `timedOut`, `stderr`) so
  * that callers can decide how to handle failures.
  *
+ * When the subprocess exceeds its timeout, `execFile` sends SIGTERM.
+ * If the process doesn't exit within {@link SIGKILL_GRACE_MS} after
+ * SIGTERM, we escalate to SIGKILL to prevent hung processes from
+ * lingering indefinitely.
+ *
  * @param command - The CLI executable to run (e.g., "claude", "gemini")
  * @param args - Argument array passed to the executable
- * @param options - Timeout and optional stdin input
+ * @param options - Timeout, optional stdin input, and spawn callback
  * @returns Resolved result with stdout, stderr, exit code, timing, and timeout flag
  *
  * @example
@@ -30,6 +53,7 @@ import type { SubprocessResult } from './types.js';
  * const result = await runSubprocess('claude', ['-p', '--output-format', 'json'], {
  *   timeoutMs: 120_000,
  *   input: 'Summarize this codebase',
+ *   onSpawn: (pid) => console.log(`Spawned PID ${pid}`),
  * });
  *
  * if (result.timedOut) {
@@ -44,10 +68,11 @@ import type { SubprocessResult } from './types.js';
 export function runSubprocess(
   command: string,
   args: string[],
-  options: { timeoutMs: number; input?: string },
+  options: SubprocessOptions,
 ): Promise<SubprocessResult> {
   return new Promise((resolve) => {
     const startTime = Date.now();
+    let sigkillTimer: ReturnType<typeof setTimeout> | undefined;
 
     const child = execFile(
       command,
@@ -60,6 +85,9 @@ export function runSubprocess(
       },
       (error, stdout, stderr) => {
         const durationMs = Date.now() - startTime;
+
+        // Clear SIGKILL escalation timer -- process has exited
+        if (sigkillTimer !== undefined) clearTimeout(sigkillTimer);
 
         // Detect timeout: execFile sets `killed = true` when the process
         // is terminated due to exceeding the timeout option.
@@ -92,6 +120,25 @@ export function runSubprocess(
         });
       },
     );
+
+    // Notify caller of spawn (for trace events at actual spawn time)
+    options.onSpawn?.(child.pid);
+
+    // SIGKILL escalation: if the process doesn't exit within
+    // timeout + grace period, force-kill it. This handles cases where
+    // SIGTERM is caught/ignored by the child or its process tree.
+    if (child.pid !== undefined) {
+      sigkillTimer = setTimeout(() => {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // Process may already be dead -- ignore
+        }
+      }, options.timeoutMs + SIGKILL_GRACE_MS);
+
+      // Don't let this timer keep the event loop alive
+      sigkillTimer.unref();
+    }
 
     // Write prompt to stdin if provided, then close the stream.
     // IMPORTANT: Always call .end() -- the child process blocks waiting
