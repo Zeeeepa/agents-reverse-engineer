@@ -51,22 +51,6 @@ const OutputSchema = z.object({
 const GenerationSchema = z.object({
   /** Token budget for entire project (default: 100,000) */
   tokenBudget: z.number().positive().default(100_000),
-  /** Generate ARCHITECTURE.md when thresholds met (default: true) */
-  generateArchitecture: z.boolean().default(true),
-  /** Generate STACK.md from package.json (default: true) */
-  generateStack: z.boolean().default(true),
-  /** Generate STRUCTURE.md codebase structure overview (default: true) */
-  generateStructure: z.boolean().default(true),
-  /** Generate CONVENTIONS.md coding conventions and patterns (default: true) */
-  generateConventions: z.boolean().default(true),
-  /** Generate TESTING.md testing approach and coverage (default: true) */
-  generateTesting: z.boolean().default(true),
-  /** Generate INTEGRATIONS.md external dependencies and APIs (default: true) */
-  generateIntegrations: z.boolean().default(true),
-  /** Generate CONCERNS.md technical debt and known issues (default: true) */
-  generateConcerns: z.boolean().default(true),
-  /** Output directory for supplementary docs (default: project root) */
-  supplementaryDocsDir: z.string().optional(),
   /** Chunk size for large files in tokens (default: 3000) */
   chunkSize: z.number().positive().default(3000),
 }).default({});
@@ -87,7 +71,7 @@ const AISchema = z.object({
   /** Maximum number of retries for transient errors */
   maxRetries: z.number().min(0).default(3),
   /** Default parallelism for concurrent AI calls (1-20). Lower values recommended for resource-constrained environments. */
-  concurrency: z.number().min(1).max(10).default(5),
+  concurrency: z.number().min(1).max(20).default(5),
   /** Telemetry settings */
   telemetry: z.object({
     /** Number of most recent run logs to keep on disk */

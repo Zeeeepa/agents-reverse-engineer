@@ -31,8 +31,7 @@ This executes a three-phase pipeline:
 
 3. **Directory & Root Documents** (sequential):
    - Generates \`AGENTS.md\` per directory in post-order traversal (deepest first, so child summaries feed into parents)
-   - Creates root documents: \`CLAUDE.md\`, \`ARCHITECTURE.md\` (if 20+ source files)
-   - Creates per-package documents at each manifest location (package.json, go.mod, Cargo.toml): \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
+   - Creates root document: \`CLAUDE.md\`
 
 **Options:**
 - \`--dry-run\`: Preview the plan without making AI calls
@@ -129,8 +128,7 @@ Report number of files found.
 1. **Plan file**: \`.agents-reverse-engineer/GENERATION-PLAN.md\`
 2. **Summary files**: All \`*.sum\` files
 3. **Directory docs**: All \`AGENTS.md\` files
-4. **Root docs**: \`CLAUDE.md\`, \`ARCHITECTURE.md\`
-5. **Per-package docs**: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
+4. **Root docs**: \`CLAUDE.md\`
 
 ## Dry Run (Preview)
 
@@ -140,8 +138,7 @@ First, show what would be deleted:
 echo "=== Files to delete ===" && \\
 find . -name "*.sum" -not -path "./node_modules/*" -not -path "./.git/*" 2>/dev/null && \\
 find . -name "AGENTS.md" -not -path "./node_modules/*" -not -path "./.git/*" 2>/dev/null && \\
-find . \\( -name "STACK.md" -o -name "STRUCTURE.md" -o -name "CONVENTIONS.md" -o -name "TESTING.md" -o -name "INTEGRATIONS.md" -o -name "CONCERNS.md" \\) -not -path "./node_modules/*" -not -path "./.git/*" 2>/dev/null && \\
-ls -la CLAUDE.md ARCHITECTURE.md .agents-reverse-engineer/GENERATION-PLAN.md 2>/dev/null || true
+ls -la CLAUDE.md .agents-reverse-engineer/GENERATION-PLAN.md 2>/dev/null || true
 \`\`\`
 
 Report the count of files that would be deleted.
@@ -155,8 +152,7 @@ After confirming with the user (or if no --dry-run flag):
 \`\`\`bash
 find . -name "*.sum" -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
 find . -name "AGENTS.md" -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
-find . \\( -name "STACK.md" -o -name "STRUCTURE.md" -o -name "CONVENTIONS.md" -o -name "TESTING.md" -o -name "INTEGRATIONS.md" -o -name "CONCERNS.md" \\) -not -path "./node_modules/*" -not -path "./.git/*" -delete 2>/dev/null
-rm -f CLAUDE.md ARCHITECTURE.md
+rm -f CLAUDE.md
 rm -f .agents-reverse-engineer/GENERATION-PLAN.md
 \`\`\`
 
@@ -267,8 +263,7 @@ npx are generate --debug --trace
 1. Discovers files, applies filters, detects file types, and creates a generation plan
 2. Analyzes each file via concurrent AI calls, writes \`.sum\` summary files
 3. Generates \`AGENTS.md\` for each directory (post-order traversal)
-4. Creates root documents: \`CLAUDE.md\`, \`ARCHITECTURE.md\` (if 20+ files)
-5. Creates per-package documents at each manifest location: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
+4. Creates root document: \`CLAUDE.md\`
 
 ---
 
@@ -315,8 +310,7 @@ Remove all generated documentation artifacts.
 - \`.agents-reverse-engineer/GENERATION-PLAN.md\`
 - All \`*.sum\` files
 - All \`AGENTS.md\` files
-- Root docs: \`CLAUDE.md\`, \`ARCHITECTURE.md\`
-- Per-package docs: \`STACK.md\`, \`STRUCTURE.md\`, \`CONVENTIONS.md\`, \`TESTING.md\`, \`INTEGRATIONS.md\`, \`CONCERNS.md\`
+- Root docs: \`CLAUDE.md\`
 
 **Usage:**
 - \`COMMAND_PREFIXclean --dry-run\` — Preview deletions
@@ -410,22 +404,6 @@ related_files: [./types.ts, ./middleware.ts]
 | File | Purpose |
 |------|---------|
 | \`CLAUDE.md\` | Project entry point — synthesizes all AGENTS.md |
-| \`ARCHITECTURE.md\` | System design, layers, data flow (if 20+ files) |
-
-### Per-Package Documents (at each manifest file location)
-
-Generated alongside \`package.json\`, \`requirements.txt\`, \`Cargo.toml\`, etc.:
-
-| File | Purpose |
-|------|---------|
-| \`STACK.md\` | Technology stack from manifest |
-| \`STRUCTURE.md\` | Codebase structure and organization |
-| \`CONVENTIONS.md\` | Coding conventions and patterns |
-| \`TESTING.md\` | Test setup and patterns |
-| \`INTEGRATIONS.md\` | External services and APIs |
-| \`CONCERNS.md\` | Technical debt and known issues |
-
-In monorepos, these appear in each package directory (e.g., \`packages/api/STACK.md\`).
 
 ## Common Workflows
 

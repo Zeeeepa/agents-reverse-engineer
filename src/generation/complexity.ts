@@ -1,27 +1,6 @@
 import * as path from 'node:path';
 
 /**
- * Package manifest type indicator.
- */
-export type PackageType = 'node' | 'python' | 'go' | 'rust';
-
-/**
- * Detected package root information.
- */
-export interface PackageRoot {
-  /** Relative path from project root (empty string for root) */
-  path: string;
-  /** Absolute path */
-  absolutePath: string;
-  /** Type of package (node for package.json, python for requirements.txt/pyproject.toml, go for go.mod, rust for Cargo.toml) */
-  type: PackageType;
-  /** Manifest file that triggered detection */
-  manifestFile: string;
-  /** Package name if available */
-  name?: string;
-}
-
-/**
  * Metrics about codebase complexity.
  */
 export interface ComplexityMetrics {
@@ -35,8 +14,6 @@ export interface ComplexityMetrics {
   files: string[];
   /** Unique directory paths */
   directories: Set<string>;
-  /** Detected package roots (directories with package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml) */
-  packageRoots: PackageRoot[];
 }
 
 /**
@@ -149,60 +126,6 @@ function extractDirectories(files: string[]): Set<string> {
 }
 
 /**
- * Package manifest files to detect.
- */
-const PACKAGE_MANIFESTS: Array<{ file: string; type: PackageType }> = [
-  { file: 'package.json', type: 'node' },
-  { file: 'requirements.txt', type: 'python' },
-  { file: 'pyproject.toml', type: 'python' },
-  { file: 'go.mod', type: 'go' },
-  { file: 'Cargo.toml', type: 'rust' },
-];
-
-/**
- * Detect package roots from discovered files.
- * A package root is a directory containing package.json, requirements.txt, pyproject.toml, go.mod, or Cargo.toml.
- */
-function detectPackageRoots(files: string[], projectRoot: string): PackageRoot[] {
-  const packageRoots: PackageRoot[] = [];
-  const seenDirs = new Set<string>();
-
-  for (const file of files) {
-    const relativePath = path.relative(projectRoot, file);
-    const fileName = path.basename(file);
-    const dirPath = path.dirname(relativePath);
-
-    // Check if this file is a package manifest
-    for (const manifest of PACKAGE_MANIFESTS) {
-      if (fileName === manifest.file) {
-        // Normalize directory path (use empty string for root)
-        const normalizedDir = dirPath === '.' ? '' : dirPath;
-
-        // Avoid duplicates (same directory with different manifest types)
-        const key = `${normalizedDir}:${manifest.type}`;
-        if (!seenDirs.has(key)) {
-          seenDirs.add(key);
-          packageRoots.push({
-            path: normalizedDir,
-            absolutePath: normalizedDir ? path.join(projectRoot, normalizedDir) : projectRoot,
-            type: manifest.type,
-            manifestFile: manifest.file,
-          });
-        }
-      }
-    }
-  }
-
-  // Sort by path depth (root first, then alphabetically)
-  return packageRoots.sort((a, b) => {
-    const depthA = a.path ? a.path.split(path.sep).length : 0;
-    const depthB = b.path ? b.path.split(path.sep).length : 0;
-    if (depthA !== depthB) return depthA - depthB;
-    return a.path.localeCompare(b.path);
-  });
-}
-
-/**
  * Analyze codebase complexity from discovered files.
  *
  * @param files - List of source file paths
@@ -219,55 +142,6 @@ export function analyzeComplexity(
     architecturalPatterns: detectArchitecturalPatterns(files),
     files,
     directories: extractDirectories(files),
-    packageRoots: detectPackageRoots(files, projectRoot),
   };
 }
 
-/**
- * Determine if ARCHITECTURE.md should be generated.
- *
- * Triggers (any one fires):
- * - 20+ source files
- * - 3+ directory levels
- * - Multiple architectural patterns detected
- */
-export function shouldGenerateArchitecture(metrics: ComplexityMetrics): boolean {
-  // Threshold: 20+ source files
-  if (metrics.fileCount >= 20) return true;
-
-  // Threshold: 3+ directory levels
-  if (metrics.directoryDepth >= 3) return true;
-
-  // Threshold: 2+ architectural patterns
-  if (metrics.architecturalPatterns.length >= 2) return true;
-
-  return false;
-}
-
-/**
- * Determine if STACK.md should be generated.
- *
- * Always generate if a package manifest exists (has dependencies to document).
- */
-export function shouldGenerateStack(hasPackageManifest: boolean): boolean {
-  return hasPackageManifest;
-}
-
-/**
- * Generate a summary of why supplementary docs should/shouldn't be generated.
- */
-export function getComplexitySummary(metrics: ComplexityMetrics): string {
-  const lines = [
-    `Files: ${metrics.fileCount}`,
-    `Directory depth: ${metrics.directoryDepth}`,
-    `Patterns detected: ${metrics.architecturalPatterns.length > 0 ? metrics.architecturalPatterns.join(', ') : 'none'}`,
-  ];
-
-  if (shouldGenerateArchitecture(metrics)) {
-    lines.push('ARCHITECTURE.md: will be generated');
-  } else {
-    lines.push('ARCHITECTURE.md: not needed (below thresholds)');
-  }
-
-  return lines.join('\n');
-}

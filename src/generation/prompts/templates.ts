@@ -34,14 +34,9 @@ LIBRARY & DEPENDENCY STATISTICS (MANDATORY):
 - Group: external packages first, then node built-ins, then local imports
 
 DISCOVERABLE CONTENT:
-- When a directory contains files that share patterns, stack choices, or structural conventions, recommend splitting documentation into supplementary files rather than cramming everything into AGENTS.md
-- Use relative links to point to supplementary docs: [PATTERNS.md](./PATTERNS.md), [STACK.md](./STACK.md), [STRUCTURE.md](./STRUCTURE.md)
-- Suggest supplementary files when appropriate:
-  - PATTERNS.md — recurring design/architectural patterns across sibling files
-  - STACK.md — libraries, frameworks, and tools used with version constraints and rationale
-  - STRUCTURE.md — directory layout conventions, naming rules, file organization
-  - Any other relevant *.md (e.g., CONVENTIONS.md, API.md, TESTING.md)
-- Keep AGENTS.md as the entry point that links out to these files; don't duplicate their content
+- When a directory contains complex shared patterns or conventions, you may recommend splitting documentation into supplementary files rather than cramming everything into AGENTS.md
+- Use relative markdown links to reference any supplementary documentation files
+- Keep AGENTS.md as the primary entry point
 
 WHAT TO INCLUDE:
 - All exported function/class/type/const names
@@ -340,11 +335,6 @@ LIBRARY & DEPENDENCY STATISTICS (MANDATORY):
 - Group: external packages first, then node built-ins
 
 DISCOVERABLE CONTENT:
-- When files share patterns, stack choices, or structural conventions worth documenting in detail, suggest supplementary files
-- Use relative links: [PATTERNS.md](./PATTERNS.md), [STACK.md](./STACK.md), [STRUCTURE.md](./STRUCTURE.md)
-- Possible supplementary files:
-  - PATTERNS.md — recurring design/architectural patterns
-  - STACK.md — libraries and tools with rationale
-  - STRUCTURE.md — directory layout conventions and naming rules
-  - Any other relevant *.md (e.g., CONVENTIONS.md, API.md, TESTING.md)
-- Keep AGENTS.md as the entry point; don't duplicate supplementary content`;
+- When files share patterns or conventions worth documenting in detail, you may suggest supplementary documentation files
+- Use relative markdown links to reference any supplementary documentation
+- Keep AGENTS.md as the primary entry point`;

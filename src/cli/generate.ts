@@ -112,26 +112,6 @@ function formatPlan(plan: GenerationPlan): string {
   }
   lines.push('');
 
-  // Package roots
-  lines.push(`Package roots: ${plan.packageRoots.length}`);
-  for (const pkgRoot of plan.packageRoots) {
-    const label = pkgRoot.path || '(root)';
-    lines.push(`  - ${label} (${pkgRoot.type}: ${pkgRoot.manifestFile})`);
-  }
-  lines.push('');
-
-  // Supplementary docs
-  lines.push('Supplementary docs:');
-  lines.push(`  ARCHITECTURE.md: ${plan.generateArchitecture ? 'yes' : 'no'} (root only)`);
-  lines.push(`  Per package root:`);
-  lines.push(`    STACK.md: ${plan.generateStack ? 'yes' : 'no'} (node packages only)`);
-  lines.push(`    STRUCTURE.md: ${plan.generateStructure ? 'yes' : 'no'}`);
-  lines.push(`    CONVENTIONS.md: ${plan.generateConventions ? 'yes' : 'no'}`);
-  lines.push(`    TESTING.md: ${plan.generateTesting ? 'yes' : 'no'}`);
-  lines.push(`    INTEGRATIONS.md: ${plan.generateIntegrations ? 'yes' : 'no'}`);
-  lines.push(`    CONCERNS.md: ${plan.generateConcerns ? 'yes' : 'no'}`);
-  lines.push('');
-
   // Skipped files
   if (plan.skippedFiles.length > 0) {
     lines.push(`Skipped (budget): ${plan.skippedFiles.length} files`);

@@ -18,8 +18,6 @@ import type { CleanupResult } from './types.js';
 const GENERATED_FILES = new Set([
   'AGENTS.md',
   'CLAUDE.md',
-  'ARCHITECTURE.md',
-  'STACK.md',
 ]);
 
 /**

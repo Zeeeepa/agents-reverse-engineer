@@ -18,8 +18,8 @@ import { detectFileType } from './detection/detector.js';
 import type { FileType } from './types.js';
 import { BudgetTracker, countTokens, needsChunking, chunkFile } from './budget/index.js';
 import { buildPrompt, buildChunkPrompt } from './prompts/index.js';
-import { analyzeComplexity, shouldGenerateArchitecture, shouldGenerateStack } from './complexity.js';
-import type { ComplexityMetrics, PackageRoot } from './complexity.js';
+import { analyzeComplexity } from './complexity.js';
+import type { ComplexityMetrics } from './complexity.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
 /**
@@ -80,22 +80,6 @@ export interface GenerationPlan {
   tasks: AnalysisTask[];
   /** Complexity metrics */
   complexity: ComplexityMetrics;
-  /** Whether to generate ARCHITECTURE.md */
-  generateArchitecture: boolean;
-  /** Whether to generate STACK.md */
-  generateStack: boolean;
-  /** Whether to generate STRUCTURE.md */
-  generateStructure: boolean;
-  /** Whether to generate CONVENTIONS.md */
-  generateConventions: boolean;
-  /** Whether to generate TESTING.md */
-  generateTesting: boolean;
-  /** Whether to generate INTEGRATIONS.md */
-  generateIntegrations: boolean;
-  /** Whether to generate CONCERNS.md */
-  generateConcerns: boolean;
-  /** Package roots where supplementary docs will be generated */
-  packageRoots: PackageRoot[];
   /** Budget tracker state */
   budget: {
     total: number;
@@ -364,9 +348,6 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       );
     }
 
-    // Check for package manifest to determine STACK.md generation
-    const hasPackageManifest = await this.hasPackageManifest();
-
     // Release file content from PreparedFile objects to free memory.
     // Content has already been embedded into task prompts by createTasks()
     // and is no longer needed. The runner re-reads files from disk.
@@ -378,17 +359,6 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       files,
       tasks,
       complexity,
-      generateArchitecture: this.config.generation.generateArchitecture &&
-        shouldGenerateArchitecture(complexity),
-      generateStack: this.config.generation.generateStack &&
-        hasPackageManifest &&
-        shouldGenerateStack(hasPackageManifest),
-      generateStructure: this.config.generation.generateStructure,
-      generateConventions: this.config.generation.generateConventions,
-      generateTesting: this.config.generation.generateTesting,
-      generateIntegrations: this.config.generation.generateIntegrations,
-      generateConcerns: this.config.generation.generateConcerns,
-      packageRoots: complexity.packageRoots,
       budget: {
         total: this.config.generation.tokenBudget,
         estimated: budgetUsed,
@@ -420,22 +390,6 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
     });
 
     return plan;
-  }
-
-  /**
-   * Check if a package manifest (package.json, pyproject.toml, go.mod, Cargo.toml) exists in project root.
-   */
-  private async hasPackageManifest(): Promise<boolean> {
-    const manifests = ['package.json', 'pyproject.toml', 'go.mod', 'Cargo.toml'];
-    for (const manifest of manifests) {
-      try {
-        await readFile(path.join(this.projectRoot, manifest), 'utf-8');
-        return true;
-      } catch {
-        // Continue checking other manifests
-      }
-    }
-    return false;
   }
 
   /**

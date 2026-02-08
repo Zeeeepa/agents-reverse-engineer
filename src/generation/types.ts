@@ -79,10 +79,4 @@ export interface SummaryOptions {
 export interface GenerationConfig {
   /** Maximum token budget for generation */
   tokenBudget: number;
-  /** Directory for supplementary docs */
-  outputDir?: string;
-  /** Whether to generate architecture doc */
-  generateArchitecture: boolean;
-  /** Whether to generate stack doc */
-  generateStack: boolean;
 }
