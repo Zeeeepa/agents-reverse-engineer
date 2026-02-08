@@ -11,6 +11,8 @@ export interface PromptContext {
     path: string;
     content: string;
   }>;
+  /** Project structure listing for bird's-eye context */
+  projectPlan?: string;
 }
 
 /**

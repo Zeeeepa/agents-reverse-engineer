@@ -24,6 +24,7 @@ import { computeContentHashFromString } from '../change-detection/index.js';
 import type { FileChange } from '../change-detection/types.js';
 import { buildFilePrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
+import { CONFIG_DIR } from '../config/loader.js';
 import {
   checkCodeVsDoc,
   checkCodeVsCode,
@@ -615,6 +616,15 @@ export class CommandRunner {
     // Cache source content during update, reused for inconsistency detection
     const updateSourceCache = new Map<string, string>();
 
+    // Attempt to read existing project plan for bird's-eye context
+    let projectPlan: string | undefined;
+    try {
+      const planPath = path.join(projectRoot, CONFIG_DIR, 'GENERATION-PLAN.md');
+      projectPlan = await readFile(planPath, 'utf-8');
+    } catch {
+      // No plan file from previous generate run — proceed without project structure context
+    }
+
     const updateTasks = filesToAnalyze.map(
       (file: FileChange, fileIndex: number) => async (): Promise<FileTaskResult> => {
         reporter.onFileStart(file.path);
@@ -630,6 +640,7 @@ export class CommandRunner {
         const prompt = buildFilePrompt({
           filePath: file.path,
           content: sourceContent,
+          projectPlan,
         }, this.options.debug);
 
         // Call AI

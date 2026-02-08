@@ -109,15 +109,39 @@ export class GenerationOrchestrator {
   }
 
   /**
+   * Build a compact project structure listing from prepared files.
+   * Groups files by directory to give the AI bird's-eye context.
+   */
+  private buildProjectStructure(files: PreparedFile[]): string {
+    const byDir = new Map<string, string[]>();
+    for (const file of files) {
+      const dir = path.dirname(file.relativePath) || '.';
+      const group = byDir.get(dir) ?? [];
+      group.push(path.basename(file.relativePath));
+      byDir.set(dir, group);
+    }
+
+    const lines: string[] = [];
+    for (const [dir, dirFiles] of [...byDir.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      lines.push(`${dir}/`);
+      for (const f of dirFiles.sort()) {
+        lines.push(`  ${f}`);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  /**
    * Create analysis tasks for all files.
    */
-  createFileTasks(files: PreparedFile[]): AnalysisTask[] {
+  createFileTasks(files: PreparedFile[], projectStructure?: string): AnalysisTask[] {
     const tasks: AnalysisTask[] = [];
 
     for (const file of files) {
       const prompt = buildFilePrompt({
         filePath: file.filePath,
         content: file.content,
+        projectPlan: projectStructure,
       }, this.debug);
 
       tasks.push({
@@ -199,7 +223,8 @@ export class GenerationOrchestrator {
       console.error(pc.dim(`[debug] Complexity analysis: depth=${complexity.directoryDepth}`));
     }
 
-    const fileTasks = this.createFileTasks(files);
+    const projectStructure = this.buildProjectStructure(files);
+    const fileTasks = this.createFileTasks(files, projectStructure);
 
     // Add directory tasks for LLM-generated directory descriptions
     // These run after file analysis to synthesize richer directory overviews

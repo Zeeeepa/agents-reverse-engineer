@@ -55,10 +55,15 @@ export function buildFilePrompt(context: PromptContext, debug = false): {
   const lang = detectLanguage(context.filePath);
   logTemplate(debug, 'buildFilePrompt', context.filePath, `lang=${lang}`);
 
+  const planSection = context.projectPlan
+    ? `\n\n## Project Structure\n\nFull project file listing for context:\n\n<project-structure>\n${context.projectPlan}\n</project-structure>`
+    : '';
+
   let userPrompt = FILE_USER_PROMPT
     .replace(/\{\{FILE_PATH\}\}/g, context.filePath)
     .replace(/\{\{CONTENT\}\}/g, context.content)
-    .replace(/\{\{LANG\}\}/g, lang);
+    .replace(/\{\{LANG\}\}/g, lang)
+    .replace(/\{\{PROJECT_PLAN_SECTION\}\}/g, planSection);
 
   // Add context files if provided
   if (context.contextFiles && context.contextFiles.length > 0) {
@@ -153,6 +158,12 @@ export async function buildDirectoryPrompt(
     }
   }
 
+  // Detect manifest files to hint at package root
+  const manifestNames = ['package.json', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'pom.xml', 'build.gradle', 'Gemfile', 'composer.json', 'CMakeLists.txt', 'Makefile'];
+  const foundManifests = fileEntries
+    .filter((e) => manifestNames.includes(e.name))
+    .map((e) => e.name);
+
   logTemplate(debug, 'buildDirectoryPrompt', dirPath, `files=${fileSummaries.length} subdirs=${subdirSections.length}`);
 
   const userSections: string[] = [
@@ -165,6 +176,10 @@ export async function buildDirectoryPrompt(
 
   if (subdirSections.length > 0) {
     userSections.push('', '## Subdirectories', '', ...subdirSections);
+  }
+
+  if (foundManifests.length > 0) {
+    userSections.push('', '## Directory Hints', '', `Contains manifest file(s): ${foundManifests.join(', ')} — likely a package or project root.`);
   }
 
   if (localSection) {
