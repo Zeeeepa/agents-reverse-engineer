@@ -28,6 +28,22 @@ export const DEFAULT_VENDOR_DIRS = [
 ] as const;
 
 /**
+ * Default file patterns to exclude from analysis.
+ * These patterns use gitignore syntax and are matched by the custom filter.
+ */
+export const DEFAULT_EXCLUDE_PATTERNS = [
+  // AI assistant documentation files
+  'AGENTS.md',
+  'CLAUDE.md',
+  'OPENCODE.md',
+  'GEMINI.md',
+  '**/AGENTS.md',
+  '**/CLAUDE.md',
+  '**/OPENCODE.md',
+  '**/GEMINI.md',
+] as const;
+
+/**
  * Default binary file extensions to exclude from analysis.
  * These files cannot be meaningfully analyzed as text.
  */
@@ -73,11 +89,6 @@ export const DEFAULT_BINARY_EXTENSIONS = [
   '.env',
   // Logs
   '.log',
-  // AI assistant
-  'AGENTS.md',
-  'CLAUDE.md',
-  'OPENCODE.md',
-  'GEMINI.md',
   // Generated artifacts (agents-reverse-engineer output)
   '.sum',
 ] as const;
@@ -94,7 +105,7 @@ export const DEFAULT_MAX_FILE_SIZE = 1024 * 1024;
  */
 export const DEFAULT_CONFIG = {
   exclude: {
-    patterns: [] as string[],
+    patterns: [...DEFAULT_EXCLUDE_PATTERNS],
     vendorDirs: [...DEFAULT_VENDOR_DIRS],
     binaryExtensions: [...DEFAULT_BINARY_EXTENSIONS],
   },

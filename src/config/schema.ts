@@ -10,6 +10,7 @@ import {
   DEFAULT_VENDOR_DIRS,
   DEFAULT_BINARY_EXTENSIONS,
   DEFAULT_MAX_FILE_SIZE,
+  DEFAULT_EXCLUDE_PATTERNS,
 } from './defaults.js';
 
 /**
@@ -17,7 +18,7 @@ import {
  */
 const ExcludeSchema = z.object({
   /** Custom glob patterns to exclude (e.g., ["*.log", "temp/**"]) */
-  patterns: z.array(z.string()).default([]),
+  patterns: z.array(z.string()).default([...DEFAULT_EXCLUDE_PATTERNS]),
   /** Vendor directories to exclude */
   vendorDirs: z.array(z.string()).default([...DEFAULT_VENDOR_DIRS]),
   /** Binary file extensions to exclude */
