@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-02-08
+
+### Added
+- Subprocess resource management controls — environment variables (`NODE_OPTIONS`, `UV_THREADPOOL_SIZE`, `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS`) to limit memory usage and thread spawning in WSL/resource-constrained environments
+- Process group termination — `kill(-pid)` ensures entire subprocess tree is terminated, not just parent
+- Concurrency default reduced from 5 to 2 for better resource management on WSL/limited environments
+
+### Changed
+- Improved subprocess lifecycle management with enhanced cleanup and resource constraints
+
 ## [0.4.7] - 2026-02-08
 
 ### Changed
@@ -283,7 +293,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.7...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.8...HEAD
+[0.4.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.4...v0.4.5
