@@ -120,6 +120,55 @@ interface RetryEvent extends TraceEventBase {
   errorCode: string;
 }
 
+/** Emitted when a non-pool task starts execution */
+interface TaskStartEvent extends TraceEventBase {
+  type: 'task:start';
+  taskLabel: string;
+  phase: string;
+}
+
+/** Emitted when file discovery begins */
+interface DiscoveryStartEvent extends TraceEventBase {
+  type: 'discovery:start';
+  targetPath: string;
+}
+
+/** Emitted when file discovery completes */
+interface DiscoveryEndEvent extends TraceEventBase {
+  type: 'discovery:end';
+  filesIncluded: number;
+  filesExcluded: number;
+  durationMs: number;
+}
+
+/** Emitted when a filter is applied during discovery */
+interface FilterAppliedEvent extends TraceEventBase {
+  type: 'filter:applied';
+  filterName: string;
+  filesMatched: number;
+  filesRejected: number;
+}
+
+/** Emitted when a generation/update plan is created */
+interface PlanCreatedEvent extends TraceEventBase {
+  type: 'plan:created';
+  planType: 'generate' | 'update';
+  fileCount: number;
+  taskCount: number;
+  budgetUsed: number;
+  budgetTotal: number;
+  filesSkipped: number;
+}
+
+/** Emitted when configuration is loaded */
+interface ConfigLoadedEvent extends TraceEventBase {
+  type: 'config:loaded';
+  configPath: string;
+  model: string;
+  concurrency: number;
+  budget: number;
+}
+
 /** Discriminated union of all trace event types */
 export type TraceEvent =
   | PhaseStartEvent
@@ -128,9 +177,15 @@ export type TraceEvent =
   | WorkerEndEvent
   | TaskPickupEvent
   | TaskDoneEvent
+  | TaskStartEvent
   | SubprocessSpawnEvent
   | SubprocessExitEvent
-  | RetryEvent;
+  | RetryEvent
+  | DiscoveryStartEvent
+  | DiscoveryEndEvent
+  | FilterAppliedEvent
+  | PlanCreatedEvent
+  | ConfigLoadedEvent;
 
 /** Keys auto-populated by the trace writer */
 type BaseKeys = 'seq' | 'ts' | 'pid' | 'elapsedMs';

@@ -10,6 +10,7 @@
  * 6. Track affected directories for AGENTS.md regeneration
  */
 import * as path from 'node:path';
+import pc from 'picocolors';
 import type { Config } from '../config/schema.js';
 import {
   isGitRepo,
@@ -28,6 +29,7 @@ import {
   createBinaryFilter,
   createCustomFilter,
 } from '../discovery/filters/index.js';
+import type { ITraceWriter } from '../orchestration/trace.js';
 
 /**
  * Result of update preparation (before analysis).
@@ -55,10 +57,18 @@ export interface UpdatePlan {
 export class UpdateOrchestrator {
   private config: Config;
   private projectRoot: string;
+  private tracer?: ITraceWriter;
+  private debug: boolean;
 
-  constructor(config: Config, projectRoot: string) {
+  constructor(
+    config: Config,
+    projectRoot: string,
+    options?: { tracer?: ITraceWriter; debug?: boolean }
+  ) {
     this.config = config;
     this.projectRoot = projectRoot;
+    this.tracer = options?.tracer;
+    this.debug = options?.debug ?? false;
   }
 
   /**
@@ -122,12 +132,34 @@ export class UpdateOrchestrator {
    * @returns Update plan with files to analyze and cleanup actions
    */
   async preparePlan(options: UpdateOptions = {}): Promise<UpdatePlan> {
+    const planStartTime = process.hrtime.bigint();
+
+    // Emit phase start
+    this.tracer?.emit({
+      type: 'phase:start',
+      phase: 'update-plan-creation',
+      taskCount: 0, // Will be determined after discovery
+      concurrency: 1,
+    });
+
+    if (this.debug) {
+      console.error(pc.dim('[debug] Creating update plan with change detection...'));
+    }
+
     await this.checkPrerequisites();
 
     // Get current commit for reference
     const currentCommit = await getCurrentCommit(this.projectRoot);
 
+    if (this.debug) {
+      console.error(pc.dim(`[debug] Git commit: ${currentCommit.slice(0, 7)}`));
+    }
+
     // Discover all source files
+    if (this.debug) {
+      console.error(pc.dim('[debug] Discovering files...'));
+    }
+
     const allFiles = await this.discoverFiles();
 
     const filesToAnalyze: FileChange[] = [];
@@ -179,6 +211,37 @@ export class UpdateOrchestrator {
 
     // Get directories affected by changes (for AGENTS.md regeneration)
     const affectedDirs = Array.from(getAffectedDirectories(filesToAnalyze));
+
+    if (this.debug) {
+      console.error(
+        pc.dim(
+          `[debug] Change detection: ${filesToAnalyze.length} changed, ${filesToSkip.length} unchanged, ${cleanup.deletedSumFiles.length} orphaned`
+        )
+      );
+      console.error(pc.dim(`[debug] Affected directories: ${affectedDirs.length}`));
+    }
+
+    // Emit plan created event
+    this.tracer?.emit({
+      type: 'plan:created',
+      planType: 'update',
+      fileCount: filesToAnalyze.length,
+      taskCount: filesToAnalyze.length + affectedDirs.length, // File tasks + dir regen tasks
+      budgetUsed: 0, // Update doesn't have budget tracking
+      budgetTotal: 0,
+      filesSkipped: filesToSkip.length,
+    });
+
+    // Emit phase end
+    const planEndTime = process.hrtime.bigint();
+    const planDurationMs = Number(planEndTime - planStartTime) / 1_000_000;
+    this.tracer?.emit({
+      type: 'phase:end',
+      phase: 'update-plan-creation',
+      durationMs: planDurationMs,
+      tasksCompleted: 1,
+      tasksFailed: 0,
+    });
 
     // Determine if this is first run (no files to skip means no existing .sum files)
     const isFirstRun = filesToSkip.length === 0 && filesToAnalyze.length > 0;
@@ -250,7 +313,8 @@ export class UpdateOrchestrator {
  */
 export function createUpdateOrchestrator(
   config: Config,
-  projectRoot: string
+  projectRoot: string,
+  options?: { tracer?: ITraceWriter; debug?: boolean }
 ): UpdateOrchestrator {
-  return new UpdateOrchestrator(config, projectRoot);
+  return new UpdateOrchestrator(config, projectRoot, options);
 }

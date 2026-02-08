@@ -477,16 +477,51 @@ export class CommandRunner {
 
     let rootTasksCompleted = 0;
     for (const rootTask of plan.rootTasks) {
-      const response = await this.aiService.call({
-        prompt: rootTask.userPrompt,
-        systemPrompt: rootTask.systemPrompt,
+      const taskStart = Date.now();
+
+      // Emit task:start event
+      this.tracer?.emit({
+        type: 'task:start',
         taskLabel: rootTask.path,
+        phase: 'phase-3-root',
       });
 
-      await writeFile(rootTask.outputPath, response.text, 'utf-8');
-      reporter.onRootDone(rootTask.path);
-      planTracker.markDone(rootTask.path);
-      rootTasksCompleted++;
+      try {
+        const response = await this.aiService.call({
+          prompt: rootTask.userPrompt,
+          systemPrompt: rootTask.systemPrompt,
+          taskLabel: rootTask.path,
+        });
+
+        await writeFile(rootTask.outputPath, response.text, 'utf-8');
+        reporter.onRootDone(rootTask.path);
+        planTracker.markDone(rootTask.path);
+        rootTasksCompleted++;
+
+        // Emit task:done event (success)
+        this.tracer?.emit({
+          type: 'task:done',
+          workerId: 0, // Sequential execution, single worker
+          taskIndex: rootTasksCompleted - 1,
+          taskLabel: rootTask.path,
+          durationMs: Date.now() - taskStart,
+          success: true,
+          activeTasks: 0, // Sequential, only one active at a time
+        });
+      } catch (error) {
+        // Emit task:done event (failure)
+        this.tracer?.emit({
+          type: 'task:done',
+          workerId: 0,
+          taskIndex: rootTasksCompleted,
+          taskLabel: rootTask.path,
+          durationMs: Date.now() - taskStart,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          activeTasks: 0,
+        });
+        throw error; // Re-throw to maintain existing error handling
+      }
     }
 
     this.tracer?.emit({

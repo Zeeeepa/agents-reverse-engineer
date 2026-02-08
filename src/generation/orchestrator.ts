@@ -11,6 +11,7 @@
 
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
+import pc from 'picocolors';
 import type { Config } from '../config/schema.js';
 import type { DiscoveryResult } from '../types/index.js';
 import { detectFileType } from './detection/detector.js';
@@ -19,6 +20,7 @@ import { BudgetTracker, countTokens, needsChunking, chunkFile } from './budget/i
 import { buildPrompt, buildChunkPrompt } from './prompts/index.js';
 import { analyzeComplexity, shouldGenerateArchitecture, shouldGenerateStack } from './complexity.js';
 import type { ComplexityMetrics, PackageRoot } from './complexity.js';
+import type { ITraceWriter } from '../orchestration/trace.js';
 
 /**
  * A file prepared for analysis.
@@ -111,14 +113,23 @@ export class GenerationOrchestrator {
   private config: Config;
   private projectRoot: string;
   private budgetTracker: BudgetTracker;
+  private tracer?: ITraceWriter;
+  private debug: boolean;
 
-  constructor(config: Config, projectRoot: string, totalFiles: number) {
+  constructor(
+    config: Config,
+    projectRoot: string,
+    totalFiles: number,
+    options?: { tracer?: ITraceWriter; debug?: boolean }
+  ) {
     this.config = config;
     this.projectRoot = projectRoot;
     this.budgetTracker = new BudgetTracker(
       config.generation.tokenBudget,
       totalFiles
     );
+    this.tracer = options?.tracer;
+    this.debug = options?.debug ?? false;
   }
 
   /**
@@ -297,18 +308,61 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
    * Create a complete generation plan.
    */
   async createPlan(discoveryResult: DiscoveryResult): Promise<GenerationPlan> {
+    const planStartTime = process.hrtime.bigint();
+
+    // Emit phase start
+    this.tracer?.emit({
+      type: 'phase:start',
+      phase: 'plan-creation',
+      taskCount: discoveryResult.files.length,
+      concurrency: 1,
+    });
+
+    if (this.debug) {
+      console.error(pc.dim('[debug] Preparing files: reading and tokenizing...'));
+    }
+
     const files = await this.prepareFiles(discoveryResult);
+
+    if (this.debug) {
+      console.error(pc.dim(`[debug] Analyzing complexity...`));
+    }
+
     const complexity = analyzeComplexity(
       files.map(f => f.filePath),
       this.projectRoot
     );
 
+    if (this.debug) {
+      const patterns = complexity.architecturalPatterns.length > 0 ? complexity.architecturalPatterns.join(', ') : 'none';
+      console.error(pc.dim(`[debug] Complexity analysis: ${patterns}, depth=${complexity.directoryDepth}`));
+    }
+
     const { tasks: fileTasks, skipped } = this.createTasks(files);
+
+    const budgetUsed = this.budgetTracker.getReport().used;
+    if (this.debug) {
+      console.error(
+        pc.dim(
+          `[debug] Budget: ${budgetUsed}/${this.config.generation.tokenBudget} tokens used, ${skipped.length} files skipped`
+        )
+      );
+    }
 
     // Add directory-summary tasks for LLM-generated directory descriptions
     // These run after file analysis to synthesize richer directory overviews
     const dirTasks = this.createDirectorySummaryTasks(files);
     const tasks = [...fileTasks, ...dirTasks];
+
+    if (this.debug) {
+      const chunkTasks = fileTasks.filter(t => t.type === 'chunk').length;
+      const synthesisTasks = fileTasks.filter(t => t.type === 'synthesis').length;
+      console.error(
+        pc.dim(
+          `[debug] Generation plan: ${files.length} files, ${tasks.length} tasks (${chunkTasks} chunks, ${synthesisTasks} synthesis, ${dirTasks.length} directories)`
+        )
+      );
+    }
 
     // Check for package manifest to determine STACK.md generation
     const hasPackageManifest = await this.hasPackageManifest();
@@ -320,7 +374,7 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       (file as { content: string }).content = '';
     }
 
-    return {
+    const plan: GenerationPlan = {
       files,
       tasks,
       complexity,
@@ -337,11 +391,35 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
       packageRoots: complexity.packageRoots,
       budget: {
         total: this.config.generation.tokenBudget,
-        estimated: this.budgetTracker.getReport().used,
+        estimated: budgetUsed,
         remaining: this.budgetTracker.remaining,
       },
       skippedFiles: skipped,
     };
+
+    // Emit plan created event
+    this.tracer?.emit({
+      type: 'plan:created',
+      planType: 'generate',
+      fileCount: files.length,
+      taskCount: tasks.length,
+      budgetUsed: budgetUsed,
+      budgetTotal: this.config.generation.tokenBudget,
+      filesSkipped: skipped.length,
+    });
+
+    // Emit phase end
+    const planEndTime = process.hrtime.bigint();
+    const planDurationMs = Number(planEndTime - planStartTime) / 1_000_000;
+    this.tracer?.emit({
+      type: 'phase:end',
+      phase: 'plan-creation',
+      durationMs: planDurationMs,
+      tasksCompleted: 1,
+      tasksFailed: 0,
+    });
+
+    return plan;
   }
 
   /**
@@ -374,7 +452,8 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
 export function createOrchestrator(
   config: Config,
   projectRoot: string,
-  totalFiles: number
+  totalFiles: number,
+  options?: { tracer?: ITraceWriter; debug?: boolean }
 ): GenerationOrchestrator {
-  return new GenerationOrchestrator(config, projectRoot, totalFiles);
+  return new GenerationOrchestrator(config, projectRoot, totalFiles, options);
 }

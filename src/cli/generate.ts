@@ -173,8 +173,17 @@ export async function generateCommand(
 
   logger.info(`Generating documentation plan for: ${absolutePath}`);
 
+  // Create trace writer (moved earlier to use in config loading and discovery)
+  const tracer = createTraceWriter(absolutePath, options.trace ?? false);
+  if (options.trace && tracer.filePath) {
+    console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
+  }
+
   // Load configuration
-  const config = await loadConfig(absolutePath);
+  const config = await loadConfig(absolutePath, {
+    tracer,
+    debug: options.debug,
+  });
 
   // Override budget if specified
   if (options.budget) {
@@ -201,7 +210,10 @@ export async function generateCommand(
   });
 
   // Apply filters
-  const filterResult = await applyFilters(files, filters);
+  const filterResult = await applyFilters(files, filters, {
+    tracer,
+    debug: options.debug,
+  });
 
   // Create discovery result for orchestrator
   const discoveryResult = {
@@ -216,7 +228,8 @@ export async function generateCommand(
   const orchestrator = createOrchestrator(
     config,
     absolutePath,
-    discoveryResult.files.length
+    discoveryResult.files.length,
+    { tracer, debug: options.debug }
   );
   const plan = await orchestrator.createPlan(discoveryResult);
 
@@ -312,12 +325,6 @@ export async function generateCommand(
 
   // Determine concurrency
   const concurrency = options.concurrency ?? config.ai.concurrency;
-
-  // Create trace writer (no-op when --trace is not set)
-  const tracer = createTraceWriter(absolutePath, options.trace ?? false);
-  if (options.trace && tracer.filePath) {
-    console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
-  }
 
   // Enable subprocess output logging alongside tracing
   if (options.trace) {

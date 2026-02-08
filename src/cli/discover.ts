@@ -8,6 +8,7 @@
 import path from 'node:path';
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import pc from 'picocolors';
 import { walkDirectory } from '../discovery/walker.js';
 import {
   applyFilters,
@@ -21,6 +22,7 @@ import { createLogger } from '../output/logger.js';
 import { createOrchestrator } from '../generation/orchestrator.js';
 import { buildExecutionPlan, formatExecutionPlanAsMarkdown } from '../generation/executor.js';
 import type { DiscoveryResult } from '../types/index.js';
+import type { ITraceWriter } from '../orchestration/trace.js';
 
 /**
  * Options for the discover command.
@@ -50,6 +52,17 @@ export interface DiscoverOptions {
    * @default false
    */
   plan: boolean;
+
+  /**
+   * Optional trace writer for emitting discovery events.
+   */
+  tracer?: ITraceWriter;
+
+  /**
+   * Enable debug output.
+   * @default false
+   */
+  debug?: boolean;
 }
 
 /**
@@ -107,6 +120,17 @@ export async function discoverCommand(
   logger.info(`Discovering files in ${resolvedPath}...`);
   logger.info('');
 
+  // Emit discovery start trace event
+  const discoveryStartTime = process.hrtime.bigint();
+  options.tracer?.emit({
+    type: 'discovery:start',
+    targetPath: resolvedPath,
+  });
+
+  if (options.debug) {
+    console.error(pc.dim(`[debug] Discovering files in: ${resolvedPath}`));
+  }
+
   // Create filters in order (per DISC requirements)
   const gitignoreFilter = await createGitignoreFilter(resolvedPath);
   const vendorFilter = createVendorFilter(config.exclude.vendorDirs);
@@ -125,7 +149,28 @@ export async function discoverCommand(
   });
 
   // Apply filters
-  const result = await applyFilters(files, filters);
+  const result = await applyFilters(files, filters, {
+    tracer: options.tracer,
+    debug: options.debug,
+  });
+
+  // Emit discovery end trace event
+  const discoveryEndTime = process.hrtime.bigint();
+  const discoveryDurationMs = Number(discoveryEndTime - discoveryStartTime) / 1_000_000;
+  options.tracer?.emit({
+    type: 'discovery:end',
+    filesIncluded: result.included.length,
+    filesExcluded: result.excluded.length,
+    durationMs: discoveryDurationMs,
+  });
+
+  if (options.debug) {
+    console.error(
+      pc.dim(
+        `[debug] Discovery complete: ${result.included.length} files included, ${result.excluded.length} excluded`
+      )
+    );
+  }
 
   // Log results
   // Make paths relative for cleaner output

@@ -180,8 +180,17 @@ export async function updateCommand(
 
   logger.info(`Checking for updates in: ${absolutePath}`);
 
+  // Create trace writer (moved earlier to use in config loading and orchestrator)
+  const tracer = createTraceWriter(absolutePath, options.trace ?? false);
+  if (options.trace && tracer.filePath) {
+    console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
+  }
+
   // Load configuration
-  const config = await loadConfig(absolutePath);
+  const config = await loadConfig(absolutePath, {
+    tracer,
+    debug: options.debug,
+  });
 
   // Override budget if specified
   if (options.budget) {
@@ -189,7 +198,10 @@ export async function updateCommand(
   }
 
   // Create orchestrator
-  const orchestrator = createUpdateOrchestrator(config, absolutePath);
+  const orchestrator = createUpdateOrchestrator(config, absolutePath, {
+    tracer,
+    debug: options.debug,
+  });
 
   try {
     // Prepare update plan
@@ -264,12 +276,6 @@ export async function updateCommand(
     // Determine concurrency
     const concurrency = options.concurrency ?? config.ai.concurrency;
 
-    // Create trace writer (no-op when --trace is not set)
-    const tracer = createTraceWriter(absolutePath, options.trace ?? false);
-    if (options.trace && tracer.filePath) {
-      console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
-    }
-
     // Enable subprocess output logging alongside tracing
     if (options.trace) {
       const logDir = path.join(
@@ -304,8 +310,30 @@ export async function updateCommand(
     // -------------------------------------------------------------------------
 
     if (plan.affectedDirs.length > 0) {
+      const phase2Start = Date.now();
+      let dirsCompleted = 0;
+      let dirsFailed = 0;
+
+      // Emit phase start
+      tracer.emit({
+        type: 'phase:start',
+        phase: 'update-phase-dir-regen',
+        taskCount: plan.affectedDirs.length,
+        concurrency: 1,
+      });
+
       const dirReporter = new ProgressReporter(plan.affectedDirs.length, quiet);
       for (const dir of plan.affectedDirs) {
+        const taskStart = Date.now();
+        const taskLabel = dir || '.';
+
+        // Emit task:start
+        tracer.emit({
+          type: 'task:start',
+          taskLabel,
+          phase: 'update-phase-dir-regen',
+        });
+
         const dirPath = dir === '.' ? absolutePath : path.join(absolutePath, dir);
         try {
           const prompt = await buildDirectoryPrompt(dirPath, absolutePath);
@@ -315,13 +343,47 @@ export async function updateCommand(
           });
           await writeAgentsMd(dirPath, absolutePath, response.text);
           dirReporter.onDirectoryDone(dir || '.');
+          dirsCompleted++;
+
+          // Emit task:done (success)
+          tracer.emit({
+            type: 'task:done',
+            workerId: 0,
+            taskIndex: dirsCompleted - 1,
+            taskLabel,
+            durationMs: Date.now() - taskStart,
+            success: true,
+            activeTasks: 0,
+          });
         } catch (error) {
+          dirsFailed++;
           const errorMsg = error instanceof Error ? error.message : String(error);
           if (!quiet) {
             console.log(`${pc.dim('[dir]')} ${pc.yellow('WARN')} ${dir || '.'}: ${errorMsg}`);
           }
+
+          // Emit task:done (failure)
+          tracer.emit({
+            type: 'task:done',
+            workerId: 0,
+            taskIndex: dirsCompleted + dirsFailed - 1,
+            taskLabel,
+            durationMs: Date.now() - taskStart,
+            success: false,
+            error: errorMsg,
+            activeTasks: 0,
+          });
         }
       }
+
+      // Emit phase end
+      tracer.emit({
+        type: 'phase:end',
+        phase: 'update-phase-dir-regen',
+        durationMs: Date.now() - phase2Start,
+        tasksCompleted: dirsCompleted,
+        tasksFailed: dirsFailed,
+      });
     }
 
     // -------------------------------------------------------------------------

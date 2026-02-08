@@ -6,7 +6,9 @@
  * filter excluded each file.
  */
 
+import pc from 'picocolors';
 import type { FileFilter, FilterResult, ExcludedFile } from '../types.js';
+import type { ITraceWriter } from '../../orchestration/trace.js';
 import { createGitignoreFilter } from './gitignore.js';
 import { createVendorFilter, DEFAULT_VENDOR_DIRS } from './vendor.js';
 import { createBinaryFilter, type BinaryFilterOptions } from './binary.js';
@@ -28,6 +30,7 @@ export { createCustomFilter } from './custom.js';
  *
  * @param files - Array of absolute file paths to filter
  * @param filters - Array of filters to apply in order
+ * @param options - Optional tracing and debug options
  * @returns Promise resolving to FilterResult with included and excluded lists
  *
  * @example
@@ -43,10 +46,17 @@ export { createCustomFilter } from './custom.js';
  */
 export async function applyFilters(
   files: string[],
-  filters: FileFilter[]
+  filters: FileFilter[],
+  options?: { tracer?: ITraceWriter; debug?: boolean }
 ): Promise<FilterResult> {
   const included: string[] = [];
   const excluded: ExcludedFile[] = [];
+
+  // Track exclusions per filter for trace events
+  const filterStats = new Map<string, { matched: number; rejected: number }>();
+  for (const filter of filters) {
+    filterStats.set(filter.name, { matched: 0, rejected: 0 });
+  }
 
   // Process files with bounded concurrency to avoid exhausting file descriptors.
   // Binary filter calls isBinaryFile() which does file I/O.
@@ -96,11 +106,41 @@ export async function applyFilters(
   // Sort by original index to preserve order
   allResults.sort((a, b) => a.index - b.index);
 
+  // Collect results and update filter stats
   for (const result of allResults) {
     if (result.excluded) {
       excluded.push(result.excluded);
+      const stats = filterStats.get(result.excluded.filter);
+      if (stats) {
+        stats.rejected++;
+      }
     } else {
       included.push(result.file);
+      // All filters "matched" (passed through) this file
+      for (const filter of filters) {
+        const stats = filterStats.get(filter.name);
+        if (stats) {
+          stats.matched++;
+        }
+      }
+    }
+  }
+
+  // Emit trace events for each filter
+  for (const filter of filters) {
+    const stats = filterStats.get(filter.name);
+    if (stats) {
+      options?.tracer?.emit({
+        type: 'filter:applied',
+        filterName: filter.name,
+        filesMatched: stats.matched,
+        filesRejected: stats.rejected,
+      });
+
+      // Debug output
+      if (options?.debug && stats.rejected > 0) {
+        console.error(pc.dim(`[debug] Filter [${filter.name}]: ${stats.rejected} files rejected`));
+      }
     }
   }
 

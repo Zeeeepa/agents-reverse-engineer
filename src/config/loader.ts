@@ -10,8 +10,10 @@ import { constants } from 'node:fs';
 import path from 'node:path';
 import { parse, stringify } from 'yaml';
 import { ZodError } from 'zod';
+import pc from 'picocolors';
 import { ConfigSchema, Config } from './schema.js';
 import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE } from './defaults.js';
+import type { ITraceWriter } from '../orchestration/trace.js';
 
 /** Directory name for agents-reverse-engineer configuration */
 export const CONFIG_DIR = '.agents-reverse-engineer';
@@ -40,6 +42,9 @@ export class ConfigError extends Error {
  * If the file exists but is invalid, throws a ConfigError with details.
  *
  * @param root - Root directory containing `.agents-reverse/` folder
+ * @param options - Optional configuration loading options
+ * @param options.tracer - Trace writer for emitting config:loaded events
+ * @param options.debug - Enable debug output for configuration loading
  * @returns Validated configuration object with all defaults applied
  * @throws ConfigError if the config file exists but is invalid
  *
@@ -49,15 +54,38 @@ export class ConfigError extends Error {
  * console.log(config.exclude.vendorDirs);
  * ```
  */
-export async function loadConfig(root: string): Promise<Config> {
+export async function loadConfig(
+  root: string,
+  options?: { tracer?: ITraceWriter; debug?: boolean }
+): Promise<Config> {
   const configPath = path.join(root, CONFIG_DIR, CONFIG_FILE);
+  let usingDefaults = false;
 
   try {
     const content = await readFile(configPath, 'utf-8');
     const raw = parse(content);
 
     try {
-      return ConfigSchema.parse(raw);
+      const config = ConfigSchema.parse(raw);
+
+      // Emit trace event
+      options?.tracer?.emit({
+        type: 'config:loaded',
+        configPath: path.relative(root, configPath),
+        model: config.ai.model,
+        concurrency: config.ai.concurrency,
+        budget: config.generation.tokenBudget,
+      });
+
+      // Debug output
+      if (options?.debug) {
+        console.error(pc.dim(`[debug] Config loaded from: ${path.relative(root, configPath)}`));
+        console.error(
+          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}, Budget: ${config.generation.tokenBudget}`)
+        );
+      }
+
+      return config;
     } catch (err) {
       if (err instanceof ZodError) {
         const issues = err.issues
@@ -74,7 +102,27 @@ export async function loadConfig(root: string): Promise<Config> {
   } catch (err) {
     // File not found - return defaults
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      return ConfigSchema.parse({});
+      usingDefaults = true;
+      const config = ConfigSchema.parse({});
+
+      // Emit trace event for defaults
+      options?.tracer?.emit({
+        type: 'config:loaded',
+        configPath: '(defaults)',
+        model: config.ai.model,
+        concurrency: config.ai.concurrency,
+        budget: config.generation.tokenBudget,
+      });
+
+      // Debug output
+      if (options?.debug) {
+        console.error(pc.dim(`[debug] Config file not found, using defaults`));
+        console.error(
+          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}, Budget: ${config.generation.tokenBudget}`)
+        );
+      }
+
+      return config;
     }
 
     // Re-throw ConfigError as-is
