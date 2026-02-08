@@ -16,6 +16,7 @@ import { initCommand } from './init.js';
 import { discoverCommand, type DiscoverOptions } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
+import { cleanCommand, type CleanOptions } from './clean.js';
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
 
 /**
@@ -44,6 +45,7 @@ Commands:
   discover [path]   Discover files to analyze (default: current directory)
   generate [path]   Generate documentation plan (default: current directory)
   update [path]     Update docs incrementally (default: current directory)
+  clean [path]      Delete all generated artifacts (.sum, AGENTS.md, etc.)
 
 Install/Uninstall Options:
   --runtime <name>  Runtime to target (claude, opencode, gemini, all)
@@ -257,6 +259,16 @@ async function main(): Promise<void> {
 
     case 'init': {
       await initCommand(positional[0] || '.');
+      break;
+    }
+
+    case 'clean': {
+      const cleanOpts: CleanOptions = {
+        quiet: flags.has('quiet'),
+        verbose: !flags.has('quiet'),
+        dryRun: flags.has('dry-run'),
+      };
+      await cleanCommand(positional[0] || '.', cleanOpts);
       break;
     }
 
