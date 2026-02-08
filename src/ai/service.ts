@@ -17,6 +17,7 @@ import { writeRunLog } from './telemetry/run-log.js';
 import { cleanupOldLogs } from './telemetry/cleanup.js';
 import { estimateCost } from './pricing.js';
 import type { ModelPricing } from './pricing.js';
+import type { ITraceWriter } from '../orchestration/trace.js';
 
 // ---------------------------------------------------------------------------
 // Rate-limit detection patterns
@@ -112,6 +113,9 @@ export class AIService {
   /** Set of model IDs for which an unknown-pricing warning has already been emitted */
   private readonly warnedModels = new Set<string>();
 
+  /** Trace writer for concurrency debugging (may be no-op) */
+  private tracer: ITraceWriter | null = null;
+
   /**
    * Create a new AI service instance.
    *
@@ -122,6 +126,15 @@ export class AIService {
     this.backend = backend;
     this.options = options;
     this.logger = new TelemetryLogger(new Date().toISOString());
+  }
+
+  /**
+   * Set the trace writer for subprocess and retry event tracing.
+   *
+   * @param tracer - The trace writer instance
+   */
+  setTracer(tracer: ITraceWriter): void {
+    this.tracer = tracer;
   }
 
   /**
@@ -144,6 +157,7 @@ export class AIService {
     this.callCount++;
     const callStart = Date.now();
     const timestamp = new Date().toISOString();
+    const taskLabel = options.taskLabel ?? 'unknown';
 
     const args = this.backend.buildArgs(options);
     const timeoutMs = options.timeoutMs ?? this.options.timeoutMs;
@@ -157,6 +171,26 @@ export class AIService {
             timeoutMs,
             input: options.prompt,
           });
+
+          // Emit subprocess lifecycle trace events
+          if (this.tracer && result.childPid !== undefined) {
+            this.tracer.emit({
+              type: 'subprocess:spawn',
+              childPid: result.childPid,
+              command: this.backend.cliCommand,
+              taskLabel,
+            });
+            this.tracer.emit({
+              type: 'subprocess:exit',
+              childPid: result.childPid,
+              command: this.backend.cliCommand,
+              taskLabel,
+              exitCode: result.exitCode,
+              signal: result.signal,
+              durationMs: result.durationMs,
+              timedOut: result.timedOut,
+            });
+          }
 
           if (result.timedOut) {
             throw new AIServiceError('TIMEOUT', 'Subprocess timed out');
@@ -195,8 +229,19 @@ export class AIService {
               (error.code === 'RATE_LIMIT' || error.code === 'TIMEOUT')
             );
           },
-          onRetry: (_attempt: number, _error: unknown) => {
+          onRetry: (attempt: number, error: unknown) => {
             retryCount++;
+
+            // Emit retry trace event
+            if (this.tracer) {
+              const errorCode = error instanceof AIServiceError ? error.code : 'UNKNOWN';
+              this.tracer.emit({
+                type: 'retry',
+                attempt,
+                taskLabel,
+                errorCode,
+              });
+            }
           },
         },
       );

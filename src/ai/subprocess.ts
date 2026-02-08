@@ -88,6 +88,7 @@ export function runSubprocess(
           signal: (error !== null && 'signal' in error ? error.signal as string : null) ?? null,
           durationMs,
           timedOut,
+          childPid: child.pid,
         });
       },
     );

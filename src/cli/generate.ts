@@ -33,7 +33,7 @@ import {
   resolveBackend,
   getInstallInstructions,
 } from '../ai/index.js';
-import { CommandRunner } from '../orchestration/index.js';
+import { CommandRunner, createTraceWriter, cleanupOldTraces } from '../orchestration/index.js';
 
 /**
  * Options for the generate command.
@@ -53,6 +53,8 @@ export interface GenerateOptions {
   failFast?: boolean;
   /** Show AI prompts and backend details */
   debug?: boolean;
+  /** Enable concurrency tracing to .agents-reverse-engineer/traces/ */
+  trace?: boolean;
   /** @deprecated Execute mode - output JSON for AI agent execution */
   execute?: boolean;
   /** @deprecated Stream mode - output tasks one per line */
@@ -307,12 +309,19 @@ export async function generateCommand(
   // Determine concurrency
   const concurrency = options.concurrency ?? config.ai.concurrency;
 
+  // Create trace writer (no-op when --trace is not set)
+  const tracer = createTraceWriter(absolutePath, options.trace ?? false);
+  if (options.trace && tracer.filePath) {
+    console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
+  }
+
   // Create command runner
   const runner = new CommandRunner(aiService, {
     concurrency,
     failFast: options.failFast,
     quiet: options.quiet,
     debug: options.debug,
+    tracer,
   });
 
   // Execute the three-phase pipeline
@@ -320,6 +329,12 @@ export async function generateCommand(
 
   // Write telemetry run log
   await aiService.finalize(absolutePath);
+
+  // Finalize trace and clean up old trace files
+  await tracer.finalize();
+  if (options.trace) {
+    await cleanupOldTraces(absolutePath);
+  }
 
   // Determine exit code from RunSummary
   //   0: all files succeeded

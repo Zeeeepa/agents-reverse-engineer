@@ -51,6 +51,13 @@ export { ProgressReporter } from './progress.js';
 export { PlanTracker } from './plan-tracker.js';
 
 // ---------------------------------------------------------------------------
+// Tracing
+// ---------------------------------------------------------------------------
+
+export type { ITraceWriter, TraceEvent, TraceEventPayload } from './trace.js';
+export { createTraceWriter, cleanupOldTraces } from './trace.js';
+
+// ---------------------------------------------------------------------------
 // Command runner
 // ---------------------------------------------------------------------------
 

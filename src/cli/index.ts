@@ -61,6 +61,7 @@ General Options:
   --concurrency <n> Number of concurrent AI calls (default: 5)
   --fail-fast       Stop on first file analysis failure
   --debug           Show AI prompts and backend details
+  --trace           Enable concurrency tracing (.agents-reverse-engineer/traces/)
   --execute         [deprecated] Output JSON execution plan (generate)
   --stream          [deprecated] Output tasks as streaming JSON (generate)
   --uncommitted     Include uncommitted changes (update only)
@@ -283,6 +284,7 @@ async function main(): Promise<void> {
         concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),
+        trace: flags.has('trace'),
         execute: flags.has('execute'),
         stream: flags.has('stream'),
       };
@@ -300,6 +302,7 @@ async function main(): Promise<void> {
         concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),
+        trace: flags.has('trace'),
       };
       await updateCommand(positional[0] || '.', options);
       break;

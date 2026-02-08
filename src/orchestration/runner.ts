@@ -36,6 +36,7 @@ import { formatExecutionPlanAsMarkdown } from '../generation/executor.js';
 import { runPool } from './pool.js';
 import { PlanTracker } from './plan-tracker.js';
 import { ProgressReporter } from './progress.js';
+import type { ITraceWriter } from './trace.js';
 import type {
   FileTaskResult,
   RunSummary,
@@ -72,6 +73,9 @@ export class CommandRunner {
   /** Command execution options */
   private readonly options: CommandRunOptions;
 
+  /** Trace writer for concurrency debugging */
+  private readonly tracer: ITraceWriter | undefined;
+
   /**
    * Create a new command runner.
    *
@@ -81,6 +85,12 @@ export class CommandRunner {
   constructor(aiService: AIService, options: CommandRunOptions) {
     this.aiService = aiService;
     this.options = options;
+    this.tracer = options.tracer;
+
+    // Wire the tracer into the AI service for subprocess/retry events
+    if (this.tracer) {
+      this.aiService.setTracer(this.tracer);
+    }
   }
 
   /**
@@ -116,6 +126,14 @@ export class CommandRunner {
     // Throttled to avoid opening too many file descriptors at once.
     // -------------------------------------------------------------------
 
+    const prePhase1Start = Date.now();
+    this.tracer?.emit({
+      type: 'phase:start',
+      phase: 'pre-phase-1-cache',
+      taskCount: plan.fileTasks.length,
+      concurrency: 20,
+    });
+
     const oldSumCache = new Map<string, SumFileContent>();
     const sumReadTasks = plan.fileTasks.map(
       (task) => async () => {
@@ -129,11 +147,32 @@ export class CommandRunner {
         }
       },
     );
-    await runPool(sumReadTasks, { concurrency: 20 });
+    await runPool(sumReadTasks, {
+      concurrency: 20,
+      tracer: this.tracer,
+      phaseLabel: 'pre-phase-1-cache',
+      taskLabels: plan.fileTasks.map(t => t.path),
+    });
+
+    this.tracer?.emit({
+      type: 'phase:end',
+      phase: 'pre-phase-1-cache',
+      durationMs: Date.now() - prePhase1Start,
+      tasksCompleted: plan.fileTasks.length,
+      tasksFailed: 0,
+    });
 
     // -------------------------------------------------------------------
     // Phase 1: File analysis (concurrent)
     // -------------------------------------------------------------------
+
+    const phase1Start = Date.now();
+    this.tracer?.emit({
+      type: 'phase:start',
+      phase: 'phase-1-files',
+      taskCount: plan.fileTasks.length,
+      concurrency: this.options.concurrency,
+    });
 
     // Cache source content during Phase 1, reused for inconsistency detection
     const sourceContentCache = new Map<string, string>();
@@ -152,6 +191,7 @@ export class CommandRunner {
         const response: AIResponse = await this.aiService.call({
           prompt: task.userPrompt,
           systemPrompt: task.systemPrompt,
+          taskLabel: task.path,
         });
 
         // Track file size for telemetry (from in-memory content, avoids stat syscall)
@@ -198,6 +238,9 @@ export class CommandRunner {
       {
         concurrency: this.options.concurrency,
         failFast: this.options.failFast,
+        tracer: this.tracer,
+        phaseLabel: 'phase-1-files',
+        taskLabels: plan.fileTasks.map(t => t.path),
       },
       (result) => {
         if (result.success && result.value) {
@@ -213,6 +256,14 @@ export class CommandRunner {
         }
       },
     );
+
+    this.tracer?.emit({
+      type: 'phase:end',
+      phase: 'phase-1-files',
+      durationMs: Date.now() - phase1Start,
+      tasksCompleted: filesProcessed,
+      tasksFailed: filesFailed,
+    });
 
     // -------------------------------------------------------------------
     // Post-Phase 1: Inconsistency detection (non-throwing)
@@ -248,6 +299,14 @@ export class CommandRunner {
 
       // Run checks per directory group (throttled to avoid excessive parallel I/O)
       const dirEntries = Array.from(dirGroups.entries());
+
+      this.tracer?.emit({
+        type: 'phase:start',
+        phase: 'post-phase-1-quality',
+        taskCount: dirEntries.length,
+        concurrency: 10,
+      });
+
       const dirCheckResults: Inconsistency[][] = [];
       const dirCheckTasks = dirEntries.map(
         ([, groupPaths], groupIndex) => async () => {
@@ -301,7 +360,20 @@ export class CommandRunner {
           dirCheckResults[groupIndex] = dirIssues;
         },
       );
-      await runPool(dirCheckTasks, { concurrency: 10 });
+      await runPool(dirCheckTasks, {
+        concurrency: 10,
+        tracer: this.tracer,
+        phaseLabel: 'post-phase-1-quality',
+        taskLabels: dirEntries.map(([dirPath]) => dirPath),
+      });
+
+      this.tracer?.emit({
+        type: 'phase:end',
+        phase: 'post-phase-1-quality',
+        durationMs: Date.now() - inconsistencyStart,
+        tasksCompleted: dirEntries.length,
+        tasksFailed: 0,
+      });
 
       const allIssuesFlat = dirCheckResults.filter(Boolean).flat();
       allIssues.push(...allIssuesFlat);
@@ -349,6 +421,16 @@ export class CommandRunner {
 
     for (const depth of depthLevels) {
       const dirsAtDepth = dirsByDepth.get(depth)!;
+      const phaseLabel = `phase-2-dirs-depth-${depth}`;
+      const dirConcurrency = Math.min(this.options.concurrency, dirsAtDepth.length);
+
+      const phase2Start = Date.now();
+      this.tracer?.emit({
+        type: 'phase:start',
+        phase: phaseLabel,
+        taskCount: dirsAtDepth.length,
+        concurrency: dirConcurrency,
+      });
 
       const dirTasks = dirsAtDepth.map(
         (dirTask) => async () => {
@@ -356,6 +438,7 @@ export class CommandRunner {
           const dirResponse: AIResponse = await this.aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,
+            taskLabel: `${dirTask.path}/AGENTS.md`,
           });
           await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
           reporter.onDirectoryDone(dirTask.path);
@@ -364,8 +447,19 @@ export class CommandRunner {
       );
 
       await runPool(dirTasks, {
-        concurrency: Math.min(this.options.concurrency, dirsAtDepth.length),
+        concurrency: dirConcurrency,
         failFast: this.options.failFast,
+        tracer: this.tracer,
+        phaseLabel,
+        taskLabels: dirsAtDepth.map(t => t.path),
+      });
+
+      this.tracer?.emit({
+        type: 'phase:end',
+        phase: phaseLabel,
+        durationMs: Date.now() - phase2Start,
+        tasksCompleted: dirsAtDepth.length,
+        tasksFailed: 0,
       });
     }
 
@@ -373,16 +467,35 @@ export class CommandRunner {
     // Phase 3: Root documents (sequential)
     // -------------------------------------------------------------------
 
+    const phase3Start = Date.now();
+    this.tracer?.emit({
+      type: 'phase:start',
+      phase: 'phase-3-root',
+      taskCount: plan.rootTasks.length,
+      concurrency: 1,
+    });
+
+    let rootTasksCompleted = 0;
     for (const rootTask of plan.rootTasks) {
       const response = await this.aiService.call({
         prompt: rootTask.userPrompt,
         systemPrompt: rootTask.systemPrompt,
+        taskLabel: rootTask.path,
       });
 
       await writeFile(rootTask.outputPath, response.text, 'utf-8');
       reporter.onRootDone(rootTask.path);
       planTracker.markDone(rootTask.path);
+      rootTasksCompleted++;
     }
+
+    this.tracer?.emit({
+      type: 'phase:end',
+      phase: 'phase-3-root',
+      durationMs: Date.now() - phase3Start,
+      tasksCompleted: rootTasksCompleted,
+      tasksFailed: 0,
+    });
 
     // Ensure all plan tracker writes are flushed
     await planTracker.flush();
@@ -444,6 +557,18 @@ export class CommandRunner {
     let filesProcessed = 0;
     let filesFailed = 0;
 
+    // -------------------------------------------------------------------
+    // Phase 1: File analysis (concurrent)
+    // -------------------------------------------------------------------
+
+    const phase1Start = Date.now();
+    this.tracer?.emit({
+      type: 'phase:start',
+      phase: 'update-phase-1-files',
+      taskCount: filesToAnalyze.length,
+      concurrency: this.options.concurrency,
+    });
+
     // Cache source content during update, reused for inconsistency detection
     const updateSourceCache = new Map<string, string>();
 
@@ -470,6 +595,7 @@ export class CommandRunner {
         const response: AIResponse = await this.aiService.call({
           prompt: prompt.user,
           systemPrompt: prompt.system,
+          taskLabel: file.path,
         });
 
         // Track file size for telemetry (from in-memory content, avoids stat syscall)
@@ -516,6 +642,9 @@ export class CommandRunner {
       {
         concurrency: this.options.concurrency,
         failFast: this.options.failFast,
+        tracer: this.tracer,
+        phaseLabel: 'update-phase-1-files',
+        taskLabels: filesToAnalyze.map(f => f.path),
       },
       (result) => {
         if (result.success && result.value) {
@@ -530,6 +659,14 @@ export class CommandRunner {
         }
       },
     );
+
+    this.tracer?.emit({
+      type: 'phase:end',
+      phase: 'update-phase-1-files',
+      durationMs: Date.now() - phase1Start,
+      tasksCompleted: filesProcessed,
+      tasksFailed: filesFailed,
+    });
 
     // -------------------------------------------------------------------
     // Post-analysis: Inconsistency detection (non-throwing)
@@ -565,6 +702,14 @@ export class CommandRunner {
 
       // Run checks per directory group (throttled to avoid excessive parallel I/O)
       const updateDirEntries = Array.from(dirGroups.entries());
+
+      this.tracer?.emit({
+        type: 'phase:start',
+        phase: 'update-post-phase-1-quality',
+        taskCount: updateDirEntries.length,
+        concurrency: 10,
+      });
+
       const updateDirResults: Inconsistency[][] = [];
       const updateDirCheckTasks = updateDirEntries.map(
         ([, groupPaths], groupIndex) => async () => {
@@ -607,7 +752,20 @@ export class CommandRunner {
           updateDirResults[groupIndex] = dirIssues;
         },
       );
-      await runPool(updateDirCheckTasks, { concurrency: 10 });
+      await runPool(updateDirCheckTasks, {
+        concurrency: 10,
+        tracer: this.tracer,
+        phaseLabel: 'update-post-phase-1-quality',
+        taskLabels: updateDirEntries.map(([dirPath]) => dirPath),
+      });
+
+      this.tracer?.emit({
+        type: 'phase:end',
+        phase: 'update-post-phase-1-quality',
+        durationMs: Date.now() - inconsistencyStart,
+        tasksCompleted: updateDirEntries.length,
+        tasksFailed: 0,
+      });
 
       const allIssuesFlat = updateDirResults.filter(Boolean).flat();
       allIssues.push(...allIssuesFlat);

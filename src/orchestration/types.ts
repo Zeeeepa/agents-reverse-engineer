@@ -9,6 +9,7 @@
  */
 
 import type { InconsistencyReport } from '../quality/index.js';
+import type { ITraceWriter } from './trace.js';
 
 // ---------------------------------------------------------------------------
 // File task result
@@ -140,4 +141,6 @@ export interface CommandRunOptions {
   dryRun?: boolean;
   /** Cost threshold in USD for warning when exceeded */
   costThresholdUsd?: number;
+  /** Trace writer for concurrency debugging (no-op when tracing is off) */
+  tracer?: ITraceWriter;
 }

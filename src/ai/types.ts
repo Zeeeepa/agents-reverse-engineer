@@ -29,6 +29,8 @@ export interface SubprocessResult {
   durationMs: number;
   /** Whether the process was killed because it exceeded its timeout */
   timedOut: boolean;
+  /** OS PID of the child process (undefined if spawn failed) */
+  childPid?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +53,8 @@ export interface AICallOptions {
   timeoutMs?: number;
   /** Maximum number of agentic turns (backend-specific) */
   maxTurns?: number;
+  /** Label for tracing (e.g., file path being processed) */
+  taskLabel?: string;
 }
 
 /**

@@ -23,7 +23,7 @@ import {
   resolveBackend,
   getInstallInstructions,
 } from '../ai/index.js';
-import { CommandRunner, ProgressReporter } from '../orchestration/index.js';
+import { CommandRunner, ProgressReporter, createTraceWriter, cleanupOldTraces } from '../orchestration/index.js';
 
 /**
  * Options for the update command.
@@ -45,6 +45,8 @@ export interface UpdateCommandOptions {
   failFast?: boolean;
   /** Show AI prompts and backend details */
   debug?: boolean;
+  /** Enable concurrency tracing to .agents-reverse-engineer/traces/ */
+  trace?: boolean;
 }
 
 /**
@@ -258,12 +260,19 @@ export async function updateCommand(
     // Determine concurrency
     const concurrency = options.concurrency ?? config.ai.concurrency;
 
+    // Create trace writer (no-op when --trace is not set)
+    const tracer = createTraceWriter(absolutePath, options.trace ?? false);
+    if (options.trace && tracer.filePath) {
+      console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
+    }
+
     // Create command runner
     const runner = new CommandRunner(aiService, {
       concurrency,
       failFast: options.failFast,
       quiet: options.quiet,
       debug: options.debug,
+      tracer,
     });
 
     // -------------------------------------------------------------------------
@@ -306,6 +315,12 @@ export async function updateCommand(
     // -------------------------------------------------------------------------
 
     await aiService.finalize(absolutePath);
+
+    // Finalize trace and clean up old trace files
+    await tracer.finalize();
+    if (options.trace) {
+      await cleanupOldTraces(absolutePath);
+    }
 
     // -------------------------------------------------------------------------
     // Record run state (no-op in frontmatter mode, kept for API compatibility)

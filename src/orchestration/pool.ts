@@ -11,6 +11,8 @@
  * @module
  */
 
+import type { ITraceWriter } from './trace.js';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -23,6 +25,12 @@ export interface PoolOptions {
   concurrency: number;
   /** Stop pulling new tasks on first error */
   failFast?: boolean;
+  /** Trace writer for concurrency debugging (no-op when tracing is off) */
+  tracer?: ITraceWriter;
+  /** Phase label for trace events (e.g., 'phase-1-files') */
+  phaseLabel?: string;
+  /** Labels for each task by index (e.g., file paths). Used in trace events. */
+  taskLabels?: string[];
 }
 
 /**
@@ -56,7 +64,7 @@ export interface TaskResult<T> {
  *
  * @typeParam T - The resolved type of each task
  * @param tasks - Array of zero-argument async functions to execute
- * @param options - Pool configuration (concurrency, failFast)
+ * @param options - Pool configuration (concurrency, failFast, tracing)
  * @param onComplete - Optional callback invoked after each task settles
  * @returns Array of results indexed by original task position (may be sparse if aborted)
  *
@@ -80,22 +88,74 @@ export async function runPool<T>(
     return results;
   }
 
+  const tracer = options.tracer;
+  const phase = options.phaseLabel ?? 'unknown';
+  const taskLabels = options.taskLabels;
+
   // Shared abort flag -- workers check before pulling next task
   let aborted = false;
 
+  // Active task counter for trace snapshots
+  let activeTasks = 0;
+
   async function worker(
     iterator: IterableIterator<[number, () => Promise<T>]>,
+    workerId: number,
   ): Promise<void> {
+    let tasksExecuted = 0;
+
+    tracer?.emit({ type: 'worker:start', workerId, phase });
+
     for (const [index, task] of iterator) {
       if (aborted) break;
 
+      activeTasks++;
+      const taskStart = Date.now();
+      const label = taskLabels?.[index] ?? `task-${index}`;
+
+      tracer?.emit({
+        type: 'task:pickup',
+        workerId,
+        taskIndex: index,
+        taskLabel: label,
+        activeTasks,
+      });
+
       try {
         const value = await task();
+        activeTasks--;
+        tasksExecuted++;
+
+        tracer?.emit({
+          type: 'task:done',
+          workerId,
+          taskIndex: index,
+          taskLabel: label,
+          durationMs: Date.now() - taskStart,
+          success: true,
+          activeTasks,
+        });
+
         const result: TaskResult<T> = { index, success: true, value };
         results[index] = result;
         onComplete?.(result);
       } catch (err) {
+        activeTasks--;
+        tasksExecuted++;
+
         const error = err instanceof Error ? err : new Error(String(err));
+
+        tracer?.emit({
+          type: 'task:done',
+          workerId,
+          taskIndex: index,
+          taskLabel: label,
+          durationMs: Date.now() - taskStart,
+          success: false,
+          error: error.message,
+          activeTasks,
+        });
+
         const result: TaskResult<T> = { index, success: false, error };
         results[index] = result;
         onComplete?.(result);
@@ -106,13 +166,15 @@ export async function runPool<T>(
         }
       }
     }
+
+    tracer?.emit({ type: 'worker:end', workerId, phase, tasksExecuted });
   }
 
   // Spawn workers, capped at the number of available tasks
   const effectiveConcurrency = Math.min(options.concurrency, tasks.length);
   const iterator = tasks.entries();
-  const workers = Array.from({ length: effectiveConcurrency }, () =>
-    worker(iterator),
+  const workers = Array.from({ length: effectiveConcurrency }, (_, workerId) =>
+    worker(iterator, workerId),
   );
 
   await Promise.allSettled(workers);
