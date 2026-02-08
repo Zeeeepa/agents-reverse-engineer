@@ -68,14 +68,14 @@ export function detectFramework(content: string): string {
 /**
  * Build a complete prompt for file analysis.
  */
-export function buildPrompt(context: PromptContext): {
+export function buildFilePrompt(context: PromptContext): {
   system: string;
   user: string;
 } {
   const template = getTemplate(context.fileType);
   const lang = detectLanguage(context.filePath);
   const framework = detectFramework(context.content);
-  logTemplate('buildPrompt', context.filePath, context.fileType, `lang=${lang} framework=${framework}`);
+  logTemplate('buildFilePrompt', context.filePath, context.fileType, `lang=${lang} framework=${framework}`);
 
   let userPrompt = template.userPrompt
     .replace(/\{\{FILE_PATH\}\}/g, context.filePath)
@@ -143,7 +143,8 @@ export async function buildDirectoryPrompt(
         const childContent = await readFile(childAgentsPath, 'utf-8');
         return `### ${entry.name}/\n${childContent}`;
       } catch {
-        return `### ${entry.name}/\n(no AGENTS.md yet)`;
+        // It should not happen, throw an error
+        throw new Error(`Failed to read child AGENTS.md: ${childAgentsPath}`);
       }
     }),
   );

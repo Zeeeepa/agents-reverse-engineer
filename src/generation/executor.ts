@@ -104,8 +104,8 @@ export function buildExecutionPlan(
         type: 'file',
         path: task.filePath,
         absolutePath,
-        systemPrompt: task.systemPrompt,
-        userPrompt: task.userPrompt,
+        systemPrompt: task.systemPrompt!,
+        userPrompt: task.userPrompt!,
         dependencies: [],
         outputPath: `${absolutePath}.sum`,
         metadata: {

@@ -5,7 +5,7 @@ export type {
 export { SUMMARY_GUIDELINES } from './types.js';
 export { TEMPLATES, getTemplate } from './templates.js';
 export {
-  buildPrompt,
+  buildFilePrompt,
   buildDirectoryPrompt,
   detectLanguage,
   detectFramework,

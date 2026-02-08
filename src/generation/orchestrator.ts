@@ -4,8 +4,8 @@
  * Coordinates the documentation generation workflow:
  * - Discovers and prepares files for analysis
  * - Detects file types
- * - Creates analysis tasks with prompts
- * - Creates directory-summary tasks for LLM-generated descriptions
+ * - Creates file analysis tasks with prompts
+ * - Creates directory tasks for LLM-generated descriptions
  */
 
 import { readFile } from 'node:fs/promises';
@@ -15,7 +15,7 @@ import type { Config } from '../config/schema.js';
 import type { DiscoveryResult } from '../types/index.js';
 import { detectFileType } from './detection/detector.js';
 import type { FileType } from './types.js';
-import { buildPrompt } from './prompts/index.js';
+import { buildFilePrompt } from './prompts/index.js';
 import { analyzeComplexity } from './complexity.js';
 import type { ComplexityMetrics } from './complexity.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
@@ -39,14 +39,14 @@ export interface PreparedFile {
  */
 export interface AnalysisTask {
   /** Type of task */
-  type: 'file' | 'directory-summary';
+  type: 'file' | 'directory';
   /** File or directory path */
   filePath: string;
-  /** System prompt */
-  systemPrompt: string;
-  /** User prompt */
-  userPrompt: string;
-  /** Directory info for directory-summary tasks */
+  /** System prompt (set for file tasks; directory prompts built at execution time) */
+  systemPrompt?: string;
+  /** User prompt (set for file tasks; directory prompts built at execution time) */
+  userPrompt?: string;
+  /** Directory info for directory tasks */
   directoryInfo?: {
     /** Paths of .sum files in this directory */
     sumFiles: string[];
@@ -79,7 +79,6 @@ export class GenerationOrchestrator {
   constructor(
     config: Config,
     projectRoot: string,
-    _totalFiles: number,
     options?: { tracer?: ITraceWriter; debug?: boolean }
   ) {
     this.config = config;
@@ -119,11 +118,11 @@ export class GenerationOrchestrator {
   /**
    * Create analysis tasks for all files.
    */
-  createTasks(files: PreparedFile[]): AnalysisTask[] {
+  createFileTasks(files: PreparedFile[]): AnalysisTask[] {
     const tasks: AnalysisTask[] = [];
 
     for (const file of files) {
-      const prompt = buildPrompt({
+      const prompt = buildFilePrompt({
         filePath: file.filePath,
         content: file.content,
         fileType: file.fileType,
@@ -141,11 +140,12 @@ export class GenerationOrchestrator {
   }
 
   /**
-   * Create directory-summary tasks for LLM-generated directory descriptions.
+   * Create directory tasks for LLM-generated directory descriptions.
    * These tasks run after all files in a directory are analyzed, allowing
    * the LLM to synthesize a richer directory overview from the .sum files.
+   * Prompts are built at execution time by buildDirectoryPrompt().
    */
-  createDirectorySummaryTasks(files: PreparedFile[]): AnalysisTask[] {
+  createDirectoryTasks(files: PreparedFile[]): AnalysisTask[] {
     const tasks: AnalysisTask[] = [];
 
     // Group files by directory
@@ -157,22 +157,13 @@ export class GenerationOrchestrator {
       filesByDir.set(dir, dirFiles);
     }
 
-    // Create a directory-summary task for each directory with analyzed files
+    // Create a directory task for each directory with analyzed files
     for (const [dir, dirFiles] of Array.from(filesByDir.entries())) {
       const sumFilePaths = dirFiles.map(f => `${f.relativePath}.sum`);
 
       tasks.push({
-        type: 'directory-summary',
+        type: 'directory',
         filePath: dir || '.',
-        systemPrompt: `You are generating a directory description for documentation.
-Analyze the provided .sum file contents to create a concise, informative directory overview.
-Focus on:
-1. The primary purpose of this directory
-2. How the files work together
-3. Key patterns or conventions used
-Keep the description to 1-3 sentences.`,
-        userPrompt: `Generate a directory description for "${dir || 'root'}" based on ${dirFiles.length} analyzed files.
-The .sum files contain individual file summaries - synthesize them into a cohesive directory overview.`,
         directoryInfo: {
           sumFiles: sumFilePaths,
           fileCount: dirFiles.length,
@@ -213,15 +204,14 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
     );
 
     if (this.debug) {
-      const patterns = complexity.architecturalPatterns.length > 0 ? complexity.architecturalPatterns.join(', ') : 'none';
-      console.error(pc.dim(`[debug] Complexity analysis: ${patterns}, depth=${complexity.directoryDepth}`));
+      console.error(pc.dim(`[debug] Complexity analysis: depth=${complexity.directoryDepth}`));
     }
 
-    const fileTasks = this.createTasks(files);
+    const fileTasks = this.createFileTasks(files);
 
-    // Add directory-summary tasks for LLM-generated directory descriptions
+    // Add directory tasks for LLM-generated directory descriptions
     // These run after file analysis to synthesize richer directory overviews
-    const dirTasks = this.createDirectorySummaryTasks(files);
+    const dirTasks = this.createDirectoryTasks(files);
     const tasks = [...fileTasks, ...dirTasks];
 
     if (this.debug) {
@@ -233,7 +223,7 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
     }
 
     // Release file content from PreparedFile objects to free memory.
-    // Content has already been embedded into task prompts by createTasks()
+    // Content has already been embedded into task prompts by createFileTasks()
     // and is no longer needed. The runner re-reads files from disk.
     for (const file of files) {
       (file as { content: string }).content = '';
@@ -274,8 +264,7 @@ The .sum files contain individual file summaries - synthesize them into a cohesi
 export function createOrchestrator(
   config: Config,
   projectRoot: string,
-  totalFiles: number,
   options?: { tracer?: ITraceWriter; debug?: boolean }
 ): GenerationOrchestrator {
-  return new GenerationOrchestrator(config, projectRoot, totalFiles, options);
+  return new GenerationOrchestrator(config, projectRoot, options);
 }

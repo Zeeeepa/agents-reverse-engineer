@@ -23,7 +23,7 @@ import { writeAgentsMd } from '../generation/writers/agents-md.js';
 import { computeContentHashFromString } from '../change-detection/index.js';
 import type { FileChange } from '../change-detection/types.js';
 import { detectFileType } from '../generation/detection/detector.js';
-import { buildPrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
+import { buildFilePrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
 import {
   checkCodeVsDoc,
@@ -611,7 +611,7 @@ export class CommandRunner {
 
         // Detect file type and build prompt
         const fileType = detectFileType(file.path, sourceContent);
-        const prompt = buildPrompt({
+        const prompt = buildFilePrompt({
           filePath: file.path,
           content: sourceContent,
           fileType,

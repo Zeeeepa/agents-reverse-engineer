@@ -89,9 +89,6 @@ function formatPlan(plan: GenerationPlan): string {
   lines.push('Complexity:');
   lines.push(`  Files: ${plan.complexity.fileCount}`);
   lines.push(`  Directory depth: ${plan.complexity.directoryDepth}`);
-  if (plan.complexity.architecturalPatterns.length > 0) {
-    lines.push(`  Patterns: ${plan.complexity.architecturalPatterns.join(', ')}`);
-  }
   lines.push('');
 
   return lines.join('\n');
@@ -167,7 +164,6 @@ export async function generateCommand(
   const orchestrator = createOrchestrator(
     config,
     absolutePath,
-    discoveryResult.files.length,
     { tracer, debug: options.debug }
   );
   const plan = await orchestrator.createPlan(discoveryResult);

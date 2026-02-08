@@ -167,7 +167,7 @@ export async function discoverCommand(
     };
 
     // Create orchestrator and build generation plan
-    const orchestrator = createOrchestrator(config, resolvedPath, discoveryResult.files.length);
+    const orchestrator = createOrchestrator(config, resolvedPath);
     const generationPlan = await orchestrator.createPlan(discoveryResult);
 
     // Build execution plan with post-order traversal
