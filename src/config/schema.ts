@@ -82,7 +82,7 @@ const AISchema = z.object({
   /** Model identifier (backend-specific, e.g., "sonnet", "opus") */
   model: z.string().default('sonnet'),
   /** Default subprocess timeout in milliseconds */
-  timeoutMs: z.number().positive().default(120_000),
+  timeoutMs: z.number().positive().default(300_000),
   /** Maximum number of retries for transient errors */
   maxRetries: z.number().min(0).default(3),
   /** Default parallelism for concurrent AI calls (1-20). Lower values recommended for resource-constrained environments. */
@@ -90,7 +90,7 @@ const AISchema = z.object({
   /** Telemetry settings */
   telemetry: z.object({
     /** Number of most recent run logs to keep on disk */
-    keepRuns: z.number().min(0).default(10),
+    keepRuns: z.number().min(0).default(50),
     /** Optional cost threshold in USD. Warn when exceeded. */
     costThresholdUsd: z.number().min(0).optional(),
   }).default({}),

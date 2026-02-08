@@ -184,10 +184,12 @@ export async function writeDefaultConfig(root: string): Promise<void> {
   await mkdir(configDir, { recursive: true });
 
   // Generate config content with comments
-  const configContent = `# agents-reverse configuration
-# https://github.com/GeoloeG-IsT/agents-reverse
+  const configContent = `# agents-reverse-engineer configuration
+# See: https://github.com/your-org/agents-reverse-engineer
 
-# Exclusion rules for files and directories
+# ============================================================================
+# FILE & DIRECTORY EXCLUSIONS
+# ============================================================================
 exclude:
   # Custom glob patterns to exclude (e.g., ["*.log", "temp/**"])
   patterns: []
@@ -202,7 +204,9 @@ ${DEFAULT_VENDOR_DIRS.map((dir) => `    - ${dir}`).join('\n')}
   binaryExtensions:
 ${DEFAULT_BINARY_EXTENSIONS.map((ext) => `    - ${ext}`).join('\n')}
 
-# Discovery options
+# ============================================================================
+# DISCOVERY OPTIONS
+# ============================================================================
 options:
   # Whether to follow symbolic links during traversal
   followSymlinks: false
@@ -211,13 +215,86 @@ options:
   # Default: ${DEFAULT_MAX_FILE_SIZE} (1MB)
   maxFileSize: ${DEFAULT_MAX_FILE_SIZE}
 
-# Output formatting options
+# ============================================================================
+# OUTPUT FORMATTING
+# ============================================================================
 output:
   # Whether to use colors in terminal output
   colors: true
 
   # Whether to show verbose output (each file as processed)
   verbose: true
+
+# ============================================================================
+# DOCUMENTATION GENERATION
+# ============================================================================
+generation:
+  # Token budget for entire project (files analyzed until budget exhausted)
+  # Default: 100,000 tokens
+  tokenBudget: 100000
+
+  # Chunk size for large files in tokens
+  # Files larger than this are split into chunks
+  # Default: 3000 tokens
+  chunkSize: 3000
+
+  # Root documents (generated at project root)
+  generateArchitecture: true   # ARCHITECTURE.md - system design overview
+  generateStack: true          # STACK.md - technology stack from package manifests
+
+  # Supplementary docs (generated per package root)
+  generateStructure: true      # STRUCTURE.md - codebase organization
+  generateConventions: true    # CONVENTIONS.md - coding patterns and style
+  generateTesting: true        # TESTING.md - testing approach and coverage
+  generateIntegrations: true   # INTEGRATIONS.md - external services and APIs
+  generateConcerns: true       # CONCERNS.md - technical debt and issues
+
+# ============================================================================
+# AI SERVICE CONFIGURATION
+# ============================================================================
+ai:
+  # AI CLI backend to use
+  # Options: 'claude', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
+  backend: auto
+
+  # Model identifier (backend-specific)
+  # Examples: "sonnet", "opus", "haiku" (for Claude)
+  model: sonnet
+
+  # Subprocess timeout in milliseconds
+  # Default: 300,000ms (5 minutes)
+  # Increase for very large files or slow connections
+  timeoutMs: 300000
+
+  # Maximum number of retries for transient errors
+  # Default: 3
+  maxRetries: 3
+
+  # Number of concurrent AI calls (parallelism)
+  # Range: 1-10, Default: 5
+  # Lower values (2-3) recommended for:
+  #   - WSL environments (limited resources)
+  #   - Machines with <16GB RAM
+  #   - Slow network connections
+  concurrency: 5
+
+  # Telemetry settings
+  telemetry:
+    # Number of most recent run logs to keep on disk
+    # Logs stored in .agents-reverse-engineer/logs/
+    keepRuns: 50
+
+    # Optional: Cost threshold in USD (warns when exceeded)
+    # Uncomment to enable:
+    # costThresholdUsd: 10.0
+
+  # Optional: Custom model pricing overrides
+  # Use this to override default pricing for specific models
+  # Uncomment to enable:
+  # pricing:
+  #   claude-opus-4:
+  #     inputCostPerMTok: 15.0    # USD per 1M input tokens
+  #     outputCostPerMTok: 75.0   # USD per 1M output tokens
 `;
 
   await writeFile(configPath, configContent, 'utf-8');

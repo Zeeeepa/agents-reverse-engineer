@@ -58,9 +58,13 @@ export async function initCommand(root: string, options: InitOptions): Promise<v
       logger.info(`Created configuration at ${configPath}`);
       logger.info('');
       logger.info('Edit the file to customize:');
-      logger.info('  - exclude.patterns: Add custom glob patterns to exclude');
-      logger.info('  - exclude.vendorDirs: Modify vendor directories list');
-      logger.info('  - options.maxFileSize: Adjust large file threshold');
+      logger.info('  - exclude.patterns: Custom glob patterns to exclude');
+      logger.info('  - generation.tokenBudget: Total token budget (default: 100,000)');
+      logger.info('  - ai.concurrency: Parallel AI calls (1-10, default: 5)');
+      logger.info('  - ai.timeoutMs: Subprocess timeout (default: 300,000ms = 5 min)');
+      logger.info('  - ai.backend: AI backend (claude/gemini/opencode/auto)');
+      logger.info('');
+      logger.info('See README.md for full configuration reference.');
     }
   } catch (err) {
     const error = err as NodeJS.ErrnoException;

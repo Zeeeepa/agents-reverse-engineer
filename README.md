@@ -275,20 +275,81 @@ Directory overview with:
 Edit `.agents-reverse-engineer/config.yaml`:
 
 ```yaml
+# File and directory exclusions
 exclude:
-  patterns: [] # Custom glob patterns
-  vendorDirs: # Directories to skip
+  patterns: []              # Custom glob patterns (e.g., ["*.log", "temp/**"])
+  vendorDirs:               # Directories to skip
     - node_modules
     - dist
     - .git
-  binaryExtensions: # File types to skip
+  binaryExtensions:         # File types to skip
     - .png
     - .jpg
+    - .pdf
 
+# Discovery options
 options:
-  followSymlinks: false
-  maxFileSize: 1048576 # 1MB
+  followSymlinks: false     # Follow symbolic links during traversal
+  maxFileSize: 1048576      # Max file size in bytes (1MB default)
+
+# Output formatting
+output:
+  colors: true              # Use colors in terminal output
+  verbose: true             # Show each file as processed
+
+# Documentation generation
+generation:
+  tokenBudget: 100000       # Token budget for entire project
+  chunkSize: 3000           # Chunk size for large files (in tokens)
+
+  # Root documents (generated at project root)
+  generateArchitecture: true   # ARCHITECTURE.md - system design overview
+  generateStack: true          # STACK.md - technology stack from package manifests
+
+  # Supplementary docs (generated per package root)
+  generateStructure: true      # STRUCTURE.md - codebase organization
+  generateConventions: true    # CONVENTIONS.md - coding patterns and style
+  generateTesting: true        # TESTING.md - testing approach and coverage
+  generateIntegrations: true   # INTEGRATIONS.md - external services and APIs
+  generateConcerns: true       # CONCERNS.md - technical debt and issues
+
+# AI service configuration
+ai:
+  backend: auto             # Backend: 'claude', 'gemini', 'opencode', 'auto'
+  model: sonnet             # Model identifier (backend-specific)
+  timeoutMs: 300000         # Subprocess timeout in ms (5 minutes)
+  maxRetries: 3             # Max retries for transient errors
+  concurrency: 5            # Parallel AI calls (1-10, lower for WSL/constrained envs)
+
+  telemetry:
+    keepRuns: 50            # Number of run logs to keep
+    costThresholdUsd: 10.0  # Optional: warn when cost exceeds this (USD)
+
+  # Optional: Custom model pricing (override defaults)
+  pricing:
+    claude-opus-4:
+      inputCostPerMTok: 15.0    # USD per 1M input tokens
+      outputCostPerMTok: 75.0   # USD per 1M output tokens
 ```
+
+### Key Config Options
+
+**Concurrency (`ai.concurrency`)**
+- Default: `5` (changed from 5 to 2 in WSL environments)
+- Range: `1-10`
+- Lower values recommended for resource-constrained environments
+- Higher values speed up generation but use more memory
+
+**Timeout (`ai.timeoutMs`)**
+- Default: `300000` (5 minutes)
+- AI subprocess timeout for each file analysis
+- Increase for very large files or slow connections
+
+**Token Budget (`generation.tokenBudget`)**
+- Default: `100000` tokens
+- Total budget for all file analysis
+- Files are prioritized by size (smaller first)
+- Skipped files are logged
 
 ---
 
