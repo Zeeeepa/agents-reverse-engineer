@@ -10,32 +10,20 @@ import { configExists, writeDefaultConfig, CONFIG_DIR, CONFIG_FILE } from '../co
 import { createLogger } from '../output/logger.js';
 
 /**
- * Options for the init command.
- */
-export interface InitOptions {
-  /**
-   * Run in interactive mode (reserved for future --interactive flag).
-   * @default false
-   */
-  interactive?: boolean;
-}
-
-/**
  * Execute the `are init` command.
  *
  * Creates a default configuration file at `.agents-reverse/config.yaml`.
  * If the file already exists, logs a warning and returns without modification.
  *
  * @param root - Root directory where config will be created
- * @param options - Command options
  *
  * @example
  * ```typescript
- * await initCommand('.', { interactive: false });
+ * await initCommand('.');
  * // Creates .agents-reverse/config.yaml in current directory
  * ```
  */
-export async function initCommand(root: string, options: InitOptions): Promise<void> {
+export async function initCommand(root: string): Promise<void> {
   const resolvedRoot = path.resolve(root);
   const configPath = path.join(resolvedRoot, CONFIG_DIR, CONFIG_FILE);
 

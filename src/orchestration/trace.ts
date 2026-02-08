@@ -311,10 +311,10 @@ export function createTraceWriter(projectRoot: string, enabled: boolean): ITrace
  * Mirrors the pattern in `src/ai/telemetry/cleanup.ts`.
  *
  * @param projectRoot - Absolute path to the project root directory
- * @param keepCount - Number of most recent trace files to retain (default: 5)
+ * @param keepCount - Number of most recent trace files to retain (default: 500)
  * @returns Number of files deleted
  */
-export async function cleanupOldTraces(projectRoot: string, keepCount: number = 5): Promise<number> {
+export async function cleanupOldTraces(projectRoot: string, keepCount: number = 500): Promise<number> {
   const tracesDir = path.join(projectRoot, TRACES_DIR);
 
   let entries: string[];

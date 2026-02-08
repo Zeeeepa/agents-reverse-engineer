@@ -12,7 +12,7 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { initCommand, type InitOptions } from './init.js';
+import { initCommand } from './init.js';
 import { discoverCommand, type DiscoverOptions } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
@@ -256,10 +256,7 @@ async function main(): Promise<void> {
     }
 
     case 'init': {
-      const options: InitOptions = {
-        interactive: flags.has('interactive'),
-      };
-      await initCommand(positional[0] || '.', options);
+      await initCommand(positional[0] || '.');
       break;
     }
 
