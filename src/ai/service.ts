@@ -65,6 +65,8 @@ export interface AIServiceOptions {
   timeoutMs: number;
   /** Maximum number of retries for transient errors */
   maxRetries: number;
+  /** Default model identifier (e.g., "sonnet", "opus") applied to all calls unless overridden per-call */
+  model?: string;
   /** Telemetry settings */
   telemetry: {
     /** Number of most recent run logs to keep on disk */
@@ -193,7 +195,13 @@ export class AIService {
     const timestamp = new Date().toISOString();
     const taskLabel = options.taskLabel ?? 'unknown';
 
-    const args = this.backend.buildArgs(options);
+    // Merge service-level model as default (per-call options.model wins)
+    const effectiveOptions: AICallOptions = {
+      ...options,
+      model: options.model ?? this.options.model,
+    };
+
+    const args = this.backend.buildArgs(effectiveOptions);
     const timeoutMs = options.timeoutMs ?? this.options.timeoutMs;
 
     let retryCount = 0;

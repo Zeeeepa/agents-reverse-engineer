@@ -245,6 +245,7 @@ export async function updateCommand(
     const aiService = new AIService(backend, {
       timeoutMs: config.ai.timeoutMs,
       maxRetries: config.ai.maxRetries,
+      model: config.ai.model,
       telemetry: { keepRuns: config.ai.telemetry.keepRuns },
     });
 
@@ -288,6 +289,7 @@ export async function updateCommand(
     // -------------------------------------------------------------------------
 
     if (plan.affectedDirs.length > 0) {
+      const knownDirs = new Set(plan.affectedDirs);
       const phase2Start = Date.now();
       let dirsCompleted = 0;
       let dirsFailed = 0;
@@ -314,7 +316,7 @@ export async function updateCommand(
 
         const dirPath = dir === '.' ? absolutePath : path.join(absolutePath, dir);
         try {
-          const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug);
+          const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug, knownDirs);
           const response = await aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,

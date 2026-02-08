@@ -86,6 +86,7 @@ export async function buildDirectoryPrompt(
   dirPath: string,
   projectRoot: string,
   debug = false,
+  knownDirs?: Set<string>,
 ): Promise<{ system: string; user: string }> {
   const relativePath = path.relative(projectRoot, dirPath) || '.';
   const dirName = path.basename(dirPath) || 'root';
@@ -96,7 +97,12 @@ export async function buildDirectoryPrompt(
   const fileEntries = entries.filter(
     (e) => e.isFile() && !e.name.endsWith('.sum') && !e.name.startsWith('.'),
   );
-  const dirEntries = entries.filter((e) => e.isDirectory());
+  const dirEntries = entries.filter((e) => {
+    if (!e.isDirectory()) return false;
+    if (!knownDirs) return true;
+    const relDir = path.relative(projectRoot, path.join(dirPath, e.name));
+    return knownDirs.has(relDir);
+  });
 
   // Read all .sum files in parallel
   const fileResults = await Promise.all(
@@ -113,18 +119,21 @@ export async function buildDirectoryPrompt(
   const fileSummaries = fileResults.filter((r): r is string => r !== null);
 
   // Read all child AGENTS.md in parallel
-  const subdirSections = await Promise.all(
+  const subdirResults = await Promise.all(
     dirEntries.map(async (entry) => {
       const childAgentsPath = path.join(dirPath, entry.name, 'AGENTS.md');
       try {
         const childContent = await readFile(childAgentsPath, 'utf-8');
         return `### ${entry.name}/\n${childContent}`;
       } catch {
-        // It should not happen, throw an error
-        throw new Error(`Failed to read child AGENTS.md: ${childAgentsPath}`);
+        if (debug) {
+          console.error(pc.dim(`[prompt] Skipping missing ${childAgentsPath}`));
+        }
+        return null;
       }
     }),
   );
+  const subdirSections = subdirResults.filter((r): r is string => r !== null);
 
   // Check for user-defined AGENTS.local.md
   let localSection = '';

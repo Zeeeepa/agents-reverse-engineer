@@ -397,6 +397,9 @@ export class CommandRunner {
     // Phase 2: Directory docs (concurrent per depth level, post-order)
     // -------------------------------------------------------------------
 
+    // Build set of directories in the plan (for filtering in buildDirectoryPrompt)
+    const knownDirs = new Set(plan.directoryTasks.map(t => t.path));
+
     // Group directory tasks by depth so same-depth dirs run in parallel
     // while maintaining post-order (children before parents)
     const dirsByDepth = new Map<number, typeof plan.directoryTasks>();
@@ -428,7 +431,7 @@ export class CommandRunner {
 
       const dirTasks = dirsAtDepth.map(
         (dirTask) => async () => {
-          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug);
+          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug, knownDirs);
           const dirResponse: AIResponse = await this.aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,
@@ -487,7 +490,17 @@ export class CommandRunner {
           taskLabel: rootTask.path,
         });
 
-        await writeFile(rootTask.outputPath, response.text, 'utf-8');
+        // Strip conversational preamble if the LLM still adds one
+        let content = response.text;
+        const mdStart = content.indexOf('# ');
+        if (mdStart > 0) {
+          const preamble = content.slice(0, mdStart).trim();
+          if (preamble && !preamble.startsWith('#') && !preamble.startsWith('<!--')) {
+            content = content.slice(mdStart);
+          }
+        }
+
+        await writeFile(rootTask.outputPath, content, 'utf-8');
         reporter.onRootDone(rootTask.path);
         planTracker.markDone(rootTask.path);
         rootTasksCompleted++;

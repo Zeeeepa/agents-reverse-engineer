@@ -177,6 +177,7 @@ export async function generateCommand(
   const aiService = new AIService(backend, {
     timeoutMs: config.ai.timeoutMs,
     maxRetries: config.ai.maxRetries,
+    model: config.ai.model,
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   });
 

@@ -41,6 +41,29 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/CLAUDE.md',
   '**/OPENCODE.md',
   '**/GEMINI.md',
+  // Lock files (not useful for documentation, can be very large)
+  '*.lock',
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lock',
+  'bun.lockb',
+  'Gemfile.lock',
+  'Cargo.lock',
+  'poetry.lock',
+  'composer.lock',
+  'go.sum',
+  // Dotfiles and generated artifacts (path.extname returns '' for dotfiles,
+  // so these must be matched as glob patterns, not binary extensions)
+  '.gitignore',
+  '.gitattributes',
+  '.gitkeep',
+  '.env',
+  '**/.env',
+  '**/.env.*',
+  '*.log',
+  '*.sum',
+  '**/*.sum',
 ] as const;
 
 /**
@@ -81,16 +104,6 @@ export const DEFAULT_BINARY_EXTENSIONS = [
   // Compiled
   '.class',
   '.pyc',
-  // Project
-  '.gitignore',
-  '.gitattributes',
-  '.gitkeep',
-  // Configuration
-  '.env',
-  // Logs
-  '.log',
-  // Generated artifacts (agents-reverse-engineer output)
-  '.sum',
 ] as const;
 
 /**
