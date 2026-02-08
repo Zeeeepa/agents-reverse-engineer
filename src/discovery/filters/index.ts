@@ -9,10 +9,6 @@
 import pc from 'picocolors';
 import type { FileFilter, FilterResult, ExcludedFile } from '../types.js';
 import type { ITraceWriter } from '../../orchestration/trace.js';
-import { createGitignoreFilter } from './gitignore.js';
-import { createVendorFilter, DEFAULT_VENDOR_DIRS } from './vendor.js';
-import { createBinaryFilter, type BinaryFilterOptions } from './binary.js';
-import { createCustomFilter } from './custom.js';
 
 // Re-export all filter creators
 export { createGitignoreFilter } from './gitignore.js';
@@ -147,77 +143,3 @@ export async function applyFilters(
   return { included, excluded };
 }
 
-/**
- * Configuration options for creating default filters.
- */
-export interface DefaultFilterConfig {
-  /**
-   * Vendor directories to exclude.
-   * Default: DEFAULT_VENDOR_DIRS
-   */
-  vendorDirs?: string[];
-
-  /**
-   * Custom patterns to exclude (gitignore syntax).
-   * Default: []
-   */
-  patterns?: string[];
-
-  /**
-   * Maximum file size in bytes before excluding.
-   * Default: 1MB (1048576)
-   */
-  maxFileSize?: number;
-
-  /**
-   * Additional binary extensions to recognize.
-   * Default: []
-   */
-  additionalBinaryExtensions?: string[];
-}
-
-/**
- * Creates the default filter chain in standard order.
- *
- * Filter order:
- * 1. Gitignore - respects .gitignore patterns
- * 2. Vendor - excludes vendor directories (node_modules, etc.)
- * 3. Binary - excludes binary files by extension and content
- * 4. Custom - excludes user-specified patterns
- *
- * @param root - Root directory for gitignore and custom pattern matching
- * @param config - Optional configuration for the filters
- * @returns Promise resolving to array of filters ready for applyFilters
- *
- * @example
- * ```typescript
- * const filters = await createDefaultFilters('/path/to/project', {
- *   vendorDirs: ['node_modules', 'vendor'],
- *   patterns: ['*.log', 'tmp/**'],
- *   maxFileSize: 500000,
- * });
- * const result = await applyFilters(files, filters);
- * ```
- */
-export async function createDefaultFilters(
-  root: string,
-  config: DefaultFilterConfig = {}
-): Promise<FileFilter[]> {
-  const {
-    vendorDirs = [...DEFAULT_VENDOR_DIRS],
-    patterns = [],
-    maxFileSize = 1024 * 1024,
-    additionalBinaryExtensions = [],
-  } = config;
-
-  // Create filters in standard order
-  const gitignoreFilter = await createGitignoreFilter(root);
-  const vendorFilter = createVendorFilter(vendorDirs);
-  const binaryFilter = createBinaryFilter({
-    maxFileSize,
-    additionalExtensions: additionalBinaryExtensions,
-  });
-  const customFilter = createCustomFilter(patterns, root);
-
-  return [gitignoreFilter, vendorFilter, binaryFilter, customFilter];
-}

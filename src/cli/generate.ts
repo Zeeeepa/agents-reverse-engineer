@@ -15,14 +15,7 @@ import * as path from 'node:path';
 import pc from 'picocolors';
 import { loadConfig } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
-import { walkDirectory } from '../discovery/walker.js';
-import {
-  applyFilters,
-  createGitignoreFilter,
-  createVendorFilter,
-  createBinaryFilter,
-  createCustomFilter,
-} from '../discovery/filters/index.js';
+import { discoverFiles } from '../discovery/run.js';
 import { createOrchestrator, type GenerationPlan } from '../generation/orchestrator.js';
 import { buildExecutionPlan } from '../generation/executor.js';
 import {
@@ -107,24 +100,7 @@ export async function generateCommand(
   // Discover files
   logger.info('Discovering files...');
 
-  // Create filters in order (same as discover command)
-  const gitignoreFilter = await createGitignoreFilter(absolutePath);
-  const vendorFilter = createVendorFilter(config.exclude.vendorDirs);
-  const binaryFilter = createBinaryFilter({
-    maxFileSize: config.options.maxFileSize,
-    additionalExtensions: config.exclude.binaryExtensions,
-  });
-  const customFilter = createCustomFilter(config.exclude.patterns, absolutePath);
-  const filters = [gitignoreFilter, vendorFilter, binaryFilter, customFilter];
-
-  // Walk directory
-  const files = await walkDirectory({
-    cwd: absolutePath,
-    followSymlinks: config.options.followSymlinks,
-  });
-
-  // Apply filters
-  const filterResult = await applyFilters(files, filters, {
+  const filterResult = await discoverFiles(absolutePath, config, {
     tracer,
     debug: options.debug,
   });

@@ -21,14 +21,7 @@ import {
 import { cleanupOrphans, getAffectedDirectories } from './orphan-cleaner.js';
 import { readSumFile, getSumPath } from '../generation/writers/sum.js';
 import type { UpdateOptions, CleanupResult } from './types.js';
-import { walkDirectory } from '../discovery/walker.js';
-import {
-  applyFilters,
-  createGitignoreFilter,
-  createVendorFilter,
-  createBinaryFilter,
-  createCustomFilter,
-} from '../discovery/filters/index.js';
+import { discoverFiles as runDiscovery } from '../discovery/run.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
 /**
@@ -97,27 +90,13 @@ export class UpdateOrchestrator {
    * Discover all source files in the project.
    */
   private async discoverFiles(): Promise<string[]> {
-    // Create filters
-    const gitignoreFilter = await createGitignoreFilter(this.projectRoot);
-    const vendorFilter = createVendorFilter(this.config.exclude.vendorDirs);
-    const binaryFilter = createBinaryFilter({
-      maxFileSize: this.config.options.maxFileSize,
-      additionalExtensions: this.config.exclude.binaryExtensions,
+    const filterResult = await runDiscovery(this.projectRoot, this.config, {
+      tracer: this.tracer,
+      debug: this.debug,
     });
-    const customFilter = createCustomFilter(this.config.exclude.patterns, this.projectRoot);
-    const filters = [gitignoreFilter, vendorFilter, binaryFilter, customFilter];
-
-    // Walk directory
-    const files = await walkDirectory({
-      cwd: this.projectRoot,
-      followSymlinks: this.config.options.followSymlinks,
-    });
-
-    // Apply filters
-    const filterResult = await applyFilters(files, filters);
 
     // Walker returns absolute paths; convert to relative for consistent usage
-    return filterResult.included.map(f => path.relative(this.projectRoot, f));
+    return filterResult.included.map((f: string) => path.relative(this.projectRoot, f));
   }
 
   /**
