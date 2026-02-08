@@ -314,7 +314,7 @@ export async function updateCommand(
 
         const dirPath = dir === '.' ? absolutePath : path.join(absolutePath, dir);
         try {
-          const prompt = await buildDirectoryPrompt(dirPath, absolutePath);
+          const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug);
           const response = await aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,

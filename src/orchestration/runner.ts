@@ -430,7 +430,7 @@ export class CommandRunner {
 
       const dirTasks = dirsAtDepth.map(
         (dirTask) => async () => {
-          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot);
+          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug);
           const dirResponse: AIResponse = await this.aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,
@@ -615,7 +615,7 @@ export class CommandRunner {
           filePath: file.path,
           content: sourceContent,
           fileType,
-        });
+        }, this.options.debug);
 
         // Call AI
         const response: AIResponse = await this.aiService.call({

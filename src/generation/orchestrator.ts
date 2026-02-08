@@ -126,7 +126,7 @@ export class GenerationOrchestrator {
         filePath: file.filePath,
         content: file.content,
         fileType: file.fileType,
-      });
+      }, this.debug);
 
       tasks.push({
         type: 'file',

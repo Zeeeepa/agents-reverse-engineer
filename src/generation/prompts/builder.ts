@@ -5,10 +5,8 @@ import type { PromptContext } from './types.js';
 import { getTemplate, DIRECTORY_SYSTEM_PROMPT } from './templates.js';
 import { readSumFile, getSumPath } from '../writers/sum.js';
 
-const DEBUG = process.env.DEBUG_PROMPTS === '1' || process.env.DEBUG === '1';
-
-function logTemplate(action: string, filePath: string, fileType: string, extra?: string): void {
-  if (!DEBUG) return;
+function logTemplate(debug: boolean, action: string, filePath: string, fileType: string, extra?: string): void {
+  if (!debug) return;
   const rel = path.relative(process.cwd(), filePath);
   const msg = `${pc.dim('[prompt]')} ${pc.cyan(action)} ${pc.bold(fileType)} ${pc.dim('→')} ${rel}`;
   console.error(extra ? `${msg} ${pc.dim(extra)}` : msg);
@@ -68,14 +66,14 @@ export function detectFramework(content: string): string {
 /**
  * Build a complete prompt for file analysis.
  */
-export function buildFilePrompt(context: PromptContext): {
+export function buildFilePrompt(context: PromptContext, debug = false): {
   system: string;
   user: string;
 } {
   const template = getTemplate(context.fileType);
   const lang = detectLanguage(context.filePath);
   const framework = detectFramework(context.content);
-  logTemplate('buildFilePrompt', context.filePath, context.fileType, `lang=${lang} framework=${framework}`);
+  logTemplate(debug, 'buildFilePrompt', context.filePath, context.fileType, `lang=${lang} framework=${framework}`);
 
   let userPrompt = template.userPrompt
     .replace(/\{\{FILE_PATH\}\}/g, context.filePath)
@@ -109,6 +107,7 @@ export function buildFilePrompt(context: PromptContext): {
 export async function buildDirectoryPrompt(
   dirPath: string,
   projectRoot: string,
+  debug = false,
 ): Promise<{ system: string; user: string }> {
   const relativePath = path.relative(projectRoot, dirPath) || '.';
   const dirName = path.basename(dirPath) || 'root';
@@ -158,7 +157,7 @@ export async function buildDirectoryPrompt(
     // No local file
   }
 
-  logTemplate('buildDirectoryPrompt', dirPath, 'directory', `files=${fileSummaries.length} subdirs=${subdirSections.length}`);
+  logTemplate(debug, 'buildDirectoryPrompt', dirPath, 'directory', `files=${fileSummaries.length} subdirs=${subdirSections.length}`);
 
   const userSections: string[] = [
     `Generate AGENTS.md for directory: "${relativePath}" (${dirName})`,
