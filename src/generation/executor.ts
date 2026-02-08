@@ -353,7 +353,7 @@ export function formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string {
   lines.push('');
 
   // Group files by directory, use directory task order (already post-order)
-  // Deduplicate paths (chunk tasks share the same path)
+  // Deduplicate paths
   const filesByDir: Record<string, Set<string>> = {};
   for (const task of plan.fileTasks) {
     const dir = task.path.includes('/')

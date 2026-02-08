@@ -35,7 +35,7 @@ export interface PreparedFile {
 }
 
 /**
- * Analysis task for a file or chunk.
+ * Analysis task for a file.
  */
 export interface AnalysisTask {
   /** Type of task */

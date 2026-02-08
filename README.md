@@ -42,9 +42,6 @@ AI coding assistants are powerful, but they don't know your codebase. Every sess
 - **`.sum` files** — Per-file summaries with purpose, exports, dependencies
 - **`AGENTS.md`** — Per-directory overviews with file organization (standard format)
 - **`CLAUDE.md`** / **`GEMINI.md`** / **`OPENCODE.md`** — Runtime-specific project entry points
-- **`ARCHITECTURE.md`** — System design overview for complex projects
-- **`STACK.md`** — Technology stack from package manifests
-- **Supplementary docs** — `STRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md`, `CONCERNS.md`
 
 The result: Your AI assistant understands your codebase from the first message.
 
@@ -173,7 +170,7 @@ Your AI assistant executes the plan:
 
 1. **File Analysis** — Creates `.sum` file for each source file
 2. **Directory Docs** — Creates `AGENTS.md` for each directory
-3. **Root Docs** — Creates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`, `ARCHITECTURE.md`, `STACK.md`, and supplementary docs
+3. **Root Docs** — Creates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`
 
 ---
 
@@ -257,16 +254,6 @@ Directory overview with:
 - **`GEMINI.md`** — Project entry point for Gemini CLI
 - **`OPENCODE.md`** — Project entry point for OpenCode
 - **`AGENTS.md`** — Root directory overview (universal format)
-- **`ARCHITECTURE.md`** — System design overview (generated for complex projects)
-- **`STACK.md`** — Technology stack from package manifests (package.json, go.mod, Cargo.toml, etc.)
-
-### Supplementary Documents
-
-- **`STRUCTURE.md`** — Codebase organization and directory layout
-- **`CONVENTIONS.md`** — Coding patterns and style guidelines
-- **`TESTING.md`** — Test organization and testing patterns
-- **`INTEGRATIONS.md`** — External services and API integrations
-- **`CONCERNS.md`** — Technical debt and areas needing attention
 
 ---
 
@@ -296,22 +283,6 @@ options:
 output:
   colors: true              # Use colors in terminal output
   verbose: true             # Show each file as processed
-
-# Documentation generation
-generation:
-  tokenBudget: 100000       # Token budget for entire project
-  chunkSize: 3000           # Chunk size for large files (in tokens)
-
-  # Root documents (generated at project root)
-  generateArchitecture: true   # ARCHITECTURE.md - system design overview
-  generateStack: true          # STACK.md - technology stack from package manifests
-
-  # Supplementary docs (generated per package root)
-  generateStructure: true      # STRUCTURE.md - codebase organization
-  generateConventions: true    # CONVENTIONS.md - coding patterns and style
-  generateTesting: true        # TESTING.md - testing approach and coverage
-  generateIntegrations: true   # INTEGRATIONS.md - external services and APIs
-  generateConcerns: true       # CONCERNS.md - technical debt and issues
 
 # AI service configuration
 ai:
@@ -344,12 +315,6 @@ ai:
 - Default: `300000` (5 minutes)
 - AI subprocess timeout for each file analysis
 - Increase for very large files or slow connections
-
-**Token Budget (`generation.tokenBudget`)**
-- Default: `100000` tokens
-- Total budget for all file analysis
-- Files are prioritized by size (smaller first)
-- Skipped files are logged
 
 ---
 

@@ -54,27 +54,3 @@ export const SUMMARY_GUIDELINES = {
     'Broad architectural relationships (handled by AGENTS.md)',
   ],
 } as const;
-
-/**
- * Context for chunk summarization (large files).
- */
-export interface ChunkContext extends PromptContext {
-  /** Chunk index (0-based) */
-  chunkIndex: number;
-  /** Total number of chunks */
-  totalChunks: number;
-  /** Line range in original file */
-  lineRange: { start: number; end: number };
-}
-
-/**
- * Context for synthesizing chunk summaries.
- */
-export interface SynthesisContext {
-  /** Original file path */
-  filePath: string;
-  /** Detected file type */
-  fileType: FileType;
-  /** Summaries from each chunk */
-  chunkSummaries: string[];
-}

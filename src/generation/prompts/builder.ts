@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { readdir, readFile } from 'node:fs/promises';
 import pc from 'picocolors';
-import type { PromptContext, ChunkContext, SynthesisContext } from './types.js';
+import type { PromptContext } from './types.js';
 import { getTemplate, DIRECTORY_SYSTEM_PROMPT } from './templates.js';
 import { readSumFile, getSumPath } from '../writers/sum.js';
 
@@ -98,83 +98,6 @@ export function buildPrompt(context: PromptContext): {
     system: template.systemPrompt,
     user: userPrompt,
   };
-}
-
-/**
- * Build a prompt for summarizing a chunk of a large file.
- */
-export function buildChunkPrompt(context: ChunkContext): {
-  system: string;
-  user: string;
-} {
-  const template = getTemplate(context.fileType);
-  const lang = detectLanguage(context.filePath);
-  logTemplate('buildChunkPrompt', context.filePath, context.fileType, `chunk=${context.chunkIndex + 1}/${context.totalChunks} lines=${context.lineRange.start}-${context.lineRange.end}`);
-
-  const system = `${template.systemPrompt}
-
-This is chunk ${context.chunkIndex + 1} of ${context.totalChunks} from a large file.
-Focus on what THIS chunk contains. The chunks will be synthesized later.`;
-
-  const user = `Analyze this code chunk and generate a partial summary.
-
-File: ${context.filePath} (lines ${context.lineRange.start}-${context.lineRange.end})
-Chunk: ${context.chunkIndex + 1} of ${context.totalChunks}
-
-\`\`\`${lang}
-${context.content}
-\`\`\`
-
-Summarize what this chunk contains:
-- Functions/classes defined
-- Key logic and patterns
-- Dependencies used
-- Notable details
-
-Keep it concise - this will be combined with other chunks.`;
-
-  return { system, user };
-}
-
-/**
- * Build a prompt for synthesizing chunk summaries into final summary.
- */
-export function buildSynthesisPrompt(context: SynthesisContext): {
-  system: string;
-  user: string;
-} {
-  const template = getTemplate(context.fileType);
-  logTemplate('buildSynthesisPrompt', context.filePath, context.fileType, `chunks=${context.chunkSummaries.length}`);
-
-  const system = `${template.systemPrompt}
-
-You are synthesizing chunk summaries into a final, cohesive summary.`;
-
-  const chunkSection = context.chunkSummaries
-    .map((summary, i) => `### Chunk ${i + 1}\n${summary}`)
-    .join('\n\n');
-
-  const user = `Synthesize these chunk summaries into a final summary for the file.
-
-File: ${context.filePath}
-File Type: ${context.fileType}
-
-## Chunk Summaries
-
-${chunkSection}
-
-## Instructions
-
-Create a unified summary (300-500 words) that:
-1. Combines insights from all chunks
-2. Eliminates redundancy
-3. Presents a coherent overview of the entire file
-4. Follows the format for ${context.fileType} files
-
-Focus on:
-${template.focusAreas.map((area) => `- ${area}`).join('\n')}`;
-
-  return { system, user };
 }
 
 /**
