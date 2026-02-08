@@ -270,6 +270,16 @@ export async function updateCommand(
       console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
     }
 
+    // Enable subprocess output logging alongside tracing
+    if (options.trace) {
+      const logDir = path.join(
+        absolutePath, '.agents-reverse-engineer', 'subprocess-logs',
+        new Date().toISOString().replace(/[:.]/g, '-'),
+      );
+      aiService.setSubprocessLogDir(logDir);
+      console.error(pc.dim(`[trace] Subprocess logs → ${logDir}`));
+    }
+
     // Create command runner
     const runner = new CommandRunner(aiService, {
       concurrency,

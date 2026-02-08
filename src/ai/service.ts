@@ -8,7 +8,9 @@
  * @module
  */
 
-import type { AIBackend, AICallOptions, AIResponse, TelemetryEntry, RunLog, FileRead } from './types.js';
+import { writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import type { AIBackend, AICallOptions, AIResponse, SubprocessResult, TelemetryEntry, RunLog, FileRead } from './types.js';
 import { AIServiceError } from './types.js';
 import { runSubprocess } from './subprocess.js';
 import { withRetry, DEFAULT_RETRY_OPTIONS } from './retry.js';
@@ -131,6 +133,12 @@ export class AIService {
   /** Number of currently active subprocesses */
   private activeSubprocesses: number = 0;
 
+  /** Directory for subprocess output logs (null = disabled) */
+  private subprocessLogDir: string | null = null;
+
+  /** Serializes log writes so concurrent workers don't interleave mkdirs */
+  private logWriteQueue: Promise<void> = Promise.resolve();
+
   /**
    * Create a new AI service instance.
    *
@@ -157,6 +165,19 @@ export class AIService {
    */
   setDebug(enabled: boolean): void {
     this.debug = enabled;
+  }
+
+  /**
+   * Set a directory for writing subprocess stdout/stderr log files.
+   *
+   * When set, each subprocess invocation writes a `.log` file containing
+   * the metadata header, stdout, and stderr. Useful for diagnosing
+   * timed-out or failed subprocesses whose output would otherwise be lost.
+   *
+   * @param dir - Absolute path to the log directory (created on first write)
+   */
+  setSubprocessLogDir(dir: string): void {
+    this.subprocessLogDir = dir;
   }
 
   /**
@@ -231,6 +252,9 @@ export class AIService {
               timedOut: result.timedOut,
             });
           }
+
+          // Write subprocess output log (fire-and-forget, non-critical)
+          this.enqueueSubprocessLog(result, taskLabel);
 
           if (result.timedOut) {
             console.error(
@@ -415,5 +439,40 @@ export class AIService {
    */
   getSummary(): RunLog['summary'] {
     return this.logger.getSummary();
+  }
+
+  /**
+   * Enqueue a subprocess output log write.
+   *
+   * Serializes writes via a promise chain to avoid concurrent mkdir races.
+   * Failures are silently swallowed -- log writing is non-critical.
+   */
+  private enqueueSubprocessLog(result: SubprocessResult, taskLabel: string): void {
+    if (this.subprocessLogDir === null) return;
+
+    const dir = this.subprocessLogDir;
+    const sanitized = taskLabel.replace(/\//g, '--').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `${sanitized}_pid${result.childPid ?? 0}.log`;
+    const filePath = path.join(dir, filename);
+
+    const content =
+      `task:      ${taskLabel}\n` +
+      `pid:       ${result.childPid ?? 'unknown'}\n` +
+      `command:   ${this.backend.cliCommand}\n` +
+      `exit:      ${result.exitCode}\n` +
+      `signal:    ${result.signal ?? 'none'}\n` +
+      `duration:  ${result.durationMs}ms\n` +
+      `timed_out: ${result.timedOut}\n` +
+      `\n--- stdout ---\n` +
+      result.stdout +
+      `\n--- stderr ---\n` +
+      result.stderr;
+
+    this.logWriteQueue = this.logWriteQueue
+      .then(async () => {
+        await mkdir(dir, { recursive: true });
+        await writeFile(filePath, content, 'utf-8');
+      })
+      .catch(() => { /* non-critical -- log loss is acceptable */ });
   }
 }
