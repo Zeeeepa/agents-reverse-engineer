@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-02-08
+
+### Added
+- Project structure context in file analysis — `buildProjectStructure()` builds a compact directory-grouped file listing passed to every file prompt via `projectPlan`, giving the AI bird's-eye context of the entire codebase
+- User-defined AGENTS.md preservation — non-ARE AGENTS.md files are renamed to AGENTS.local.md and user content is prepended verbatim above generated content; directory prompt builder also detects user-authored AGENTS.md and includes it as context
+- Manifest file detection in directory prompts — `buildDirectoryPrompt` detects package.json, Cargo.toml, go.mod, etc. and adds a "Directory Hints" section indicating package roots
+- `.agents` directory and `**/SKILL.md` added to default exclude patterns
+
+### Changed
+- File analysis prompts rewritten to be adaptive — instead of a fixed 5-section template (Purpose/Exports/Dependencies/Patterns/Related), prompts now instruct the AI to choose documentation topics most relevant to each specific file
+- Directory AGENTS.md prompts rewritten with adaptive sections — instead of a fixed Contents/Subdirectories/How Files Relate template, the AI selects from architecture, stack, structure, patterns, configuration, API surface, and file relationships
+- Removed mandatory "Library & Dependency Statistics" and "Common Patterns" prompt sections in favor of adaptive topic selection
+- YAML config generation now properly quotes glob patterns containing special characters (`*`, `[`, `]`, etc.) via `yamlScalar()` helper in `loader.ts`
+- `writeAgentsMd` now reads existing AGENTS.local.md from previous runs and prepends user content above generated content with a separator
+- `GENERATED_MARKER` and `isGeneratedAgentsMd` exported from `agents-md.ts` for reuse in prompt builder
+- `update` command now reads GENERATION-PLAN.md for project structure context, matching `generate` behavior
+
 ## [0.5.1] - 2026-02-08
 
 ### Added
@@ -367,7 +384,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.11...v0.5.0
 [0.4.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.10...v0.4.11
