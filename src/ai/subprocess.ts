@@ -82,6 +82,7 @@ export function runSubprocess(
         killSignal: 'SIGTERM',
         maxBuffer: 10 * 1024 * 1024, // 10MB for large AI responses
         encoding: 'utf-8',
+        env: { ...process.env, CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1' },
       },
       (error, stdout, stderr) => {
         const durationMs = Date.now() - startTime;
