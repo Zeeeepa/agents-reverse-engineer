@@ -15,6 +15,18 @@ import { ConfigSchema, Config } from './schema.js';
 import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS } from './defaults.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
+/**
+ * Quote a string value for YAML output if it contains characters that
+ * would be misinterpreted (e.g. `*` is the YAML alias indicator).
+ */
+function yamlScalar(value: string): string {
+  // Characters that require quoting: *, {, }, [, ], ?, :, #, &, !, |, >, etc.
+  if (/[*{}\[\]?,:#&!|>'"%@`]/.test(value)) {
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  }
+  return value;
+}
+
 /** Directory name for agents-reverse-engineer configuration */
 export const CONFIG_DIR = '.agents-reverse-engineer';
 
@@ -190,7 +202,7 @@ exclude:
   # Custom glob patterns to exclude (e.g., ["*.log", "temp/**"])
   # Default patterns exclude AI-generated documentation files
   patterns:
-${DEFAULT_EXCLUDE_PATTERNS.map((pattern) => `    - ${pattern}`).join('\n')}
+${DEFAULT_EXCLUDE_PATTERNS.map((pattern) => `    - ${yamlScalar(pattern)}`).join('\n')}
 
   # Vendor directories to exclude from analysis
   # These are typically package managers, build outputs, or version control
