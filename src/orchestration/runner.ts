@@ -59,7 +59,6 @@ import type {
  * const runner = new CommandRunner(aiService, {
  *   concurrency: 5,
  *   failFast: false,
- *   quiet: false,
  * });
  *
  * const summary = await runner.executeGenerate(plan);
@@ -80,7 +79,7 @@ export class CommandRunner {
    * Create a new command runner.
    *
    * @param aiService - The AI service instance (should be created per CLI run)
-   * @param options - Execution options (concurrency, failFast, quiet, etc.)
+   * @param options - Execution options (concurrency, failFast, etc.)
    */
   constructor(aiService: AIService, options: CommandRunOptions) {
     this.aiService = aiService;
@@ -105,10 +104,7 @@ export class CommandRunner {
    * @returns Aggregated run summary
    */
   async executeGenerate(plan: ExecutionPlan): Promise<RunSummary> {
-    const reporter = new ProgressReporter(
-      plan.fileTasks.length,
-      this.options.quiet ?? false,
-    );
+    const reporter = new ProgressReporter(plan.fileTasks.length);
 
     // Initialize plan tracker (writes GENERATION-PLAN.md with checkboxes)
     const planTracker = new PlanTracker(
@@ -581,10 +577,7 @@ export class CommandRunner {
     projectRoot: string,
     config: Config,
   ): Promise<RunSummary> {
-    const reporter = new ProgressReporter(
-      filesToAnalyze.length,
-      this.options.quiet ?? false,
-    );
+    const reporter = new ProgressReporter(filesToAnalyze.length);
 
     const runStart = Date.now();
     let filesProcessed = 0;

@@ -220,9 +220,6 @@ output:
   # Whether to use colors in terminal output
   colors: true
 
-  # Whether to show verbose output (each file as processed)
-  verbose: true
-
 # ============================================================================
 # AI SERVICE CONFIGURATION
 # ============================================================================

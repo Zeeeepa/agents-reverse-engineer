@@ -17,18 +17,6 @@ import { createLogger } from '../output/logger.js';
  */
 export interface CleanOptions {
   /**
-   * Suppress output except errors.
-   * @default false
-   */
-  quiet: boolean;
-
-  /**
-   * Show verbose output (each file listed).
-   * @default true
-   */
-  verbose: boolean;
-
-  /**
    * Show files that would be deleted without deleting them.
    * @default false
    */

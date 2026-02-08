@@ -3,11 +3,6 @@
  */
 
 /**
- * Log level for controlling output verbosity
- */
-export type LogLevel = 'verbose' | 'normal' | 'quiet';
-
-/**
  * Information about an excluded file
  */
 export interface ExcludedFile {

@@ -41,8 +41,6 @@ const OptionsSchema = z.object({
 const OutputSchema = z.object({
   /** Whether to use colors in terminal output */
   colors: z.boolean().default(true),
-  /** Whether to show verbose output (each file as processed) */
-  verbose: z.boolean().default(true),
 }).default({});
 
 /**

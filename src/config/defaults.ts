@@ -115,6 +115,5 @@ export const DEFAULT_CONFIG = {
   },
   output: {
     colors: true,
-    verbose: true,
   },
 } as const;

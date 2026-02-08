@@ -54,8 +54,6 @@ Install/Uninstall Options:
   --force           Overwrite existing files (install only)
 
 General Options:
-  --quiet, -q       Suppress output except errors
-  --verbose, -v     Show detailed output
   --dry-run         Show plan without writing files (generate, update)
   --concurrency <n> Number of concurrent AI calls (default: 5)
   --fail-fast       Stop on first file analysis failure
@@ -76,7 +74,7 @@ Examples:
   are generate --concurrency 3
   are generate ./my-project --concurrency 3
   are update
-  are update --uncommitted --verbose
+  are update --uncommitted
 `;
 
 /**
@@ -108,17 +106,11 @@ function parseArgs(args: string[]): {
         flags.add(flagName);
       }
     } else if (arg.startsWith('-')) {
-      // Handle short flags (e.g., -q, -h, -v, -g, -l, -u)
+      // Handle short flags (e.g., -h, -g, -l)
       for (const char of arg.slice(1)) {
         switch (char) {
-          case 'q':
-            flags.add('quiet');
-            break;
           case 'h':
             flags.add('help');
-            break;
-          case 'v':
-            flags.add('verbose');
             break;
           case 'g':
             flags.add('global');
@@ -230,10 +222,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Show version banner unless quiet mode
-  if (!flags.has('quiet')) {
-    showVersionBanner();
-  }
+  // Show version banner
+  showVersionBanner();
 
   // Route to command handlers
   switch (command) {
@@ -259,8 +249,6 @@ async function main(): Promise<void> {
 
     case 'clean': {
       const cleanOpts: CleanOptions = {
-        quiet: flags.has('quiet'),
-        verbose: !flags.has('quiet'),
         dryRun: flags.has('dry-run'),
       };
       await cleanCommand(positional[0] || '.', cleanOpts);
@@ -274,8 +262,6 @@ async function main(): Promise<void> {
 
     case 'generate': {
       const options: GenerateOptions = {
-        quiet: flags.has('quiet'),
-        verbose: flags.has('verbose'),
         dryRun: flags.has('dry-run'),
         concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
         failFast: flags.has('fail-fast'),
@@ -289,8 +275,6 @@ async function main(): Promise<void> {
     case 'update': {
       const options: UpdateCommandOptions = {
         uncommitted: flags.has('uncommitted'),
-        quiet: flags.has('quiet'),
-        verbose: flags.has('verbose'),
         dryRun: flags.has('dry-run'),
         concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
         failFast: flags.has('fail-fast'),

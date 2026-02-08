@@ -38,10 +38,6 @@ import { CommandRunner, createTraceWriter, cleanupOldTraces } from '../orchestra
  * Options for the generate command.
  */
 export interface GenerateOptions {
-  /** Suppress output except errors */
-  quiet?: boolean;
-  /** Show detailed task breakdown */
-  verbose?: boolean;
   /** Dry run - show plan without generating */
   dryRun?: boolean;
   /** Number of concurrent AI calls */
@@ -177,9 +173,7 @@ export async function generateCommand(
   const plan = await orchestrator.createPlan(discoveryResult);
 
   // Display plan
-  if (!options.quiet) {
-    console.log(formatPlan(plan));
-  }
+  console.log(formatPlan(plan));
 
   // ---------------------------------------------------------------------------
   // Dry-run: show execution plan summary without making AI calls
@@ -260,7 +254,6 @@ export async function generateCommand(
   const runner = new CommandRunner(aiService, {
     concurrency,
     failFast: options.failFast,
-    quiet: options.quiet,
     debug: options.debug,
     tracer,
   });

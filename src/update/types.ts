@@ -19,10 +19,6 @@ export interface CleanupResult {
 export interface UpdateOptions {
   /** Include uncommitted changes (staged + working directory) */
   includeUncommitted?: boolean;
-  /** Suppress output except errors */
-  quiet?: boolean;
-  /** Show detailed output */
-  verbose?: boolean;
   /** Dry run - show what would change without making changes */
   dryRun?: boolean;
 }

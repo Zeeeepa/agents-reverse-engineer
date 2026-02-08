@@ -31,10 +31,6 @@ import { CommandRunner, ProgressReporter, createTraceWriter, cleanupOldTraces } 
 export interface UpdateCommandOptions {
   /** Include uncommitted changes (staged + working directory) */
   uncommitted?: boolean;
-  /** Suppress output except errors */
-  quiet?: boolean;
-  /** Show detailed output */
-  verbose?: boolean;
   /** Dry run - show plan without making changes */
   dryRun?: boolean;
   /** Number of concurrent AI calls */
@@ -273,7 +269,6 @@ export async function updateCommand(
     const runner = new CommandRunner(aiService, {
       concurrency,
       failFast: options.failFast,
-      quiet: options.quiet,
       debug: options.debug,
       tracer,
     });
@@ -305,7 +300,7 @@ export async function updateCommand(
         concurrency: 1,
       });
 
-      const dirReporter = new ProgressReporter(plan.affectedDirs.length, false);
+      const dirReporter = new ProgressReporter(plan.affectedDirs.length);
       for (const dir of plan.affectedDirs) {
         const taskStart = Date.now();
         const taskLabel = dir || '.';

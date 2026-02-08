@@ -9,8 +9,6 @@
  * ETA is computed via a moving average of the last 10 completion times,
  * displayed after 2 or more files have completed.
  *
- * All methods except {@link printSummary} are no-ops when `quiet` is true.
- *
  * @module
  */
 
@@ -29,7 +27,7 @@ import type { RunSummary } from './types.js';
  *
  * @example
  * ```typescript
- * const reporter = new ProgressReporter(fileCount, false);
+ * const reporter = new ProgressReporter(fileCount);
  * reporter.onFileStart('src/index.ts');
  * reporter.onFileDone('src/index.ts', 1200, 500, 300, 'sonnet');
  * reporter.printSummary(summary);
@@ -38,9 +36,6 @@ import type { RunSummary } from './types.js';
 export class ProgressReporter {
   /** Total number of file tasks in this run */
   private readonly totalFiles: number;
-
-  /** Whether to suppress per-file output */
-  private readonly quiet: boolean;
 
   /** Number of files completed successfully */
   private completed: number = 0;
@@ -61,11 +56,9 @@ export class ProgressReporter {
    * Create a new progress reporter.
    *
    * @param totalFiles - Total number of file tasks to process
-   * @param quiet - When true, suppress all per-file output (summary still prints)
    */
-  constructor(totalFiles: number, quiet: boolean) {
+  constructor(totalFiles: number) {
     this.totalFiles = totalFiles;
-    this.quiet = quiet;
   }
 
   /**
@@ -76,7 +69,6 @@ export class ProgressReporter {
    * @param filePath - Relative path to the file being analyzed
    */
   onFileStart(filePath: string): void {
-    if (this.quiet) return;
     const counter = pc.dim(`[${this.completed + this.failed + 1}/${this.totalFiles}]`);
     console.log(`${counter} ${pc.cyan('ANALYZING')} ${filePath}`);
   }
@@ -109,8 +101,6 @@ export class ProgressReporter {
       this.completionTimes.shift();
     }
 
-    if (this.quiet) return;
-
     const counter = pc.dim(`[${this.completed + this.failed}/${this.totalFiles}]`);
     const time = pc.dim(`${(durationMs / 1000).toFixed(1)}s`);
     const tokens = pc.dim(`${tokensIn}/${tokensOut} tok`);
@@ -133,8 +123,6 @@ export class ProgressReporter {
   onFileError(filePath: string, error: string): void {
     this.failed++;
 
-    if (this.quiet) return;
-
     const counter = pc.dim(`[${this.completed + this.failed}/${this.totalFiles}]`);
     console.log(`${counter} ${pc.red('FAIL')} ${filePath} ${pc.dim(error)}`);
   }
@@ -147,7 +135,6 @@ export class ProgressReporter {
    * @param dirPath - Path to the directory
    */
   onDirectoryDone(dirPath: string): void {
-    if (this.quiet) return;
     console.log(`${pc.dim('[dir]')} ${pc.blue('DONE')} ${dirPath}/AGENTS.md`);
   }
 
@@ -159,16 +146,14 @@ export class ProgressReporter {
    * @param docPath - Path to the root document
    */
   onRootDone(docPath: string): void {
-    if (this.quiet) return;
     console.log(`${pc.dim('[root]')} ${pc.blue('DONE')} ${docPath}`);
   }
 
   /**
    * Print the end-of-run summary.
    *
-   * Always printed, even when `quiet` is true. Shows files processed,
-   * token counts, files read with unique dedup, time elapsed, errors,
-   * and retries.
+   * Shows files processed, token counts, files read with unique dedup,
+   * time elapsed, errors, and retries.
    *
    * @param summary - Aggregated run summary
    */

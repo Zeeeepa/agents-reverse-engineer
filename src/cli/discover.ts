@@ -142,7 +142,7 @@ export async function discoverCommand(
   const relativePath = (absPath: string): string =>
     path.relative(resolvedPath, absPath);
 
-  // Show each included file in verbose mode
+  // Show each included file
   for (const file of result.included) {
     logger.file(relativePath(file));
   }

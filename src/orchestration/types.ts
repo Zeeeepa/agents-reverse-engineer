@@ -129,8 +129,6 @@ export interface CommandRunOptions {
   concurrency: number;
   /** Stop pulling new tasks on first error */
   failFast?: boolean;
-  /** Suppress per-file progress output */
-  quiet?: boolean;
   /** Show debug information (exact prompts sent) */
   debug?: boolean;
   /** List files that would be processed without executing */
