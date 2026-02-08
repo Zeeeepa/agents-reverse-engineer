@@ -3,7 +3,6 @@
  *
  * Coordinates the documentation generation workflow:
  * - Discovers and prepares files for analysis
- * - Detects file types
  * - Creates file analysis tasks with prompts
  * - Creates directory tasks for LLM-generated descriptions
  */
@@ -13,8 +12,6 @@ import * as path from 'node:path';
 import pc from 'picocolors';
 import type { Config } from '../config/schema.js';
 import type { DiscoveryResult } from '../types/index.js';
-import { detectFileType } from './detection/detector.js';
-import type { FileType } from './types.js';
 import { buildFilePrompt } from './prompts/index.js';
 import { analyzeComplexity } from './complexity.js';
 import type { ComplexityMetrics } from './complexity.js';
@@ -30,8 +27,6 @@ export interface PreparedFile {
   relativePath: string;
   /** File content */
   content: string;
-  /** Detected file type */
-  fileType: FileType;
 }
 
 /**
@@ -97,14 +92,12 @@ export class GenerationOrchestrator {
       const filePath = discoveryResult.files[i];
       try {
         const content = await readFile(filePath, 'utf-8');
-        const fileType = detectFileType(filePath, content);
         const relativePath = path.relative(this.projectRoot, filePath);
 
         prepared.push({
           filePath,
           relativePath,
           content,
-          fileType,
         });
       } catch {
         // Skip files that can't be read (permission errors, etc.)
@@ -125,7 +118,6 @@ export class GenerationOrchestrator {
       const prompt = buildFilePrompt({
         filePath: file.filePath,
         content: file.content,
-        fileType: file.fileType,
       }, this.debug);
 
       tasks.push({

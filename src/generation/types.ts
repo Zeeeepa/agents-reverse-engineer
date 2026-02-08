@@ -3,37 +3,6 @@
  */
 
 /**
- * FileType enum - 11 categories for template selection
- * Used to select appropriate prompts for different file types
- */
-export type FileType =
-  | 'component' // React/Vue/Svelte components
-  | 'service' // Business logic services
-  | 'util' // Utility functions
-  | 'type' // Type definitions only
-  | 'test' // Test files
-  | 'config' // Configuration files
-  | 'api' // API routes/handlers
-  | 'model' // Data models/entities
-  | 'hook' // React hooks
-  | 'schema' // Validation schemas (Zod, Yup, etc.)
-  | 'generic'; // Fallback for undetected types
-
-/**
- * Request to analyze a file
- */
-export interface AnalysisRequest {
-  /** Path to the file being analyzed */
-  filePath: string;
-  /** Content of the file */
-  content: string;
-  /** Detected file type for prompt selection */
-  fileType: FileType;
-  /** Related files for context */
-  contextFiles?: string[];
-}
-
-/**
  * Result of file analysis (populated by LLM via host)
  */
 export interface AnalysisResult {

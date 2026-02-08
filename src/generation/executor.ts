@@ -33,7 +33,6 @@ export interface ExecutionTask {
   outputPath: string;
   /** Metadata for tracking */
   metadata: {
-    fileType?: string;
     directoryFiles?: string[];
     /** Directory depth (for post-order traversal) */
     depth?: number;
@@ -97,8 +96,6 @@ export function buildExecutionPlan(
   for (const task of plan.tasks) {
     if (task.type === 'file') {
       const absolutePath = path.join(projectRoot, task.filePath);
-      const file = plan.files.find(f => f.relativePath === task.filePath);
-
       fileTasks.push({
         id: `file:${task.filePath}`,
         type: 'file',
@@ -108,9 +105,7 @@ export function buildExecutionPlan(
         userPrompt: task.userPrompt!,
         dependencies: [],
         outputPath: `${absolutePath}.sum`,
-        metadata: {
-          fileType: file?.fileType,
-        },
+        metadata: {},
       });
     }
   }

@@ -1,20 +1,3 @@
-import type { FileType } from '../types.js';
-
-/**
- * Template for generating file summaries.
- * Each file type has a dedicated template with specific instructions.
- */
-export interface PromptTemplate {
-  /** File type this template applies to */
-  fileType: FileType;
-  /** System instructions for the LLM */
-  systemPrompt: string;
-  /** User prompt template with placeholders */
-  userPrompt: string;
-  /** Sections to emphasize in analysis */
-  focusAreas: string[];
-}
-
 /**
  * Context provided when building a prompt.
  */
@@ -23,8 +6,6 @@ export interface PromptContext {
   filePath: string;
   /** File content to analyze */
   content: string;
-  /** Detected file type */
-  fileType: FileType;
   /** Related files for additional context */
   contextFiles?: Array<{
     path: string;

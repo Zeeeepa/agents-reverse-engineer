@@ -10,8 +10,6 @@ export interface SumFileContent {
   summary: string;
   /** Extracted metadata */
   metadata: SummaryMetadata;
-  /** File type that was detected */
-  fileType: string;
   /** Generation timestamp */
   generatedAt: string;
   /** SHA-256 hash of source file content (for change detection) */
@@ -73,7 +71,6 @@ function parseSumFile(content: string): SumFileContent | null {
     const summary = content.slice(frontmatterMatch[0].length).trim();
 
     // Parse frontmatter (simple YAML-like parsing)
-    const fileType = frontmatter.match(/file_type:\s*(.+)/)?.[1]?.trim() ?? 'generic';
     const generatedAt = frontmatter.match(/generated_at:\s*(.+)/)?.[1]?.trim() ?? '';
     const contentHash = frontmatter.match(/content_hash:\s*(.+)/)?.[1]?.trim() ?? '';
 
@@ -102,7 +99,6 @@ function parseSumFile(content: string): SumFileContent | null {
     return {
       summary,
       metadata,
-      fileType,
       generatedAt,
       contentHash,
     };
@@ -133,7 +129,6 @@ function formatYamlArray(key: string, values: string[]): string {
 function formatSumFile(content: SumFileContent): string {
   const lines = [
     '---',
-    `file_type: ${content.fileType}`,
     `generated_at: ${content.generatedAt}`,
     `content_hash: ${content.contentHash}`,
     `purpose: ${content.metadata.purpose}`,

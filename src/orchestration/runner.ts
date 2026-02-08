@@ -22,7 +22,6 @@ import type { SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
 import { computeContentHashFromString } from '../change-detection/index.js';
 import type { FileChange } from '../change-detection/types.js';
-import { detectFileType } from '../generation/detection/detector.js';
 import { buildFilePrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
 import {
@@ -208,7 +207,6 @@ export class CommandRunner {
             dependencies: [],
             patterns: [],
           },
-          fileType: task.metadata.fileType ?? 'generic',
           generatedAt: new Date().toISOString(),
           contentHash,
         };
@@ -609,12 +607,10 @@ export class CommandRunner {
         const sourceContent = await readFile(absolutePath, 'utf-8');
         updateSourceCache.set(file.path, sourceContent);
 
-        // Detect file type and build prompt
-        const fileType = detectFileType(file.path, sourceContent);
+        // Build prompt
         const prompt = buildFilePrompt({
           filePath: file.path,
           content: sourceContent,
-          fileType,
         }, this.options.debug);
 
         // Call AI
@@ -642,7 +638,6 @@ export class CommandRunner {
             dependencies: [],
             patterns: [],
           },
-          fileType,
           generatedAt: new Date().toISOString(),
           contentHash,
         };

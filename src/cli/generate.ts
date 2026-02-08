@@ -51,23 +51,6 @@ export interface GenerateOptions {
 }
 
 /**
- * Format file type distribution for display.
- */
-function formatTypeDistribution(plan: GenerationPlan): string {
-  const typeCounts = new Map<string, number>();
-
-  for (const file of plan.files) {
-    const count = typeCounts.get(file.fileType) ?? 0;
-    typeCounts.set(file.fileType, count + 1);
-  }
-
-  return Array.from(typeCounts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([type, count]) => `  ${type}: ${count}`)
-    .join('\n');
-}
-
-/**
  * Format the generation plan for display.
  */
 function formatPlan(plan: GenerationPlan): string {
@@ -78,11 +61,6 @@ function formatPlan(plan: GenerationPlan): string {
   // File summary
   lines.push(`Files to analyze: ${plan.files.length}`);
   lines.push(`Tasks to execute: ${plan.tasks.length}`);
-  lines.push('');
-
-  // File type distribution
-  lines.push('File types:');
-  lines.push(formatTypeDistribution(plan));
   lines.push('');
 
   // Complexity

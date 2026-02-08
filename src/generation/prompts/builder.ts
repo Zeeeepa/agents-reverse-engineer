@@ -2,13 +2,13 @@ import * as path from 'node:path';
 import { readdir, readFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import type { PromptContext } from './types.js';
-import { getTemplate, DIRECTORY_SYSTEM_PROMPT } from './templates.js';
+import { FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, DIRECTORY_SYSTEM_PROMPT } from './templates.js';
 import { readSumFile, getSumPath } from '../writers/sum.js';
 
-function logTemplate(debug: boolean, action: string, filePath: string, fileType: string, extra?: string): void {
+function logTemplate(debug: boolean, action: string, filePath: string, extra?: string): void {
   if (!debug) return;
   const rel = path.relative(process.cwd(), filePath);
-  const msg = `${pc.dim('[prompt]')} ${pc.cyan(action)} ${pc.bold(fileType)} ${pc.dim('→')} ${rel}`;
+  const msg = `${pc.dim('[prompt]')} ${pc.cyan(action)} ${pc.dim('→')} ${rel}`;
   console.error(extra ? `${msg} ${pc.dim(extra)}` : msg);
 }
 
@@ -45,41 +45,19 @@ export function detectLanguage(filePath: string): string {
 }
 
 /**
- * Detect framework from file content for component templates.
- */
-export function detectFramework(content: string): string {
-  if (content.includes("from 'react'") || content.includes('from "react"')) {
-    return 'React';
-  }
-  if (content.includes("from 'vue'") || content.includes('from "vue"')) {
-    return 'Vue';
-  }
-  if (content.includes("from 'svelte'") || content.includes('.svelte')) {
-    return 'Svelte';
-  }
-  if (content.includes('@angular')) {
-    return 'Angular';
-  }
-  return 'JavaScript';
-}
-
-/**
  * Build a complete prompt for file analysis.
  */
 export function buildFilePrompt(context: PromptContext, debug = false): {
   system: string;
   user: string;
 } {
-  const template = getTemplate(context.fileType);
   const lang = detectLanguage(context.filePath);
-  const framework = detectFramework(context.content);
-  logTemplate(debug, 'buildFilePrompt', context.filePath, context.fileType, `lang=${lang} framework=${framework}`);
+  logTemplate(debug, 'buildFilePrompt', context.filePath, `lang=${lang}`);
 
-  let userPrompt = template.userPrompt
+  let userPrompt = FILE_USER_PROMPT
     .replace(/\{\{FILE_PATH\}\}/g, context.filePath)
     .replace(/\{\{CONTENT\}\}/g, context.content)
-    .replace(/\{\{LANG\}\}/g, lang)
-    .replace(/\{\{FRAMEWORK\}\}/g, framework);
+    .replace(/\{\{LANG\}\}/g, lang);
 
   // Add context files if provided
   if (context.contextFiles && context.contextFiles.length > 0) {
@@ -93,7 +71,7 @@ export function buildFilePrompt(context: PromptContext, debug = false): {
   }
 
   return {
-    system: template.systemPrompt,
+    system: FILE_SYSTEM_PROMPT,
     user: userPrompt,
   };
 }
@@ -127,7 +105,7 @@ export async function buildDirectoryPrompt(
       const sumPath = getSumPath(entryPath);
       const sumContent = await readSumFile(sumPath);
       if (sumContent) {
-        return `### ${entry.name}\n**Type:** ${sumContent.fileType}\n**Purpose:** ${sumContent.metadata.purpose}\n\n${sumContent.summary}`;
+        return `### ${entry.name}\n**Purpose:** ${sumContent.metadata.purpose}\n\n${sumContent.summary}`;
       }
       return null;
     }),
@@ -157,7 +135,7 @@ export async function buildDirectoryPrompt(
     // No local file
   }
 
-  logTemplate(debug, 'buildDirectoryPrompt', dirPath, 'directory', `files=${fileSummaries.length} subdirs=${subdirSections.length}`);
+  logTemplate(debug, 'buildDirectoryPrompt', dirPath, `files=${fileSummaries.length} subdirs=${subdirSections.length}`);
 
   const userSections: string[] = [
     `Generate AGENTS.md for directory: "${relativePath}" (${dirName})`,
