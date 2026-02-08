@@ -13,7 +13,7 @@ import type { IntegrationTemplate } from './types.js';
 const COMMANDS = {
   generate: {
     description: 'Generate AI-friendly documentation for the entire codebase',
-    argumentHint: '[--budget N] [--dry-run] [--concurrency N] [--verbose] [--fail-fast]',
+    argumentHint: '[path] [--budget N] [--dry-run] [--concurrency N] [--verbose] [--quiet] [--fail-fast] [--debug] [--trace]',
     content: `Generate comprehensive documentation for this codebase using agents-reverse-engineer.
 
 <execution>
@@ -37,9 +37,12 @@ This executes a three-phase pipeline:
 **Options:**
 - \`--dry-run\`: Preview the plan without making AI calls
 - \`--budget N\`: Override token budget
-- \`--concurrency N\`: Control number of parallel AI calls
-- \`--verbose\`: Show detailed task breakdown
+- \`--concurrency N\`: Control number of parallel AI calls (default: 5)
 - \`--fail-fast\`: Stop on first file analysis failure
+- \`--debug\`: Show AI prompts and backend details
+- \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
+- \`--verbose\`: Show detailed task breakdown
+- \`--quiet\`: Suppress output except errors
 
 After completion, summarize:
 - Number of files analyzed and any failures
@@ -50,7 +53,7 @@ After completion, summarize:
 
   update: {
     description: 'Incrementally update documentation for changed files',
-    argumentHint: '[--uncommitted] [--dry-run] [--verbose]',
+    argumentHint: '[path] [--uncommitted] [--dry-run] [--budget N] [--concurrency N] [--verbose] [--quiet] [--fail-fast] [--debug] [--trace]',
     content: `Update documentation for files that changed since last run.
 
 <execution>
@@ -60,12 +63,21 @@ Run the agents-reverse-engineer update command:
 npx agents-reverse-engineer@latest update $ARGUMENTS
 \`\`\`
 
+**Options:**
+- \`--uncommitted\`: Include staged but uncommitted changes
+- \`--dry-run\`: Show what would be updated without writing
+- \`--budget N\`: Override token budget
+- \`--concurrency N\`: Control number of parallel AI calls (default: 5)
+- \`--fail-fast\`: Stop on first file analysis failure
+- \`--debug\`: Show AI prompts and backend details
+- \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
+- \`--verbose\`: Show detailed output
+- \`--quiet\`: Suppress output except errors
+
 After completion, summarize:
 - Files updated
 - Files unchanged
 - Any orphaned docs cleaned up
-
-Use \`--uncommitted\` to include staged but uncommitted changes.
 </execution>`,
   },
 
@@ -227,23 +239,28 @@ Generate comprehensive documentation for the codebase.
 **Options:**
 | Flag | Description |
 |------|-------------|
+| \`[path]\` | Target directory (default: current directory) |
 | \`--budget N\` | Override token budget (default: from config) |
+| \`--concurrency N\` | Number of concurrent AI calls (default: 5) |
 | \`--dry-run\` | Show what would be generated without writing |
-| \`--concurrency N\` | Control number of parallel AI calls |
 | \`--fail-fast\` | Stop on first file analysis failure |
+| \`--debug\` | Show AI prompts and backend details |
+| \`--trace\` | Enable concurrency tracing to \`.agents-reverse-engineer/traces/\` |
 | \`--verbose, -v\` | Show detailed task breakdown |
 | \`--quiet, -q\` | Suppress output except errors |
 
 **Usage:**
 - \`COMMAND_PREFIXgenerate\` — Generate docs
 - \`COMMAND_PREFIXgenerate --dry-run\` — Preview without writing
+- \`COMMAND_PREFIXgenerate --concurrency 3\` — Limit parallel AI calls
 
 **CLI:**
 \`\`\`bash
 npx are generate
 npx are generate --dry-run
 npx are generate --budget 50000
-npx are generate --concurrency 4
+npx are generate ./my-project --concurrency 3
+npx are generate --debug --trace
 \`\`\`
 
 **How it works:**
@@ -261,9 +278,14 @@ Incrementally update documentation for changed files.
 **Options:**
 | Flag | Description |
 |------|-------------|
+| \`[path]\` | Target directory (default: current directory) |
 | \`--uncommitted\` | Include staged but uncommitted changes |
 | \`--dry-run\` | Show what would be updated without writing |
 | \`--budget N\` | Override token budget |
+| \`--concurrency N\` | Number of concurrent AI calls (default: 5) |
+| \`--fail-fast\` | Stop on first file analysis failure |
+| \`--debug\` | Show AI prompts and backend details |
+| \`--trace\` | Enable concurrency tracing to \`.agents-reverse-engineer/traces/\` |
 | \`--verbose, -v\` | Show detailed output |
 | \`--quiet, -q\` | Suppress output except errors |
 
@@ -276,6 +298,7 @@ Incrementally update documentation for changed files.
 npx are update
 npx are update --uncommitted --verbose
 npx are update --dry-run
+npx are update ./my-project --concurrency 3
 \`\`\`
 
 ---
