@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.11] - 2026-02-08
+
+### Added
+- Improved `/bump` command with automatic changelog extraction from git commits (Phase 2: analyzes git log, categorizes changes, extracts concrete details)
+
+### Changed
+- Detailed changelog entries added retroactively for v0.4.9 and v0.4.7 (no more "Version bump" placeholders)
+
+### Fixed
+- Init command now properly includes `DEFAULT_EXCLUDE_PATTERNS` in generated config.yaml instead of empty patterns array
+
 ## [0.4.10] - 2026-02-08
 
 ### Added
@@ -19,9 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exclusion patterns moved from `binaryExtensions` to dedicated `patterns` field with proper glob matching
 - Enhanced README with detailed configuration documentation
 - Improved init command with better default configuration
-
-### Fixed
-- Init command now properly includes `DEFAULT_EXCLUDE_PATTERNS` in generated config.yaml instead of empty patterns array
 
 ## [0.4.9] - 2026-02-08
 
@@ -321,7 +329,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.10...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.11...HEAD
+[0.4.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.7...v0.4.8
