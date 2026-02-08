@@ -138,6 +138,13 @@ export function buildExecutionPlan(
     }
   }
 
+  // Sort file tasks by directory depth (deepest first) for post-order traversal
+  fileTasks.sort((a, b) => {
+    const depthA = getDirectoryDepth(path.dirname(a.path));
+    const depthB = getDirectoryDepth(path.dirname(b.path));
+    return depthB - depthA;
+  });
+
   // Create directory tasks in post-order (deepest first)
   // Sort directories by depth descending so children are processed before parents
   const sortedDirs = Object.entries(directoryFileMap).sort(
