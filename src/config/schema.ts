@@ -85,8 +85,8 @@ const AISchema = z.object({
   timeoutMs: z.number().positive().default(120_000),
   /** Maximum number of retries for transient errors */
   maxRetries: z.number().min(0).default(3),
-  /** Default parallelism for concurrent AI calls (1-20) */
-  concurrency: z.number().min(1).max(20).default(5),
+  /** Default parallelism for concurrent AI calls (1-20). Lower values recommended for resource-constrained environments. */
+  concurrency: z.number().min(1).max(5).default(2),
   /** Telemetry settings */
   telemetry: z.object({
     /** Number of most recent run logs to keep on disk */

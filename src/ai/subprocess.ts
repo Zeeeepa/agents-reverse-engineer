@@ -9,6 +9,7 @@
  */
 
 import { execFile } from 'node:child_process';
+import type { ExecFileException } from 'node:child_process';
 import type { SubprocessResult } from './types.js';
 
 /** Grace period after SIGTERM before escalating to SIGKILL (ms) */
@@ -112,9 +113,17 @@ export function runSubprocess(
         killSignal: 'SIGTERM',
         maxBuffer: 10 * 1024 * 1024, // 10MB for large AI responses
         encoding: 'utf-8',
-        env: { ...process.env, CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1' },
+        env: {
+          ...process.env,
+          // Prevent background tasks and subagent spawning
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
+          // Limit heap size to prevent memory explosion (512MB per subprocess)
+          NODE_OPTIONS: '--max-old-space-size=512',
+          // Constrain libuv thread pool size to prevent thread explosion
+          UV_THREADPOOL_SIZE: '4',
+        },
       },
-      (error, stdout, stderr) => {
+      (error: ExecFileException | null, stdout: string, stderr: string) => {
         const durationMs = Date.now() - startTime;
         console.error(`[subprocess:${child.pid}] Callback fired after ${durationMs}ms`);
 
@@ -129,8 +138,16 @@ export function runSubprocess(
         console.error(`[subprocess:${child.pid}] Attempting explicit SIGKILL cleanup`);
         try {
           if (child.pid !== undefined) {
-            process.kill(child.pid, 'SIGKILL');
-            console.error(`[subprocess:${child.pid}] Sent SIGKILL`);
+            // Kill the entire process tree by sending signal to process group
+            // Use negative PID to target the process group
+            try {
+              process.kill(-child.pid, 'SIGKILL');
+              console.error(`[subprocess:${child.pid}] Sent SIGKILL to process group -${child.pid}`);
+            } catch (pgError) {
+              // Process group kill failed, try single process
+              process.kill(child.pid, 'SIGKILL');
+              console.error(`[subprocess:${child.pid}] Sent SIGKILL to single process (pg kill failed)`);
+            }
           }
         } catch (killError) {
           // Process is already dead or doesn't exist -- expected in most cases
