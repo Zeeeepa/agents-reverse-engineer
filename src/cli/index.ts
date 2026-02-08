@@ -7,16 +7,19 @@
  *   discover [path]   Discover files to analyze
  *   generate [path]   Generate documentation plan
  *   update [path]     Update docs incrementally
+ *   clean [path]      Delete all generated artifacts
  */
 
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+
 import { initCommand } from './init.js';
 import { discoverCommand } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
 import { cleanCommand, type CleanOptions } from './clean.js';
+
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
 
 /**
@@ -54,11 +57,11 @@ Install/Uninstall Options:
   --force           Overwrite existing files (install only)
 
 General Options:
+  --debug           Show AI prompts and backend details
+  --trace           Enable concurrency tracing (.agents-reverse-engineer/traces/)
   --dry-run         Show plan without writing files (generate, update)
   --concurrency <n> Number of concurrent AI calls (default: 5)
   --fail-fast       Stop on first file analysis failure
-  --debug           Show AI prompts and backend details
-  --trace           Enable concurrency tracing (.agents-reverse-engineer/traces/)
   --uncommitted     Include uncommitted changes (update only)
   --help, -h        Show this help
   --version, -V     Show version number
