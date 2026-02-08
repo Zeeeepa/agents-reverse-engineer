@@ -12,7 +12,7 @@ import { parse, stringify } from 'yaml';
 import { ZodError } from 'zod';
 import pc from 'picocolors';
 import { ConfigSchema, Config } from './schema.js';
-import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE } from './defaults.js';
+import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS } from './defaults.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
 /** Directory name for agents-reverse-engineer configuration */
@@ -192,7 +192,9 @@ export async function writeDefaultConfig(root: string): Promise<void> {
 # ============================================================================
 exclude:
   # Custom glob patterns to exclude (e.g., ["*.log", "temp/**"])
-  patterns: []
+  # Default patterns exclude AI-generated documentation files
+  patterns:
+${DEFAULT_EXCLUDE_PATTERNS.map((pattern) => `    - ${pattern}`).join('\n')}
 
   # Vendor directories to exclude from analysis
   # These are typically package managers, build outputs, or version control

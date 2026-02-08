@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced README with detailed configuration documentation
 - Improved init command with better default configuration
 
+### Fixed
+- Init command now properly includes `DEFAULT_EXCLUDE_PATTERNS` in generated config.yaml instead of empty patterns array
+
 ## [0.4.9] - 2026-02-08
 
 ### Added
