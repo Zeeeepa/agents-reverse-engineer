@@ -73,7 +73,7 @@ function formatCleanup(plan: UpdatePlan): string[] {
 /**
  * Format the update plan for display.
  */
-function formatPlan(plan: UpdatePlan, verbose: boolean): string {
+function formatPlan(plan: UpdatePlan): string {
   const lines: string[] = [];
 
   // Header
@@ -123,8 +123,7 @@ function formatPlan(plan: UpdatePlan, verbose: boolean): string {
     lines.push('');
   }
 
-  // Show skipped files in verbose mode
-  if (verbose && plan.filesToSkip.length > 0) {
+  if (plan.filesToSkip.length > 0) {
     lines.push(pc.dim('Files unchanged (skipped):'));
     for (const file of plan.filesToSkip) {
       lines.push(`  ${pc.dim('=')} ${pc.dim(file)}`);
@@ -136,7 +135,7 @@ function formatPlan(plan: UpdatePlan, verbose: boolean): string {
   lines.push(...formatCleanup(plan));
 
   // Affected directories
-  if (plan.affectedDirs.length > 0 && verbose) {
+  if (plan.affectedDirs.length > 0) {
     lines.push('');
     lines.push(pc.cyan('Directories for AGENTS.md regeneration:'));
     for (const dir of plan.affectedDirs) {
@@ -167,14 +166,7 @@ export async function updateCommand(
   options: UpdateCommandOptions
 ): Promise<void> {
   const absolutePath = path.resolve(targetPath);
-  const verbose = options.verbose ?? false;
-  const quiet = options.quiet ?? false;
-  const logger = createLogger({
-    colors: true,
-    verbose,
-    quiet,
-    showExcluded: false,
-  });
+  const logger = createLogger({ colors: true });
 
   logger.info(`Checking for updates in: ${absolutePath}`);
 
@@ -204,9 +196,7 @@ export async function updateCommand(
     });
 
     // Display plan
-    if (!quiet) {
-      console.log(formatPlan(plan, verbose));
-    }
+    console.log(formatPlan(plan));
 
     // Handle first run
     if (plan.isFirstRun) {
@@ -315,7 +305,7 @@ export async function updateCommand(
         concurrency: 1,
       });
 
-      const dirReporter = new ProgressReporter(plan.affectedDirs.length, quiet);
+      const dirReporter = new ProgressReporter(plan.affectedDirs.length, false);
       for (const dir of plan.affectedDirs) {
         const taskStart = Date.now();
         const taskLabel = dir || '.';
@@ -351,9 +341,7 @@ export async function updateCommand(
         } catch (error) {
           dirsFailed++;
           const errorMsg = error instanceof Error ? error.message : String(error);
-          if (!quiet) {
-            console.log(`${pc.dim('[dir]')} ${pc.yellow('WARN')} ${dir || '.'}: ${errorMsg}`);
-          }
+          console.log(`${pc.dim('[dir]')} ${pc.yellow('WARN')} ${dir || '.'}: ${errorMsg}`);
 
           // Emit task:done (failure)
           tracer.emit({

@@ -29,31 +29,6 @@ import type { ITraceWriter } from '../orchestration/trace.js';
  */
 export interface DiscoverOptions {
   /**
-   * Suppress output except errors.
-   * @default false
-   */
-  quiet: boolean;
-
-  /**
-   * Show each excluded file with reason.
-   * @default false
-   */
-  showExcluded: boolean;
-
-  /**
-   * Show verbose output (each file as discovered).
-   * Derived: true unless quiet is set.
-   * @default true
-   */
-  verbose: boolean;
-
-  /**
-   * Generate GENERATION-PLAN.md file.
-   * @default false
-   */
-  plan: boolean;
-
-  /**
    * Optional trace writer for emitting discovery events.
    */
   tracer?: ITraceWriter;
@@ -76,11 +51,7 @@ export interface DiscoverOptions {
  *
  * @example
  * ```typescript
- * await discoverCommand('.', {
- *   quiet: false,
- *   showExcluded: true,
- *   verbose: true,
- * });
+ * await discoverCommand('.', {});
  * ```
  */
 export async function discoverCommand(
@@ -93,13 +64,7 @@ export async function discoverCommand(
   // Load configuration (uses defaults if no config file)
   const config = await loadConfig(resolvedPath);
 
-  // Create logger with options derived from CLI flags and config
-  const logger = createLogger({
-    verbose: options.quiet ? false : (options.verbose ?? config.output.verbose),
-    quiet: options.quiet,
-    colors: config.output.colors,
-    showExcluded: options.showExcluded,
-  });
+  const logger = createLogger({ colors: config.output.colors });
 
   // Verify target path exists
   try {
@@ -182,16 +147,16 @@ export async function discoverCommand(
     logger.file(relativePath(file));
   }
 
-  // Show each excluded file if --show-excluded
+  // Show each excluded file
   for (const excluded of result.excluded) {
     logger.excluded(relativePath(excluded.path), excluded.reason, excluded.filter);
   }
 
-  // Always show summary (unless quiet)
+  // Summary
   logger.summary(result.included.length, result.excluded.length);
 
-  // Generate GENERATION-PLAN.md if --plan flag is set
-  if (options.plan) {
+  // Generate GENERATION-PLAN.md
+  {
     logger.info('');
     logger.info('Generating execution plan...');
 

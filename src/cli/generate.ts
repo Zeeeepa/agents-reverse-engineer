@@ -122,14 +122,8 @@ export async function generateCommand(
   options: GenerateOptions
 ): Promise<void> {
   const absolutePath = path.resolve(targetPath);
-  // In deprecated JSON modes, suppress all non-JSON output
   const isJsonMode = options.execute || options.stream;
-  const logger = createLogger({
-    colors: !isJsonMode,
-    verbose: options.verbose ?? false,
-    quiet: isJsonMode || (options.quiet ?? false),
-    showExcluded: false,
-  });
+  const logger = createLogger({ colors: !isJsonMode });
 
   logger.info(`Generating documentation plan for: ${absolutePath}`);
 

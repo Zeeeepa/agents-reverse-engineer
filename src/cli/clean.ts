@@ -53,12 +53,7 @@ export async function cleanCommand(
 ): Promise<void> {
   const resolvedPath = path.resolve(targetPath || process.cwd());
 
-  const logger = createLogger({
-    verbose: options.quiet ? false : options.verbose,
-    quiet: options.quiet,
-    colors: true,
-    showExcluded: false,
-  });
+  const logger = createLogger({ colors: true });
 
   // Verify target path exists
   try {

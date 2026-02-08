@@ -27,12 +27,7 @@ export async function initCommand(root: string): Promise<void> {
   const resolvedRoot = path.resolve(root);
   const configPath = path.join(resolvedRoot, CONFIG_DIR, CONFIG_FILE);
 
-  const logger = createLogger({
-    verbose: true,
-    quiet: false,
-    colors: true,
-    showExcluded: false,
-  });
+  const logger = createLogger({ colors: true });
 
   try {
     // Check if config already exists

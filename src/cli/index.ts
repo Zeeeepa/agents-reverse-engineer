@@ -13,7 +13,7 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { initCommand } from './init.js';
-import { discoverCommand, type DiscoverOptions } from './discover.js';
+import { discoverCommand } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
 import { cleanCommand, type CleanOptions } from './clean.js';
@@ -56,8 +56,6 @@ Install/Uninstall Options:
 General Options:
   --quiet, -q       Suppress output except errors
   --verbose, -v     Show detailed output
-  --show-excluded   List each excluded file (discover only)
-  --plan            Generate GENERATION-PLAN.md file (discover only)
   --dry-run         Show plan without writing files (generate, update)
   --concurrency <n> Number of concurrent AI calls (default: 5)
   --fail-fast       Stop on first file analysis failure
@@ -76,7 +74,6 @@ Examples:
   are uninstall --runtime claude -g
   are init
   are discover
-  are discover --plan
   are generate --dry-run
   are generate --concurrency 3
   are generate ./my-project --concurrency 3
@@ -273,13 +270,7 @@ async function main(): Promise<void> {
     }
 
     case 'discover': {
-      const options: DiscoverOptions = {
-        quiet: flags.has('quiet'),
-        showExcluded: flags.has('show-excluded'),
-        verbose: !flags.has('quiet'),
-        plan: flags.has('plan'),
-      };
-      await discoverCommand(positional[0] || '.', options);
+      await discoverCommand(positional[0] || '.', {});
       break;
     }
 

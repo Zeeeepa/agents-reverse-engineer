@@ -1,34 +1,32 @@
 /**
  * Terminal logger for agents-reverse
  *
- * Provides colored output with verbose/quiet modes.
+ * Provides colored output.
  * Output format follows CONTEXT.md human-readable specification.
  */
 
 import pc from 'picocolors';
 
 /**
- * Logger interface for discovery output.
- *
- * All methods respect the configured verbosity levels.
+ * Logger interface for CLI output.
  */
 export interface Logger {
   /** Log an informational message */
   info(message: string): void;
 
-  /** Log a discovered file (verbose mode only) */
+  /** Log a discovered file */
   file(path: string): void;
 
-  /** Log an excluded file (--show-excluded mode only) */
+  /** Log an excluded file with reason */
   excluded(path: string, reason: string, filter: string): void;
 
-  /** Log discovery summary (always shown unless quiet) */
+  /** Log discovery summary */
   summary(included: number, excluded: number): void;
 
   /** Log a warning message */
   warn(message: string): void;
 
-  /** Log an error message (always shown) */
+  /** Log an error message */
   error(message: string): void;
 }
 
@@ -37,28 +35,10 @@ export interface Logger {
  */
 export interface LoggerOptions {
   /**
-   * Show verbose output (each file as discovered).
-   * @default true per CONTEXT.md
-   */
-  verbose: boolean;
-
-  /**
-   * Suppress all output except errors.
-   * @default false
-   */
-  quiet: boolean;
-
-  /**
    * Use colors in terminal output.
    * @default true
    */
   colors: boolean;
-
-  /**
-   * Show each excluded file (with --show-excluded flag).
-   * @default false
-   */
-  showExcluded: boolean;
 }
 
 /**
@@ -103,43 +83,29 @@ const noColor: ColorFunctions = {
  *
  * @example
  * ```typescript
- * const log = createLogger({
- *   verbose: true,
- *   quiet: false,
- *   colors: true,
- *   showExcluded: false,
- * });
+ * const log = createLogger({ colors: true });
  *
  * log.file('src/index.ts');
  * log.summary(42, 10);
  * ```
  */
 export function createLogger(options: LoggerOptions): Logger {
-  const { verbose, quiet, colors, showExcluded } = options;
-
-  // Select color functions based on colors option
-  const c: ColorFunctions = colors ? pc : noColor;
+  const c: ColorFunctions = options.colors ? pc : noColor;
 
   return {
     info(message: string): void {
-      if (quiet) return;
       console.log(message);
     },
 
     file(path: string): void {
-      if (quiet) return;
-      if (!verbose) return;
       console.log(c.green('  +') + ' ' + path);
     },
 
     excluded(path: string, reason: string, filter: string): void {
-      if (quiet) return;
-      if (!showExcluded) return;
       console.log(c.dim('  -') + ' ' + path + c.dim(` (${reason}: ${filter})`));
     },
 
     summary(included: number, excluded: number): void {
-      if (quiet) return;
       console.log(
         c.bold(`\nDiscovered ${included} files`) +
           c.dim(` (${excluded} excluded)`)
@@ -147,12 +113,10 @@ export function createLogger(options: LoggerOptions): Logger {
     },
 
     warn(message: string): void {
-      if (quiet) return;
       console.warn(c.yellow('Warning: ') + message);
     },
 
     error(message: string): void {
-      // Error is always shown, even in quiet mode
       console.error(c.red('Error: ') + message);
     },
   };
