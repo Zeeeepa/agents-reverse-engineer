@@ -9,8 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.10] - 2026-02-08
 
+### Added
+- `DEFAULT_EXCLUDE_PATTERNS` constant for AI-generated documentation files (AGENTS.md, CLAUDE.md, OPENCODE.md, GEMINI.md)
+- Exclusion patterns now applied by default to prevent analyzing AI-generated files
+
 ### Changed
-- Version bump
+- AI subprocess timeout increased from 120s to 300s (5 minutes) for better handling of large files
+- Telemetry log retention increased from 10 to 50 runs for better debugging history
+- Exclusion patterns moved from `binaryExtensions` to dedicated `patterns` field with proper glob matching
+- Enhanced README with detailed configuration documentation
+- Improved init command with better default configuration
 
 ## [0.4.9] - 2026-02-08
 
