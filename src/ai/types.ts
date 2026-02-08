@@ -226,6 +226,10 @@ export interface RunLog {
     totalDurationMs: number;
     /** Number of calls that resulted in an error */
     errorCount: number;
+    /** Sum of cache read tokens across all calls */
+    totalCacheReadTokens: number;
+    /** Sum of cache creation tokens across all calls */
+    totalCacheCreationTokens: number;
     /** Total file reads across all calls (including duplicates) */
     totalFilesRead: number;
     /** Unique files read (deduped by path) */

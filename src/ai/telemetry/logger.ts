@@ -84,6 +84,8 @@ export class TelemetryLogger {
   getSummary(): RunLog['summary'] {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheReadTokens = 0;
+    let totalCacheCreationTokens = 0;
     let totalDurationMs = 0;
     let errorCount = 0;
     let totalFilesRead = 0;
@@ -92,6 +94,8 @@ export class TelemetryLogger {
     for (const entry of this.entries) {
       totalInputTokens += entry.inputTokens;
       totalOutputTokens += entry.outputTokens;
+      totalCacheReadTokens += entry.cacheReadTokens;
+      totalCacheCreationTokens += entry.cacheCreationTokens;
       totalDurationMs += entry.latencyMs;
       if (entry.error !== undefined) {
         errorCount++;
@@ -106,6 +110,8 @@ export class TelemetryLogger {
       totalCalls: this.entries.length,
       totalInputTokens,
       totalOutputTokens,
+      totalCacheReadTokens,
+      totalCacheCreationTokens,
       totalDurationMs,
       errorCount,
       totalFilesRead,

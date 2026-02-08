@@ -151,21 +151,10 @@ export function buildExecutionPlan(
     type: 'root-doc',
     path: 'CLAUDE.md',
     absolutePath: path.join(projectRoot, 'CLAUDE.md'),
-    systemPrompt: `You generate markdown documentation files. Output ONLY the raw markdown content.
-Do NOT include any conversational text, preamble, or meta-commentary.
-Do NOT say "Here is..." or "I've generated..." — just output the document itself.
-The output will be written directly to a file.`,
-    userPrompt: `Generate CLAUDE.md for the project root.
-Read all AGENTS.md files in this project and synthesize them into a single comprehensive project overview document.
-
-The document MUST include:
-- Project purpose and description
-- Architecture overview with directory structure
-- Key directories table
-- Getting started (install, build, run commands)
-- Key technologies and dependencies
-
-Output ONLY the markdown content. No preamble.`,
+    // Prompts are built at runtime by buildRootPrompt() in runner.ts Phase 3.
+    // These placeholders exist only for plan display and dependency tracking.
+    systemPrompt: 'Built at runtime by buildRootPrompt()',
+    userPrompt: 'Root document — prompt populated from AGENTS.md files at runtime.',
     dependencies: allDirTaskIds,
     outputPath: path.join(projectRoot, 'CLAUDE.md'),
     metadata: {},

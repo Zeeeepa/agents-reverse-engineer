@@ -82,9 +82,10 @@ export class ProgressReporter {
    *
    * @param filePath - Relative path to the completed file
    * @param durationMs - Wall-clock duration of the AI call
-   * @param tokensIn - Number of input tokens consumed
+   * @param tokensIn - Number of input tokens consumed (non-cached)
    * @param tokensOut - Number of output tokens generated
    * @param model - Model identifier used for this call
+   * @param cacheReadTokens - Number of cache read input tokens
    */
   onFileDone(
     filePath: string,
@@ -92,6 +93,7 @@ export class ProgressReporter {
     tokensIn: number,
     tokensOut: number,
     model: string,
+    cacheReadTokens = 0,
   ): void {
     this.completed++;
 
@@ -103,7 +105,8 @@ export class ProgressReporter {
 
     const counter = pc.dim(`[${this.completed + this.failed}/${this.totalFiles}]`);
     const time = pc.dim(`${(durationMs / 1000).toFixed(1)}s`);
-    const tokens = pc.dim(`${tokensIn}/${tokensOut} tok`);
+    const effectiveIn = tokensIn + cacheReadTokens;
+    const tokens = pc.dim(`${effectiveIn}/${tokensOut} tok`);
     const modelLabel = pc.dim(model);
     const eta = this.formatETA();
 
@@ -170,7 +173,11 @@ export class ProgressReporter {
       console.log(`  Files skipped:   ${pc.yellow(String(summary.filesSkipped))}`);
     }
     console.log(`  Total calls:     ${summary.totalCalls}`);
-    console.log(`  Tokens:          ${summary.totalInputTokens} in / ${summary.totalOutputTokens} out`);
+    const totalIn = summary.totalInputTokens + summary.totalCacheReadTokens + summary.totalCacheCreationTokens;
+    console.log(`  Tokens:          ${totalIn} in / ${summary.totalOutputTokens} out`);
+    if (summary.totalCacheReadTokens > 0) {
+      console.log(`  Cache:           ${summary.totalCacheReadTokens} read / ${summary.totalCacheCreationTokens} created`);
+    }
 
     if (summary.totalFilesRead > 0) {
       console.log(`  Files read:      ${summary.totalFilesRead} (${summary.uniqueFilesRead} unique)`);

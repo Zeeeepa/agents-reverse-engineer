@@ -22,7 +22,7 @@ import type { SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
 import { computeContentHashFromString } from '../change-detection/index.js';
 import type { FileChange } from '../change-detection/types.js';
-import { buildFilePrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
+import { buildFilePrompt, buildDirectoryPrompt, buildRootPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
 import { CONFIG_DIR } from '../config/loader.js';
 import {
@@ -222,6 +222,7 @@ export class CommandRunner {
           success: true,
           tokensIn: response.inputTokens,
           tokensOut: response.outputTokens,
+          cacheReadTokens: response.cacheReadTokens,
           durationMs,
           model: response.model,
         };
@@ -241,7 +242,7 @@ export class CommandRunner {
         if (result.success && result.value) {
           const v = result.value;
           filesProcessed++;
-          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model);
+          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model, v.cacheReadTokens);
           planTracker.markDone(v.path);
         } else {
           filesFailed++;
@@ -489,10 +490,14 @@ export class CommandRunner {
       });
 
       try {
+        // Build prompt at runtime with all AGENTS.md content injected
+        const rootPrompt = await buildRootPrompt(plan.projectRoot, this.options.debug);
+
         const response = await this.aiService.call({
-          prompt: rootTask.userPrompt,
-          systemPrompt: rootTask.systemPrompt,
+          prompt: rootPrompt.user,
+          systemPrompt: rootPrompt.system,
           taskLabel: rootTask.path,
+          maxTurns: 1, // All context in prompt; no tool use needed
         });
 
         // Strip conversational preamble if the LLM still adds one
@@ -563,6 +568,8 @@ export class CommandRunner {
       totalCalls: aiSummary.totalCalls,
       totalInputTokens: aiSummary.totalInputTokens,
       totalOutputTokens: aiSummary.totalOutputTokens,
+      totalCacheReadTokens: aiSummary.totalCacheReadTokens,
+      totalCacheCreationTokens: aiSummary.totalCacheCreationTokens,
       totalDurationMs,
       errorCount: aiSummary.errorCount,
       retryCount: 0,
@@ -682,6 +689,7 @@ export class CommandRunner {
           success: true,
           tokensIn: response.inputTokens,
           tokensOut: response.outputTokens,
+          cacheReadTokens: response.cacheReadTokens,
           durationMs,
           model: response.model,
         };
@@ -701,7 +709,7 @@ export class CommandRunner {
         if (result.success && result.value) {
           const v = result.value;
           filesProcessed++;
-          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model);
+          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model, v.cacheReadTokens);
         } else {
           filesFailed++;
           const errorMsg = result.error?.message ?? 'Unknown error';
@@ -852,6 +860,8 @@ export class CommandRunner {
       totalCalls: aiSummary.totalCalls,
       totalInputTokens: aiSummary.totalInputTokens,
       totalOutputTokens: aiSummary.totalOutputTokens,
+      totalCacheReadTokens: aiSummary.totalCacheReadTokens,
+      totalCacheCreationTokens: aiSummary.totalCacheCreationTokens,
       totalDurationMs,
       errorCount: aiSummary.errorCount,
       retryCount: 0,

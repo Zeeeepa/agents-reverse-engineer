@@ -26,10 +26,12 @@ export interface FileTaskResult {
   path: string;
   /** Whether the AI call succeeded */
   success: boolean;
-  /** Number of input tokens consumed */
+  /** Number of input tokens consumed (non-cached) */
   tokensIn: number;
   /** Number of output tokens generated */
   tokensOut: number;
+  /** Number of cache read input tokens */
+  cacheReadTokens: number;
   /** Wall-clock duration in milliseconds */
   durationMs: number;
   /** Model identifier used for this call */
@@ -61,6 +63,10 @@ export interface RunSummary {
   totalInputTokens: number;
   /** Sum of output tokens across all calls */
   totalOutputTokens: number;
+  /** Sum of cache read tokens across all calls */
+  totalCacheReadTokens: number;
+  /** Sum of cache creation tokens across all calls */
+  totalCacheCreationTokens: number;
   /** Total wall-clock duration in milliseconds */
   totalDurationMs: number;
   /** Number of errors encountered */

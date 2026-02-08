@@ -253,11 +253,12 @@ export class GenerationOrchestrator {
     };
 
     // Emit plan created event
+    // +1 for root CLAUDE.md task added later by buildExecutionPlan()
     this.tracer?.emit({
       type: 'plan:created',
       planType: 'generate',
       fileCount: files.length,
-      taskCount: tasks.length,
+      taskCount: tasks.length + 1,
     });
 
     // Emit phase end
