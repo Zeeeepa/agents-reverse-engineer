@@ -89,6 +89,11 @@ LIBRARY & DEPENDENCY STATISTICS (MANDATORY):
 - List each external library with total usage count (e.g., "zod (used in 4/7 files)")
 - Group: external packages first, then built-ins, then local imports
 
+USER NOTES:
+- If "User Notes" are provided in the prompt, they contain user-defined instructions that will be automatically prepended to your output
+- Do NOT repeat or paraphrase user notes in your generated content — they are included separately
+- You may reference information from user notes for context (e.g., understanding conventions or constraints)
+
 DISCOVERABLE CONTENT:
 - When files share patterns or conventions worth documenting in detail, you may suggest supplementary documentation files
 - Use relative markdown links to reference any supplementary documentation

@@ -21,6 +21,7 @@ export const DEFAULT_VENDOR_DIRS = [
   '.gradle',
   // AI assistant tooling directories
   '.agents-reverse-engineer',
+  '.agents',
   '.planning',
   '.claude',
   '.opencode',
@@ -64,6 +65,7 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '*.log',
   '*.sum',
   '**/*.sum',
+  '**/SKILL.md',
 ] as const;
 
 /**
