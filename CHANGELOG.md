@@ -22,8 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.9] - 2026-02-08
 
+### Added
+- File path deduplication in execution plan markdown formatting for cleaner output
+
 ### Changed
-- Version bump
+- Maximum concurrency limit increased from 5 to 10 for better performance on capable systems
+- Default concurrency restored from 2 to 5 for balanced resource usage
+- Debug logging in subprocess execution commented out for cleaner output (logs still available with `--debug`)
 
 ## [0.4.8] - 2026-02-08
 
@@ -37,8 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.4.7] - 2026-02-08
 
-### Changed
-- Version bump
+### Added
+- Active subprocess tracking with detailed process lifecycle logging
+- Enhanced subprocess management with PID tracking and memory usage monitoring
+- Detailed logging for subprocess spawn, exit, and resource consumption
 
 ## [0.4.6] - 2026-02-08
 
