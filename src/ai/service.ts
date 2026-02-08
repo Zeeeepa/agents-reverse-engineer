@@ -279,9 +279,13 @@ export class AIService {
           ...DEFAULT_RETRY_OPTIONS,
           maxRetries: this.options.maxRetries,
           isRetryable: (error: unknown): boolean => {
+            // Only retry rate limits. Timeouts are NOT retried because
+            // spawning another heavyweight subprocess on a system that's
+            // already struggling (or against an unresponsive API) makes
+            // things worse and can exhaust system resources.
             return (
               error instanceof AIServiceError &&
-              (error.code === 'RATE_LIMIT' || error.code === 'TIMEOUT')
+              error.code === 'RATE_LIMIT'
             );
           },
           onRetry: (attempt: number, error: unknown) => {
