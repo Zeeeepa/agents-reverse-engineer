@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-08
+
+### Added
+- `clean` command to delete all generated documentation artifacts (`.sum`, `AGENTS.md`, generation plan)
+- Shared file discovery function (`src/discovery/run.ts`) consolidating duplicated discovery logic across commands
+
+### Changed
+- Major codebase simplification — removed 6,500+ lines of unused or over-engineered code
+- Streamlined orchestrator and prompt builder by removing architectural pattern detection layer
+- Simplified CLI options: removed `--verbose`, `--quiet`, and deprecated JSON output flags
+- Simplified init command by removing inline options parameter
+- Enhanced debug logging in prompt building functions for better troubleshooting
+- Updated CLI documentation to include `clean` command and remove duplicate options
+
+### Removed
+- Token budget system (`chunker`, `counter`, `tracker`) — unused complexity
+- Pricing engine and cost estimation (`src/ai/pricing.ts`) — not needed for core functionality
+- Architectural pattern detection (`src/generation/detection/`) and complexity analysis
+- Supplementary document writers (`STRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `INTEGRATIONS.md`, `CONCERNS.md`) — per-package documents removed in favor of simpler `AGENTS.md`-only approach
+- Chunk and synthesis prompt functions
+- Code-vs-doc quality analysis (`extractExports`, `checkCodeVsDoc`)
+- File type detection and related metadata from generation process
+- `disallowedTools` and `settings` from Claude backend options
+
 ## [0.4.11] - 2026-02-08
 
 ### Added
@@ -329,7 +353,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.11...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.11...v0.5.0
 [0.4.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.10...v0.4.11
 [0.4.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.9...v0.4.10
 [0.4.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.4.8...v0.4.9
