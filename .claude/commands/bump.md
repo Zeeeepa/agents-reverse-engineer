@@ -40,15 +40,44 @@ Bump the project version, update documentation, create a git tag, and publish a 
    node -p "require('./package.json').version"
    ```
 
-## Phase 2: Update Files
+## Phase 2: Extract Changelog from Git Commits
 
-### 2.1 Update package.json
+**CRITICAL**: Do NOT use placeholder text like "Version bump". Extract real changes from git commits.
+
+1. **Get commits since last version tag**:
+   ```bash
+   git log v<previous_version>..HEAD --oneline --no-merges
+   ```
+
+2. **For each meaningful commit, examine changes**:
+   ```bash
+   git show --stat <commit_hash>
+   git diff v<previous_version>..HEAD -- <key_files>
+   ```
+
+3. **Categorize changes** into Keep a Changelog format:
+   - **Added**: New features, capabilities, or files
+   - **Changed**: Modifications to existing behavior, enhancements, updated defaults
+   - **Fixed**: Bug fixes, error corrections
+   - **Removed**: Removed features or code
+   - **Deprecated**: Features marked for future removal
+   - **Security**: Security-related changes
+
+4. **Write specific, detailed changelog entries**:
+   - Describe WHAT changed and WHY (from user perspective)
+   - Include concrete details (e.g., "timeout increased from 120s to 300s")
+   - Reference specific configuration changes, default values, etc.
+   - ONLY use "Version bump" if literally nothing changed (empty git diff)
+
+## Phase 3: Update Files
+
+### 3.1 Update package.json
 
 Use the Edit tool to update the version field in `package.json`:
 
 - Change `"version": "<old>"` to `"version": "<new>"`
 
-### 2.2 Update CHANGELOG.md
+### 3.2 Update CHANGELOG.md
 
 Read `CHANGELOG.md` and make these changes:
 
@@ -63,14 +92,26 @@ Read `CHANGELOG.md` and make these changes:
    - Leave [Unreleased] empty (just the header)
 
 3. **If [Unreleased] is empty**:
-   - Still create the new version section
-   - Add a placeholder: `### Changed\n- Version bump`
+   - Insert a new version section with the changes extracted from git commits (Phase 2)
+   - Use the categorized changelog entries from Phase 2
+   - Example:
+     ```
+     ## [<version>] - <YYYY-MM-DD>
+
+     ### Added
+     - Feature 1 with specific details
+     - Feature 2 with configuration changes
+
+     ### Changed
+     - Specific change with old → new values
+     - Configuration update with details
+     ```
 
 4. **Update the version links at the bottom**:
    - Update `[Unreleased]` link: `[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v<version>...HEAD`
    - Add new version link after [Unreleased]: `[<version>]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v<previous>...v<version>`
 
-### 2.3 Check README.md (Optional)
+### 3.3 Check README.md (Optional)
 
 Scan `README.md` for any hardcoded version references that need updating:
 
@@ -78,7 +119,7 @@ Scan `README.md` for any hardcoded version references that need updating:
 - Installation commands with specific versions
 - Only update if explicitly version-pinned (not `@latest`)
 
-## Phase 3: Commit and Tag
+## Phase 4: Commit and Tag
 
 1. **Stage changes**:
 
@@ -100,7 +141,7 @@ Scan `README.md` for any hardcoded version references that need updating:
    git tag -a v<version> -m "Release v<version>"
    ```
 
-## Phase 4: Push and Release
+## Phase 5: Push and Release
 
 1. **Push commit and tag**:
 
@@ -117,7 +158,7 @@ Scan `README.md` for any hardcoded version references that need updating:
    )"
    ```
 
-## Phase 5: Report
+## Phase 6: Report
 
 Summarize what was done:
 
