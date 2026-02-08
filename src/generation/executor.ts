@@ -518,20 +518,22 @@ export function formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string {
   lines.push('');
 
   // Group files by directory, use directory task order (already post-order)
-  const filesByDir: Record<string, string[]> = {};
+  // Deduplicate paths (chunk tasks share the same path)
+  const filesByDir: Record<string, Set<string>> = {};
   for (const task of plan.fileTasks) {
     const dir = task.path.includes('/')
       ? task.path.substring(0, task.path.lastIndexOf('/'))
       : '.';
-    if (!filesByDir[dir]) filesByDir[dir] = [];
-    filesByDir[dir].push(task.path);
+    if (!filesByDir[dir]) filesByDir[dir] = new Set();
+    filesByDir[dir].add(task.path);
   }
 
   // Output files grouped by directory in post-order (using directoryTasks order)
   for (const dirTask of plan.directoryTasks) {
     const dir = dirTask.path;
-    const files = filesByDir[dir] || [];
-    if (files.length > 0) {
+    const filesSet = filesByDir[dir];
+    if (filesSet && filesSet.size > 0) {
+      const files = Array.from(filesSet);
       const depth = dirTask.metadata.depth ?? 0;
       lines.push(`### Depth ${depth}: ${dir}/ (${files.length} files)`);
       for (const file of files) {
