@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-02-09
+
+### Added
+- Phantom path detection in generated AGENTS.md files — post-Phase 2 validation scans all directory AGENTS.md for path-like references (`src/...`, `../...`, markdown links) that don't resolve to real files, reporting them as warnings via the inconsistency reporter
+- Import map extraction module (`src/imports/`) — regex-based extractor parses TypeScript/JavaScript import statements from source files, classifying them as internal (`./`) or external (`../`) and formatting them as structured text for directory prompts
+- Project directory structure context passed to directory AGENTS.md prompts — `buildDirectoryPrompt()` accepts a `projectStructure` parameter so the AI sees the real directory tree
+
+### Changed
+- Directory AGENTS.md system prompt includes "Path Accuracy" rules — AI must use only paths from the import map and exact directory names from the project structure, never inventing or renaming module paths
+- Directory AGENTS.md system prompt includes "Consistency" rules — prevents self-contradictions within the same document (e.g., describing a technique as "regex-based" then calling it "AST-based")
+- `RunSummary` now tracks `phantomPaths` count alongside `inconsistenciesCodeVsDoc` and `inconsistenciesCodeVsCode`
+- `InconsistencyReport.counts` includes `phantomPaths` field
+- `Inconsistency` union type extended with `PhantomPathInconsistency`
+
 ## [0.5.4] - 2026-02-09
 
 ### Changed
@@ -413,7 +427,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.1...v0.5.2
