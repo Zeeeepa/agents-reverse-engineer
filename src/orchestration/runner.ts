@@ -93,6 +93,9 @@ export class CommandRunner {
     }
   }
 
+  /** Progress log instance (if provided via options) for ProgressReporter mirroring */
+  private get progressLog() { return this.options.progressLog; }
+
   /**
    * Execute the `generate` command using a pre-built execution plan.
    *
@@ -105,7 +108,7 @@ export class CommandRunner {
    * @returns Aggregated run summary
    */
   async executeGenerate(plan: ExecutionPlan): Promise<RunSummary> {
-    const reporter = new ProgressReporter(plan.fileTasks.length, plan.directoryTasks.length);
+    const reporter = new ProgressReporter(plan.fileTasks.length, plan.directoryTasks.length, this.progressLog);
 
     // Initialize plan tracker (writes GENERATION-PLAN.md with checkboxes)
     const planTracker = new PlanTracker(
@@ -645,7 +648,7 @@ export class CommandRunner {
     projectRoot: string,
     config: Config,
   ): Promise<RunSummary> {
-    const reporter = new ProgressReporter(filesToAnalyze.length);
+    const reporter = new ProgressReporter(filesToAnalyze.length, 0, this.progressLog);
 
     const runStart = Date.now();
     let filesProcessed = 0;

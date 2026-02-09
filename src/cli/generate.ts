@@ -25,7 +25,7 @@ import {
   resolveBackend,
   getInstallInstructions,
 } from '../ai/index.js';
-import { CommandRunner, createTraceWriter, cleanupOldTraces } from '../orchestration/index.js';
+import { CommandRunner, ProgressLog, createTraceWriter, cleanupOldTraces } from '../orchestration/index.js';
 
 /**
  * Options for the generate command.
@@ -201,12 +201,20 @@ export async function generateCommand(
     console.error(pc.dim(`[trace] Subprocess logs → ${logDir}`));
   }
 
+  // Create progress log for tail -f monitoring
+  const progressLog = ProgressLog.create(absolutePath);
+  progressLog.write(`=== ARE Generate (${new Date().toISOString()}) ===`);
+  progressLog.write(`Project: ${absolutePath}`);
+  progressLog.write(`Files: ${executionPlan.fileTasks.length} | Directories: ${executionPlan.directoryTasks.length}`);
+  progressLog.write('');
+
   // Create command runner
   const runner = new CommandRunner(aiService, {
     concurrency,
     failFast: options.failFast,
     debug: options.debug,
     tracer,
+    progressLog,
   });
 
   // Execute the three-phase pipeline
@@ -215,7 +223,8 @@ export async function generateCommand(
   // Write telemetry run log
   await aiService.finalize(absolutePath);
 
-  // Finalize trace and clean up old trace files
+  // Finalize trace, progress log, and clean up old trace files
+  await progressLog.finalize();
   await tracer.finalize();
   if (options.trace) {
     await cleanupOldTraces(absolutePath);

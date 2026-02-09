@@ -42,7 +42,7 @@ export type { PoolOptions, TaskResult } from './pool.js';
 // Progress reporter
 // ---------------------------------------------------------------------------
 
-export { ProgressReporter } from './progress.js';
+export { ProgressReporter, ProgressLog } from './progress.js';
 
 // ---------------------------------------------------------------------------
 // Plan tracker

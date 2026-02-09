@@ -23,6 +23,7 @@ import {
   resolveBackend,
   getInstallInstructions,
 } from '../ai/index.js';
+import { ProgressLog } from '../orchestration/index.js';
 import { generateCommand } from './generate.js';
 
 /**
@@ -150,8 +151,16 @@ export async function specifyCommand(
     console.error(pc.dim(`[debug] User prompt: ${prompt.user.length} chars`));
   }
 
+  // Create progress log for tail -f monitoring
+  const progressLog = ProgressLog.create(absolutePath);
+  progressLog.write(`=== ARE Specify (${new Date().toISOString()}) ===`);
+  progressLog.write(`Project: ${absolutePath}`);
+  progressLog.write(`AGENTS.md files: ${docs.length}`);
+  progressLog.write('');
+
   console.log(pc.bold('Generating specification...'));
   console.log(pc.dim('This may take several minutes depending on project size.'));
+  progressLog.write('Generating specification...');
 
   const response = await aiService.call({
     prompt: prompt.user,
@@ -174,9 +183,12 @@ export async function specifyCommand(
     console.log(pc.green(pc.bold('Specification written successfully:')));
     for (const file of writtenFiles) {
       console.log(pc.green(`  ${file}`));
+      progressLog.write(`Written: ${file}`);
     }
   } catch (error) {
     if (error instanceof SpecExistsError) {
+      progressLog.write(`Error: ${error.message}`);
+      await progressLog.finalize();
       console.error(pc.red(error.message));
       process.exit(1);
     }
@@ -189,10 +201,11 @@ export async function specifyCommand(
 
   const { summary } = await aiService.finalize(absolutePath);
 
-  console.log('');
-  console.log(pc.dim(
-    `Tokens: ${summary.totalInputTokens} in / ${summary.totalOutputTokens} out` +
+  const summaryLine = `Tokens: ${summary.totalInputTokens} in / ${summary.totalOutputTokens} out` +
     ` | Duration: ${(summary.totalDurationMs / 1000).toFixed(1)}s` +
-    ` | Output: ${outputPath}`,
-  ));
+    ` | Output: ${outputPath}`;
+  console.log('');
+  console.log(pc.dim(summaryLine));
+  progressLog.write(summaryLine);
+  await progressLog.finalize();
 }

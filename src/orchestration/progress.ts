@@ -9,11 +9,102 @@
  * ETA is computed via a moving average of the last 10 completion times,
  * displayed after 2 or more files have completed.
  *
+ * Optionally mirrors all output to a plain-text progress log file
+ * (`.agents-reverse-engineer/progress.log`) via {@link ProgressLog},
+ * enabling `tail -f` monitoring when running inside buffered environments
+ * (e.g. Claude Code's Bash tool).
+ *
  * @module
  */
 
+import { open, mkdir } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
+import * as path from 'node:path';
 import pc from 'picocolors';
 import type { RunSummary } from './types.js';
+
+// ---------------------------------------------------------------------------
+// ANSI stripping
+// ---------------------------------------------------------------------------
+
+/** Strip ANSI escape sequences from a string for plain-text output. */
+function stripAnsi(str: string): string {
+  // Matches all common ANSI escape codes (SGR, cursor, erase, etc.)
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// ProgressLog
+// ---------------------------------------------------------------------------
+
+/** Relative path for the progress log file */
+const PROGRESS_LOG_FILENAME = 'progress.log';
+
+/**
+ * Plain-text progress log file writer.
+ *
+ * Mirrors console progress output to `.agents-reverse-engineer/progress.log`
+ * without ANSI escape codes, enabling real-time monitoring via `tail -f`
+ * when the CLI runs inside buffered environments (e.g. Claude Code).
+ *
+ * Uses promise-chain serialization (same pattern as {@link TraceWriter})
+ * to handle concurrent writes from multiple pool workers safely.
+ *
+ * @example
+ * ```typescript
+ * const log = new ProgressLog('/project/.agents-reverse-engineer/progress.log');
+ * log.write('=== ARE Generate (2026-02-09) ===');
+ * log.write('[1/10] ANALYZING src/index.ts');
+ * await log.finalize();
+ * ```
+ */
+export class ProgressLog {
+  private writeQueue: Promise<void> = Promise.resolve();
+  private fd: FileHandle | null = null;
+
+  constructor(private readonly filePath: string) {}
+
+  /**
+   * Create a ProgressLog for a project root.
+   *
+   * @param projectRoot - Absolute path to the project root directory
+   * @returns A new ProgressLog instance
+   */
+  static create(projectRoot: string): ProgressLog {
+    return new ProgressLog(
+      path.join(projectRoot, '.agents-reverse-engineer', PROGRESS_LOG_FILENAME),
+    );
+  }
+
+  /**
+   * Append a line to the progress log file.
+   *
+   * On first call, creates the parent directory and opens the file
+   * in truncate mode ('w'). Subsequent writes append to the open handle.
+   * Write failures are silently swallowed (non-critical telemetry).
+   */
+  write(line: string): void {
+    this.writeQueue = this.writeQueue
+      .then(async () => {
+        if (!this.fd) {
+          await mkdir(path.dirname(this.filePath), { recursive: true });
+          this.fd = await open(this.filePath, 'w');
+        }
+        await this.fd.write(line + '\n');
+      })
+      .catch(() => { /* non-critical -- progress log loss is acceptable */ });
+  }
+
+  /** Flush all pending writes and close the file handle. */
+  async finalize(): Promise<void> {
+    await this.writeQueue;
+    if (this.fd) {
+      await this.fd.close();
+      this.fd = null;
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // ProgressReporter
@@ -67,15 +158,20 @@ export class ProgressReporter {
   /** Sliding window of recent directory completion durations for ETA */
   private readonly dirCompletionTimes: number[] = [];
 
+  /** Optional file-based progress log for tail -f monitoring */
+  private readonly progressLog: ProgressLog | null;
+
   /**
    * Create a new progress reporter.
    *
    * @param totalFiles - Total number of file tasks to process
    * @param totalDirectories - Total number of directory tasks to process
+   * @param progressLog - Optional progress log for file-based output mirroring
    */
-  constructor(totalFiles: number, totalDirectories: number = 0) {
+  constructor(totalFiles: number, totalDirectories: number = 0, progressLog?: ProgressLog) {
     this.totalFiles = totalFiles;
     this.totalDirectories = totalDirectories;
+    this.progressLog = progressLog ?? null;
   }
 
   /**
@@ -87,8 +183,9 @@ export class ProgressReporter {
    */
   onFileStart(filePath: string): void {
     this.started++;
-    const counter = pc.dim(`[${this.started}/${this.totalFiles}]`);
-    console.log(`${counter} ${pc.cyan('ANALYZING')} ${filePath}`);
+    const line = `${pc.dim(`[${this.started}/${this.totalFiles}]`)} ${pc.cyan('ANALYZING')} ${filePath}`;
+    console.log(line);
+    this.progressLog?.write(stripAnsi(line));
   }
 
   /**
@@ -130,9 +227,9 @@ export class ProgressReporter {
     const modelLabel = pc.dim(model);
     const eta = this.formatETA();
 
-    console.log(
-      `${counter} ${pc.green('DONE')} ${filePath} ${time} ${tokens} ${modelLabel}${eta}`,
-    );
+    const line = `${counter} ${pc.green('DONE')} ${filePath} ${time} ${tokens} ${modelLabel}${eta}`;
+    console.log(line);
+    this.progressLog?.write(stripAnsi(line));
   }
 
   /**
@@ -146,8 +243,9 @@ export class ProgressReporter {
   onFileError(filePath: string, error: string): void {
     this.failed++;
 
-    const counter = pc.dim(`[${this.completed + this.failed}/${this.totalFiles}]`);
-    console.log(`${counter} ${pc.red('FAIL')} ${filePath} ${pc.dim(error)}`);
+    const line = `${pc.dim(`[${this.completed + this.failed}/${this.totalFiles}]`)} ${pc.red('FAIL')} ${filePath} ${pc.dim(error)}`;
+    console.log(line);
+    this.progressLog?.write(stripAnsi(line));
   }
 
   /**
@@ -159,8 +257,9 @@ export class ProgressReporter {
    */
   onDirectoryStart(dirPath: string): void {
     this.dirStarted++;
-    const counter = pc.dim(`[dir ${this.dirStarted}/${this.totalDirectories}]`);
-    console.log(`${counter} ${pc.cyan('ANALYZING')} ${dirPath}/AGENTS.md`);
+    const line = `${pc.dim(`[dir ${this.dirStarted}/${this.totalDirectories}]`)} ${pc.cyan('ANALYZING')} ${dirPath}/AGENTS.md`;
+    console.log(line);
+    this.progressLog?.write(stripAnsi(line));
   }
 
   /**
@@ -200,9 +299,9 @@ export class ProgressReporter {
     const modelLabel = pc.dim(model);
     const eta = this.formatDirectoryETA();
 
-    console.log(
-      `${counter} ${pc.blue('DONE')} ${dirPath}/AGENTS.md ${time} ${tokens} ${modelLabel}${eta}`,
-    );
+    const line = `${counter} ${pc.blue('DONE')} ${dirPath}/AGENTS.md ${time} ${tokens} ${modelLabel}${eta}`;
+    console.log(line);
+    this.progressLog?.write(stripAnsi(line));
   }
 
   /**
@@ -213,7 +312,9 @@ export class ProgressReporter {
    * @param docPath - Path to the root document
    */
   onRootDone(docPath: string): void {
-    console.log(`${pc.dim('[root]')} ${pc.blue('DONE')} ${docPath}`);
+    const line = `${pc.dim('[root]')} ${pc.blue('DONE')} ${docPath}`;
+    console.log(line);
+    this.progressLog?.write(stripAnsi(line));
   }
 
   /**
@@ -227,30 +328,36 @@ export class ProgressReporter {
   printSummary(summary: RunSummary): void {
     const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);
 
-    console.log('');
-    console.log(pc.bold('=== Run Summary ==='));
-    console.log(`  Files processed: ${pc.green(String(summary.filesProcessed))}`);
+    const lines: string[] = [];
+    lines.push('');
+    lines.push(pc.bold('=== Run Summary ==='));
+    lines.push(`  Files processed: ${pc.green(String(summary.filesProcessed))}`);
     if (summary.filesFailed > 0) {
-      console.log(`  Files failed:    ${pc.red(String(summary.filesFailed))}`);
+      lines.push(`  Files failed:    ${pc.red(String(summary.filesFailed))}`);
     }
     if (summary.filesSkipped > 0) {
-      console.log(`  Files skipped:   ${pc.yellow(String(summary.filesSkipped))}`);
+      lines.push(`  Files skipped:   ${pc.yellow(String(summary.filesSkipped))}`);
     }
-    console.log(`  Total calls:     ${summary.totalCalls}`);
+    lines.push(`  Total calls:     ${summary.totalCalls}`);
     const totalIn = summary.totalInputTokens + summary.totalCacheReadTokens + summary.totalCacheCreationTokens;
-    console.log(`  Tokens:          ${totalIn} in / ${summary.totalOutputTokens} out`);
+    lines.push(`  Tokens:          ${totalIn} in / ${summary.totalOutputTokens} out`);
     if (summary.totalCacheReadTokens > 0) {
-      console.log(`  Cache:           ${summary.totalCacheReadTokens} read / ${summary.totalCacheCreationTokens} created`);
+      lines.push(`  Cache:           ${summary.totalCacheReadTokens} read / ${summary.totalCacheCreationTokens} created`);
     }
 
     if (summary.totalFilesRead > 0) {
-      console.log(`  Files read:      ${summary.totalFilesRead} (${summary.uniqueFilesRead} unique)`);
+      lines.push(`  Files read:      ${summary.totalFilesRead} (${summary.uniqueFilesRead} unique)`);
     }
 
-    console.log(`  Total time:      ${elapsed}s`);
-    console.log(`  Errors:          ${summary.errorCount}`);
+    lines.push(`  Total time:      ${elapsed}s`);
+    lines.push(`  Errors:          ${summary.errorCount}`);
     if (summary.retryCount > 0) {
-      console.log(`  Retries:         ${summary.retryCount}`);
+      lines.push(`  Retries:         ${summary.retryCount}`);
+    }
+
+    for (const line of lines) {
+      console.log(line);
+      this.progressLog?.write(stripAnsi(line));
     }
   }
 

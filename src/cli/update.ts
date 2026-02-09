@@ -23,7 +23,7 @@ import {
   resolveBackend,
   getInstallInstructions,
 } from '../ai/index.js';
-import { CommandRunner, ProgressReporter, createTraceWriter, cleanupOldTraces } from '../orchestration/index.js';
+import { CommandRunner, ProgressReporter, ProgressLog, createTraceWriter, cleanupOldTraces } from '../orchestration/index.js';
 
 /**
  * Options for the update command.
@@ -266,12 +266,20 @@ export async function updateCommand(
       console.error(pc.dim(`[trace] Subprocess logs → ${logDir}`));
     }
 
+    // Create progress log for tail -f monitoring
+    const progressLog = ProgressLog.create(absolutePath);
+    progressLog.write(`=== ARE Update (${new Date().toISOString()}) ===`);
+    progressLog.write(`Project: ${absolutePath}`);
+    progressLog.write(`Files to analyze: ${plan.filesToAnalyze.length} | Directories: ${plan.affectedDirs.length}`);
+    progressLog.write('');
+
     // Create command runner
     const runner = new CommandRunner(aiService, {
       concurrency,
       failFast: options.failFast,
       debug: options.debug,
       tracer,
+      progressLog,
     });
 
     // -------------------------------------------------------------------------
@@ -302,7 +310,7 @@ export async function updateCommand(
         concurrency: 1,
       });
 
-      const dirReporter = new ProgressReporter(0, plan.affectedDirs.length);
+      const dirReporter = new ProgressReporter(0, plan.affectedDirs.length, progressLog);
       for (const dir of plan.affectedDirs) {
         const taskStart = Date.now();
         const taskLabel = dir || '.';
@@ -380,7 +388,8 @@ export async function updateCommand(
 
     await aiService.finalize(absolutePath);
 
-    // Finalize trace and clean up old trace files
+    // Finalize progress log, trace, and clean up old trace files
+    await progressLog.finalize();
     await tracer.finalize();
     if (options.trace) {
       await cleanupOldTraces(absolutePath);

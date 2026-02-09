@@ -9,6 +9,7 @@
  */
 
 import type { InconsistencyReport } from '../quality/index.js';
+import type { ProgressLog } from './progress.js';
 import type { ITraceWriter } from './trace.js';
 
 // ---------------------------------------------------------------------------
@@ -145,4 +146,6 @@ export interface CommandRunOptions {
   dryRun?: boolean;
   /** Trace writer for concurrency debugging (no-op when tracing is off) */
   tracer?: ITraceWriter;
+  /** Progress log for file-based output mirroring (tail -f monitoring) */
+  progressLog?: ProgressLog;
 }
