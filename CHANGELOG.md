@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-02-09
+
+### Added
+- **Annex file system** for reproduction-critical content — files containing large string constants (prompt templates, config arrays, IDE templates) now generate companion `.annex.md` files alongside `.sum` files, preserving full verbatim source content that cannot fit within summary word limits
+- `collectAnnexFiles()` utility in `src/generation/collector.ts` — recursively walks project tree to collect all `.annex.md` files for consumption by the `specify` command
+- Annex-aware file analysis prompts — `FILE_SYSTEM_PROMPT` includes new "REPRODUCTION-CRITICAL CONTENT (ANNEX OVERFLOW)" section instructing the LLM to identify constants needing verbatim preservation and list them in `## Annex References` sections
+- Annex reference linking in directory AGENTS.md — directory prompts detect `.annex.md` files and link to them; `DIRECTORY_SYSTEM_PROMPT` includes "Reproduction-Critical Constants" section type
+- Annex content in specification synthesis — `buildSpecPrompt()` accepts optional annex files, adds them as a dedicated "Annex Files" section in the user prompt, and mandates verbatim reproduction in spec sections 10 (Prompt Templates) and 11 (IDE Integration)
+- `prepack` script in package.json — removes `LICENSE.sum` and `README.md.sum` before npm pack to keep published tarball clean
+
+### Changed
+- `clean` command now discovers and deletes `*.annex.md` files alongside `.sum` files, with annex count displayed in cleanup summary
+- `specify` command collects annex files and includes them in dry-run token estimates and progress log metadata
+- Orphan cleaner (`src/update/orphan-cleaner.ts`) now deletes `.annex.md` files when their source file is deleted/renamed, and skips `.annex.md` files when checking for remaining source files in empty directory cleanup
+- `CommandRunner` automatically writes annex files when AI response contains `## Annex References` section (both initial generation and incremental update paths)
+- Spec prompt adds two new required sections: "10. Prompt Templates & System Instructions" and "11. IDE Integration & Installer" with mandatory verbatim reproduction from annex content
+- `npm pack` command added to Claude Code settings allowlist
+
 ## [0.6.5] - 2026-02-09
 
 ### Added
@@ -508,7 +526,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.2...v0.6.3
