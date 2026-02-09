@@ -45,6 +45,10 @@ STRICT COMPLIANCE:
 - Pay close attention to the "Interfaces for This Phase" section in the current phase — it contains the exact signatures you must implement.
 - When "Already Built" context shows an exported symbol, import and use it. Do not redefine it.
 
+DELIMITER RULES:
+- ===FILE: and ===END_FILE=== MUST appear on their own line with NO leading whitespace.
+- If your generated code contains the literal text "===FILE:" (e.g., in a parser or template), ensure it is indented or inside a string — never at column 0.
+
 CONTEXT AWARENESS:
 When "Already Built" context is provided, import from those modules and use their exported types/functions. Do not redefine types that already exist in built modules.
 When "Already Built" context provides a function or method signature, your code MUST call it using the exact name shown. Match the API precisely.`;

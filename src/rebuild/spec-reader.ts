@@ -146,6 +146,9 @@ function extractFromBuildPlan(fullContent: string): RebuildUnit[] {
   const behavioralContent = extractSection(fullContent, 'Behavioral Contracts');
   const behavioralSubsections = behavioralContent ? extractSubsections(behavioralContent) : new Map<string, string>();
 
+  // Extract File Manifest for per-phase file list injection
+  const manifestContent = extractSection(fullContent, 'File Manifest');
+
   // Check if any phase has Defines:/Consumes: lists (Change 2 format)
   const hasDefinesConsumes = buildPlanContent.match(/^\*\*Defines:\*\*|^Defines:/m) !== null;
 
@@ -193,6 +196,12 @@ function extractFromBuildPlan(fullContent: string): RebuildUnit[] {
       const relevantBehavior = findRelevantSubsections(phaseContent, behavioralSubsections);
       if (relevantBehavior) {
         contextParts.push(`## Behavioral Contracts for This Phase\n\n${relevantBehavior}`);
+      }
+      if (manifestContent) {
+        const phaseFileEntries = extractManifestEntriesForPhase(manifestContent, phaseContent);
+        if (phaseFileEntries) {
+          contextParts.push(`## Files to Generate in This Phase\n\n${phaseFileEntries}`);
+        }
       }
     } else {
       // Graceful degradation: full API Surface for older specs without Defines:/Consumes:
@@ -339,6 +348,36 @@ function findRelevantSubsections(
   }
 
   return matched.length > 0 ? matched.join('\n\n') : null;
+}
+
+/**
+ * Extract file manifest entries relevant to a specific phase.
+ *
+ * Matches manifest lines against the phase's "Defines:" list symbols.
+ * Returns null if no "Defines:" list or no matching manifest lines found.
+ *
+ * @param manifestContent - Full File Manifest section content
+ * @param phaseContent - Raw text of the phase section
+ * @returns Matching manifest lines, or null if none match
+ */
+function extractManifestEntriesForPhase(
+  manifestContent: string,
+  phaseContent: string,
+): string | null {
+  // Extract "Defines:" list from phase
+  const definesMatch = phaseContent.match(/(?:\*\*Defines:\*\*|^Defines:)\s*(.+)/m);
+  if (!definesMatch) return null;
+
+  const symbols = definesMatch[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  if (symbols.length === 0) return null;
+
+  // Find manifest lines that mention any defined symbol
+  const lines = manifestContent.split('\n');
+  const matches = lines.filter(line =>
+    symbols.some(sym => line.includes(sym)),
+  );
+
+  return matches.length > 0 ? matches.join('\n') : null;
 }
 
 /**

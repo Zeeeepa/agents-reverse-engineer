@@ -31,16 +31,44 @@ export function parseModuleOutput(responseText: string): Map<string, string> {
 
 /**
  * Parse `===FILE: path===` / `===END_FILE===` delimited output.
+ *
+ * Uses a line-by-line state machine requiring delimiters at column 0
+ * (start of line) to avoid matching delimiter text embedded inside
+ * generated source code (string literals, JSDoc, prompt templates).
  */
 function parseDelimiterFormat(text: string): Map<string, string> {
   const files = new Map<string, string>();
-  const pattern = /===FILE:\s*(.+?)===\n([\s\S]*?)===END_FILE===/g;
+  const START_RE = /^===FILE:\s*(.+?)===$/;
+  const END_RE = /^===END_FILE===$/;
 
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text)) !== null) {
-    const filePath = match[1].trim();
-    const content = match[2];
-    files.set(filePath, content);
+  const lines = text.split('\n');
+  let currentPath: string | null = null;
+  let contentLines: string[] = [];
+
+  for (const line of lines) {
+    if (currentPath === null) {
+      // Looking for a file start delimiter
+      const startMatch = START_RE.exec(line);
+      if (startMatch) {
+        currentPath = startMatch[1].trim();
+        contentLines = [];
+      }
+      // Ignore non-delimiter lines outside of file blocks
+    } else {
+      // Inside a file block — check for end delimiter
+      if (END_RE.test(line)) {
+        files.set(currentPath, contentLines.join('\n'));
+        currentPath = null;
+        contentLines = [];
+      } else {
+        contentLines.push(line);
+      }
+    }
+  }
+
+  // Handle unclosed file block (AI forgot ===END_FILE===)
+  if (currentPath !== null && contentLines.length > 0) {
+    files.set(currentPath, contentLines.join('\n'));
   }
 
   return files;

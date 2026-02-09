@@ -40,6 +40,12 @@ Group content by CONCERN, not by directory structure. Use these conceptual secti
    - Include dependency ordering and implementation tasks as before
 10. Prompt Templates & System Instructions — every AI prompt template, system prompt, and user prompt template used by the system. Reproduce the FULL text verbatim from annex files or AGENTS.md content. Organize by pipeline phase or functional area. Include placeholder syntax exactly as defined (e.g., {{FILE_PATH}}). These are reproduction-critical — without them, a rebuilder cannot produce functionally equivalent AI output.
 11. IDE Integration & Installer — command templates per platform, platform configuration objects (path prefixes, filename conventions, frontmatter formats), installer permission lists, hook definitions and their activation status. Reproduce template content verbatim from annex files or AGENTS.md content.
+12. File Manifest — exhaustive list of every source file the project contains:
+    - For each file: relative path, module it belongs to, and the public exports it provides
+    - Group by directory
+    - Include stub/placeholder files explicitly (mark them as stubs)
+    - Include type-only files (files that export only types/interfaces)
+    - This section ensures no files are missed during rebuild
 
 RULES:
 - Describe MODULE BOUNDARIES and their interfaces — not file paths or directory layouts
@@ -55,6 +61,7 @@ RULES:
 - Behavioral Contracts must specify exact error types/codes and when they are thrown
 - Behavioral Contracts MUST include verbatim regex patterns, format strings, and magic constants from the source documents — do NOT paraphrase regex patterns into prose descriptions
 - When multiple modules reference the same constant or pattern, consolidate into a single definition with cross-references to the modules that use it
+- The File Manifest MUST list every source file. Each Build Plan phase MUST reference which File Manifest entries it produces. A file missing from both is a spec defect.
 
 REPRODUCTION-CRITICAL CONTENT (MANDATORY):
 The source documents may include annex files containing full verbatim source code
@@ -119,6 +126,7 @@ export function buildSpecPrompt(docs: AgentsDocs, annexFiles?: AgentsDocs): Spec
     '9. Build Plan (phased implementation order with dependencies, each phase listing "Defines:" and "Consumes:" with exact names from API Surface)',
     '10. Prompt Templates & System Instructions (FULL verbatim text from annex content)',
     '11. IDE Integration & Installer (command templates, platform configs, permission lists — all verbatim from annex content)',
+    '12. File Manifest (every source file with path, module, and exports)',
     '',
     'Sections 10 and 11 MUST reproduce annex content verbatim.',
     'Do NOT summarize prompt templates or IDE templates into prose descriptions.',
