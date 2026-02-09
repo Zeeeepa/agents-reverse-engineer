@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "build:hooks": "node scripts/build-hooks.js",
+    "prepack": "rm -f LICENSE.sum README.md.sum",
     "prepublishOnly": "npm run build && npm run build:hooks",
     "dev": "tsx watch src/cli/index.ts"
   },
