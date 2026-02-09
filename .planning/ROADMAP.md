@@ -5,6 +5,7 @@
 - [x] **v1.0 MVP** - Phases 1-5 (shipped 2026-02-02)
 - [x] **v2.0 AI Service & Quality** - Phases 6-9 (shipped 2026-02-07)
 - [x] **v3.0 Specification Generation** - Phase 10 (shipped 2026-02-09)
+- [ ] **v4.0 Project Reconstruction** - Phase 11
 
 ## Phases
 
@@ -130,6 +131,21 @@ Plans:
 - [x] 10-02-PLAN.md -- Prompt templates and output writer (Wave 1)
 - [x] 10-03-PLAN.md -- CLI command handler and registration (Wave 2)
 
+## v4.0 Project Reconstruction
+
+**Milestone Goal:** The tool reconstructs a project from specification artifacts, enabling full round-trip: codebase -> documentation -> specification -> rebuilt codebase. Multi-session checkpoint tracking handles context limitations.
+
+- [ ] **Phase 11: Rebuild Command** - Reconstruct project from specs/ into rebuild/ with checkpoint-based multi-session progress tracking
+
+### Phase 11: Rebuild Command
+**Goal**: An `are rebuild` command that reads specification files from `specs/` and reconstructs the project into a `rebuild/` folder, with checkpoint-based progress tracking enabling multi-session execution (context rot mitigation)
+**Depends on**: Phase 10
+**Plans**: 2 plans
+
+Plans:
+- [ ] 11-01-PLAN.md -- Rebuild foundation: types, spec reader, output parser, checkpoint manager (Wave 1)
+- [ ] 11-02-PLAN.md -- Rebuild execution pipeline: prompts, orchestrator, CLI command, registration (Wave 2)
+
 ## Progress
 
 **Execution Order:**
@@ -144,7 +160,8 @@ Phase 9 can start after Phase 7 completes (independent of Phase 8).
 | 8. Full Telemetry | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 9. Quality Improvements | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 10. Specify Command | v3.0 | 3/3 | Complete | 2026-02-09 |
+| 11. Rebuild Command | v4.0 | 0/2 | Planned | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-09 (Phase 10 complete -- v3.0 shipped)*
+*Last updated: 2026-02-09 (Phase 11 planned -- 2 plans in 2 waves)*
