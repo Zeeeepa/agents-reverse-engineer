@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-02-10
+
+### Added
+- **Tracing support for `specify` command** — `--trace` flag now emits `phase:start/end` trace events, creates subprocess log directories, and wires tracer into AIService for full subprocess/retry visibility during spec generation
+- **File Manifest section in spec prompts** — New section 12 ("File Manifest") in specification synthesis lists every source file with path, module, and exports; each Build Plan phase must reference which manifest entries it produces
+- **Per-phase file manifest injection in rebuild** — `extractManifestEntriesForPhase()` matches File Manifest lines against each phase's `Defines:` symbols and injects a "Files to Generate in This Phase" context section into rebuild prompts
+
+### Fixed
+- **Rebuild output parser delimiter collision** — Replaced regex-based `===FILE:===`/`===END_FILE===` parser with line-by-line state machine requiring delimiters at column 0 (start of line), preventing false matches when generated source code contains literal delimiter text in string literals, JSDoc, or prompt templates. Also handles unclosed file blocks gracefully (AI forgot `===END_FILE===`)
+
 ## [0.7.1] - 2026-02-09
 
 ### Added
@@ -555,7 +565,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.2...HEAD
+[0.7.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.6...v0.7.0
 [0.6.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.5...v0.6.6
