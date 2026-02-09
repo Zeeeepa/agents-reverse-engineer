@@ -17,11 +17,32 @@ const COMMANDS = {
     content: `Generate comprehensive documentation for this codebase using agents-reverse-engineer.
 
 <execution>
-Run the agents-reverse-engineer generate command:
+Run the generate command in the background and monitor progress in real time.
 
-\`\`\`bash
-npx agents-reverse-engineer@latest generate $ARGUMENTS
-\`\`\`
+## Steps
+
+1. **Clear stale progress log** (if it exists):
+   \`\`\`bash
+   rm -f .agents-reverse-engineer/progress.log
+   \`\`\`
+
+2. **Run the generate command in the background** using \`run_in_background: true\`:
+   \`\`\`bash
+   npx agents-reverse-engineer@latest generate $ARGUMENTS
+   \`\`\`
+
+3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+   - Every ~15 seconds, use Bash \`tail -5 .agents-reverse-engineer/progress.log\` to read the latest lines
+   - Show the user a brief progress update (e.g. "32/96 files analyzed, ~12m remaining")
+   - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
+   - Repeat until the background task finishes
+   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+
+4. **On completion**, read the full background task output and summarize:
+   - Number of files analyzed and any failures
+   - Number of directories documented
+   - Root and per-package documents generated
+   - Any inconsistency warnings from the quality report
 
 This executes a three-phase pipeline:
 
@@ -39,10 +60,6 @@ This executes a three-phase pipeline:
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
 - \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
-After completion, summarize:
-- Number of files analyzed and any failures
-- Number of directories documented
-- Root and per-package documents generated
 </execution>`,
   },
 
@@ -52,11 +69,31 @@ After completion, summarize:
     content: `Update documentation for files that changed since last run.
 
 <execution>
-Run the agents-reverse-engineer update command:
+Run the update command in the background and monitor progress in real time.
 
-\`\`\`bash
-npx agents-reverse-engineer@latest update $ARGUMENTS
-\`\`\`
+## Steps
+
+1. **Clear stale progress log** (if it exists):
+   \`\`\`bash
+   rm -f .agents-reverse-engineer/progress.log
+   \`\`\`
+
+2. **Run the update command in the background** using \`run_in_background: true\`:
+   \`\`\`bash
+   npx agents-reverse-engineer@latest update $ARGUMENTS
+   \`\`\`
+
+3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+   - Every ~15 seconds, use Bash \`tail -5 .agents-reverse-engineer/progress.log\` to read the latest lines
+   - Show the user a brief progress update (e.g. "12/30 files updated, ~5m remaining")
+   - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
+   - Repeat until the background task finishes
+   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+
+4. **On completion**, read the full background task output and summarize:
+   - Files updated
+   - Files unchanged
+   - Any orphaned docs cleaned up
 
 **Options:**
 - \`--uncommitted\`: Include staged but uncommitted changes
@@ -65,10 +102,6 @@ npx agents-reverse-engineer@latest update $ARGUMENTS
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
 - \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
-After completion, summarize:
-- Files updated
-- Files unchanged
-- Any orphaned docs cleaned up
 </execution>`,
   },
 
@@ -100,11 +133,26 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXdiscover\`, run with ZERO flags
 
-\`\`\`bash
-npx agents-reverse-engineer@latest discover $ARGUMENTS
-\`\`\`
+## Steps
 
-Report number of files found.
+1. **Clear stale progress log** (if it exists):
+   \`\`\`bash
+   rm -f .agents-reverse-engineer/progress.log
+   \`\`\`
+
+2. **Run the discover command in the background** using \`run_in_background: true\`:
+   \`\`\`bash
+   npx agents-reverse-engineer@latest discover $ARGUMENTS
+   \`\`\`
+
+3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+   - Every ~10 seconds, use Bash \`tail -5 .agents-reverse-engineer/progress.log\` to read the latest lines
+   - Show the user a brief progress update
+   - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
+   - Repeat until the background task finishes
+   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+
+4. **On completion**, read the full background task output and report number of files found.
 </execution>`,
   },
 
@@ -134,11 +182,30 @@ Report number of files deleted.
     content: `Generate a project specification from existing AGENTS.md documentation.
 
 <execution>
-Run the agents-reverse-engineer specify command:
+Run the specify command in the background and monitor progress in real time.
 
-\`\`\`bash
-npx agents-reverse-engineer@latest specify $ARGUMENTS
-\`\`\`
+## Steps
+
+1. **Clear stale progress log** (if it exists):
+   \`\`\`bash
+   rm -f .agents-reverse-engineer/progress.log
+   \`\`\`
+
+2. **Run the specify command in the background** using \`run_in_background: true\`:
+   \`\`\`bash
+   npx agents-reverse-engineer@latest specify $ARGUMENTS
+   \`\`\`
+
+3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+   - Every ~15 seconds, use Bash \`tail -5 .agents-reverse-engineer/progress.log\` to read the latest lines
+   - Show the user a brief progress update
+   - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
+   - Repeat until the background task finishes
+   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+
+4. **On completion**, read the full background task output and summarize:
+   - Number of AGENTS.md files collected
+   - Output file(s) written
 
 This collects all AGENTS.md files, synthesizes them via AI, and writes a comprehensive project specification.
 
@@ -151,9 +218,6 @@ If no AGENTS.md files exist, it will auto-run \`generate\` first.
 - \`--force\`: Overwrite existing specification
 - \`--debug\`: Show AI prompts and backend details
 - \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
-After completion, summarize:
-- Number of AGENTS.md files collected
-- Output file(s) written
 </execution>`,
   },
 
