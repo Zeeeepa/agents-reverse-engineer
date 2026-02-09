@@ -14,6 +14,7 @@ import { discoverFiles } from '../discovery/run.js';
 import { createLogger } from '../output/logger.js';
 import { createOrchestrator } from '../generation/orchestrator.js';
 import { buildExecutionPlan, formatExecutionPlanAsMarkdown } from '../generation/executor.js';
+import { ProgressLog } from '../orchestration/index.js';
 import type { DiscoveryResult } from '../types/index.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
@@ -75,8 +76,15 @@ export async function discoverCommand(
     throw error;
   }
 
+  // Create progress log for tail -f monitoring
+  const progressLog = ProgressLog.create(resolvedPath);
+  progressLog.write(`=== ARE Discover (${new Date().toISOString()}) ===`);
+  progressLog.write(`Project: ${resolvedPath}`);
+  progressLog.write('');
+
   logger.info(`Discovering files in ${resolvedPath}...`);
   logger.info('');
+  progressLog.write(`Discovering files in ${resolvedPath}...`);
 
   // Emit discovery start trace event
   const discoveryStartTime = process.hrtime.bigint();
@@ -120,21 +128,28 @@ export async function discoverCommand(
 
   // Show each included file
   for (const file of result.included) {
-    logger.file(relativePath(file));
+    const rel = relativePath(file);
+    logger.file(rel);
+    progressLog.write(`  + ${rel}`);
   }
 
   // Show each excluded file
   for (const excluded of result.excluded) {
-    logger.excluded(relativePath(excluded.path), excluded.reason, excluded.filter);
+    const rel = relativePath(excluded.path);
+    logger.excluded(rel, excluded.reason, excluded.filter);
+    progressLog.write(`  - ${rel} (${excluded.reason}: ${excluded.filter})`);
   }
 
   // Summary
   logger.summary(result.included.length, result.excluded.length);
+  progressLog.write(`\nDiscovered ${result.included.length} files (${result.excluded.length} excluded)`);
 
   // Generate GENERATION-PLAN.md
   {
     logger.info('');
     logger.info('Generating execution plan...');
+    progressLog.write('');
+    progressLog.write('Generating execution plan...');
 
     // Create discovery result for orchestrator
     const discoveryResult: DiscoveryResult = {
@@ -159,11 +174,17 @@ export async function discoverCommand(
     try {
       await mkdir(configDir, { recursive: true });
       await writeFile(planPath, markdown, 'utf8');
-      logger.info(`Created ${path.relative(resolvedPath, planPath)}`);
+      const planRelPath = path.relative(resolvedPath, planPath);
+      logger.info(`Created ${planRelPath}`);
+      progressLog.write(`Created ${planRelPath}`);
     } catch (err) {
-      logger.error(`Failed to write plan: ${(err as Error).message}`);
+      const msg = (err as Error).message;
+      logger.error(`Failed to write plan: ${msg}`);
+      progressLog.write(`Error: Failed to write plan: ${msg}`);
+      await progressLog.finalize();
       process.exit(1);
     }
   }
 
+  await progressLog.finalize();
 }
