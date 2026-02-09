@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-02-09
+
+### Changed
+- File analysis prompts now enforce structured output format — bold purpose statement as first line (`**FileName does X.**`), mandatory exported symbols section, and explicit anti-preamble instructions preventing LLM meta-commentary
+- Root CLAUDE.md prompt clarifies scope boundaries — comprehensive project reference with architecture and build instructions, referencing (not duplicating) directory-level AGENTS.md content
+- Directory AGENTS.md prompts refocused as navigational indexes — 1-2 sentence per-file and per-subdirectory descriptions, no full architecture sections (those belong in root CLAUDE.md)
+- `stripPreamble()` function added to runner — detects and removes common LLM preamble patterns (separator-based and bold-line detection) from AI responses before writing `.sum` files
+- `extractPurpose()` now skips LLM preamble lines (e.g., "Now I'll...", "Based on my analysis...") and strips bold markdown wrappers from purpose text
+
+### Removed
+- `publicInterface`, `dependencies`, and `patterns` arrays from `SummaryMetadata` type and `.sum` file frontmatter — these fields were unused after adaptive prompt changes in v0.5.2
+- `validateFindability()` implementation gutted (returns empty array) since it depended on the removed `publicInterface` metadata; function signature preserved for future re-implementation
+- `checkCodeVsDoc()` no longer checks for documented items missing from source code (`missingFromCode` always empty); only undocumented exports are reported
+
 ## [0.5.3] - 2026-02-09
 
 ### Added
@@ -399,7 +413,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.0...v0.5.1
