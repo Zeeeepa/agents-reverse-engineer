@@ -213,6 +213,50 @@ If no AGENTS.md files exist, it will auto-run \`generate\` first.
 </execution>`,
   },
 
+  rebuild: {
+    description: 'Reconstruct project from specification documents',
+    argumentHint: '[path] [--dry-run] [--output <path>] [--force] [--concurrency N] [--fail-fast] [--debug] [--trace]',
+    content: `Reconstruct a project from specification documents using agents-reverse-engineer.
+
+<execution>
+Run the rebuild command in the background and monitor progress in real time.
+
+## Steps
+
+1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+
+2. **Run the rebuild command in the background** using \`run_in_background: true\`:
+   \`\`\`bash
+   npx agents-reverse-engineer@latest rebuild $ARGUMENTS
+   \`\`\`
+
+3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
+   - Show the user a brief progress update (e.g. "4/12 rebuild units completed")
+   - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
+   - Repeat until the background task finishes
+   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+
+4. **On completion**, read the full background task output and summarize:
+   - Number of rebuild units processed
+   - Files generated and output directory
+   - Any failures or partial completions
+
+This reads spec files from \`specs/\`, partitions them into ordered rebuild units, and processes each via AI to generate source files.
+
+**Options:**
+- \`--dry-run\`: Show rebuild plan without making AI calls
+- \`--output <path>\`: Output directory (default: rebuild/)
+- \`--force\`: Wipe output directory and start fresh
+- \`--concurrency N\`: Control number of parallel AI calls (default: auto)
+- \`--fail-fast\`: Stop on first failure
+- \`--debug\`: Show AI prompts and backend details
+- \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
+
+**Exit codes:** 0 (success), 1 (partial failure), 2 (total failure)
+</execution>`,
+  },
+
   help: {
     description: 'Show available ARE commands and usage guide',
     argumentHint: '',
@@ -361,6 +405,44 @@ npx are specify --dry-run
 npx are specify --output ./docs/spec.md --force
 npx are specify --multi-file
 \`\`\`
+
+---
+
+### \`COMMAND_PREFIXrebuild\`
+Reconstruct a project from specification documents.
+
+Reads spec files from \`specs/\`, partitions them into ordered rebuild units, processes each via AI, and writes generated source files to an output directory. Supports checkpoint-based session continuity for resumable long-running rebuilds.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| \`[path]\` | Target directory (default: current directory) |
+| \`--output <path>\` | Output directory (default: rebuild/) |
+| \`--force\` | Wipe output directory and start fresh |
+| \`--dry-run\` | Show rebuild plan without making AI calls |
+| \`--concurrency N\` | Number of concurrent AI calls (default: auto) |
+| \`--fail-fast\` | Stop on first failure |
+| \`--debug\` | Show AI prompts and backend details |
+| \`--trace\` | Enable concurrency tracing to \`.agents-reverse-engineer/traces/\` |
+**Usage:**
+- \`COMMAND_PREFIXrebuild --dry-run\` — Preview rebuild plan
+- \`COMMAND_PREFIXrebuild --output ./out --force\` — Rebuild to custom directory
+
+**CLI:**
+\`\`\`bash
+npx are rebuild --dry-run
+npx are rebuild --output ./out --force
+npx are rebuild --concurrency 3
+\`\`\`
+
+**How it works:**
+1. Reads all spec files from \`specs/\` directory
+2. Partitions specs into ordered rebuild units (from Build Plan phases or top-level headings)
+3. Processes units in order: sequentially between groups, concurrently within each group
+4. Accumulates context (export signatures) after each group for dependent phases
+5. Writes generated source files via \`===FILE:===\` delimited output parsing
+
+**Exit codes:** 0 (success), 1 (partial failure), 2 (total failure)
 
 ---
 
