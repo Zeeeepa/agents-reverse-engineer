@@ -38,6 +38,7 @@ exclude:
     - "**/*.sum"
     - "**/SKILL.md"
     - CHANGELOG.md
+    - specs/**
 
   # Vendor directories to exclude from analysis
   # These are typically package managers, build outputs, or version control

@@ -1,9 +1,9 @@
 ---
-generated_at: 2026-02-09T15:08:09.558Z
-content_hash: 4271916e75010aa5b51ca125d4bfb2e89ea3ce4d8acabfa0cfc9f647a8837e96
+generated_at: 2026-02-09T15:51:01.988Z
+content_hash: 99af1321550c42c8b2df2aaee50035468303a3acfa809939c22df0bca806a21a
 purpose: prompts.ts defines the AI prompt infrastructure for project specification synthesis, providing `buildSpecPrompt()` to...
 ---
-**prompts.ts defines the AI prompt infrastructure for project specification synthesis, providing `buildSpecPrompt()` to generate system and user prompts from collected AGENTS.md files with mandatory concern-based organization rules.**
+**prompts.ts defines the AI prompt infrastructure for project specification synthesis, providing `buildSpecPrompt()` to generate system and user prompts from collected AGENTS.md files with mandatory concern-based organization rules and reproduction-critical implementation contracts.**
 
 ## Exported Types
 
@@ -18,7 +18,9 @@ purpose: prompts.ts defines the AI prompt infrastructure for project specificati
 4. Data Structures & State (types, schemas, state management)
 5. Configuration (options, types, defaults, validation, env vars)
 6. Dependencies (each with exact version and rationale)
-7. Behavioral Contracts (error handling, retry logic, concurrency, lifecycle hooks)
+7. Behavioral Contracts — Split into two subsections:
+   - Runtime Behavior: error handling strategies (exact error types/codes and when thrown), retry logic (formulas, delay values), concurrency model, lifecycle hooks, resource management
+   - Implementation Contracts: verbatim regex patterns for parsing/validation/extraction (in backticks), format strings and output templates (exact structure with examples), magic constants and sentinel values with meanings, environment variables with expected values, file format specifications (YAML schemas, NDJSON structures)
 8. Test Contracts (per-module scenarios, edge cases, expected behaviors)
 9. Build Plan (phased implementation with dependency ordering)
 
@@ -28,7 +30,7 @@ purpose: prompts.ts defines the AI prompt infrastructure for project specificati
 - Mapping `docs` array to markdown sections via `### ${doc.relativePath}\n\n${doc.content}` template
 - Building `userSections` array with header `Generate a comprehensive project specification from the following documentation.`
 - Injecting `## AGENTS.md Files (${docs.length} directories)` section with all `agentsSections`
-- Appending `## Output Requirements` section reiterating nine mandatory specification sections
+- Appending `## Output Requirements` section reiterating nine mandatory specification sections with emphasis on verbatim regex patterns, format specs, magic constants, and templates in Behavioral Contracts
 - Enforcing raw markdown output constraint: `Output ONLY the markdown content. No preamble.`
 - Returning `{ system: SPEC_SYSTEM_PROMPT, user: userSections.join('\n') }`
 
@@ -38,4 +40,4 @@ Imports `AgentsDocs` type from `../generation/collector.js` for typed AGENTS.md 
 
 ## Design Constraints
 
-Prompt engineering rules enforce MODULE BOUNDARY descriptions over file path prescriptions, exact function/type/constant name preservation from documentation, FULL type signature inclusion (parameters, return types, generics), prohibition of directory name section headings, version number requirements for ALL external dependencies, explicit dependency ordering in Build Plan phases, and exact error type/code specification in Behavioral Contracts.
+Prompt engineering rules enforce MODULE BOUNDARY descriptions over file path prescriptions, exact function/type/constant name preservation from documentation, FULL type signature inclusion (parameters, return types, generics), prohibition of directory name section headings, version number requirements for ALL external dependencies, explicit dependency ordering in Build Plan phases, exact error type/code specification in Behavioral Contracts, and MANDATORY verbatim inclusion of regex patterns, format strings, magic constants, and templates (no paraphrasing into prose descriptions). When multiple modules reference the same constant or pattern, consolidation into single definition with cross-references is required.
