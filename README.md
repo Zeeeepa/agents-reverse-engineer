@@ -68,7 +68,7 @@ The interactive installer prompts you to:
 
 This installs:
 
-- **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, etc.
+- **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`
 - **Session hook** — Auto-updates docs when session ends (Claude/Gemini)
 
 ### 2. Initialize Configuration
@@ -184,6 +184,16 @@ Only regenerates documentation for files that changed since last run.
 
 ---
 
+### 6. Generate Specification
+
+```
+/are-specify
+```
+
+Synthesizes all AGENTS.md documentation into a single project specification document (`specs/SPEC.md`). Use `--multi-file` to split into separate files, or `--dry-run` to preview without calling the AI.
+
+---
+
 ## Commands
 
 | Command                         | Description                      |
@@ -199,6 +209,7 @@ Only regenerates documentation for files that changed since last run.
 | `are discover --show-excluded`  | Show excluded files with reasons |
 | `are generate`                  | Generate all documentation       |
 | `are update`                    | Update changed files only        |
+| `are specify`                   | Generate project specification   |
 | `are clean`                     | Remove all generated docs        |
 
 **Runtimes:** `claude`, `opencode`, `gemini`, `all`
@@ -211,6 +222,7 @@ Only regenerates documentation for files that changed since last run.
 | `/are-discover` | Rediscover and regenerate plan | Claude, OpenCode, Gemini |
 | `/are-generate` | Generate all documentation     | Claude, OpenCode, Gemini |
 | `/are-update`   | Update changed files only      | Claude, OpenCode, Gemini |
+| `/are-specify`  | Generate project specification | Claude, OpenCode, Gemini |
 | `/are-clean`    | Remove all generated docs      | Claude, OpenCode, Gemini |
 
 ---
