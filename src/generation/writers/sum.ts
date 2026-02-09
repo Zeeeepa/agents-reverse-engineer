@@ -1,6 +1,7 @@
 import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import * as path from 'node:path';
 import type { SummaryMetadata } from '../types.js';
+import { GENERATED_MARKER } from './agents-md.js';
 
 /**
  * Content structure for a .sum file.
@@ -182,4 +183,44 @@ export async function sumFileExists(sourcePath: string): Promise<boolean> {
   const sumPath = getSumPath(sourcePath);
   const content = await readSumFile(sumPath);
   return content !== null;
+}
+
+/**
+ * Write an annex file alongside a source file.
+ * Contains the full source content for reproduction-critical files
+ * whose verbatim constants cannot fit within .sum word limits.
+ *
+ * Creates: foo.ts -> foo.ts.annex.md
+ *
+ * @param sourcePath - Absolute path to the source file
+ * @param sourceContent - Full source file content
+ * @returns Path to the written annex file
+ */
+export async function writeAnnexFile(
+  sourcePath: string,
+  sourceContent: string,
+): Promise<string> {
+  const annexPath = getAnnexPath(sourcePath);
+  const fileName = path.basename(sourcePath);
+  const content = [
+    GENERATED_MARKER,
+    `# Annex: ${fileName}`,
+    '',
+    `Reproduction-critical source content from \`${fileName}\`.`,
+    `Referenced by \`${fileName}.sum\`.`,
+    '',
+    '```',
+    sourceContent,
+    '```',
+    '',
+  ].join('\n');
+  await writeFile(annexPath, content, 'utf-8');
+  return annexPath;
+}
+
+/**
+ * Get the .annex.md path for a source file.
+ */
+export function getAnnexPath(sourcePath: string): string {
+  return `${sourcePath}.annex.md`;
 }

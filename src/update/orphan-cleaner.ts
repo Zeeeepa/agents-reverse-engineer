@@ -50,12 +50,17 @@ export async function cleanupOrphans(
     }
   }
 
-  // Delete .sum files for deleted/renamed source files
+  // Delete .sum and .annex.md files for deleted/renamed source files
   for (const relativePath of pathsToClean) {
     const sumPath = path.join(projectRoot, `${relativePath}.sum`);
     const deleted = await deleteIfExists(sumPath, dryRun);
     if (deleted) {
       result.deletedSumFiles.push(relativePath + '.sum');
+    }
+    const annexPath = path.join(projectRoot, `${relativePath}.annex.md`);
+    const annexDeleted = await deleteIfExists(annexPath, dryRun);
+    if (annexDeleted) {
+      result.deletedSumFiles.push(relativePath + '.annex.md');
     }
   }
 
@@ -118,8 +123,9 @@ export async function cleanupEmptyDirectoryDocs(
     const hasSourceFiles = entries.some(entry => {
       // Skip hidden files
       if (entry.startsWith('.')) return false;
-      // Skip .sum files
+      // Skip .sum and .annex.md files
       if (entry.endsWith('.sum')) return false;
+      if (entry.endsWith('.annex.md')) return false;
       // Skip known generated files
       if (GENERATED_FILES.has(entry)) return false;
       // Everything else counts as a source file

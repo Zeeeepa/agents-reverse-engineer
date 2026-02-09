@@ -14,7 +14,7 @@
 import * as path from 'node:path';
 import pc from 'picocolors';
 import { loadConfig } from '../config/loader.js';
-import { collectAgentsDocs } from '../generation/collector.js';
+import { collectAgentsDocs, collectAnnexFiles } from '../generation/collector.js';
 import { buildSpecPrompt, writeSpec, SpecExistsError } from '../specify/index.js';
 import {
   AIService,
@@ -70,12 +70,17 @@ export async function specifyCommand(
   // Dry-run mode: show summary without calling AI or generating
   // ---------------------------------------------------------------------------
 
+  // Collect annex files for reproduction-critical content
+  let annexFiles = await collectAnnexFiles(absolutePath);
+
   if (options.dryRun) {
-    const totalChars = docs.reduce((sum, d) => sum + d.content.length, 0);
+    const totalChars = docs.reduce((sum, d) => sum + d.content.length, 0)
+      + annexFiles.reduce((sum, d) => sum + d.content.length, 0);
     const estimatedTokensK = Math.ceil(totalChars / 4) / 1000;
 
     console.log(pc.bold('\n--- Dry Run Summary ---\n'));
     console.log(`  AGENTS.md files:   ${pc.cyan(String(docs.length))}`);
+    console.log(`  Annex files:       ${pc.cyan(String(annexFiles.length))}`);
     console.log(`  Total input:       ${pc.cyan(`~${estimatedTokensK}K tokens`)}`);
     console.log(`  Output:            ${pc.cyan(outputPath)}`);
     console.log(`  Mode:              ${pc.cyan(options.multiFile ? 'multi-file' : 'single-file')}`);
@@ -101,6 +106,7 @@ export async function specifyCommand(
       trace: options.trace,
     });
     docs = await collectAgentsDocs(absolutePath);
+    annexFiles = await collectAnnexFiles(absolutePath);
     if (docs.length === 0) {
       console.error(pc.red('Error: No AGENTS.md files found after generation. Cannot proceed.'));
       process.exit(1);
@@ -143,8 +149,8 @@ export async function specifyCommand(
     aiService.setDebug(true);
   }
 
-  // Build prompt from collected docs
-  const prompt = buildSpecPrompt(docs);
+  // Build prompt from collected docs and annex files
+  const prompt = buildSpecPrompt(docs, annexFiles.length > 0 ? annexFiles : undefined);
 
   if (options.debug) {
     console.error(pc.dim(`[debug] System prompt: ${prompt.system.length} chars`));
@@ -156,6 +162,7 @@ export async function specifyCommand(
   progressLog.write(`=== ARE Specify (${new Date().toISOString()}) ===`);
   progressLog.write(`Project: ${absolutePath}`);
   progressLog.write(`AGENTS.md files: ${docs.length}`);
+  progressLog.write(`Annex files: ${annexFiles.length}`);
   progressLog.write('');
 
   console.log(pc.bold('Generating specification...'));

@@ -216,6 +216,19 @@ export async function buildDirectoryPrompt(
     );
   }
 
+  // Scan for annex files in the directory
+  const annexFiles = entries
+    .filter((e) => e.isFile() && e.name.endsWith('.annex.md'))
+    .map((e) => e.name);
+  if (annexFiles.length > 0) {
+    userSections.push(
+      '',
+      '## Annex Files (reproduction-critical constants)',
+      '',
+      ...annexFiles.map((f) => `- ${f}`),
+    );
+  }
+
   if (subdirSections.length > 0) {
     userSections.push('', '## Subdirectories', '', ...subdirSections);
   }

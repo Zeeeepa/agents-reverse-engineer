@@ -35,6 +35,8 @@ Group content by CONCERN, not by directory structure. Use these conceptual secti
    b. Implementation Contracts: every regex pattern used for parsing/validation/extraction (verbatim in backticks), every format string and output template (exact structure with examples), every magic constant and sentinel value with its meaning, every environment variable with expected values, every file format specification (YAML schemas, NDJSON structures). These are reproduction-critical — an AI agent needs them to rebuild the system with identical observable behavior.
 8. Test Contracts — what each module's tests should verify: scenarios, edge cases, expected behaviors, error conditions
 9. Build Plan — phased implementation sequence: what to build first and why, dependency order between modules, incremental milestones
+10. Prompt Templates & System Instructions — every AI prompt template, system prompt, and user prompt template used by the system. Reproduce the FULL text verbatim from annex files or AGENTS.md content. Organize by pipeline phase or functional area. Include placeholder syntax exactly as defined (e.g., {{FILE_PATH}}). These are reproduction-critical — without them, a rebuilder cannot produce functionally equivalent AI output.
+11. IDE Integration & Installer — command templates per platform, platform configuration objects (path prefixes, filename conventions, frontmatter formats), installer permission lists, hook definitions and their activation status. Reproduce template content verbatim from annex files or AGENTS.md content.
 
 RULES:
 - Describe MODULE BOUNDARIES and their interfaces — not file paths or directory layouts
@@ -50,6 +52,18 @@ RULES:
 - Behavioral Contracts MUST include verbatim regex patterns, format strings, and magic constants from the source documents — do NOT paraphrase regex patterns into prose descriptions
 - When multiple modules reference the same constant or pattern, consolidate into a single definition with cross-references to the modules that use it
 
+REPRODUCTION-CRITICAL CONTENT (MANDATORY):
+The source documents may include annex files containing full verbatim source code
+for reproduction-critical modules (prompt templates, configuration defaults, IDE
+templates, installer configs). These are provided as fenced code blocks.
+
+For ALL reproduction-critical content:
+- Reproduce the FULL content verbatim in the appropriate spec section (10 or 11)
+- Do NOT summarize, paraphrase, abbreviate, or "improve" the text
+- Use fenced code blocks to preserve formatting
+- If content contains placeholder syntax ({{TOKEN}}), preserve it exactly
+- If no annex files or reproduction-critical sections are provided, omit sections 10-11
+
 OUTPUT: Raw markdown. No preamble. No meta-commentary. No "Here is..." or "I've generated..." prefix.`;
 
 /**
@@ -60,7 +74,7 @@ OUTPUT: Raw markdown. No preamble. No meta-commentary. No "Here is..." or "I've 
  * @param docs - Collected AGENTS.md documents from collectAgentsDocs()
  * @returns SpecPrompt with system and user prompt strings
  */
-export function buildSpecPrompt(docs: AgentsDocs): SpecPrompt {
+export function buildSpecPrompt(docs: AgentsDocs, annexFiles?: AgentsDocs): SpecPrompt {
   const agentsSections = docs.map(
     (doc) => `### ${doc.relativePath}\n\n${doc.content}`,
   );
@@ -72,6 +86,18 @@ export function buildSpecPrompt(docs: AgentsDocs): SpecPrompt {
     '',
     ...agentsSections,
   ];
+
+  if (annexFiles && annexFiles.length > 0) {
+    const annexSections = annexFiles.map(
+      (doc) => `### ${doc.relativePath}\n\n${doc.content}`,
+    );
+    userSections.push(
+      '',
+      `## Annex Files (${annexFiles.length} reproduction-critical source files)`,
+      '',
+      ...annexSections,
+    );
+  }
 
   userSections.push(
     '',
@@ -87,6 +113,11 @@ export function buildSpecPrompt(docs: AgentsDocs): SpecPrompt {
     '7. Behavioral Contracts (error handling, concurrency, lifecycle, PLUS verbatim regex patterns, format specs, magic constants, templates)',
     '8. Test Contracts (per-module test scenarios and edge cases)',
     '9. Build Plan (phased implementation order with dependencies)',
+    '10. Prompt Templates & System Instructions (FULL verbatim text from annex content)',
+    '11. IDE Integration & Installer (command templates, platform configs, permission lists — all verbatim from annex content)',
+    '',
+    'Sections 10 and 11 MUST reproduce annex content verbatim.',
+    'Do NOT summarize prompt templates or IDE templates into prose descriptions.',
     '',
     'Output ONLY the markdown content. No preamble.',
   );

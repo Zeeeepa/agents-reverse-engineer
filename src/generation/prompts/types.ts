@@ -32,6 +32,7 @@ export const SUMMARY_GUIDELINES = {
     'Key function signatures as code snippets',
     'Tightly coupled sibling files',
     'Behavioral contracts: verbatim regex patterns, format strings, magic constants, sentinel values, output templates, environment variables',
+    'Annex references: for files with large string constants (prompt templates, config arrays, IDE templates), list each constant name with a one-line description in an ## Annex References section',
   ],
   /** What to exclude */
   exclude: [

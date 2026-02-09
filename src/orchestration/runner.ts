@@ -17,7 +17,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import type { AIService } from '../ai/index.js';
 import type { AIResponse } from '../ai/types.js';
 import type { ExecutionPlan, ExecutionTask } from '../generation/executor.js';
-import { writeSumFile, readSumFile } from '../generation/writers/sum.js';
+import { writeSumFile, readSumFile, writeAnnexFile } from '../generation/writers/sum.js';
 import type { SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
 import { computeContentHashFromString } from '../change-detection/index.js';
@@ -217,6 +217,11 @@ export class CommandRunner {
 
         // Write .sum file
         await writeSumFile(task.absolutePath, sumContent);
+
+        // Write annex file if LLM identified reproduction-critical constants
+        if (cleanedText.includes('## Annex References')) {
+          await writeAnnexFile(task.absolutePath, sourceContent);
+        }
 
         const durationMs = Date.now() - callStart;
 
@@ -731,6 +736,11 @@ export class CommandRunner {
 
         // Write .sum file
         await writeSumFile(absolutePath, sumContent);
+
+        // Write annex file if LLM identified reproduction-critical constants
+        if (cleanedText.includes('## Annex References')) {
+          await writeAnnexFile(absolutePath, sourceContent);
+        }
 
         const durationMs = Date.now() - callStart;
 
