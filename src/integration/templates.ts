@@ -90,16 +90,15 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 
   discover: {
     description: 'Discover files in codebase',
-    argumentHint: '[path] [--plan] [--show-excluded]',
+    argumentHint: '[path] [--debug] [--trace]',
     content: `List files that would be analyzed for documentation.
 
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
 1. Run ONLY this exact command: \`npx agents-reverse-engineer@latest discover $ARGUMENTS\`
-2. DO NOT add \`--plan\` unless user typed \`--plan\`
-3. DO NOT add ANY flags the user did not explicitly type
-4. If user typed nothing after \`COMMAND_PREFIXdiscover\`, run with ZERO flags
+2. DO NOT add ANY flags the user did not explicitly type
+3. If user typed nothing after \`COMMAND_PREFIXdiscover\`, run with ZERO flags
 
 \`\`\`bash
 npx agents-reverse-engineer@latest discover $ARGUMENTS
@@ -126,6 +125,35 @@ npx agents-reverse-engineer@latest clean $ARGUMENTS
 \`\`\`
 
 Report number of files deleted.
+</execution>`,
+  },
+
+  specify: {
+    description: 'Generate project specification from AGENTS.md docs',
+    argumentHint: '[path] [--dry-run] [--output <path>] [--multi-file] [--force] [--debug] [--trace]',
+    content: `Generate a project specification from existing AGENTS.md documentation.
+
+<execution>
+Run the agents-reverse-engineer specify command:
+
+\`\`\`bash
+npx agents-reverse-engineer@latest specify $ARGUMENTS
+\`\`\`
+
+This collects all AGENTS.md files, synthesizes them via AI, and writes a comprehensive project specification.
+
+If no AGENTS.md files exist, it will auto-run \`generate\` first.
+
+**Options:**
+- \`--dry-run\`: Show input statistics without making AI calls
+- \`--output <path>\`: Custom output path (default: specs/SPEC.md)
+- \`--multi-file\`: Split specification into multiple files
+- \`--force\`: Overwrite existing specification
+- \`--debug\`: Show AI prompts and backend details
+- \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
+After completion, summarize:
+- Number of AGENTS.md files collected
+- Output file(s) written
 </execution>`,
   },
 
@@ -169,22 +197,21 @@ Creates \`.agents-reverse-engineer/config.yaml\` with customizable settings.
 ### \`COMMAND_PREFIXdiscover\`
 Discover files that would be analyzed for documentation.
 
+Shows included files, excluded files with reasons, and generates a \`GENERATION-PLAN.md\` execution plan.
+
 **Options:**
 | Flag | Description |
 |------|-------------|
 | \`[path]\` | Target directory (default: current directory) |
-| \`--plan\` | Generate \`GENERATION-PLAN.md\` execution plan |
-| \`--show-excluded\` | List excluded files with reasons |
+| \`--debug\` | Show verbose debug output |
+| \`--trace\` | Enable concurrency tracing to \`.agents-reverse-engineer/traces/\` |
 **Usage:**
-- \`COMMAND_PREFIXdiscover\` — List discoverable files
-- \`COMMAND_PREFIXdiscover --plan\` — Create execution plan for generate
-- \`COMMAND_PREFIXdiscover --show-excluded\` — Debug exclusion rules
+- \`COMMAND_PREFIXdiscover\` — Discover files and generate execution plan
 
 **CLI:**
 \`\`\`bash
 npx are discover
-npx are discover --plan
-npx are discover ./src --show-excluded
+npx are discover ./src
 \`\`\`
 
 ---
@@ -245,6 +272,36 @@ npx are update
 npx are update --uncommitted
 npx are update --dry-run
 npx are update ./my-project --concurrency 3
+\`\`\`
+
+---
+
+### \`COMMAND_PREFIXspecify\`
+Generate a project specification from AGENTS.md documentation.
+
+Collects all AGENTS.md files, synthesizes them via AI, and writes a comprehensive project specification. Auto-runs \`generate\` if no AGENTS.md files exist.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| \`[path]\` | Target directory (default: current directory) |
+| \`--output <path>\` | Custom output path (default: specs/SPEC.md) |
+| \`--multi-file\` | Split specification into multiple files |
+| \`--force\` | Overwrite existing specification |
+| \`--dry-run\` | Show input statistics without making AI calls |
+| \`--debug\` | Show AI prompts and backend details |
+| \`--trace\` | Enable concurrency tracing to \`.agents-reverse-engineer/traces/\` |
+**Usage:**
+- \`COMMAND_PREFIXspecify\` — Generate specification
+- \`COMMAND_PREFIXspecify --dry-run\` — Preview without calling AI
+- \`COMMAND_PREFIXspecify --output ./docs/spec.md --force\` — Custom output path
+
+**CLI:**
+\`\`\`bash
+npx are specify
+npx are specify --dry-run
+npx are specify --output ./docs/spec.md --force
+npx are specify --multi-file
 \`\`\`
 
 ---
@@ -378,7 +435,7 @@ COMMAND_PREFIXgenerate
 
 **Preview before generating:**
 \`\`\`
-COMMAND_PREFIXdiscover --show-excluded  # Check exclusions
+COMMAND_PREFIXdiscover                   # Check files and exclusions
 COMMAND_PREFIXgenerate --dry-run         # Preview generation
 \`\`\`
 
