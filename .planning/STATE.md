@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 10 of 10 (Specify Command)
-Plan: 2 of 3
-Status: In progress
-Last activity: 2026-02-09 -- Completed 10-02-PLAN.md
+Plan: 3 of 3
+Status: Phase complete
+Last activity: 2026-02-09 -- Completed 10-03-PLAN.md
 
-Progress: [████████████████░░░░░░░░] 67% (v3.0 -- 2/3 plans)
+Progress: [████████████████████████] 100% (v3.0 -- 3/3 plans)
 
 ## Performance Metrics
 
@@ -47,6 +47,17 @@ Progress: [████████████████░░░░░░░
 - Plans completed: 12
 - Total execution time: 33 min
 - Average duration: 3 min per plan
+
+**v3.0 Progress:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 10. Specify Command | 3/3 | 13 min | 4 min |
+
+**v3.0 Totals:**
+- Plans completed: 3
+- Total execution time: 13 min
+- Average duration: 4 min per plan
 
 ## Accumulated Context
 
@@ -103,6 +114,10 @@ v3.0 decisions:
 - SpecExistsError thrown (not process.exit) so callers control error presentation
 - Multi-file split on top-level '# ' headings with slugified filenames; pre-heading content to 00-preamble.md
 - Atomic conflict detection in multi-file mode: all target files checked before any writes
+- Extended timeout uses Math.max(config.ai.timeoutMs, 600_000) for 10min minimum on spec generation
+- readPackageSection extracted as standalone async function for clean separation in specify handler
+- Debug output goes to stderr (console.error) to keep stdout clean for piping
+- Auto-generate fallback: when no AGENTS.md found, invoke generateCommand() then re-collect
 
 ### Pending Todos
 
@@ -120,5 +135,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 10-02-PLAN.md (spec prompts and writer)
+Stopped at: Completed 10-03-PLAN.md (specify CLI handler and registration -- phase 10 complete)
 Resume file: None
