@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 10 of 10 (Specify Command)
-Plan: 1 of 3
+Plan: 2 of 3
 Status: In progress
-Last activity: 2026-02-09 -- Completed 10-01-PLAN.md
+Last activity: 2026-02-09 -- Completed 10-02-PLAN.md
 
-Progress: [████████░░░░░░░░░░░░░░░░] 33% (v3.0 -- 1/3 plans)
+Progress: [████████████████░░░░░░░░] 67% (v3.0 -- 2/3 plans)
 
 ## Performance Metrics
 
@@ -99,6 +99,10 @@ v2.0 decisions:
 v3.0 decisions:
 - collectAgentsDocs returns Array<{ relativePath, content }> (pre-read content) so callers skip manual readFile loops
 - SKIP_DIRS in collector.ts is module-private (not exported) to keep API surface minimal
+- SPEC_SYSTEM_PROMPT enforces 9-section conceptual structure (not folder-mirroring or file path prescription)
+- SpecExistsError thrown (not process.exit) so callers control error presentation
+- Multi-file split on top-level '# ' headings with slugified filenames; pre-heading content to 00-preamble.md
+- Atomic conflict detection in multi-file mode: all target files checked before any writes
 
 ### Pending Todos
 
@@ -116,5 +120,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 10-01-PLAN.md (shared AGENTS.md collector)
+Stopped at: Completed 10-02-PLAN.md (spec prompts and writer)
 Resume file: None
