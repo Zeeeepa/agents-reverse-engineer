@@ -331,6 +331,7 @@ export class ProgressReporter {
     const lines: string[] = [];
     lines.push('');
     lines.push(pc.bold('=== Run Summary ==='));
+    lines.push(`  ARE version:     ${summary.version}`);
     lines.push(`  Files processed: ${pc.green(String(summary.filesProcessed))}`);
     if (summary.filesFailed > 0) {
       lines.push(`  Files failed:    ${pc.red(String(summary.filesFailed))}`);

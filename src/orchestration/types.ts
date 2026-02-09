@@ -54,6 +54,8 @@ export interface FileTaskResult {
  * combining per-file results into totals for display and telemetry.
  */
 export interface RunSummary {
+  /** agents-reverse-engineer version that produced this run */
+  version: string;
   /** Number of files that were successfully processed */
   filesProcessed: number;
   /** Number of files that failed processing */

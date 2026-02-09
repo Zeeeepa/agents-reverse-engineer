@@ -11,10 +11,6 @@
  *   clean [path]      Delete all generated artifacts
  */
 
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-
 import { initCommand } from './init.js';
 import { discoverCommand } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
@@ -23,20 +19,7 @@ import { cleanCommand, type CleanOptions } from './clean.js';
 import { specifyCommand, type SpecifyOptions } from './specify.js';
 
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
-
-/**
- * Get package version from package.json.
- */
-function getVersion(): string {
-  try {
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const packagePath = join(__dirname, '..', '..', 'package.json');
-    const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
-    return packageJson.version || 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
+import { getVersion } from '../version.js';
 
 const VERSION = getVersion();
 

@@ -43,6 +43,7 @@ import type {
   RunSummary,
   CommandRunOptions,
 } from './types.js';
+import { getVersion } from '../version.js';
 
 // ---------------------------------------------------------------------------
 // CommandRunner
@@ -607,6 +608,7 @@ export class CommandRunner {
     const totalDurationMs = Date.now() - runStart;
 
     const summary: RunSummary = {
+      version: getVersion(),
       filesProcessed,
       filesFailed,
       filesSkipped: 0,
@@ -899,6 +901,7 @@ export class CommandRunner {
     const totalDurationMs = Date.now() - runStart;
 
     const summary: RunSummary = {
+      version: getVersion(),
       filesProcessed,
       filesFailed,
       filesSkipped: 0,
