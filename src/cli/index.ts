@@ -17,6 +17,7 @@ import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
 import { cleanCommand, type CleanOptions } from './clean.js';
 import { specifyCommand, type SpecifyOptions } from './specify.js';
+import { rebuildCommand, type RebuildOptions } from './rebuild.js';
 
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
 import { getVersion } from '../version.js';
@@ -34,6 +35,7 @@ Commands:
   generate [path]   Generate documentation plan (default: current directory)
   update [path]     Update docs incrementally (default: current directory)
   specify [path]    Generate project specification from AGENTS.md docs
+  rebuild [path]    Reconstruct project from specification
   clean [path]      Delete all generated artifacts (.sum, AGENTS.md, etc.)
 
 Install/Uninstall Options:
@@ -45,8 +47,8 @@ Install/Uninstall Options:
 General Options:
   --debug           Show AI prompts and backend details
   --trace           Enable concurrency tracing (.agents-reverse-engineer/traces/)
-  --dry-run         Show plan without writing files (generate, update, specify)
-  --output <path>   Output path for specification (specify only)
+  --dry-run         Show plan without writing files (generate, update, specify, rebuild)
+  --output <path>   Output path (specify: spec file, rebuild: output directory)
   --multi-file      Split specification into multiple files (specify only)
   --concurrency <n> Number of concurrent AI calls (default: auto)
   --fail-fast       Stop on first file analysis failure
@@ -68,6 +70,8 @@ Examples:
   are update --uncommitted
   are specify --dry-run
   are specify --output ./docs/spec.md --force
+  are rebuild --dry-run
+  are rebuild --output ./out --force
 `;
 
 /**
@@ -288,6 +292,21 @@ async function main(): Promise<void> {
         trace: flags.has('trace'),
       };
       await specifyCommand(positional[0] || '.', specifyOpts);
+      break;
+    }
+
+    case 'rebuild': {
+      const rebuildOpts: RebuildOptions = {
+        output: values.get('output'),
+        force: flags.has('force'),
+        dryRun: flags.has('dry-run'),
+        concurrency: values.has('concurrency')
+          ? parseInt(values.get('concurrency')!, 10) : undefined,
+        failFast: flags.has('fail-fast'),
+        debug: flags.has('debug'),
+        trace: flags.has('trace'),
+      };
+      await rebuildCommand(positional[0] || '.', rebuildOpts);
       break;
     }
 
