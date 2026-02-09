@@ -1,38 +1,24 @@
 ---
-generated_at: 2026-02-09T15:08:27.016Z
+generated_at: 2026-02-09T16:11:24.470Z
 content_hash: c0b2afdea7b5cf019d45bff398962317566ac087fde3ddfa890cd2f97b14adb5
-purpose: orphan-cleaner.ts manages deletion of stale `.sum` files and `AGENTS.md` directories when source files are removed or...
+purpose: orphan-cleaner.ts deletes stale `.sum` files and `AGENTS.md` files for deleted/renamed source files and empty directo...
 ---
-**orphan-cleaner.ts manages deletion of stale `.sum` files and `AGENTS.md` directories when source files are removed or renamed during incremental updates.**
+**orphan-cleaner.ts deletes stale `.sum` files and `AGENTS.md` files for deleted/renamed source files and empty directories.**
 
 ## Exported Functions
 
-**cleanupOrphans(projectRoot: string, changes: FileChange[], dryRun: boolean): Promise\<CleanupResult\>** — Orchestrates orphan cleanup by processing `FileChange[]` array to identify deleted/renamed files, deletes corresponding `.sum` files via `deleteIfExists()`, collects affected directories via `path.dirname()`, calls `cleanupEmptyDirectoryDocs()` for each affected directory, returns `CleanupResult` with `deletedSumFiles[]` and `deletedAgentsMd[]` arrays.
+**`cleanupOrphans(projectRoot: string, changes: FileChange[], dryRun?: boolean): Promise<CleanupResult>`** orchestrates cleanup by extracting paths from `FileChange[]` where `status === 'deleted'` or `status === 'renamed'` (using `oldPath` for renames), deleting corresponding `.sum` files via `deleteIfExists()`, collecting affected directories via `path.dirname()`, and delegating empty directory cleanup to `cleanupEmptyDirectoryDocs()`. Returns `CleanupResult` with `deletedSumFiles[]` and `deletedAgentsMd[]` arrays.
 
-**cleanupEmptyDirectoryDocs(dirPath: string, dryRun: boolean): Promise\<boolean\>** — Reads directory entries via `readdir()`, filters out hidden files (`.` prefix), `.sum` files (`.endsWith('.sum')`), and entries in `GENERATED_FILES` Set, deletes `AGENTS.md` via `deleteIfExists()` if no source files remain, returns true if deletion occurred.
+**`cleanupEmptyDirectoryDocs(dirPath: string, dryRun?: boolean): Promise<boolean>`** reads directory via `readdir()`, filters entries to detect source files (excluding hidden files starting with `.`, `.sum` extensions, and `GENERATED_FILES` set members `'AGENTS.md'` and `'CLAUDE.md'`), and deletes `AGENTS.md` via `deleteIfExists()` if no source files remain. Returns `true` if `AGENTS.md` was deleted.
 
-**getAffectedDirectories(changes: FileChange[]): Set\<string\>** — Walks parent directory tree for each non-deleted `FileChange` via `path.dirname()` iteration until reaching project root (`.` or absolute path), collects all parent paths including root directory, returns `Set<string>` of relative directory paths requiring `AGENTS.md` regeneration.
+**`getAffectedDirectories(changes: FileChange[]): Set<string>`** extracts unique parent directories from non-deleted `FileChange` entries by walking up directory tree via `path.dirname()` until reaching `.` (root). Skips files with `status === 'deleted'` since deleted files don't affect directory documentation. Always includes `'.'` as root directory in returned set.
 
-## Deletion Strategy
+## Cleanup Logic
 
-**Orphan .sum cleanup** handles two scenarios: `FileChange` with `status === 'deleted'` triggers `.sum` deletion at original path, `status === 'renamed'` with `oldPath` defined triggers `.sum` deletion at `oldPath` location while preserving new path `.sum`.
+**Orphan detection** operates on two categories: `.sum` files at old paths for deleted source files (appends `.sum` to `change.path`), and `.sum` files at `oldPath` for renames (appends `.sum` to `change.oldPath`). Directory cleanup targets directories where all remaining entries are hidden files, `.sum` files, or members of `GENERATED_FILES` constant.
 
-**Empty directory cleanup** invokes `cleanupEmptyDirectoryDocs()` for unique parent directories (`Set<string>`) of deleted/renamed paths, scans `readdir()` entries with three exclusion filters (hidden files, `.sum` suffixes, `GENERATED_FILES` Set membership), deletes `AGENTS.md` when no source files remain.
-
-## Constants and Types
-
-**GENERATED_FILES** — `Set<string>` containing `'AGENTS.md'` and `'CLAUDE.md'` to exclude from source file detection during empty directory checks.
-
-**deleteIfExists(filePath: string, dryRun: boolean): Promise\<boolean\>** — Internal helper calling `stat()` to verify existence, invokes `unlink()` unless `dryRun` true, returns true on successful deletion or dry-run simulation, returns false on `stat()` error (non-existent file).
+**`deleteIfExists(filePath: string, dryRun: boolean): Promise<boolean>`** internal helper calls `stat()` to check existence, `unlink()` to delete (unless `dryRun === true`), returns `true` if file existed (or would be deleted in dry run), returns `false` if `stat()` throws.
 
 ## Integration Points
 
-Consumed by `src/update/orchestrator.ts` during incremental update workflow: calls `cleanupOrphans()` after change detection to remove stale `.sum` files, calls `getAffectedDirectories()` to compute directory regeneration scope, passes `CleanupResult` to progress reporting and telemetry logging.
-
-Depends on `FileChange` from `src/change-detection/types.ts` with discriminated union `status` field (`'added'|'modified'|'deleted'|'renamed'`) and optional `oldPath` for rename detection.
-
-Returns `CleanupResult` from `src/update/types.ts` containing `deletedSumFiles: string[]` and `deletedAgentsMd: string[]` for audit trails and progress tracking.
-
-## Dry-Run Support
-
-All deletion functions accept `dryRun: boolean` parameter: when true, `deleteIfExists()` calls `stat()` for existence check but skips `unlink()`, allows preview of orphan cleanup without filesystem modification, returns same `CleanupResult` structure with file paths that would be deleted.
+Consumes `FileChange` from `src/change-detection/types.ts` with discriminated `status` field (`'added' | 'modified' | 'deleted' | 'renamed'`) and optional `oldPath` string for renames. Returns `CleanupResult` from `src/update/types.ts` with relative path arrays for deleted artifacts. Called by `orchestrateUpdate()` in `src/update/orchestrator.ts` after change detection and before Phase 2 directory aggregation.

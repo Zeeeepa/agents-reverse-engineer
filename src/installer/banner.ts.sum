@@ -1,34 +1,39 @@
 ---
-generated_at: 2026-02-09T15:07:22.893Z
+generated_at: 2026-02-09T16:10:25.409Z
 content_hash: ea6b907fefb4319b3b96d48d308dbd8c9da81250dad6d2588908838c214d9a81
-purpose: banner.ts provides styled terminal output primitives for the ARE installer including ASCII art banner, help text, pro...
+purpose: banner.ts provides styled terminal output functions for the ARE installer with ASCII art display, help text formattin...
 ---
-**banner.ts provides styled terminal output primitives for the ARE installer including ASCII art banner, help text, progress messages, and post-installation guidance using picocolors.**
-
-## Exported Functions
-
-**displayBanner(): void** — Renders ASCII art "ARE" logo in green with version number from `getVersion()` and tagline "AI-friendly codebase documentation" using `pc.green` and `pc.dim` colorizers.
-
-**showHelp(): void** — Prints usage syntax, option flags (`--runtime`, `-g/-l`, `-u`, `--force`, `-q`, `-h`), and example invocations for interactive mode, single-runtime installation, all-runtime installation, and uninstallation workflows.
-
-**showSuccess(msg: string): void** — Outputs message with green checkmark prefix (`pc.green('✓')`).
-
-**showError(msg: string): void** — Outputs message with red X prefix (`pc.red('✗')`).
-
-**showWarning(msg: string): void** — Outputs message with yellow exclamation prefix (`pc.yellow('!')`).
-
-**showInfo(msg: string): void** — Outputs message with cyan arrow prefix (`pc.cyan('>')`).
-
-**showNextSteps(runtime: string, filesCreated: number): void** — Displays post-installation workflow guide with numbered steps invoking ARE skills (`/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`) and GitHub documentation URL.
+**banner.ts provides styled terminal output functions for the ARE installer with ASCII art display, help text formatting, and colorized message helpers using picocolors.**
 
 ## Exported Constants
 
-**VERSION: string** — Package version string obtained via `getVersion()` from `src/version.ts`, displayed in banner and used for version reporting.
+- `VERSION: string` — Package version string obtained via `getVersion()` from `../version.js`
+
+## Exported Functions
+
+### Display Functions
+
+- `displayBanner(): void` — Renders ASCII art "ARE" logo in green via `pc.green()` with version number and tagline "AI-friendly codebase documentation" in dimmed text via `pc.dim()`
+
+- `showHelp(): void` — Prints usage instructions with `pc.bold()` section headers covering CLI options (`--runtime`, `-g`/`--global`, `-l`/`--local`, `-u`/`--uninstall`, `--force`, `-q`/`--quiet`, `-h`/`--help`), example invocations with runtime selectors, and installation mode combinations
+
+- `showNextSteps(runtime: string, filesCreated: number): void` — Displays post-installation instructions with bold "Installation complete!" header, file count summary via `pc.dim()`, numbered steps referencing ARE commands (`/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`) in cyan via `pc.cyan()`, and GitHub documentation URL
+
+### Message Helpers
+
+- `showSuccess(msg: string): void` — Prints message prefixed with green checkmark `pc.green('✓')`
+
+- `showError(msg: string): void` — Prints message prefixed with red X `pc.red('✗')`
+
+- `showWarning(msg: string): void` — Prints message prefixed with yellow exclamation `pc.yellow('!')`
+
+- `showInfo(msg: string): void` — Prints message prefixed with cyan arrow `pc.cyan('>')`
 
 ## Dependencies
 
-Imports `picocolors` as `pc` for ANSI terminal color codes (green, red, yellow, cyan, dim, bold). Imports `getVersion` from `../version.js` for package.json version extraction.
+- `picocolors` (imported as `pc`) — Terminal color library for ANSI escape sequences
+- `../version.js` — Provides `getVersion()` function returning package version from package.json
 
-## Integration Points
+## ASCII Art Format
 
-Used by `src/installer/index.ts` orchestrator to provide visual feedback during interactive installation prompts, file operation confirmations, error reporting, and completion messaging. Message functions follow semantic naming pattern matching installer operation outcomes (success for file writes, error for permission failures, warning for overwrite prompts, info for progress updates).
+The ASCII banner uses Unicode box-drawing characters (U+2550–U+255D range) to render block letters "ARE" across 6 lines with 25–27 characters per line, followed by version/tagline footer lines.

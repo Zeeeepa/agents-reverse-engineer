@@ -1,48 +1,59 @@
 ---
-generated_at: 2026-02-09T15:06:20.455Z
+generated_at: 2026-02-09T16:09:22.973Z
 content_hash: be5da3f84bcde292733c820cb325be1212baf0436f982f8fc9bf91c74db73382
-purpose: Validates AGENTS.md files for phantom path references—extracts path-like strings via regex patterns, resolves them ag...
+purpose: validator.ts detects unresolvable path references in AGENTS.md files by extracting path-like strings via regex patter...
 ---
-**Validates AGENTS.md files for phantom path references—extracts path-like strings via regex patterns, resolves them against filesystem locations, and reports unresolvable references as PhantomPathInconsistency objects.**
+**validator.ts detects unresolvable path references in AGENTS.md files by extracting path-like strings via regex patterns, resolving them against both the AGENTS.md directory and project root with .ts/.js fallback logic, and returning PhantomPathInconsistency objects for non-existent paths.**
 
 ## Exported Functions
 
-`checkPhantomPaths(agentsMdPath: string, content: string, projectRoot: string): PhantomPathInconsistency[]` extracts path-like strings from AGENTS.md content via three regex patterns (PATH_PATTERNS), attempts resolution relative to AGENTS.md directory and projectRoot, applies .ts/.js fallback for TypeScript import conventions, and returns PhantomPathInconsistency[] for unresolvable paths.
+### checkPhantomPaths
+```typescript
+function checkPhantomPaths(
+  agentsMdPath: string,
+  content: string,
+  projectRoot: string,
+): PhantomPathInconsistency[]
+```
+
+Extracts path-like references from AGENTS.md content using `PATH_PATTERNS`, resolves each unique path against `agentsMdDir` (via `path.dirname(agentsMdPath)`) and `projectRoot`, verifies existence via `existsSync()`, and returns `PhantomPathInconsistency[]` for unresolved paths with `type: 'phantom-path'`, `severity: 'warning'`, relative `agentsMdPath`, `description`, and `details` object containing `referencedPath`, `resolvedTo` (relative to projectRoot), and `context` (first 120 chars of containing line).
 
 ## Path Extraction Patterns
 
-PATH_PATTERNS array contains three RegExp objects:
-- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` matches Markdown link targets `[text](./path)` or `[text](path)`
-- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` matches backtick-quoted paths starting with `src/`, `./`, or `../` followed by 1-4 letter extension
-- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` matches prose-embedded paths preceded by contextual keywords
+### PATH_PATTERNS
+```typescript
+const PATH_PATTERNS: RegExp[] = [
+  /\[(?:[^\]]*)\]\((\.[^)]+)\)/g,              // Markdown links: [text](./path)
+  /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g,  // Backtick paths: `src/foo/bar.ts`
+  /(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi, // Prose paths: "from src/foo/"
+]
+```
 
-## Skip Patterns
+Three regex patterns capture: (1) markdown link targets starting with `.`, (2) backtick-quoted paths beginning with `src/`, `./`, or `../` with 1-4 letter extensions, (3) prose-embedded `src/` paths following keywords "from", "in", "by", "via", or "see" (case-insensitive via `i` flag).
 
-SKIP_PATTERNS array excludes false positives via six RegExp objects: `/node_modules/`, `/\.git\//`, `/^https?:/` (URLs), `/\{\{/` (template placeholders), `/\$\{/` (template literals), `/\{[^}]*,[^}]*\}/` (brace expansion syntax).
+### SKIP_PATTERNS
+```typescript
+const SKIP_PATTERNS: RegExp[] = [
+  /node_modules/,
+  /\.git\//,
+  /^https?:/,
+  /\{\{/,                  // template placeholders
+  /\$\{/,                  // template literals
+  /\*/,                    // glob patterns
+  /\{[^}]*,[^}]*\}/,      // brace expansion: {a,b,c}
+]
+```
 
-## Resolution Strategy
+Excludes vendor directories (`node_modules`, `.git/`), URLs (`http://`, `https://`), template syntax (`{{`, `${`), glob wildcards (`*`), and brace expansions (`{a,b,c}`) from validation via `SKIP_PATTERNS.some((p) => p.test(rawPath))`.
 
-checkPhantomPaths applies multi-level path resolution:
-1. `path.resolve(agentsMdDir, rawPath)` resolves relative to AGENTS.md location
-2. `path.resolve(projectRoot, rawPath)` resolves relative to project root for `src/` paths
-3. `.js` extension stripped and `.ts` appended for TypeScript import convention (two additional candidates)
-4. `existsSync()` checked across all candidates via `tryPaths.some()`
+## Path Resolution Strategy
 
-## Inconsistency Reporting
+Attempts resolution in order: (1) `path.resolve(agentsMdDir, rawPath)`, (2) `path.resolve(projectRoot, rawPath)`, (3) `.js` → `.ts` substitution via `fromAgentsMd.replace(/\.js$/, '.ts')` and `fromRoot.replace(/\.js$/, '.ts')` for TypeScript import convention support. Uses `tryPaths.some((p) => existsSync(p))` to validate at least one candidate exists.
 
-PhantomPathInconsistency objects contain:
-- `type: 'phantom-path'` discriminant
-- `severity: 'warning'` level
-- `agentsMdPath` relative to projectRoot via `path.relative()`
-- `description` with double-quoted rawPath
-- `details.referencedPath` (original string from regex capture)
-- `details.resolvedTo` (first resolution attempt relative to projectRoot)
-- `details.context` (trimmed line containing reference, max 120 chars)
+## Deduplication and Context Extraction
 
-## Deduplication
-
-`seen` Set<string> prevents duplicate reports for identical rawPath values across multiple pattern matches or occurrences.
+Maintains `seen` Set tracking `rawPath` strings to skip duplicate pattern matches via `seen.has(rawPath)` check before processing. Extracts context line via `content.split('\n')` and `lines.find((l) => l.includes(rawPath))`, truncating to 120 characters via `contextLine.trim().slice(0, 120)` for inclusion in `PhantomPathInconsistency.details.context`.
 
 ## Integration Points
 
-Consumed by `src/quality/phantom-paths/index.ts` which orchestrates validation across all AGENTS.md files discovered via directory traversal. Returns data structures conforming to `PhantomPathInconsistency` interface defined in `src/quality/types.ts`.
+Consumed by `src/quality/phantom-paths/index.ts` as part of quality validation pipeline. Returns `PhantomPathInconsistency` discriminated union member conforming to `src/quality/types.ts` schema with required fields: `type`, `severity`, `agentsMdPath`, `description`, `details`.

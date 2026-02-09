@@ -1,29 +1,40 @@
 ---
-generated_at: 2026-02-09T15:05:50.953Z
+generated_at: 2026-02-09T16:08:46.203Z
 content_hash: 21bf8f8555dac27a2608934b9016f732256e87fab42ec4dce4f6c8f1b746e901
-purpose: createGitignoreFilter produces a FileFilter that excludes paths matching .gitignore patterns by parsing the root .git...
+purpose: createGitignoreFilter produces FileFilter instances that exclude paths matching .gitignore patterns via the `ignore` ...
 ---
-**createGitignoreFilter produces a FileFilter that excludes paths matching .gitignore patterns by parsing the root .gitignore file via the ignore library.**
+**createGitignoreFilter produces FileFilter instances that exclude paths matching .gitignore patterns via the `ignore` library.**
 
-## Exported Interface
+## Exported Function
 
-- `createGitignoreFilter(root: string): Promise<FileFilter>` — Async factory function that resolves the root directory path, reads `.gitignore` if present, populates an `Ignore` instance from the ignore library, and returns a FileFilter object with `name: 'gitignore'` and a `shouldExclude(absolutePath: string): boolean` method.
+### createGitignoreFilter
+```typescript
+async function createGitignoreFilter(root: string): Promise<FileFilter>
+```
+Reads `.gitignore` from `root` directory, parses patterns via `ignore()` library, returns `FileFilter` with `shouldExclude()` method. Missing `.gitignore` file caught silently (filter passes all paths). Normalizes `root` to absolute path via `path.resolve()`.
 
-## Implementation Details
+## FileFilter Implementation
 
-The `shouldExclude` method converts absolute paths to relative paths via `path.relative(normalizedRoot, absolutePath)`, returns `false` for paths outside the root (starting with `..`) or empty paths, and delegates to `ig.ignores(relativePath)` for pattern matching. The ignore library requires relative paths and treats directory paths differently based on trailing slashes; this implementation omits trailing slashes since the discovery walker returns files only, not directories.
+Returned object implements `FileFilter` interface with:
+- `name: 'gitignore'` — Filter identifier for debugging/logging
+- `shouldExclude(absolutePath: string): boolean` — Path exclusion predicate
 
-## Error Handling
+## Path Handling
 
-If `.gitignore` does not exist at `path.join(normalizedRoot, '.gitignore')`, the `fs.readFile()` failure is silently caught in an empty catch block, leaving the `Ignore` instance unpopulated so `ig.ignores()` returns `false` for all paths (no exclusions applied).
+`shouldExclude()` converts absolute paths to relative via `path.relative(normalizedRoot, absolutePath)`:
+- Returns `false` for paths outside root (starting with `..`)
+- Returns `false` for empty relative paths
+- Delegates to `ig.ignores(relativePath)` for pattern matching
+
+**Critical constraint**: `ignore` library requires relative paths without leading slash. Trailing slash semantics apply to directories; this implementation omits trailing slash since file walker returns files only.
 
 ## Dependencies
 
-- `ignore` library (type `Ignore`) for .gitignore pattern parsing and matching
-- `node:fs/promises` for async `.gitignore` file reading via `fs.readFile()`
-- `node:path` for path resolution (`path.resolve()`, `path.relative()`, `path.join()`)
-- `../types.js` exports `FileFilter` interface with `name: string` and `shouldExclude(absolutePath: string): boolean`
+- `ignore` library (`Ignore` type) — Parses and matches .gitignore patterns
+- `node:fs/promises` — Async `.gitignore` file reading via `readFile()`
+- `node:path` — Path normalization and relative path computation
+- `../types.js` — `FileFilter` interface definition
 
-## Integration Context
+## Integration Points
 
-This filter is one of the composable filters in `src/discovery/filters/` alongside binary.ts, custom.ts, and vendor.ts. The discovery walker in `src/discovery/walker.ts` chains these filters to determine file exclusion during the file discovery phase (Phase 1 of the three-phase generation pipeline).
+Used by discovery pipeline (`src/discovery/walker.ts`) as composable filter in filter chain alongside binary filter, vendor filter, custom pattern filter. Consumed during Phase 1 file analysis to respect repository gitignore rules.

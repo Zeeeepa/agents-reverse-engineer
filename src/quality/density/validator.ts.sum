@@ -1,39 +1,42 @@
 ---
-generated_at: 2026-02-09T15:06:09.121Z
+generated_at: 2026-02-09T16:09:10.102Z
 content_hash: d949dd52d9e6602ba7336320be9efcdf5d23285444b295078fc01dc915d1c3c9
-purpose: Density validator module providing findability heuristics for AGENTS.md content by verifying exported symbol presence...
+purpose: validator.ts provides a disabled stub for findability validation that previously checked whether exported symbols fro...
 ---
-**Density validator module providing findability heuristics for AGENTS.md content by verifying exported symbol presence from .sum files (currently disabled due to publicInterface metadata removal).**
+**validator.ts provides a disabled stub for findability validation that previously checked whether exported symbols from .sum files appeared in parent AGENTS.md content, retained for future structured metadata extraction support.**
 
-## Current Status
+## Exported Interface
 
-`validateFindability()` returns empty array since structured `publicInterface` extraction was removed from `SumFileContent` schema. Function signature preserved for future re-implementation via post-processing passes. No LLM calls—purely string-based symbol matching design.
-
-## Exported Interfaces
-
-**FindabilityResult** represents validation outcome for single .sum file:
-- `filePath: string` - Path to checked .sum file
+**FindabilityResult** - Validation result for a single .sum file containing:
+- `filePath: string` - Path to the validated .sum file
 - `symbolsTested: string[]` - Symbol names tested for presence
-- `symbolsFound: string[]` - Symbol names found in AGENTS.md
-- `symbolsMissing: string[]` - Symbol names absent from AGENTS.md
-- `score: number` - Ratio of found/tested symbols (0-1 range)
+- `symbolsFound: string[]` - Symbol names found in AGENTS.md content
+- `symbolsMissing: string[]` - Symbol names absent from AGENTS.md content
+- `score: number` - Ratio of found to tested symbols (0.0 to 1.0 range)
 
-## Exported Functions
+## Exported Function
 
-**validateFindability(\_agentsMdContent: string, \_sumFiles: Map<string, SumFileContent>): FindabilityResult[]** checks key symbols from .sum files appear in AGENTS.md content. Parameters prefixed with underscore indicate unused status. Returns empty array until structured metadata extraction restored.
+**validateFindability** - `(agentsMdContent: string, sumFiles: Map<string, SumFileContent>) => FindabilityResult[]`
 
-## Integration Points
+Returns empty array since structured metadata extraction removed. Previously validated that key symbols from .sum files appeared in AGENTS.md by:
+1. Extracting symbol names from `metadata.publicInterface` field in `SumFileContent`
+2. Searching for symbol presence in `agentsMdContent` via substring matching
+3. Computing per-file `FindabilityResult` with score calculation
 
-Imports `SumFileContent` from `../../generation/writers/sum.js` for type constraints on .sum file parsing. Called by quality validation orchestration in `src/quality/index.ts` alongside code-vs-doc and phantom-path validators.
+Parameters ignored (prefixed with underscore): `_agentsMdContent` consumed full AGENTS.md text, `_sumFiles` consumed map of file paths to parsed `SumFileContent` objects.
 
-## Design Pattern
+## Integration Context
 
-Heuristic validation without AI inference—symbol presence determined via substring search in AGENTS.md text. Contrasts with `src/quality/inconsistency/code-vs-doc.ts` which performs regex-based export extraction from source files.
+**Disabled Feature** - Function signature preserved but implementation gutted after `SumFileContent.metadata.publicInterface` field removed from schema (`src/generation/writers/sum.ts`). No callers in codebase invoke this validator (disabled in `src/quality/index.ts` quality validation pipeline).
 
-## Relation to Other Validators
+**Historical Design** - LLM-free validation using string-based symbol matching. No AI subprocess calls, purely heuristic checking via substring search. Intended to detect when directory-level AGENTS.md aggregation failed to preserve critical symbol names from child .sum file summaries.
 
-Part of three-validator suite:
-- **code-vs-doc** (`src/quality/inconsistency/code-vs-doc.ts`): regex extraction of exports from source, substring search in .sum summaries
-- **code-vs-code** (`src/quality/inconsistency/code-vs-code.ts`): duplicate symbol detection across directory file groups
-- **phantom-paths** (`src/quality/phantom-paths/validator.ts`): path resolution for references in AGENTS.md
-- **density** (this file): symbol findability in AGENTS.md from .sum metadata (disabled)
+**Restoration Path** - Future re-implementation requires:
+1. Adding structured export extraction to .sum file generation (Phase 1 of three-phase pipeline)
+2. Parsing YAML frontmatter in .sum files via `src/generation/writers/sum.ts:readSumFile()`
+3. Implementing symbol presence checks against AGENTS.md content
+4. Re-enabling in `src/quality/index.ts` quality validator orchestrator
+
+## Type Dependencies
+
+Imports `SumFileContent` from `src/generation/writers/sum.ts` - Interface for parsed .sum file containing YAML frontmatter (`generated_at`, `content_hash`, `purpose`, `critical_todos[]`, `related_files[]`) plus markdown summary content.

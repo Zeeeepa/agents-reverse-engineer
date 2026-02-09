@@ -2,64 +2,115 @@
 
 # src/ai/backends
 
-Concrete AIBackend implementations for Claude Code, Gemini CLI, and OpenCode CLI providing subprocess argument construction, JSON response parsing, PATH availability detection, and installation instructions.
+**Backend adapter implementations for Claude Code, Gemini CLI, and OpenCode providing AIBackend interface compliance with CLI argument construction, JSON response parsing, PATH availability detection, and installation instructions.**
 
 ## Contents
 
 ### Backend Implementations
 
-**[claude.ts](./claude.ts)** — ClaudeBackend adapter implementing subprocess orchestration for `claude` CLI with `buildArgs()` constructing `['-p', '--output-format', 'json', '--no-session-persistence', '--permission-mode', 'bypassPermissions']` arguments, `parseResponse()` validating JSON via ClaudeResponseSchema (Zod), extracting model names from `modelUsage` object keys, handling non-JSON prefix text via `stdout.indexOf('{')` slicing, and `isCommandOnPath()` detecting CLI availability by iterating `process.env.PATH` directories with platform-specific PATHEXT handling.
+**[claude.ts](./claude.ts)** — ClaudeBackend adapter with Zod-validated JSON parsing extracting `text`/`model`/`inputTokens`/`outputTokens`/`cacheReadTokens`/`cacheCreationTokens` from Claude CLI v2.1.31 output, `buildArgs()` constructing `['-p', '--output-format', 'json', '--no-session-persistence', '--permission-mode', 'bypassPermissions']` base arguments with conditional `--model`/`--system-prompt`/`--max-turns` appends, `isCommandOnPath()` cross-platform PATH detection handling Windows `PATHEXT` extension iteration.
 
-**[gemini.ts](./gemini.ts)** — GeminiBackend stub adapter with functional `isAvailable()` delegating to `isCommandOnPath()`, `buildArgs()` returning `['-p', '--output-format', 'json']`, but `parseResponse()` throwing AIServiceError with code 'SUBPROCESS_ERROR' pending Gemini CLI JSON output format stabilization (deferred per RESEARCH.md Open Question 2).
+**[gemini.ts](./gemini.ts)** — GeminiBackend stub returning `['-p', '--output-format', 'json']` from `buildArgs()` but throwing `SUBPROCESS_ERROR` in `parseResponse()` until Gemini JSON output format stabilizes per RESEARCH.md Open Question 2.
 
-**[opencode.ts](./opencode.ts)** — OpenCodeBackend stub adapter with functional `isAvailable()` via `isCommandOnPath()`, `buildArgs()` returning `['run', '--format', 'json']`, but `parseResponse()` throwing AIServiceError with code 'SUBPROCESS_ERROR' pending JSONL output parsing implementation (deferred per RESEARCH.md Open Question 3).
+**[opencode.ts](./opencode.ts)** — OpenCodeBackend stub returning `['run', '--format', 'json']` from `buildArgs()` but throwing `SUBPROCESS_ERROR` in `parseResponse()` until JSONL parsing implementation completes per RESEARCH.md Open Question 3.
 
 ## AIBackend Interface Contract
 
-All backend classes implement `AIBackend` from `../types.ts` requiring:
-- `name: string` — Backend identifier ('claude' | 'gemini' | 'opencode')
-- `cliCommand: string` — Executable name for PATH resolution
-- `isAvailable(): Promise<boolean>` — CLI detection via PATH scanning
-- `buildArgs(options: AICallOptions): string[]` — Subprocess argument array construction (prompt sent via stdin)
-- `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` — JSON parsing with token/cost extraction
-- `getInstallInstructions(): string` — Formatted installation command string
+All backends implement five required methods:
 
-## Backend Registry Integration
+- **`isAvailable(): Promise<boolean>`** — Delegates to `isCommandOnPath(this.cliCommand)` checking PATH directories via `fs.stat().isFile()` with Windows PATHEXT handling
+- **`buildArgs(options: AICallOptions): string[]`** — Constructs CLI argument arrays (prompt content delivered via stdin by `runSubprocess()` caller, not CLI arg)
+- **`parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse`** — Normalizes CLI output to `{ text, model, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, durationMs, exitCode, raw }` structure
+- **`getInstallInstructions(): string`** — Returns multiline installation guidance with npm/curl commands and documentation URLs
+- **Properties:** `name: string` (backend identifier), `cliCommand: string` (executable name)
 
-Registered via `AIBackendRegistry` in `../registry.ts` enabling auto-detection when `config.ai.backend === 'auto'`. Registry calls `isAvailable()` sequentially across backends [ClaudeBackend, GeminiBackend, OpenCodeBackend] returning first available, falling back to ClaudeBackend if none detected.
+## Claude Response Schema
 
-## PATH Detection Pattern
+`ClaudeResponseSchema` validates JSON structure:
 
-`isCommandOnPath(command: string)` shared utility in `claude.ts`:
-1. Split `process.env.PATH` by `path.delimiter` (`:` on Unix, `;` on Windows)
-2. Iterate directories with platform-specific extensions (Windows: `process.env.PATHEXT.split(';')`, Unix: `['']`)
-3. Test each `pathDir + command + ext` via `fs.stat()` (not `fs.access()` due to Windows lacking execute permission bits)
-4. Return true if any path exists, false otherwise
+```typescript
+{
+  type: 'result',
+  subtype: 'success'|'error',
+  is_error: boolean,
+  duration_ms: number,
+  duration_api_ms: number,
+  num_turns: number,
+  result: string,
+  session_id: string,
+  total_cost_usd: number,
+  usage: {
+    input_tokens: number,
+    cache_creation_input_tokens: number,
+    cache_read_input_tokens: number,
+    output_tokens: number
+  },
+  modelUsage: Record<string, {
+    inputTokens: number,
+    outputTokens: number,
+    cacheReadInputTokens: number,
+    cacheCreationInputTokens: number,
+    costUSD: number
+  }>
+}
+```
 
-## ClaudeBackend Parsing Strategy
+## Integration with Registry
 
-`parseResponse()` defensively handles non-JSON CLI output:
-1. Locate first `{` via `stdout.indexOf('{')`
-2. Slice `stdout.substring(jsonStart)` before `JSON.parse()`
-3. Validate against ClaudeResponseSchema containing `type`, `subtype`, `is_error`, `result`, `usage`, `modelUsage`, `total_cost_usd`
-4. Extract model name from `Object.keys(parsed.modelUsage)[0] ?? 'unknown'`
-5. Map to AIResponse with `result: parsed.result`, `usage: { inputTokens, cacheReadTokens, cacheCreationTokens, outputTokens }`, `model: modelName`, `cost: { totalUSD: parsed.total_cost_usd }`
-6. Throw AIServiceError('PARSE_ERROR') on schema validation failure, including first 200 characters of raw output
+Backends registered in `src/ai/registry.ts` `AIBackendRegistry.backends` array enabling `detectAvailableBackend()` auto-detection via parallel `isAvailable()` checks. Registry returns first available backend when `config.ai.backend === 'auto'`.
 
-## Subprocess Orchestration
+## PATH Detection Strategy
 
-Backends depend on `runSubprocess()` from `../subprocess.ts` which:
-- Spawns `execFile(cliCommand, args)` child process
-- Injects prompt via `stdin.write()` followed by `stdin.end()`
-- Enforces resource limits: `NODE_OPTIONS='--max-old-space-size=512'`, `UV_THREADPOOL_SIZE='4'`, `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS='1'`
-- Implements timeout handling: SIGTERM at `timeoutMs`, SIGKILL after 5s grace period
-- Performs process group killing via `kill(-pid)` to terminate subprocess trees
-- Passes captured `stdout` to backend's `parseResponse()`
+`isCommandOnPath()` implements cross-platform availability checking:
 
-## Implementation Status
+1. Reads `process.env.PATH`, strips double quotes, splits by `path.delimiter` (`:` Unix, `;` Windows)
+2. Reads `process.env.PATHEXT` on Windows (e.g., `.COM;.EXE;.BAT;.CMD`), defaults to `['']` on Unix
+3. Iterates PATH directories × PATHEXT extensions constructing candidate paths
+4. Calls `fs.stat(candidatePath).isFile()` returning `true` on first match (avoids Unix execute bit assumptions)
+5. Returns `false` if no candidates exist as files
 
-| Backend | isAvailable | buildArgs | parseResponse | Status |
-|---------|-------------|-----------|---------------|--------|
-| ClaudeBackend | ✓ PATH detection | ✓ Full args | ✓ Schema validation | **Production** |
-| GeminiBackend | ✓ PATH detection | ✓ Basic args | ✗ Throws error | **Stub** (pending JSON stability) |
-| OpenCodeBackend | ✓ PATH detection | ✓ Basic args | ✗ Throws error | **Stub** (pending JSONL parsing) |
+## Error Handling
+
+ClaudeBackend throws `AIServiceError` with codes:
+
+- **`PARSE_ERROR`** — When `stdout.indexOf('{')` returns `-1` (includes first 200 chars of raw output)
+- **`PARSE_ERROR`** — When Zod validation fails (includes validation error message)
+
+Stub backends throw:
+
+- **`SUBPROCESS_ERROR`** — GeminiBackend/OpenCodeBackend until parsing implementation completes
+
+## Behavioral Contracts
+
+### ClaudeBackend CLI Arguments
+
+Base arguments (always included):
+```
+-p
+--output-format json
+--no-session-persistence
+--permission-mode bypassPermissions
+```
+
+Conditional arguments:
+```
+--model <value>               # if options.model present
+--system-prompt <value>       # if options.systemPrompt present
+--max-turns <value>           # if options.maxTurns !== undefined
+```
+
+### JSON Parsing Defensive Pattern
+
+```javascript
+const jsonStart = stdout.indexOf('{')
+if (jsonStart === -1) {
+  throw new AIServiceError('PARSE_ERROR', `No JSON in output: ${stdout.slice(0, 200)}`)
+}
+const parsed = ClaudeResponseSchema.parse(JSON.parse(stdout.slice(jsonStart)))
+```
+
+### Windows PATHEXT Extensions
+
+```
+.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+```

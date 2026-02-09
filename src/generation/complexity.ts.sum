@@ -1,32 +1,34 @@
 ---
-generated_at: 2026-02-09T15:07:02.946Z
+generated_at: 2026-02-09T16:10:09.693Z
 content_hash: 4a69c6ca8327582e8a6dc390f7ea2e7d38e67c9e93128163405cea5db79d3252
-purpose: complexity.ts computes codebase structure metrics from file path lists: file count, maximum directory depth via path ...
+purpose: complexity.ts computes codebase complexity metrics (file count, directory depth, unique directories) from discovered ...
 ---
-**complexity.ts computes codebase structure metrics from file path lists: file count, maximum directory depth via path separator splitting, and unique directory set via parent traversal.**
+**complexity.ts computes codebase complexity metrics (file count, directory depth, unique directories) from discovered file paths for documentation generation planning.**
 
 ## Exported Interface
 
-`ComplexityMetrics` contains:
-- `fileCount: number` — Total source file count
-- `directoryDepth: number` — Maximum nesting level from project root
-- `files: string[]` — Source file path array
-- `directories: Set<string>` — Unique directory paths extracted via parent traversal
+**ComplexityMetrics** - Aggregated complexity measurements
+- `fileCount: number` - Total source files discovered
+- `directoryDepth: number` - Maximum nested directory depth
+- `files: string[]` - Complete list of source file absolute paths
+- `directories: Set<string>` - Unique directory paths extracted from files
 
 ## Exported Function
 
-`analyzeComplexity(files: string[], projectRoot: string): ComplexityMetrics` orchestrates metric computation by invoking `calculateDirectoryDepth()` and `extractDirectories()`, returning populated `ComplexityMetrics` object with `fileCount` derived from `files.length`.
+**analyzeComplexity(files: string[], projectRoot: string): ComplexityMetrics** - Orchestrates complexity computation by invoking `calculateDirectoryDepth()` and `extractDirectories()` on input file array, returns populated ComplexityMetrics object.
 
-## Internal Algorithms
+## Internal Functions
 
-`calculateDirectoryDepth()` computes maximum depth by splitting `path.relative(projectRoot, file)` on `path.sep`, subtracting 1 (file itself doesn't count as directory level), tracking `Math.max()` across all files.
+**calculateDirectoryDepth(files: string[], projectRoot: string): number** - Computes maximum depth by calling `path.relative(projectRoot, file)` for each file, splitting on `path.sep`, subtracting 1 (excludes filename from depth count), tracking `Math.max()` across all files.
 
-`extractDirectories()` walks parent chain for each file via `path.dirname()` loop, adding to `Set<string>` until reaching root (detected when `parent === dir`), stops at `'.'` sentinel to prevent infinite loops.
+**extractDirectories(files: string[]): Set<string>** - Walks parent chain via `path.dirname()` loop for each file, terminating when `dir === '.'` or `parent === dir` (root reached), accumulates unique directories in Set to deduplicate shared ancestor paths.
 
 ## Integration Points
 
-Used by `src/generation/orchestrator.ts` to compute codebase scale metrics during discover/generate phases. Metrics inform concurrency tuning decisions and progress reporting via `src/orchestration/progress.ts`.
+Used by `src/generation/orchestrator.ts` or `src/cli/discover.ts` to compute metrics for GENERATION-PLAN.md phase breakdown and concurrency decisions. The `directoryDepth` metric influences post-order directory aggregation sorting (Phase 2 processes deepest directories first). The `directories` Set drives `AGENTS.md` generation target list.
 
-## Design Pattern
+## Algorithm Details
 
-Pure functional composition: `analyzeComplexity()` delegates to stateless helper functions operating on path string arrays. `Set<string>` ensures directory uniqueness without manual deduplication logic.
+**Depth calculation**: Relative path splitting produces array like `['src', 'generation', 'complexity.ts']`, length 3 minus 1 equals depth 2 for the `src/generation/` directory.
+
+**Directory extraction**: For path `/home/pascal/wks/are/src/generation/complexity.ts`, extracts `/home/pascal/wks/are/src/generation`, `/home/pascal/wks/are/src`, `/home/pascal/wks/are`, stops before root `/home` when `parent === dir`.

@@ -1,24 +1,26 @@
 ---
-generated_at: 2026-02-09T15:07:15.194Z
+generated_at: 2026-02-09T16:10:23.283Z
 content_hash: c69fb25302e6483d7c0631a9e0713db1fc96b2749658e0a77321e40da99e422e
-purpose: Defines TypeScript interfaces for representing import statements extracted from source files during static analysis.
+purpose: ImportEntry and FileImports type definitions model static import statement extraction results for dependency graph co...
 ---
-**Defines TypeScript interfaces for representing import statements extracted from source files during static analysis.**
+**ImportEntry and FileImports type definitions model static import statement extraction results for dependency graph construction and import map generation in AGENTS.md prompts.**
 
 ## Exported Types
 
-### ImportEntry
-Represents a single import statement with three properties:
-- `specifier: string` — Raw import path as written in source (e.g., `'../ai/index.js'`)
-- `symbols: string[]` — Array of imported identifiers (e.g., `['AIService', 'AIResponse']`)
-- `typeOnly: boolean` — Flag indicating TypeScript type-only imports (`import type { ... }`)
+**ImportEntry** represents a single parsed import statement with three fields:
+- `specifier: string` — Raw import path as written in source (e.g., `'../ai/index.js'`, `'lodash'`)
+- `symbols: string[]` — Named/default imports extracted from statement (e.g., `['AIService', 'AIResponse']`)
+- `typeOnly: boolean` — Discriminates `import type` statements from runtime imports
 
-### FileImports
-Aggregates all imports from a single source file with three properties:
-- `fileName: string` — Relative file path (e.g., `'runner.ts'`)
-- `externalImports: ImportEntry[]` — Imports from other modules (not same directory)
-- `internalImports: ImportEntry[]` — Imports from same directory
+**FileImports** aggregates all imports discovered in a single source file with three fields:
+- `fileName: string` — Relative file path from discovery root (e.g., `'runner.ts'`, `'ai/service.ts'`)
+- `externalImports: ImportEntry[]` — Cross-directory or external module imports (used for inter-module dependency tracking)
+- `internalImports: ImportEntry[]` — Same-directory imports (used for intra-module coupling analysis)
 
 ## Integration Points
 
-Used by `src/imports/extractor.ts` which performs regex-based import parsing to populate these structures. The `FileImports` interface feeds into `src/generation/prompts/builder.ts` via `extractDirectoryImports()` to construct import maps included in directory aggregation prompts during Phase 2 of the documentation pipeline.
+Consumed by `src/imports/extractor.ts` which implements regex-based import parsing producing `FileImports[]` arrays. `src/generation/prompts/builder.ts` calls `extractDirectoryImports()` to construct import maps embedded in directory aggregation prompts for `AGENTS.md` generation. The `externalImports` vs `internalImports` partitioning enables prompts to emphasize cross-module dependencies while suppressing local coupling noise.
+
+## Design Rationale
+
+The `typeOnly` field supports TypeScript-specific workflows where type imports don't affect runtime dependency graphs. The `symbols: string[]` array enables precise tracking of which exports are actually consumed, supporting future dead code detection or import optimization features. The internal/external split allows `AGENTS.md` prompts to prioritize architectural boundaries over implementation details.

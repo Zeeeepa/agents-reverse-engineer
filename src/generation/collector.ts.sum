@@ -1,26 +1,26 @@
 ---
-generated_at: 2026-02-09T15:06:55.193Z
+generated_at: 2026-02-09T16:10:07.335Z
 content_hash: c8a71b15b244882eea6f7ba9fd399016256f2ad569eda3f9c4474c8ddcf7f8ca
-purpose: collector.ts recursively discovers and aggregates all AGENTS.md files under projectRoot, returning AgentsDocs sorted ...
+purpose: collector.ts recursively discovers and aggregates all `AGENTS.md` files from a project tree into a sorted array of re...
 ---
-**collector.ts recursively discovers and aggregates all AGENTS.md files under projectRoot, returning AgentsDocs sorted by relativePath while skipping vendor directories.**
+**collector.ts recursively discovers and aggregates all `AGENTS.md` files from a project tree into a sorted array of relative paths and content, skipping vendor/build/meta directories.**
 
 ## Exported Types
 
-`AgentsDocs` — Type alias for `Array<{ relativePath: string; content: string }>` representing collected AGENTS.md documents with project-relative paths and UTF-8 content.
+**`AgentsDocs`**: Type alias for `Array<{ relativePath: string; content: string }>` representing collected documentation files with project-relative paths.
 
 ## Exported Functions
 
-`collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>` — Recursively traverses directories starting at projectRoot, reads all AGENTS.md files via `readFile()`, computes relative paths via `path.relative()`, sorts results alphabetically by relativePath using `localeCompare()`, and gracefully skips unreadable directories/files via try-catch. Internal `walk()` closure performs depth-first traversal using `readdir()` with `withFileTypes: true` for efficient directory detection.
+**`collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>`**: Recursively walks directory tree starting at `projectRoot`, collects all `AGENTS.md` files (ignoring unreadable directories/files), returns alphabetically sorted array by `relativePath`. Uses `readdir()` with `withFileTypes: true` for efficient type checking, `readFile()` for UTF-8 content loading, `path.relative()` for path normalization, and `Array.sort()` with `localeCompare()` for lexicographic ordering.
 
-## Directory Filtering
+## Directory Exclusion
 
-`SKIP_DIRS` constant — Set containing 13 excluded directory names: `node_modules`, `.git`, `.agents-reverse-engineer`, `vendor`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`, `.cargo`, `.gradle`. Applied during traversal via `SKIP_DIRS.has(entry.name)` predicate to prevent descending into build artifacts, package managers, version control, and project metadata directories.
+**`SKIP_DIRS`**: `Set<string>` containing 13 directory names to exclude during traversal: `'node_modules'`, `'.git'`, `'.agents-reverse-engineer'`, `'vendor'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`, `'.cargo'`, `'.gradle'`. Prevents recursion into build artifacts, version control, Python/Rust/Gradle caches, and ARE's own metadata directory.
 
-## Error Handling
+## Implementation Pattern
 
-Catches and silently ignores permission-denied errors from `readdir()` and `readFile()` via empty catch blocks, ensuring partial collection succeeds even when encountering inaccessible paths. No error logging or user notification occurs for skipped files.
+**Recursive walker**: Inner `async walk(currentDir: string)` function implements depth-first traversal with try-catch around `readdir()` and `readFile()` to gracefully handle permission errors or inaccessible paths (continues execution without throwing). Checks `entry.isDirectory()` and `!SKIP_DIRS.has(entry.name)` before recursion. Matches filename via exact string equality `entry.name === 'AGENTS.md'`.
 
 ## Integration Context
 
-Used by Phase 3 root synthesis in `src/generation/orchestrator.ts` to consume all directory-level AGENTS.md documents for CLAUDE.md/GEMINI.md/OPENCODE.md generation. Also consumed by `src/specify/index.ts` for project specification synthesis aggregating documentation corpus.
+Used by Phase 3 root document synthesis in `src/generation/orchestrator.ts` to aggregate all directory-level documentation before generating platform-specific integration files (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`). Consumed by `src/specify/index.ts` for project specification synthesis across entire documentation corpus.

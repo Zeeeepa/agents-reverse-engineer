@@ -1,41 +1,48 @@
 ---
-generated_at: 2026-02-09T15:08:29.045Z
+generated_at: 2026-02-09T16:11:40.206Z
 content_hash: d96faaf817c7bc9d8b5ab3bd189a658f76e658213df6079f0cd895abe010f30c
-purpose: opencode-are-session-end.js exports AreSessionEnd async factory function returning OpenCode plugin that triggers `are...
+purpose: OpenCode session-end plugin that spawns background `are update` process when session closes if git working tree has u...
 ---
-**opencode-are-session-end.js exports AreSessionEnd async factory function returning OpenCode plugin that triggers `are update` command on session deletion when uncommitted git changes exist.**
+**OpenCode session-end plugin that spawns background `are update` process when session closes if git working tree has uncommitted changes.**
 
-## Exported Interface
+## Exported Symbol
 
-```javascript
-export const AreSessionEnd: () => Promise<{
+`AreSessionEnd` — Async factory function returning OpenCode plugin object with `event['session.deleted']` handler that executes update workflow in detached background process.
+
+**Signature:**
+```typescript
+export const AreSessionEnd = async () => Promise<{
   event: {
     'session.deleted': () => Promise<void>
   }
 }>
 ```
 
-AreSessionEnd returns plugin object with `event['session.deleted']` handler conforming to OpenCode plugin lifecycle API.
+## Execution Flow
 
-## Hook Lifecycle
+`AreSessionEnd()` returns plugin with `'session.deleted'` event handler. Handler exits early if `process.env.ARE_DISABLE_HOOK === '1'` or if `.agents-reverse-engineer.yaml` exists and contains substring `'hook_enabled: false'` (uses `readFileSync()` + `includes()` without YAML parsing). Executes `execSync('git status --porcelain', { encoding: 'utf-8' })` and exits silently if output is empty or if `execSync()` throws (non-git repo). On non-empty status, spawns detached child process via `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })` followed by `child.unref()` to prevent blocking session close.
 
-Handler executes when OpenCode session terminates. Checks three conditions before spawning update:
-1. Environment variable `ARE_DISABLE_HOOK !== '1'`
-2. Config file `.agents-reverse-engineer.yaml` lacks `hook_enabled: false` substring (no YAML parser)
-3. `git status --porcelain` returns non-empty output (uncommitted changes present)
+## Behavioral Contracts
 
-Silent early return on any condition failure or git command exception (non-git repos).
+**Git status command:** `'git status --porcelain'` with `{ encoding: 'utf-8' }` — detects uncommitted changes (modified/staged/untracked files).
 
-## Background Execution
+**Update invocation:** `['npx', 'agents-reverse-engineer@latest', 'update', '--quiet']` — spawns latest published version with `--quiet` flag to suppress terminal output.
 
-Spawns detached subprocess via `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], {stdio: 'ignore', detached: true})` followed by `child.unref()`. Prevents blocking session close while allowing update to persist after parent process exit.
+**Disable mechanisms:**
+- Environment variable check: `process.env.ARE_DISABLE_HOOK === '1'`
+- Config substring check: `config.includes('hook_enabled: false')` against `.agents-reverse-engineer.yaml` file contents
 
-## Dependencies
+**Config file path:** `'.agents-reverse-engineer.yaml'` (project root, checked via `existsSync(configPath)`)
 
-- `child_process.execSync` — synchronous git status check
-- `child_process.spawn` — detached background process creation
-- `fs.existsSync/readFileSync` — config file detection and substring search
+## Integration Point
 
-## Related Hooks
+OpenCode plugin system loads this module and invokes `AreSessionEnd()` factory. Returned plugin object registers `'session.deleted'` lifecycle hook. Companion to `opencode-are-check-update.js` (SessionStart equivalent).
 
-Parallel implementation to are-session-end.js (Claude/Gemini SessionEnd hook) with identical disable mechanisms and git detection logic. Differs only in export pattern: async factory returning plugin object vs direct Node.js script execution.
+## Process Management Pattern
+
+Uses detached spawn with stdio ignore and unref to avoid blocking parent process termination:
+```javascript
+spawn(cmd, args, { stdio: 'ignore', detached: true }).unref()
+```
+
+No timeout enforcement or SIGTERM/SIGKILL escalation (unlike `src/ai/subprocess.ts` resource-constrained subprocess execution). Update process runs in background indefinitely until natural completion.

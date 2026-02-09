@@ -1,26 +1,30 @@
 ---
-generated_at: 2026-02-09T15:08:32.551Z
+generated_at: 2026-02-09T16:11:34.878Z
 content_hash: d1466918414db67dbb0d230e53203cb4d8b01df54d267427a029d1494fc00406
-purpose: LICENSE grants MIT License permissions for agents-reverse-engineer package with copyright attribution to GeoloeG-IsT ...
+purpose: LICENSE grants MIT License permissions for agents-reverse-engineer software under Copyright (c) 2026 GeoloeG-IsT.
 ---
-**LICENSE grants MIT License permissions for agents-reverse-engineer package with copyright attribution to GeoloeG-IsT (2026).**
+**LICENSE grants MIT License permissions for agents-reverse-engineer software under Copyright (c) 2026 GeoloeG-IsT.**
 
-## License Terms
+## License Type and Grant
 
-MIT License permits unrestricted use, modification, distribution, sublicensing, and commercial sale of agents-reverse-engineer software and associated documentation files. Recipients must include copyright notice and permission text in all copies or substantial portions.
+MIT License permits unrestricted use, modification, distribution, sublicensing, and sale of the Software and associated documentation files without royalties or fees, subject to preservation of copyright notice and permission notice in all copies or substantial portions.
 
 ## Copyright Holder
 
-Copyright holder: GeoloeG-IsT (2026).
+Copyright (c) 2026 GeoloeG-IsT owns all intellectual property rights to the agents-reverse-engineer codebase.
 
-## Liability Disclaimer
+## Warranty Disclaimer
 
-Software provided "AS IS" without warranties of MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, or NONINFRINGEMENT. Authors bear no liability for claims, damages, or liabilities arising from software use, whether in contract, tort, or other legal theory.
+SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT disclaims all warranties and representations.
 
-## Distribution Requirements
+## Liability Limitation
 
-All distributions (source or binary) must include copyright notice line `Copyright (c) 2026 GeoloeG-IsT` and full MIT License permission text. This requirement applies to copies and substantial portions of the software.
+AUTHORS OR COPYRIGHT HOLDERS SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE limits legal exposure for maintainers.
 
-## Integration Context
+## Required Attribution
 
-Referenced by `package.json` "license" field (value: "MIT"). Included in npm tarball during publish workflow (`.github/workflows/publish.yml`). Copied to hooks/dist/ directory via `scripts/build-hooks.js` prepublish hook.
+"The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software" mandates preservation of attribution in derivative works and distributions.
+
+## Integration Impact
+
+CI/CD workflow (`.github/workflows/publish.yml`) publishes npm package with `--provenance --access public` flags, making MIT License terms apply to all distributed artifacts. Package.json `"license": "MIT"` field declares license for npm registry. README.md references LICENSE file as source of legal terms for users and contributors.

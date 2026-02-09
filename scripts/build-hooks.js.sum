@@ -1,51 +1,29 @@
 ---
-generated_at: 2026-02-09T15:08:31.786Z
+generated_at: 2026-02-09T16:11:32.229Z
 content_hash: a40783828dd9498fd985c6549a5633cdcc281a734dbad7cd209d46861ee350be
-purpose: build-hooks.js copies .js files from hooks/ to hooks/dist/ for npm package distribution.
+purpose: build-hooks.js copies JavaScript hook files from `hooks/` to `hooks/dist/` for npm package distribution.
 ---
-**build-hooks.js copies .js files from hooks/ to hooks/dist/ for npm package distribution.**
+**build-hooks.js copies JavaScript hook files from `hooks/` to `hooks/dist/` for npm package distribution.**
 
 ## Execution Context
 
-Node.js script invoked via `npm run build:hooks` during prepublishOnly lifecycle or manual build workflows. Runs as standalone executable via `#!/usr/bin/env node` shebang.
+Runs as Node.js script via `#!/usr/bin/env node` shebang. Invoked by `npm run build:hooks` and automatically during `npm run prepublishOnly` lifecycle hook (see package.json build pipeline).
 
-## Core Algorithm
+## File Operations
 
-1. Resolves `projectRoot` via `fileURLToPath(import.meta.url)` + `dirname()` traversal (scripts/ → project root)
-2. Defines `HOOKS_SRC = join(projectRoot, 'hooks')` and `HOOKS_DIST = join(projectRoot, 'hooks', 'dist')`
-3. Creates `HOOKS_DIST` via `mkdirSync(recursive: true)` if missing
-4. Reads `HOOKS_SRC` via `readdirSync()`, filters for `.js` files excluding `'dist'` directory itself
-5. Copies each filtered file via `copyFileSync(src, dest)` to hooks/dist/
-6. Logs copy operations to console with relative path formatting
+Uses synchronous fs operations: `copyFileSync()` for file copying, `existsSync()` for dist directory detection, `mkdirSync()` with `{ recursive: true }` for dist creation, `readdirSync()` for source file enumeration. Filters files via `.endsWith('.js') && f !== 'dist'` predicate to exclude non-JavaScript files and the dist directory itself.
 
-## Source File Discovery
+## Path Resolution
 
-Filter predicate: `f.endsWith('.js') && f !== 'dist'` ensures only JavaScript hook files are copied (excludes subdirectories named 'dist').
+Resolves `__dirname` via `fileURLToPath(import.meta.url)` (ES module compatibility pattern). Constructs `projectRoot` as `join(__dirname, '..')`, `HOOKS_SRC` as `join(projectRoot, 'hooks')`, `HOOKS_DIST` as `join(projectRoot, 'hooks', 'dist')`.
 
-## Target Files
+## Build Workflow
 
-Copies four hook files from hooks/ to hooks/dist/:
-- `are-check-update.js` — SessionStart version check for Claude/Gemini
-- `are-session-end.js` — SessionEnd auto-update trigger for Claude/Gemini
-- `opencode-are-check-update.js` — OpenCode plugin version check
-- `opencode-are-session-end.js` — OpenCode plugin session-end handler
+1. Creates `hooks/dist/` directory if missing via `mkdirSync(HOOKS_DIST, { recursive: true })`
+2. Discovers `.js` files in `hooks/` via `readdirSync(HOOKS_SRC).filter()`
+3. Copies each file from `join(HOOKS_SRC, file)` to `join(HOOKS_DIST, file)` via `copyFileSync()`
+4. Logs progress: `"Building hooks..."` header, per-file `"Copied: {file} -> hooks/dist/{file}"` entries, summary `"Done. {count} hook(s) built."`
 
-## Integration Points
+## Integration with Package Distribution
 
-Executed by npm lifecycle scripts:
-- `prepublishOnly` — Ensures hooks/dist/ populated before `npm publish` tarball creation
-- Manual via `npm run build:hooks` for development verification
-
-## Dependencies
-
-Node.js built-in modules only:
-- `fs` — `copyFileSync`, `existsSync`, `mkdirSync`, `readdirSync`
-- `path` — `join`, `dirname`
-- `url` — `fileURLToPath`
-
-## Output
-
-Console logs:
-- `"Building hooks..."` header
-- Per-file: `"  Copied: <filename> -> hooks/dist/<filename>"`
-- Summary: `"Done. N hook(s) built."`
+Ensures session lifecycle hooks (`are-check-update.js`, `are-session-end.js`, `opencode-are-check-update.js`, `opencode-are-session-end.js`) are bundled in npm tarball for installation into IDE config directories (`~/.claude/hooks/`, `~/.config/opencode/plugins/`) via installer module (`src/installer/operations.ts`).

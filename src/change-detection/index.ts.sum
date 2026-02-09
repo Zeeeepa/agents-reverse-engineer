@@ -1,25 +1,31 @@
 ---
-generated_at: 2026-02-09T15:06:32.042Z
+generated_at: 2026-02-09T16:09:41.991Z
 content_hash: c77dda0aa1a589b4b753f5790ede7d263fca6eb7a99f509b4e07fe04bf0e20f8
-purpose: index.ts exports the public API surface for the change-detection module, providing git-based change detection and SHA...
+purpose: src/change-detection/index.ts exports the public API for git-based change detection, providing hash computation and f...
 ---
-**index.ts exports the public API surface for the change-detection module, providing git-based change detection and SHA-256 content hashing for incremental update workflows.**
+**src/change-detection/index.ts exports the public API for git-based change detection, providing hash computation and file change detection for incremental updates.**
 
 ## Exported Functions
 
-- `isGitRepo(): Promise<boolean>` — Asynchronously checks if current directory is a git repository
-- `getCurrentCommit(): Promise<string>` — Returns HEAD commit SHA for baseline comparison
-- `getChangedFiles(options?: ChangeDetectionOptions): Promise<ChangeDetectionResult>` — Detects added/modified/deleted/renamed files via git diff parsing with optional uncommitted changes merge
-- `computeContentHash(filePath: string): Promise<string>` — Computes SHA-256 hex digest of file contents for hash-based skip logic
-- `computeContentHashFromString(content: string): string` — Synchronously computes SHA-256 hex digest from string input (used by SumFileContent frontmatter generation)
+- `isGitRepo(): Promise<boolean>` — Checks if current directory is a git repository
+- `getCurrentCommit(): Promise<string>` — Returns current HEAD commit SHA
+- `getChangedFiles(options: ChangeDetectionOptions): Promise<ChangeDetectionResult>` — Detects added/modified/deleted/renamed files between commits or in working tree
+- `computeContentHash(filePath: string): Promise<string>` — Computes SHA-256 hex hash of file content at `filePath`
+- `computeContentHashFromString(content: string): string` — Computes SHA-256 hex hash of string content
 
 ## Exported Types
 
-- `ChangeType` — Discriminated union literal: `'added' | 'modified' | 'deleted' | 'renamed'`
-- `FileChange` — Object with `path: string`, `status: ChangeType`, optional `oldPath?: string` (for renames)
-- `ChangeDetectionResult` — Object with `changes: FileChange[]`, `baseCommit: string`, `hasUncommittedChanges: boolean`
-- `ChangeDetectionOptions` — Configuration object with optional `baseCommit?: string`, `includeUncommitted?: boolean`, `repositoryRoot?: string`
+- `ChangeType` — Union literal: `'added' | 'modified' | 'deleted' | 'renamed'`
+- `FileChange` — Object with `path: string`, `status: ChangeType`, optional `oldPath?: string` (for renames), optional `contentHash?: string`
+- `ChangeDetectionResult` — Object with `changes: FileChange[]` array and `baseCommit?: string`
+- `ChangeDetectionOptions` — Configuration object for `getChangedFiles()` with optional `baseCommit?: string`, `includeUncommitted?: boolean`
 
 ## Module Role
 
-Re-exports all symbols from `detector.ts` and `types.ts` to provide single import entry point for update workflow (see `src/update/orchestrator.ts`). Consumed by `runUpdate()` which calls `getChangedFiles()` to compute delta, then cross-references against `.sum` file `content_hash` frontmatter via `computeContentHash()` to determine `filesToAnalyze` vs `filesToSkip`. Git integration supports both committed changes (`git diff <baseCommit>..HEAD`) and uncommitted (`--uncommitted` flag merges `git status --porcelain` output). Falls back to SHA-256 hashing alone for non-git workflows (isGitRepo check).
+Acts as public-facing barrel export for `./detector.js` implementation module. All git operations (`git diff`, `git status`, rename detection via `-M` flag) and SHA-256 hashing logic reside in `detector.ts`. Consumers import from this index for change detection workflow in `src/update/orchestrator.ts` and hash verification in `.sum` YAML frontmatter processing.
+
+## Integration Points
+
+- **src/update/orchestrator.ts**: Calls `getChangedFiles()` with `includeUncommitted` flag from CLI `--uncommitted` option, compares `FileChange.contentHash` against `.sum` frontmatter `content_hash` field to build `filesToAnalyze` and `filesToSkip` sets
+- **src/generation/writers/sum.ts**: Calls `computeContentHash()` before writing `.sum` files to populate YAML frontmatter `content_hash` field
+- **src/update/orphan-cleaner.ts**: Uses `ChangeType === 'deleted'` or `'renamed'` to identify `.sum` files requiring cleanup via `FileChange.path` and `FileChange.oldPath` matching

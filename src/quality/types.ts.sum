@@ -1,62 +1,39 @@
 ---
-generated_at: 2026-02-09T15:08:05.869Z
+generated_at: 2026-02-09T16:11:11.217Z
 content_hash: cf3a2e38893eba8c064f647e2325adb2358162304275fc28ae3760811fbab6fe
-purpose: Defines discriminated union types for quality validation results: code-vs-doc export mismatches, code-vs-code duplica...
+purpose: types.ts defines the discriminated union types for quality validation inconsistencies detected across code-vs-doc, co...
 ---
-**Defines discriminated union types for quality validation results: code-vs-doc export mismatches, code-vs-code duplicate symbols, phantom path references, and structured inconsistency reports.**
+**types.ts defines the discriminated union types for quality validation inconsistencies detected across code-vs-doc, code-vs-code, and phantom-path analysis, plus the structured report format for validation output.**
 
-## Type Definitions
+## Exported Types
 
-### Severity Classification
+**InconsistencySeverity**: String literal union `'info' | 'warning' | 'error'` classifying inconsistency impact levels.
 
-`InconsistencySeverity` — string union type with literal values `'info' | 'warning' | 'error'` for categorizing validation issues by severity level.
+**CodeDocInconsistency**: Interface with `type: 'code-vs-doc'` discriminator representing mismatches between exported symbols in source files and their `.sum` documentation. Contains `severity: InconsistencySeverity`, `filePath: string` (source file), `sumPath: string` (corresponding `.sum` file), `description: string`, and `details` object with `missingFromDoc: string[]` (symbols exported but undocumented), `missingFromCode: string[]` (symbols documented but not exported), and optional `purposeMismatch?: string` for contradictory purpose statements.
 
-### Inconsistency Types (Discriminated Union)
+**CodeCodeInconsistency**: Interface with `type: 'code-vs-code'` discriminator representing conflicts between multiple source files. Contains `severity: InconsistencySeverity`, `files: string[]` (conflicting file paths), `description: string`, and `pattern: string` identifying the detected inconsistency pattern (e.g., `'duplicate-export'` for symbols appearing across multiple files).
 
-`CodeDocInconsistency` — interface representing mismatches between source code exports and `.sum` documentation content:
-- `type: 'code-vs-doc'` — discriminant field
-- `severity: InconsistencySeverity` — issue severity level
-- `filePath: string` — source file path
-- `sumPath: string` — corresponding `.sum` file path
-- `description: string` — human-readable issue summary
-- `details.missingFromDoc: string[]` — symbols exported in source but absent from `.sum` content
-- `details.missingFromCode: string[]` — symbols mentioned in `.sum` but not found in source exports
-- `details.purposeMismatch?: string` — optional purpose statement contradicting observable behavior
+**PhantomPathInconsistency**: Interface with `type: 'phantom-path'` discriminator representing unresolvable path references in generated `AGENTS.md` documentation. Contains `severity: InconsistencySeverity`, `agentsMdPath: string` (document containing the reference), `description: string`, and `details` object with `referencedPath: string` (raw phantom path), `resolvedTo: string` (resolution attempt context: project root or AGENTS.md location), and `context: string` (line of text containing the reference).
 
-`CodeCodeInconsistency` — interface representing conflicts across multiple source files:
-- `type: 'code-vs-code'` — discriminant field
-- `severity: InconsistencySeverity` — issue severity level
-- `files: string[]` — paths to conflicting source files
-- `description: string` — human-readable issue summary
-- `pattern: string` — detected pattern identifier (e.g., `'duplicate-export'`)
+**Inconsistency**: Discriminated union `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` enabling type-safe pattern matching via the `type` discriminator field.
 
-`PhantomPathInconsistency` — interface representing unresolvable path references in generated `AGENTS.md`:
-- `type: 'phantom-path'` — discriminant field
-- `severity: InconsistencySeverity` — issue severity level
-- `agentsMdPath: string` — path to `AGENTS.md` containing phantom reference
-- `description: string` — human-readable issue summary
-- `details.referencedPath: string` — phantom path as written in document
-- `details.resolvedTo: string` — resolution target (project root or AGENTS.md directory)
-- `details.context: string` — line containing phantom reference
-
-### Union and Report Types
-
-`Inconsistency` — discriminated union type combining `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` for type-safe issue handling.
-
-`InconsistencyReport` — interface representing structured validation output:
-- `metadata.timestamp: string` — ISO 8601 timestamp
-- `metadata.projectRoot: string` — absolute path to project root
-- `metadata.filesChecked: number` — count of analyzed files
-- `metadata.durationMs: number` — validation execution time
-- `issues: Inconsistency[]` — array of detected inconsistencies (discriminated union)
-- `summary.total: number` — total issue count
-- `summary.codeVsDoc: number` — count of `CodeDocInconsistency` issues
-- `summary.codeVsCode: number` — count of `CodeCodeInconsistency` issues
-- `summary.phantomPaths: number` — count of `PhantomPathInconsistency` issues
-- `summary.errors: number` — count of error-severity issues
-- `summary.warnings: number` — count of warning-severity issues
-- `summary.info: number` — count of info-severity issues
+**InconsistencyReport**: Interface structuring validation output with `metadata` object (contains `timestamp: string`, `projectRoot: string`, `filesChecked: number`, `durationMs: number`), `issues: Inconsistency[]` array of all detected problems, and `summary` object with aggregate counts (`total: number`, `codeVsDoc: number`, `codeVsCode: number`, `phantomPaths: number`, `errors: number`, `warnings: number`, `info: number`).
 
 ## Integration Points
 
-Consumed by validator implementations in `src/quality/inconsistency/` (code-vs-doc.ts, code-vs-code.ts), `src/quality/phantom-paths/validator.ts`, and reporter in `src/quality/inconsistency/reporter.ts`. Exported via `src/quality/index.ts` as public API for quality validation subsystem.
+Consumed by quality validation modules:
+- `src/quality/inconsistency/code-vs-doc.ts`: Produces `CodeDocInconsistency` instances via regex-based export extraction and substring matching
+- `src/quality/inconsistency/code-vs-code.ts`: Produces `CodeCodeInconsistency` instances via cross-file export aggregation into `Map<symbol, string[]>`
+- `src/quality/phantom-paths/validator.ts`: Produces `PhantomPathInconsistency` instances via regex path extraction and `existsSync()` resolution
+- `src/quality/inconsistency/reporter.ts`: Aggregates all inconsistency types into `InconsistencyReport` with formatted output
+
+## Design Pattern
+
+Uses discriminated union pattern with `type` literal field enabling exhaustive type narrowing:
+```typescript
+switch (inconsistency.type) {
+  case 'code-vs-doc': /* access missingFromDoc, missingFromCode */ break;
+  case 'code-vs-code': /* access files, pattern */ break;
+  case 'phantom-path': /* access referencedPath, resolvedTo */ break;
+}
+```

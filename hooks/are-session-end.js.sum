@@ -1,34 +1,32 @@
 ---
-generated_at: 2026-02-09T15:08:28.764Z
+generated_at: 2026-02-09T16:11:28.224Z
 content_hash: 34836e7b21ee372f71361b50aaa9e8e19948e339aef640a828b1d1257beac09a
-purpose: are-session-end.js hook triggers background `are update` execution when a Claude/Gemini session closes, gated on git ...
+purpose: are-session-end.js spawns detached background `npx agents-reverse-engineer@latest update --quiet` subprocess when ses...
 ---
-**are-session-end.js hook triggers background `are update` execution when a Claude/Gemini session closes, gated on git working tree changes and disable flags.**
+**are-session-end.js spawns detached background `npx agents-reverse-engineer@latest update --quiet` subprocess when session ends if uncommitted git changes detected, with disable mechanisms via `ARE_DISABLE_HOOK=1` environment variable or `hook_enabled: false` config substring match.**
 
-## Exported Symbols
+## Hook Lifecycle Integration
 
-None. Executable script with shebang `#!/usr/bin/env node`.
-
-## Execution Flow
-
-Script exits early via `process.exit(0)` if `ARE_DISABLE_HOOK` environment variable equals `'1'` or if `.agents-reverse-engineer.yaml` contains substring `'hook_enabled: false'` (uses `readFileSync()` + `String.includes()`, no YAML parser).
-
-Invokes `execSync('git status --porcelain', { encoding: 'utf-8' })` to detect uncommitted changes. Exits silently if `status.trim()` returns empty string or if command throws (non-git repo, git unavailable). Exit code 0 in all early-exit branches prevents hook errors from blocking session close.
-
-Spawns detached background process via `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })` followed by `child.unref()` to allow parent process termination without waiting for update completion.
-
-## Integration Points
-
-Installed to `~/.claude/hooks/` (Claude Code) or `~/.gemini/hooks/` (Gemini CLI) via installer operations in `src/installer/operations.ts`. SessionEnd lifecycle event triggers this script when IDE session terminates.
-
-Launches `npx` command referencing `@latest` tag to ensure auto-update behavior uses most recent published version. Subprocess inherits working directory from session context (project root).
+Executes during SessionEnd event in Claude Code/Gemini CLI runtime. Designed to terminate quickly without blocking session close via detached subprocess pattern.
 
 ## Disable Mechanisms
 
-Two disable paths: environment variable `ARE_DISABLE_HOOK=1` (runtime override) and config file `.agents-reverse-engineer.yaml` with `hook_enabled: false` substring (persistent disable). Config check uses `existsSync(configPath)` guard before `readFileSync()` to prevent ENOENT errors in projects without ARE initialization.
+Exits silently (status 0) if `process.env.ARE_DISABLE_HOOK === '1'` before performing any filesystem or git operations.
 
-## Error Handling
+Reads `.agents-reverse-engineer.yaml` via `existsSync()` and `readFileSync(configPath, 'utf-8')`, performs substring search for `'hook_enabled: false'` (no YAML parser) and exits if match found.
 
-Wraps `execSync('git status --porcelain')` in try-catch block. Catch branch exits silently (code 0) to handle non-git repositories gracefully. No error logging to avoid polluting IDE session output.
+## Change Detection Strategy
 
-Spawn call ignores `stdio` to prevent blocking on child output. Detached mode with `child.unref()` ensures parent exit doesn't wait for `npx` completion or background update subprocess tree.
+Invokes `execSync('git status --porcelain', { encoding: 'utf-8' })` to obtain working tree status. Exits silently if output is empty string after `trim()` (no changes since last commit) or if command throws (non-git repo, git unavailable).
+
+## Background Update Spawn
+
+Calls `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })` to execute incremental update workflow. Child process detached from parent via `detached: true` and unreferenced via `child.unref()` to allow parent exit without waiting for completion.
+
+Uses `stdio: 'ignore'` to suppress all output streams, preventing stdio inheritance that could block session close.
+
+## Execution Environment
+
+Shebang `#!/usr/bin/env node` enables direct execution as script. Imports `execSync`, `spawn` from `'child_process'` module and `existsSync`, `readFileSync` from `'fs'` module using ES module syntax.
+
+No error handling for spawn failure—detached process errors are silently lost due to `stdio: 'ignore'`.

@@ -1,43 +1,46 @@
 ---
-generated_at: 2026-02-09T15:51:01.988Z
+generated_at: 2026-02-09T16:11:26.237Z
 content_hash: 99af1321550c42c8b2df2aaee50035468303a3acfa809939c22df0bca806a21a
-purpose: prompts.ts defines the AI prompt infrastructure for project specification synthesis, providing `buildSpecPrompt()` to...
+purpose: prompts.ts constructs system and user prompts for AI-driven project specification synthesis from AGENTS.md corpus, en...
 ---
-**prompts.ts defines the AI prompt infrastructure for project specification synthesis, providing `buildSpecPrompt()` to generate system and user prompts from collected AGENTS.md files with mandatory concern-based organization rules and reproduction-critical implementation contracts.**
+**prompts.ts constructs system and user prompts for AI-driven project specification synthesis from AGENTS.md corpus, enforcing concern-based organization and behavioral contract preservation.**
 
 ## Exported Types
 
-`SpecPrompt` interface defines prompt pair structure with `system: string` and `user: string` properties for AI-driven specification generation.
+`SpecPrompt` interface contains `system: string` and `user: string` properties representing the prompt pair for AI specification generation.
 
 ## Exported Constants
 
-`SPEC_SYSTEM_PROMPT` constant contains system-level instructions enforcing conceptual grouping by concern (not directory structure), prohibiting folder-mirroring and exact file path prescription, targeting AI agent consumption with nine mandatory sections:
-1. Project Overview (purpose, tech stack with versions)
-2. Architecture (module boundaries, data flow, design decisions)
-3. Public API Surface (exported interfaces, full type signatures)
-4. Data Structures & State (types, schemas, state management)
-5. Configuration (options, types, defaults, validation, env vars)
-6. Dependencies (each with exact version and rationale)
-7. Behavioral Contracts — Split into two subsections:
-   - Runtime Behavior: error handling strategies (exact error types/codes and when thrown), retry logic (formulas, delay values), concurrency model, lifecycle hooks, resource management
-   - Implementation Contracts: verbatim regex patterns for parsing/validation/extraction (in backticks), format strings and output templates (exact structure with examples), magic constants and sentinel values with meanings, environment variables with expected values, file format specifications (YAML schemas, NDJSON structures)
-8. Test Contracts (per-module scenarios, edge cases, expected behaviors)
-9. Build Plan (phased implementation with dependency ordering)
+`SPEC_SYSTEM_PROMPT` defines the system instruction string for specification synthesis, containing 2,850+ characters of constraints and formatting rules.
 
 ## Exported Functions
 
-`buildSpecPrompt(docs: AgentsDocs): SpecPrompt` constructs prompt pair by:
-- Mapping `docs` array to markdown sections via `### ${doc.relativePath}\n\n${doc.content}` template
-- Building `userSections` array with header `Generate a comprehensive project specification from the following documentation.`
-- Injecting `## AGENTS.md Files (${docs.length} directories)` section with all `agentsSections`
-- Appending `## Output Requirements` section reiterating nine mandatory specification sections with emphasis on verbatim regex patterns, format specs, magic constants, and templates in Behavioral Contracts
-- Enforcing raw markdown output constraint: `Output ONLY the markdown content. No preamble.`
-- Returning `{ system: SPEC_SYSTEM_PROMPT, user: userSections.join('\n') }`
+`buildSpecPrompt(docs: AgentsDocs): SpecPrompt` assembles the prompt pair by injecting all AGENTS.md documents from `docs` array into user prompt with section delimiters formatted as `### ${doc.relativePath}`, appending output requirements list, and returning object with `system: SPEC_SYSTEM_PROMPT` and `user: userSections.join('\n')`.
 
-## Dependencies
+## Prompt Architecture
 
-Imports `AgentsDocs` type from `../generation/collector.js` for typed AGENTS.md document array consumed by `buildSpecPrompt()`.
+`SPEC_SYSTEM_PROMPT` enforces nine mandatory sections in sequence: (1) Project Overview with technology stack versions, (2) Architecture with module boundaries and design rationale, (3) Public API Surface with full type signatures, (4) Data Structures & State including serialization formats, (5) Configuration with types/defaults/validation, (6) Dependencies with exact versions and rationale, (7) Behavioral Contracts split into Runtime Behavior (error types/codes, retry formulas, concurrency model, lifecycle hooks) and Implementation Contracts (verbatim regex patterns, format strings, magic constants, environment variables, file format specs), (8) Test Contracts with per-module scenarios and edge cases, (9) Build Plan with phased implementation sequence and dependency ordering.
 
-## Design Constraints
+## Organization Constraints
 
-Prompt engineering rules enforce MODULE BOUNDARY descriptions over file path prescriptions, exact function/type/constant name preservation from documentation, FULL type signature inclusion (parameters, return types, generics), prohibition of directory name section headings, version number requirements for ALL external dependencies, explicit dependency ordering in Build Plan phases, exact error type/code specification in Behavioral Contracts, and MANDATORY verbatim inclusion of regex patterns, format strings, magic constants, and templates (no paraphrasing into prose descriptions). When multiple modules reference the same constant or pattern, consolidation into single definition with cross-references is required.
+System prompt prohibits folder-mirroring via rules: "Describe MODULE BOUNDARIES and their interfaces — not file paths or directory layouts", "Do NOT prescribe exact filenames or file paths", "Do NOT mirror the project's folder structure", "Do NOT use directory names as section headings". Mandates conceptual grouping by concern rather than directory structure.
+
+## Behavioral Contract Requirements
+
+System prompt mandates "MUST include verbatim regex patterns, format strings, and magic constants from the source documents — do NOT paraphrase regex patterns into prose descriptions". Specifies consolidation of duplicated constants across modules into single definition with cross-references. Implementation Contracts subsection must capture reproduction-critical details: regex patterns in backticks, format string exact structures with examples, magic constant meanings, environment variable expected values, YAML schemas, NDJSON structures.
+
+## User Prompt Construction
+
+`buildSpecPrompt` creates `userSections` array starting with task description "Generate a comprehensive project specification from the following documentation", followed by `## AGENTS.md Files (${docs.length} directories)` header, then maps `docs` array to section strings via `doc => '### ${doc.relativePath}\n\n${doc.content}'`, appends `## Output Requirements` section repeating the nine mandatory sections list with "(error handling, concurrency, lifecycle, PLUS verbatim regex patterns, format specs, magic constants, templates)" for Behavioral Contracts, and terminates with "Output ONLY the markdown content. No preamble." instruction.
+
+## Output Format Enforcement
+
+Both prompts enforce no-preamble output via terminal instructions: system prompt ends with "OUTPUT: Raw markdown. No preamble. No meta-commentary. No 'Here is...' or 'I've generated...' prefix.", user prompt ends with "Output ONLY the markdown content. No preamble." This prevents conversational wrapper text in AI responses.
+
+## Integration Points
+
+Consumes `AgentsDocs` type from `../generation/collector.js` representing array of objects with `relativePath: string` and `content: string` properties. Called by `src/specify/index.ts` orchestrator which invokes `collectAgentsDocs()` to gather all AGENTS.md files, passes result to `buildSpecPrompt()`, then feeds resulting prompts to `AIService.call()`.
+
+## Audience Targeting
+
+System prompt specifies "AUDIENCE: AI agents (LLMs) — use structured, precise, instruction-oriented language. Every statement should be actionable." This contrasts with human-targeted documentation by requiring all content to be formulated as executable instructions for code generation rather than explanatory prose.

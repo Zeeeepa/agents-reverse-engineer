@@ -1,24 +1,22 @@
 ---
-generated_at: 2026-02-09T15:08:28.859Z
+generated_at: 2026-02-09T16:11:34.235Z
 content_hash: d9caa33615b771069b778e0f5f27babaff43c440b86055ccf94e42c0751b0632
-purpose: version.ts exports getVersion() to retrieve the package version from package.json at runtime.
+purpose: getVersion() reads package.json from the filesystem to return the current package version string, with fallback to 'u...
 ---
-**version.ts exports getVersion() to retrieve the package version from package.json at runtime.**
+**getVersion() reads package.json from the filesystem to return the current package version string, with fallback to 'unknown' on error.**
 
-## Exported Function
+## Exported Functions
 
-`getVersion(): string` — Returns the version string from package.json or `'unknown'` if loading fails.
+- **getVersion(): string** — Synchronously reads `package.json` from the parent directory of the compiled module, parses JSON, extracts `version` field, returns 'unknown' on any error (file not found, JSON parse failure, missing version field)
 
-## Implementation Strategy
+## Implementation Details
 
-Uses ES module path resolution via `import.meta.url` converted to file path with `fileURLToPath()`, then constructs absolute path to package.json by traversing one directory up from `__dirname` (`join(__dirname, '..', 'package.json')`). Reads file synchronously via `readFileSync()`, parses JSON, extracts `version` field with fallback to `'unknown'` if field is missing or falsy. Try-catch wrapper returns `'unknown'` on any filesystem or parse errors.
-
-## Dependencies
-
-- `node:fs` — `readFileSync()` for synchronous file read
-- `node:path` — `dirname()` and `join()` for path construction
-- `node:url` — `fileURLToPath()` for ES module path resolution
+Uses `import.meta.url` → `fileURLToPath()` → `dirname()` to resolve current module directory, then `join(__dirname, '..', 'package.json')` to traverse one level up (from `dist/` to project root in compiled output). Reads file synchronously via `readFileSync(packagePath, 'utf-8')`, parses with `JSON.parse()`, accesses `packageJson.version` with `|| 'unknown'` fallback for nullish values. Wraps entire operation in try-catch returning 'unknown' on exception.
 
 ## Usage Context
 
-Called by CLI commands to display version information (e.g., `--version` flag, version check hooks). Package version used by session hooks (`are-check-update.js`) for npm registry comparison and by installer operations for reporting installed version. Supports both compiled distribution (`dist/` output) and source execution since path resolution is relative to current module location.
+Called by CLI entry point (`src/cli/index.ts`) to display version in help text and version flag output. Called by session lifecycle hooks (`hooks/are-check-update.js`) to compare local version against npm registry during update checks. Read at runtime from compiled `dist/version.js` after build process (`npm run build` via tsc).
+
+## Path Resolution
+
+Compiled module location: `dist/version.js` (ES2022 target, NodeNext module resolution per tsconfig.json). Package.json location: project root `package.json`. Relative traversal: `dist/` → project root via `..` ensures correct resolution regardless of execution context (global install, npx, local node_modules).

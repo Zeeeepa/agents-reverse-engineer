@@ -1,57 +1,96 @@
 ---
-generated_at: 2026-02-09T15:06:03.391Z
+generated_at: 2026-02-09T16:08:55.207Z
 content_hash: 9c98c917fde849284a46f0ed20bbef87a30caf8e94be8578b8d689ff92618f2d
-purpose: ClaudeBackend implements AIBackend interface for claude CLI, providing subprocess argument construction, JSON output ...
+purpose: ClaudeBackend implements AIBackend interface for Claude Code CLI (`claude`), handling CLI argument construction, JSON...
 ---
-**ClaudeBackend implements AIBackend interface for claude CLI, providing subprocess argument construction, JSON output parsing with Zod validation, PATH availability detection, and installation instructions.**
+**ClaudeBackend implements AIBackend interface for Claude Code CLI (`claude`), handling CLI argument construction, JSON response parsing with Zod validation, PATH availability detection, and install instructions.**
 
 ## Exported Symbols
 
-**ClaudeBackend** — Primary backend adapter class implementing AIBackend interface with properties:
-- `name: 'claude'` — Backend identifier string
-- `cliCommand: 'claude'` — Executable command name
-- `isAvailable(): Promise<boolean>` — Delegates to isCommandOnPath('claude') for PATH detection
-- `buildArgs(options: AICallOptions): string[]` — Constructs CLI arguments array including `-p`, `--output-format json`, `--no-session-persistence`, `--permission-mode bypassPermissions`, with optional `--model`, `--system-prompt`, `--max-turns` flags
-- `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` — Parses JSON from stdout starting at first `{` character, validates against ClaudeResponseSchema, extracts model name from modelUsage keys, throws AIServiceError with code PARSE_ERROR on failure
-- `getInstallInstructions(): string` — Returns formatted npm install command for @anthropic-ai/claude-code
+**ClaudeBackend** class implements `AIBackend` interface with properties:
+- `name: 'claude'` — Backend identifier
+- `cliCommand: 'claude'` — CLI executable name
 
-**isCommandOnPath(command: string): Promise<boolean>` — Checks PATH environment variable for executable by iterating pathDirs split by path.delimiter, testing each extension from PATHEXT on Windows (empty array on Unix), using fs.stat() to verify file existence (not fs.access() for cross-platform compatibility)
+Methods:
+- `async isAvailable(): Promise<boolean>` — Delegates to `isCommandOnPath('claude')` for PATH detection
+- `buildArgs(options: AICallOptions): string[]` — Constructs CLI arguments array for `claude` command
+- `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` — Parses Claude CLI JSON output into normalized `AIResponse`
+- `getInstallInstructions(): string` — Returns multiline string with npm install command and URL
 
-## Schema Definition
+**isCommandOnPath** function `async (command: string): Promise<boolean>` — Cross-platform PATH lookup checking if command exists as file in any PATH directory. Splits `process.env.PATH` by `path.delimiter`, iterates directories, checks `process.env.PATHEXT` extensions on Windows (`.exe`, `.cmd`, `.bat`), uses `fs.stat().isFile()` for detection (not `fs.access()` to avoid Unix permission assumptions).
 
-**ClaudeResponseSchema** — Zod schema validated against Claude CLI v2.1.31 JSON output structure containing:
-- `type: z.literal('result')`
-- `subtype: z.enum(['success', 'error'])`
-- `is_error: z.boolean()`
-- `duration_ms: z.number()`
-- `duration_api_ms: z.number()`
-- `num_turns: z.number()`
-- `result: z.string()` — Response text
-- `session_id: z.string()`
-- `total_cost_usd: z.number()`
-- `usage` object with `input_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, `output_tokens`
-- `modelUsage: z.record()` — Map of model name to token counts and costs
-
-## Defensive Parsing
-
-Handles non-JSON prefix text (upgrade notices) by locating first `{` via `stdout.indexOf('{')`, then slicing stdout before JSON.parse(). Throws AIServiceError(PARSE_ERROR) if jsonStart === -1 or schema validation fails, including first 200 characters of raw output in error message.
+**ClaudeResponseSchema** Zod schema validates Claude CLI v2.1.31 JSON output structure:
+- Root: `{ type: 'result', subtype: 'success'|'error', is_error: boolean, duration_ms: number, duration_api_ms: number, num_turns: number, result: string, session_id: string, total_cost_usd: number, usage: {...}, modelUsage: {...} }`
+- `usage` object: `{ input_tokens, cache_creation_input_tokens, cache_read_input_tokens, output_tokens }` (all numbers)
+- `modelUsage` record: `Map<modelName, { inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens, costUSD }>`
 
 ## CLI Argument Construction
 
-buildArgs() does NOT include prompt in args array — prompt passed via stdin through runSubprocess wrapper. Permission mode set to bypassPermissions to avoid interactive permission prompts during non-interactive execution (addresses PITFALLS.md §8). Session persistence disabled to prevent disk writes.
+`buildArgs()` returns fixed base arguments:
+- `-p` — Non-interactive print mode
+- `--output-format json` — Structured JSON output
+- `--no-session-persistence` — Prevents disk session saves
+- `--permission-mode bypassPermissions` — Skips interactive permission prompts (references PITFALLS.md §8)
 
-## Model Name Extraction
+Conditionally appends:
+- `--model <value>` if `options.model` provided
+- `--system-prompt <value>` if `options.systemPrompt` provided
+- `--max-turns <value>` if `options.maxTurns !== undefined`
 
-parseResponse() extracts model name from parsed.modelUsage object keys using `Object.keys(parsed.modelUsage)[0] ?? 'unknown'` pattern, assuming first key represents model used for invocation.
+Prompt text excluded from args array — passed via stdin by `runSubprocess()` caller.
 
-## Integration Points
+## JSON Response Parsing
 
-Depends on:
-- `AIBackend`, `AICallOptions`, `AIResponse`, `AIServiceError` from `../types.js`
-- `zod` for ClaudeResponseSchema validation
-- `node:fs/promises` and `node:path` for PATH detection
-- runSubprocess() wrapper expected to inject prompt via stdin and respect args array
+`parseResponse()` implements defensive parsing:
+1. Finds first `{` character via `stdout.indexOf('{')` to skip non-JSON prefix text (upgrade notices, warnings)
+2. Throws `AIServiceError` with code `PARSE_ERROR` if no JSON object found
+3. Parses substring `stdout.slice(jsonStart)` and validates against `ClaudeResponseSchema`
+4. Extracts model name from `Object.keys(parsed.modelUsage)[0]` (first key is active model)
+5. Maps to `AIResponse` structure:
+   - `text` ← `parsed.result`
+   - `model` ← first modelUsage key or `'unknown'`
+   - `inputTokens` ← `parsed.usage.input_tokens`
+   - `outputTokens` ← `parsed.usage.output_tokens`
+   - `cacheReadTokens` ← `parsed.usage.cache_read_input_tokens`
+   - `cacheCreationTokens` ← `parsed.usage.cache_creation_input_tokens`
+   - `durationMs` ← function parameter (wall-clock time)
+   - `exitCode` ← function parameter
+   - `raw` ← entire `parsed` object
 
-## Platform Compatibility
+## Error Handling
 
-isCommandOnPath() handles Windows PATHEXT (semicolon-delimited extensions like `.EXE;.CMD;.BAT`) versus Unix empty extensions array. Uses fs.stat() instead of fs.access() because Windows lacks Unix execute permission bits.
+Throws `AIServiceError` with discriminated codes:
+- `PARSE_ERROR` when `stdout.indexOf('{')` returns `-1` (includes first 200 chars of raw output in message)
+- `PARSE_ERROR` when `ClaudeResponseSchema.parse()` throws (includes Zod validation error message)
+
+## Dependencies
+
+- `node:fs/promises` — `fs.stat()` for PATH detection
+- `node:path` — `path.join()`, `path.delimiter` for cross-platform path manipulation
+- `zod` — `ClaudeResponseSchema` validation, `z.infer<>` type extraction
+- `../types.js` — `AIBackend`, `AICallOptions`, `AIResponse`, `AIServiceError` imports
+
+## Integration Pattern
+
+Intended usage flow (documented in class example):
+1. Instantiate `new ClaudeBackend()`
+2. Call `await backend.isAvailable()` for availability check
+3. Call `backend.buildArgs({ prompt, model?, systemPrompt?, maxTurns? })` to construct CLI args
+4. Pass args to `runSubprocess('claude', args, { input: prompt, timeoutMs })` (from `../subprocess.ts`)
+5. Call `backend.parseResponse(result.stdout, result.durationMs, result.exitCode)` to normalize response
+
+## Platform-Specific Behavior
+
+Windows PATH detection differences:
+- Reads `process.env.PATHEXT` (typically `".COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC"`)
+- Checks each extension appended to command name: `claude.exe`, `claude.cmd`, `claude.bat`, etc.
+- Uses `fs.stat()` rather than Unix execute bit checking for cross-platform compatibility
+
+Unix/Linux/macOS:
+- `process.env.PATHEXT` unset → single iteration with bare command name
+- Checks `claude` (no extension)
+
+PATH string cleaning:
+- Strips double quotes via `.replace(/["]+/g, '')` before splitting (handles Windows quoted paths)
+- Splits by `path.delimiter` (`:` on Unix, `;` on Windows)
+- Filters empty strings via `.filter(Boolean)`

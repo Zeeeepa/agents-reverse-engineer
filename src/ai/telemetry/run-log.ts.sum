@@ -1,26 +1,40 @@
 ---
-generated_at: 2026-02-09T15:05:48.440Z
+generated_at: 2026-02-09T16:08:40.554Z
 content_hash: 885090812a3be24de9212805ef4c0d2b922fe78af57830769f591dd57f88ba4b
-purpose: writeRunLog() serializes completed RunLog objects to timestamped JSON files in `.agents-reverse-engineer/logs/` for t...
+purpose: Writes completed `RunLog` objects to disk as timestamped JSON files in `.agents-reverse-engineer/logs/` with director...
 ---
-**writeRunLog() serializes completed RunLog objects to timestamped JSON files in `.agents-reverse-engineer/logs/` for telemetry persistence.**
+**Writes completed `RunLog` objects to disk as timestamped JSON files in `.agents-reverse-engineer/logs/` with directory creation and filename sanitization.**
 
-## Exports
+## Exported Functions
 
-- `writeRunLog(projectRoot: string, runLog: RunLog): Promise<string>` — Creates logs directory via `fs.mkdir()` with `recursive: true`, derives filename from `runLog.startTime` by replacing `:` and `.` with `-` (pattern: `run-${safeTimestamp}.json`), writes pretty-printed JSON via `JSON.stringify(runLog, null, 2)`, returns absolute path to written file.
+### writeRunLog
+
+```typescript
+async function writeRunLog(projectRoot: string, runLog: RunLog): Promise<string>
+```
+
+Writes a completed `RunLog` to disk as pretty-printed JSON (2-space indentation). Creates `<projectRoot>/.agents-reverse-engineer/logs/` directory via `fs.mkdir()` with `recursive: true` if absent. Derives filename from `runLog.startTime` by replacing `:` and `.` characters with `-` to produce cross-platform-safe filenames, yielding pattern `run-<ISO8601-sanitized>.json` (e.g., `run-2026-02-07T12-00-00-000Z.json`). Returns absolute path to written file.
 
 ## Constants
 
-- `LOGS_DIR = '.agents-reverse-engineer/logs'` — Relative path segment for telemetry log storage.
+### LOGS_DIR
 
-## Filename Sanitization
+```typescript
+const LOGS_DIR = '.agents-reverse-engineer/logs'
+```
 
-Replaces `:` and `.` characters in ISO 8601 timestamps via `/[:.]/g` regex to produce valid cross-platform filenames (e.g., `2026-02-07T12:00:00.000Z` → `run-2026-02-07T12-00-00-000Z.json`).
+Relative directory path for telemetry log storage. Combined with `projectRoot` parameter to form absolute log destination via `path.join()`.
+
+## Dependencies
+
+- `node:fs/promises`: `mkdir()`, `writeFile()` for async filesystem operations
+- `node:path`: `join()` for cross-platform path construction
+- `RunLog` type from `../types.js`: Structured run metadata with `startTime` (ISO 8601 string), token counts, costs, durations, errors, file read metadata
 
 ## Integration Points
 
-Consumes `RunLog` type from `../types.js` (sibling telemetry module). Used by telemetry logger (`src/ai/telemetry/logger.ts`) to persist aggregated run metadata after command completion. Works with cleanup module (`src/ai/telemetry/cleanup.ts`) which enforces retention limits on written log files.
+Called by `TelemetryLogger.finalize()` in `src/ai/telemetry/logger.ts` after aggregating per-call metrics into cumulative `RunLog` structure. Works in tandem with `cleanupOldLogs()` from `src/ai/telemetry/cleanup.ts` for retention management (keeps N most recent logs based on `config.ai.telemetry.keepRuns`).
 
-## File I/O Pattern
+## Filename Sanitization Pattern
 
-Single atomic write operation per run log with no locking or serialization required (unlike trace writer's promise-chain pattern) because each run produces unique timestamped filename with no concurrent write conflicts.
+Applies `runLog.startTime.replace(/[:.]/g, '-')` to transform ISO 8601 timestamps like `2026-02-07T12:00:00.000Z` into filesystem-safe `2026-02-07T12-00-00-000Z`, avoiding Windows path restrictions and shell escaping issues.

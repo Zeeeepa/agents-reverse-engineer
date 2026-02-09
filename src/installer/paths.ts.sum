@@ -1,51 +1,54 @@
 ---
-generated_at: 2026-02-09T15:07:25.623Z
+generated_at: 2026-02-09T16:10:31.241Z
 content_hash: 6d7cb2dc53a7e1c8f5dc0a7e8379f5404d457e928db21548a59a3117039356d3
-purpose: Provides cross-platform path resolution for AI coding assistant runtime installations with environment variable overr...
+purpose: paths.ts provides cross-platform path resolution for AI coding assistant runtime installations (Claude, OpenCode, Gem...
 ---
-**Provides cross-platform path resolution for AI coding assistant runtime installations with environment variable overrides and installation detection.**
+**paths.ts provides cross-platform path resolution for AI coding assistant runtime installations (Claude, OpenCode, Gemini) with environment variable overrides and installation detection.**
 
 ## Exported Functions
 
-**`getAllRuntimes(): Array<Exclude<Runtime, 'all'>>`** — Returns array of concrete runtime identifiers: `['claude', 'opencode', 'gemini']` excluding the `'all'` meta-runtime.
+**getAllRuntimes(): Array<Exclude<Runtime, 'all'>>**
+Returns `['claude', 'opencode', 'gemini']` array of concrete runtime identifiers, excluding the `'all'` meta-runtime.
 
-**`getRuntimePaths(runtime: Exclude<Runtime, 'all'>): RuntimePaths`** — Returns `RuntimePaths` object with `global` (absolute path), `local` (relative directory name), and `settingsFile` (absolute path) properties for the specified runtime. Uses `os.homedir()` and `path.join()` for cross-platform compatibility.
+**getRuntimePaths(runtime: Exclude<Runtime, 'all'>): RuntimePaths**
+Returns `RuntimePaths` object containing `global` (absolute path), `local` (relative path), and `settingsFile` (absolute path to settings.json) for specified runtime. Uses `os.homedir()` and `path.join()` for cross-platform compatibility.
 
-**`resolveInstallPath(runtime: Exclude<Runtime, 'all'>, location: Location, projectRoot?: string): string`** — Resolves absolute installation path. For global locations, returns the global path from `getRuntimePaths()`. For local locations, joins the local path with `projectRoot` (defaults to `process.cwd()`).
+**resolveInstallPath(runtime: Exclude<Runtime, 'all'>, location: Location, projectRoot?: string): string**
+Returns absolute installation path. For `location === 'global'`, returns `getRuntimePaths(runtime).global`. For local installations, joins `paths.local` with `projectRoot || process.cwd()`.
 
-**`getSettingsPath(runtime: Exclude<Runtime, 'all'>): string`** — Returns absolute path to the runtime's settings file (e.g., `~/.claude/settings.json`) used for hook registration.
+**getSettingsPath(runtime: Exclude<Runtime, 'all'>): string**
+Returns absolute path to runtime's settings.json file via `getRuntimePaths(runtime).settingsFile`.
 
-**`isRuntimeInstalledLocally(runtime: Exclude<Runtime, 'all'>, projectRoot: string): Promise<boolean>`** — Checks if runtime's local config directory exists in project using `stat()`. Returns `true` if directory exists and is a directory.
+**isRuntimeInstalledLocally(runtime: Exclude<Runtime, 'all'>, projectRoot: string): Promise<boolean>**
+Checks if local config directory exists (e.g., `.claude`, `.opencode`, `.gemini`) via `stat()` and `stats.isDirectory()`. Returns false if stat throws.
 
-**`isRuntimeInstalledGlobally(runtime: Exclude<Runtime, 'all'>): Promise<boolean>`** — Checks if runtime's global config directory exists using `stat()`. Returns `true` if directory exists and is a directory.
+**isRuntimeInstalledGlobally(runtime: Exclude<Runtime, 'all'>): Promise<boolean>**
+Checks if global config directory exists via `stat()` on `paths.global`. Returns false if stat throws.
 
-**`getInstalledRuntimes(projectRoot: string): Promise<Array<Exclude<Runtime, 'all'>>>`** — Returns array of runtime identifiers that are installed locally in the project by checking each runtime via `isRuntimeInstalledLocally()`.
+**getInstalledRuntimes(projectRoot: string): Promise<Array<Exclude<Runtime, 'all'>>>**
+Iterates through `getAllRuntimes()`, filters via `isRuntimeInstalledLocally()`, returns array of installed runtime identifiers.
 
 ## Environment Variable Overrides
 
-**Claude**: `CLAUDE_CONFIG_DIR` overrides default `~/.claude`
+**Claude:**
+- `CLAUDE_CONFIG_DIR` overrides default `~/.claude`
 
-**OpenCode**: `OPENCODE_CONFIG_DIR` takes priority, otherwise `XDG_CONFIG_HOME/opencode`, otherwise `~/.config/opencode`
+**OpenCode:**
+- `OPENCODE_CONFIG_DIR` highest priority
+- Falls back to `XDG_CONFIG_HOME/opencode`
+- Falls back to `~/.config/opencode`
 
-**Gemini**: `GEMINI_CONFIG_DIR` overrides default `~/.gemini`
+**Gemini:**
+- `GEMINI_CONFIG_DIR` overrides default `~/.gemini`
 
-## Default Path Structure
+## Runtime Path Mappings
 
-**Claude**:
-- Global: `~/.claude` (or `CLAUDE_CONFIG_DIR`)
-- Local: `.claude`
-- Settings: `~/.claude/settings.json`
-
-**OpenCode**:
-- Global: `~/.config/opencode` (or `OPENCODE_CONFIG_DIR` or `XDG_CONFIG_HOME/opencode`)
-- Local: `.opencode`
-- Settings: `~/.config/opencode/settings.json`
-
-**Gemini**:
-- Global: `~/.gemini` (or `GEMINI_CONFIG_DIR`)
-- Local: `.gemini`
-- Settings: `~/.gemini/settings.json`
+| Runtime | Global Default | Local Path | Settings File |
+|---------|---------------|------------|---------------|
+| claude | `~/.claude` | `.claude` | `~/.claude/settings.json` |
+| opencode | `~/.config/opencode` | `.opencode` | `~/.config/opencode/settings.json` |
+| gemini | `~/.gemini` | `.gemini` | `~/.gemini/settings.json` |
 
 ## Dependencies
 
-Imports `os.homedir()` for home directory resolution, `path.join()` for cross-platform path construction, `stat` from `node:fs/promises` for directory existence checks, and `Runtime`, `Location`, `RuntimePaths` types from `./types.js`.
+Uses `node:os` for `homedir()`, `node:path` for `join()`, `node:fs/promises` for `stat()`. Imports `Runtime`, `Location`, `RuntimePaths` types from `./types.js`.

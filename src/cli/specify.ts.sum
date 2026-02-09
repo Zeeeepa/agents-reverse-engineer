@@ -1,72 +1,48 @@
 ---
-generated_at: 2026-02-09T15:06:52.134Z
+generated_at: 2026-02-09T16:10:03.740Z
 content_hash: 6fdb25334ecd939dd02edcd5c18dee77450cfb0834cbe23ea6d4f2ebb01fc696
-purpose: specifyCommand orchestrates project specification synthesis by collecting AGENTS.md documentation, invoking AI backen...
+purpose: CLI entry point for synthesizing project specifications from AGENTS.md documentation via AI backend, with single/mult...
 ---
-**specifyCommand orchestrates project specification synthesis by collecting AGENTS.md documentation, invoking AI backend with extended timeout, and writing single or multi-file output to specs/ directory.**
+**CLI entry point for synthesizing project specifications from AGENTS.md documentation via AI backend, with single/multi-file output modes, dry-run preview, and auto-generation fallback.**
 
-## Exported Interface
+## Exported Functions
 
-```typescript
-interface SpecifyOptions {
-  output?: string;        // Custom output path (default: specs/SPEC.md)
-  force?: boolean;        // Overwrite existing specs
-  dryRun?: boolean;       // Show plan without calling AI
-  multiFile?: boolean;    // Split output into multiple files
-  debug?: boolean;        // Show verbose debug info
-  trace?: boolean;        // Enable tracing
-}
+**`specifyCommand(targetPath: string, options: SpecifyOptions): Promise<void>`** — orchestrates specification generation: loads config via `loadConfig()`, collects AGENTS.md files via `collectAgentsDocs()`, auto-invokes `generateCommand()` if no docs exist, resolves AI backend via `resolveBackend()`, constructs prompt via `buildSpecPrompt()`, calls `AIService.call()` with extended timeout (minimum 600,000ms), writes output via `writeSpec()`, logs telemetry summary with token counts and duration.
 
-async function specifyCommand(
-  targetPath: string,
-  options: SpecifyOptions
-): Promise<void>
-```
+**`SpecifyOptions`** — interface with fields: `output?: string` (custom path, defaults to `specs/SPEC.md`), `force?: boolean` (overwrite existing specs), `dryRun?: boolean` (preview without AI calls), `multiFile?: boolean` (split output by directory), `debug?: boolean` (verbose logging), `trace?: boolean` (enable NDJSON trace events).
 
-## Execution Flow
+## Workflow Phases
 
-specifyCommand resolves `targetPath` to absolute path, computes default `outputPath` as `specs/SPEC.md`, calls `loadConfig()` for configuration, then `collectAgentsDocs()` to gather documentation.
+**Phase 1: Collection and Validation** — resolves absolute path via `path.resolve(targetPath)`, derives `outputPath` from `options.output` or defaults to `path.join(absolutePath, 'specs', 'SPEC.md')`, calls `loadConfig(absolutePath, { debug })`, invokes `collectAgentsDocs(absolutePath)` returning array of `{ path, content }` tuples, auto-generates via `generateCommand(targetPath, { debug, trace })` if `docs.length === 0` and not in dry-run mode, exits with code 1 if no docs found after generation.
 
-### Dry-Run Mode
+**Phase 2: Dry-Run Preview** — computes `totalChars` via `docs.reduce((sum, d) => sum + d.content.length, 0)`, estimates tokens as `Math.ceil(totalChars / 4) / 1000`, prints summary table showing `docs.length`, estimated tokens, `outputPath`, and mode (`single-file` or `multi-file`), warns if no AGENTS.md files exist or if `estimatedTokensK > 150`, returns early without AI calls.
 
-When `options.dryRun` is true, calculates `totalChars` across `docs[]`, estimates tokens via division by 4, displays summary without AI calls, warns if `docs.length === 0` (suggesting `are generate` first) or `estimatedTokensK > 150` (context window warning), then returns early.
+**Phase 3: Backend Resolution and AI Call** — creates registry via `createBackendRegistry()`, resolves backend via `resolveBackend(registry, config.ai.backend)`, catches `AIServiceError` with code `'CLI_NOT_FOUND'` and prints installation instructions via `getInstallInstructions(registry)` before exiting with code 2, instantiates `AIService` with backend and options `{ timeoutMs: Math.max(config.ai.timeoutMs, 600_000), maxRetries, model, telemetry }`, enables debug mode via `aiService.setDebug(true)` if `options.debug` is true, constructs prompt via `buildSpecPrompt(docs)` returning `{ system, user }`, creates `ProgressLog` via `ProgressLog.create(absolutePath)` for tail monitoring, invokes `aiService.call({ prompt: prompt.user, systemPrompt: prompt.system, taskLabel: 'specify' })`.
 
-### Auto-Generation Fallback
-
-If `docs.length === 0` and not dry-run, calls `generateCommand(targetPath, { debug, trace })` to populate AGENTS.md files, re-collects via `collectAgentsDocs()`, exits with code 1 if still empty.
-
-## Backend Resolution
-
-Creates `BackendRegistry` via `createBackendRegistry()`, resolves backend via `resolveBackend(registry, config.ai.backend)`, catches `AIServiceError` with `code === 'CLI_NOT_FOUND'`, displays `getInstallInstructions(registry)` and exits with code 2.
-
-Logs backend metadata in debug mode: `backend.name`, `backend.cliCommand`, `config.ai.model`.
-
-## AI Service Configuration
-
-Instantiates `AIService(backend, options)` with extended timeout via `Math.max(config.ai.timeoutMs, 600_000)` (10 minute minimum for large specification generation), passes `maxRetries`, `model`, and `telemetry.keepRuns` from config.
-
-Enables debug mode via `aiService.setDebug(true)` if `options.debug` is true.
-
-## Prompt Construction and Execution
-
-Builds prompt via `buildSpecPrompt(docs)` returning object with `system` and `user` properties. Logs character counts in debug mode.
-
-Creates `ProgressLog` at `absolutePath`, writes header with ISO timestamp, project path, and `docs.length` count, then calls `aiService.call({ prompt, systemPrompt, taskLabel: 'specify' })`.
-
-## Output Writing
-
-Calls `writeSpec(response.text, { outputPath, force, multiFile })` which returns `writtenFiles[]`. Catches `SpecExistsError`, logs to `progressLog`, displays error message via `pc.red()`, and exits with code 1.
-
-Iterates `writtenFiles` to log each path via `pc.green()` and write to `progressLog`.
-
-## Telemetry Finalization
-
-Calls `aiService.finalize(absolutePath)` to retrieve `summary` containing `totalInputTokens`, `totalOutputTokens`, `totalDurationMs`. Constructs summary line with token counts, duration in seconds (1 decimal), and output path. Writes to console via `pc.dim()` and `progressLog`, finalizes log via `progressLog.finalize()`.
+**Phase 4: Output Writing** — calls `writeSpec(response.text, { outputPath, force, multiFile })` returning `writtenFiles[]` array, catches `SpecExistsError` and logs to progress before exiting with code 1, prints green success message listing each written file, finalizes telemetry via `aiService.finalize(absolutePath)` returning `{ summary }`, logs summary line with format `Tokens: ${totalInputTokens} in / ${totalOutputTokens} out | Duration: ${totalDurationMs/1000}s | Output: ${outputPath}`, writes summary to progress log and finalizes via `progressLog.finalize()`.
 
 ## Dependencies
 
-Imports `loadConfig` from `../config/loader.js`, `collectAgentsDocs` from `../generation/collector.js`, `buildSpecPrompt`/`writeSpec`/`SpecExistsError` from `../specify/index.js`, `AIService`/`AIServiceError`/`createBackendRegistry`/`resolveBackend`/`getInstallInstructions` from `../ai/index.js`, `ProgressLog` from `../orchestration/index.js`, `generateCommand` from `./generate.js`, uses `picocolors` (aliased as `pc`) for terminal formatting, `node:path` for file resolution.
+**Core imports:** `path.resolve()`, `path.join()` for path resolution; `picocolors` as `pc` for terminal color formatting (`pc.bold()`, `pc.green()`, `pc.red()`, `pc.yellow()`, `pc.cyan()`, `pc.dim()`).
+
+**Internal modules:** `loadConfig` from `config/loader.js` for YAML config loading; `collectAgentsDocs` from `generation/collector.js` for recursive AGENTS.md traversal; `buildSpecPrompt`, `writeSpec`, `SpecExistsError` from `specify/index.js` for prompt construction and file writing; `AIService`, `AIServiceError`, `createBackendRegistry`, `resolveBackend`, `getInstallInstructions` from `ai/index.js` for backend orchestration; `ProgressLog` from `orchestration/index.js` for streaming log output; `generateCommand` from `./generate.js` for auto-generation fallback.
 
 ## Error Handling
 
-Exits with code 1 for `SpecExistsError` (file exists without `--force` flag) and post-generation empty docs. Exits with code 2 for `CLI_NOT_FOUND` (no AI backend available). Displays installation instructions via `getInstallInstructions()` when backend resolution fails.
+**CLI not found:** catches `AIServiceError` with `code === 'CLI_NOT_FOUND'` during backend resolution, prints error message and installation instructions via `getInstallInstructions(registry)`, exits with code 2.
+
+**Spec file exists:** catches `SpecExistsError` during `writeSpec()`, logs to progress via `progressLog.write()`, finalizes log, prints red error message, exits with code 1.
+
+**No docs after generation:** validates `docs.length === 0` after auto-generation attempt, prints red error message `'No AGENTS.md files found after generation. Cannot proceed.'`, exits with code 1.
+
+## Telemetry Integration
+
+**Progress log format:** writes header line `=== ARE Specify (${ISO timestamp}) ===`, project path, AGENTS.md count, generation status, written file paths, token/duration summary line, finalizes via `progressLog.finalize()` for flush.
+
+**Token estimation:** computes `estimatedTokensK = Math.ceil(totalChars / 4) / 1000` using 1 token ≈ 4 characters heuristic, warns if exceeds 150K tokens.
+
+**Telemetry finalization:** invokes `aiService.finalize(absolutePath)` returning `summary` with fields `totalInputTokens`, `totalOutputTokens`, `totalDurationMs`, formats summary line with duration in seconds (`(totalDurationMs / 1000).toFixed(1)`).
+
+## Timeout Configuration
+
+**Extended timeout:** overrides config timeout with minimum 600,000ms (10 minutes) via `Math.max(config.ai.timeoutMs, 600_000)` to accommodate large specification synthesis tasks.

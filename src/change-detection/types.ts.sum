@@ -1,32 +1,38 @@
 ---
-generated_at: 2026-02-09T15:06:32.356Z
+generated_at: 2026-02-09T16:09:45.216Z
 content_hash: 78cff2ed3b8efd6a7641dbc57fffa5d8b41fc24da285f3d31326bfc74d582b82
-purpose: Defines TypeScript types for git-based change detection in the ARE incremental update system.
+purpose: Defines TypeScript types and interfaces for git-based change detection, representing file modifications tracked via `...
 ---
-**Defines TypeScript types for git-based change detection in the ARE incremental update system.**
+**Defines TypeScript types and interfaces for git-based change detection, representing file modifications tracked via `ChangeType` discriminants ('added' | 'modified' | 'deleted' | 'renamed') and structured as `FileChange` objects with path information and optional rename tracking.**
 
 ## Exported Types
 
-**ChangeType**: Union type `'added' | 'modified' | 'deleted' | 'renamed'` representing the four possible file change states detected by git diff operations.
+**`ChangeType`** — String literal union type representing the four possible file change states:
+```typescript
+type ChangeType = 'added' | 'modified' | 'deleted' | 'renamed'
+```
 
-**FileChange**: Interface representing a single file change with properties:
-- `path: string` — Relative path to the file (new path for renamed files)
-- `status: ChangeType` — Type of change detected
-- `oldPath?: string` — Original path for renamed files (only present when `status === 'renamed'`)
+## Exported Interfaces
 
-**ChangeDetectionResult**: Interface encapsulating the output of change detection operations with properties:
-- `currentCommit: string` — Current commit hash (typically HEAD)
-- `baseCommit: string` — Commit hash used as comparison baseline
-- `changes: FileChange[]` — Array of detected file changes
-- `includesUncommitted: boolean` — Flag indicating whether working tree/staged changes were merged into results
+**`FileChange`** — Represents a single file modification detected from git diff output:
+- `path: string` — Relative path to the file (for renamed files, contains the new path)
+- `status: ChangeType` — Discriminant field indicating change type
+- `oldPath?: string` — Optional field present only when `status === 'renamed'`, stores original pre-rename path
 
-**ChangeDetectionOptions**: Interface for configuring change detection behavior with properties:
-- `includeUncommitted?: boolean` — When true, merges uncommitted changes (staged and working directory) with committed changes via `git status --porcelain` parsing
+**`ChangeDetectionResult`** — Aggregated output from git diff analysis:
+- `currentCommit: string` — SHA-1 hash of HEAD or current working tree state
+- `baseCommit: string` — SHA-1 hash of comparison baseline (e.g., previous commit, tag, or branch)
+- `changes: FileChange[]` — Array of detected modifications
+- `includesUncommitted: boolean` — Flag indicating whether working tree and staged changes were merged into results (corresponds to `git status --porcelain` inclusion)
 
-## Integration Context
+**`ChangeDetectionOptions`** — Configuration object for change detection behavior:
+- `includeUncommitted?: boolean` — When `true`, merges uncommitted working tree and staged changes with committed diff results via `git status --porcelain` parsing
 
-These types are consumed by `src/change-detection/detector.ts` which executes git diff parsing with rename detection (`git diff -M`) and SHA-256 content hashing for non-git workflows. The `FileChange.oldPath` field enables orphan cleanup in `src/update/orphan-cleaner.ts` by tracking renames to delete stale `.sum` files at the original path. The `ChangeDetectionResult.includesUncommitted` flag controls whether `src/update/orchestrator.ts` should warn users about uncommitted changes affecting the update scope.
+## Usage Context
 
-## Design Pattern
+These types support the incremental update workflow (`src/update/orchestrator.ts`) where `FileChange` objects drive selective `.sum` regeneration. The `status` field enables conditional logic:
+- `'added'` or `'modified'` → queue for Phase 1 analysis
+- `'deleted'` → trigger orphan cleanup via `cleanupOrphans()`
+- `'renamed'` → use `oldPath` to locate stale `.sum` file and `path` for new generation target
 
-Uses discriminated union pattern where `ChangeType` serves as the discriminant for `FileChange.status`, allowing type guards to narrow `FileChange` to specific change categories. The `oldPath` field is conditionally present only when `status === 'renamed'`, enforcing the constraint that renames require both old and new paths while other change types have a single path.
+The `includesUncommitted` flag in `ChangeDetectionResult` determines whether `getAffectedDirectories()` must account for working tree modifications not yet committed, ensuring `AGENTS.md` regeneration covers all dirty state.

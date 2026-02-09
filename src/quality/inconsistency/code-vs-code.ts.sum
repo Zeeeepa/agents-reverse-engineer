@@ -1,29 +1,29 @@
 ---
-generated_at: 2026-02-09T15:06:07.914Z
+generated_at: 2026-02-09T16:09:16.839Z
 content_hash: 48a2ef2363302abe6f4b31022b7afa304960c3631294ddbed6bbe3e4b3251a9a
-purpose: checkCodeVsCode detects duplicate exported symbols across a group of source files within a per-directory scope, build...
+purpose: checkCodeVsCode() detects duplicate exports across source files by aggregating symbol names per file and flagging sym...
 ---
-**checkCodeVsCode detects duplicate exported symbols across a group of source files within a per-directory scope, building a symbol-to-paths map via extractExports and flagging names appearing in multiple files as CodeCodeInconsistency warnings.**
+**checkCodeVsCode() detects duplicate exports across source files by aggregating symbol names per file and flagging symbols exported from multiple files within a scoped group.**
 
-## Exported Interface
+## Exported Functions
 
 **checkCodeVsCode(files: Array<{ path: string; content: string }>): CodeCodeInconsistency[]**
-- Accepts array of file objects with `path` and `content` properties
-- Returns array of CodeCodeInconsistency objects with `type: 'code-vs-code'`, `severity: 'warning'`, `files: string[]`, `description: string`, `pattern: 'duplicate-export'`
-- Caller responsible for scoping input to per-directory file groups to avoid false positives across unrelated modules
-
-## Algorithm
-
-Builds `Map<string, string[]>` mapping export name to file paths via two-pass traversal:
-1. For each file, calls extractExports (imported from `./code-vs-doc.js`) to extract symbol names
-2. Accumulates file paths for each symbol name in exportMap
-3. Iterates exportMap entries, creates CodeCodeInconsistency for symbols with `paths.length > 1`
+Detects duplicate exports across file groups by extracting symbol names via `extractExports()` from `code-vs-doc.ts`, building a `Map<string, string[]>` where keys are export names and values are file paths, and returning inconsistency records for symbols appearing in multiple files. Each inconsistency has `type: 'code-vs-code'`, `severity: 'warning'`, `pattern: 'duplicate-export'`, `files` array of paths, and `description` string with count.
 
 ## Dependencies
 
-**extractExports** (from `./code-vs-doc.js`): Regex-based export extraction returning symbol name array  
-**CodeCodeInconsistency** (from `../types.js`): Discriminated union member of inconsistency report schema
+**extractExports()** imported from `./code-vs-doc.js` performs regex-based symbol extraction using pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`.
 
-## Design Constraints
+**CodeCodeInconsistency** type imported from `../types.js` represents cross-file inconsistencies with discriminator `type: 'code-vs-code'`.
 
-Heuristic-only check with no AI calls, operates on symbol names without AST analysis to distinguish intentional duplication (e.g., facade pattern, barrel exports). Per-directory scoping required to reduce false positives from legitimate cross-module symbol reuse.
+## Algorithm
+
+Iterates `files` array, calls `extractExports(file.content)` to get symbol set, populates `exportMap` by appending `file.path` to existing symbol arrays or initializing new entries. Second pass filters `exportMap` entries where `paths.length > 1` and constructs inconsistency objects with formatted description `"Symbol \"${name}\" exported from ${paths.length} files"`.
+
+## Scoping Contract
+
+Caller must scope input to per-directory file groups to avoid false positives across unrelated modules. No AI calls or AST analysis—purely heuristic substring matching. Intentional duplication (e.g., factory patterns, parallel implementations) cannot be distinguished without semantic analysis.
+
+## Integration Points
+
+Used by `reporter.ts` in quality validation pipeline alongside `checkCodeVsDoc()` and phantom path validators. Output format matches `InconsistencyReport.issues[]` discriminated union schema.

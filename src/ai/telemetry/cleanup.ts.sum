@@ -1,27 +1,32 @@
 ---
-generated_at: 2026-02-09T15:05:49.731Z
+generated_at: 2026-02-09T16:08:45.306Z
 content_hash: 25f1c6c8f5b0d5b82c8b107a6c4714f4b553092e58c74a5e09e7e4f24745533e
-purpose: cleanupOldLogs removes stale telemetry log files from `.agents-reverse-engineer/logs/`, retaining only the N most rec...
+purpose: cleanupOldLogs() deletes old run log JSON files from `.agents-reverse-engineer/logs/`, retaining only the N most rece...
 ---
-**cleanupOldLogs removes stale telemetry log files from `.agents-reverse-engineer/logs/`, retaining only the N most recent `run-*.json` files sorted by ISO timestamp filenames.**
+**cleanupOldLogs() deletes old run log JSON files from `.agents-reverse-engineer/logs/`, retaining only the N most recent files sorted by ISO timestamp filename.**
 
-## Exported Function
+## Exported Functions
 
-**cleanupOldLogs(projectRoot: string, keepCount: number): Promise<number>**
-Deletes old log files beyond the retention limit. Returns count of deleted files. Reads `logsDir` via `fs.readdir()`, filters entries matching pattern `run-*.json`, sorts lexicographically descending (newest first), slices beyond `keepCount`, and deletes via `fs.unlink()`. Returns 0 if logs directory does not exist (ENOENT error suppressed). Throws on other filesystem errors.
+### cleanupOldLogs
+
+```typescript
+async function cleanupOldLogs(projectRoot: string, keepCount: number): Promise<number>
+```
+
+Removes old telemetry log files exceeding `keepCount` retention limit. Reads `path.join(projectRoot, '.agents-reverse-engineer/logs')`, filters entries matching pattern `run-*.json` via `name.startsWith('run-') && name.endsWith('.json')`, sorts lexicographically via `entries.sort()` then reverses to newest-first ordering, slices beyond `keepCount` into `toDelete[]`, and unlinks each via `fs.unlink()`. Returns count of deleted files. Returns `0` without error if logs directory does not exist (catches `ENOENT` errno).
 
 ## Constants
 
-**LOGS_DIR**: `'.agents-reverse-engineer/logs'` — Relative path to telemetry log directory from project root.
-
-## Algorithm
-
-Sort logic relies on lexicographic ordering of ISO timestamp filenames (e.g., `run-2026-02-09T12:34:56.789Z.json`). Calls `entries.sort()` then `entries.reverse()` to achieve newest-first ordering. Slices array at `keepCount` index to identify deletion candidates.
+- `LOGS_DIR`: String literal `'.agents-reverse-engineer/logs'` defining telemetry log directory relative to project root.
 
 ## Error Handling
 
-ENOENT suppression: catches `NodeJS.ErrnoException` with `code === 'ENOENT'` during `readdir()` and returns 0 without throwing. All other errors propagate to caller.
+ENOENT errors from `fs.readdir()` are caught and return `0` (graceful handling when logs directory missing). All other errors propagate to caller.
 
 ## Integration Points
 
-Called by `RunLogger.endRun()` in `src/ai/telemetry/logger.ts` after writing each run log file. Retention limit sourced from `Config.ai.telemetry.keepRuns` (default 50 per `src/config/defaults.ts`).
+Called by `TelemetryLogger.finalize()` in `src/ai/telemetry/logger.ts` after writing run log JSON, using `config.ai.telemetry.keepRuns` as retention limit (default 50). Complements trace cleanup in `src/orchestration/trace.ts` which retains 500 NDJSON trace files.
+
+## Sorting Strategy
+
+Lexicographic sort on ISO 8601 timestamp filenames (format `run-<timestamp>.json`) produces correct chronological ordering without parsing timestamps. Reversal via `entries.reverse()` yields newest-first sequence, enabling slice-based retention via `entries.slice(keepCount)`.

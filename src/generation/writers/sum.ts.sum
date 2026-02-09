@@ -1,40 +1,63 @@
 ---
-generated_at: 2026-02-09T15:06:11.076Z
+generated_at: 2026-02-09T16:09:15.088Z
 content_hash: 4b039bebed99314f51d3684c5c4dfdaf4edee6f18f522f5b116b75f365712d43
-purpose: sum.ts manages `.sum` file I/O with YAML frontmatter serialization for SHA-256-tracked file summaries containing meta...
+purpose: sum.ts manages `.sum` file I/O with YAML frontmatter serialization, parsing, and path resolution for per-file documen...
 ---
-**sum.ts manages `.sum` file I/O with YAML frontmatter serialization for SHA-256-tracked file summaries containing metadata and markdown content.**
+**sum.ts manages `.sum` file I/O with YAML frontmatter serialization, parsing, and path resolution for per-file documentation artifacts.**
 
 ## Exported Types
 
-`SumFileContent` interface defines `.sum` file structure with `summary: string` (markdown body), `metadata: SummaryMetadata` (purpose/criticalTodos/relatedFiles), `generatedAt: string` (ISO 8601 timestamp), `contentHash: string` (SHA-256 hex for change detection).
+**SumFileContent** interface structures `.sum` file data with `summary: string` (main documentation text), `metadata: SummaryMetadata` (purpose/todos/related files), `generatedAt: string` (ISO 8601 timestamp), `contentHash: string` (SHA-256 hex digest for change detection).
 
-## Core I/O Functions
+## File Format
 
-`writeSumFile(sourcePath: string, content: SumFileContent): Promise<string>` creates `.sum` files via `formatSumFile()` serializer, appends `.sum` extension to source path, ensures parent directory exists with `mkdir(recursive: true)`, returns written path.
+`.sum` files use YAML frontmatter delimited by `---` markers containing:
+- `generated_at: <ISO8601>` — timestamp
+- `content_hash: <sha256-hex>` — SHA-256 digest
+- `purpose: <single-line-string>` — one-line purpose statement
+- `critical_todos: [...]` or multi-line list — optional security/breaking issues
+- `related_files: [...]` or multi-line list — optional dependency paths
 
-`readSumFile(sumPath: string): Promise<SumFileContent | null>` reads `.sum` files via `parseSumFile()` deserializer, returns null on file absence or parse errors (caught via try-catch).
+Frontmatter ends with `---\n` followed by markdown summary body.
 
-`getSumPath(sourcePath: string): string` computes `.sum` path by appending `.sum` extension to source path.
+## Core Functions
 
-`sumFileExists(sourcePath: string): Promise<boolean>` checks `.sum` file existence by calling `readSumFile()` and testing for non-null result.
+**writeSumFile(sourcePath: string, content: SumFileContent): Promise<string>** creates `.sum` file at `${sourcePath}.sum`, calls `mkdir(dir, {recursive: true})` to ensure parent directory exists, invokes `formatSumFile()` for serialization, returns written path.
 
-## YAML Frontmatter Parsing
+**readSumFile(sumPath: string): Promise<SumFileContent | null>** reads file via `readFile(sumPath, 'utf-8')`, delegates to `parseSumFile()`, returns `null` on missing file or parse failure.
 
-`parseSumFile(content: string): SumFileContent | null` extracts frontmatter via `/^---\n([\s\S]*?)\n---\n/` regex, parses `generated_at`, `content_hash`, `purpose` via single-line regex patterns, delegates array parsing to `parseYamlArray()`, returns null on parse failures.
+**getSumPath(sourcePath: string): string** returns `${sourcePath}.sum` path for given source file.
 
-`parseYamlArray(frontmatter: string, key: string): string[]` supports inline format `key: [a, b, c]` via `/key:\s*\[([^\]]*)\]/` and multi-line format `key:\n  - item1` via `/key:\s*\n((?:\s+-\s+.+\n?)+)/m`, trims whitespace and quote characters, returns empty array if no match.
+**sumFileExists(sourcePath: string): Promise<boolean>** calls `readSumFile(getSumPath(sourcePath))` and returns `content !== null`.
 
-## YAML Frontmatter Serialization
+## Parsing Logic
 
-`formatSumFile(content: SumFileContent): string` generates YAML frontmatter with required fields (`generated_at`, `content_hash`, `purpose`), conditionally includes optional arrays (`critical_todos`, `related_files`) via `formatYamlArray()`, separates frontmatter from summary with `---` delimiters.
+**parseSumFile(content: string): SumFileContent | null** extracts frontmatter via `/^---\n([\s\S]*?)\n---\n/` regex, parses fields using `String.match()` with patterns:
+- `generated_at:\s*(.+)` captures ISO timestamp
+- `content_hash:\s*(.+)` captures SHA-256 hash
+- `purpose:\s*(.+)` captures single-line purpose
 
-`formatYamlArray(key: string, values: string[]): string` uses inline format for arrays with ≤3 items where all values <40 characters, otherwise uses multi-line format with `  - ` prefix per item, returns `key: []` for empty arrays.
+Calls `parseYamlArray(frontmatter, key)` for `critical_todos` and `related_files`, returns `null` on exception or missing frontmatter delimiter.
+
+**parseYamlArray(frontmatter: string, key: string): string[]** supports two formats:
+1. Inline: `key: [a, b, c]` matched via `/key:\s*\[([^\]]*)\]/`, splits on commas, trims quotes via `.replace(/^["']|["']$/g, '')`
+2. Multi-line: `key:\n  - item1\n  - item2` matched via `/key:\s*\n((?:\s+-\s+.+\n?)+)/m`, extracts lines, strips `^\s*-\s*` prefix
+
+Returns empty array if neither pattern matches.
+
+## Serialization Logic
+
+**formatSumFile(content: SumFileContent): string** constructs frontmatter lines array with mandatory fields `generated_at`, `content_hash`, `purpose`, conditionally appends `formatYamlArray()` output for `critical_todos` and `related_files` if arrays non-empty, joins with `\n`, appends delimiter `---\n`, concatenates with `content.summary`.
+
+**formatYamlArray(key: string, values: string[]): string** chooses format by heuristics:
+- Empty: `key: []`
+- Inline: `key: [${values.join(', ')}]` if `values.length <= 3` and all items `< 40` chars
+- Multi-line: `key:\n${values.map(v => '  - ' + v).join('\n')}` otherwise
 
 ## Integration Points
 
-Consumed by `src/generation/orchestrator.ts` Phase 1 (writes `.sum` files via `writeSumFile()`) and Phase 2 (reads child `.sum` files via `readSumFile()` for directory aggregation).
+Used by `src/update/orphan-cleaner.ts` via `readSumFile()` for `content_hash` extraction during incremental updates. Called by `src/generation/executor.ts` Phase 1 workers via `writeSumFile()` after AI subprocess returns summary. Consumed by Phase 2 directory aggregation via `readSumFile()` to load child `.sum` files for `AGENTS.md` synthesis prompts.
 
-Called by `src/update/orchestrator.ts` incremental update workflow to read `content_hash` from existing `.sum` files for change detection comparison.
+## Dependencies
 
-Used by `src/update/orphan-cleaner.ts` to delete stale `.sum` files when source files are removed or renamed.
+Imports `writeFile`, `readFile`, `mkdir` from `node:fs/promises`, `path` from `node:path`, `SummaryMetadata` from `../types.js` (defines `purpose`, `criticalTodos?`, `relatedFiles?` fields).

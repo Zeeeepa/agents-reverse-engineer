@@ -1,30 +1,48 @@
 ---
-generated_at: 2026-02-09T15:06:35.645Z
+generated_at: 2026-02-09T16:09:46.773Z
 content_hash: 7cd6a59c01b8ceab118bdfa490d0f4c10459672c0146d922cdc9923c8265ccef
-purpose: `src/cli/init.ts` implements the `are init` command that creates `.agents-reverse-engineer/config.yaml` with default ...
+purpose: initCommand() creates `.agents-reverse-engineer/config.yaml` with defaults via writeDefaultConfig(), warns if configE...
 ---
-**`src/cli/init.ts` implements the `are init` command that creates `.agents-reverse-engineer/config.yaml` with default settings, warning if configuration already exists unless `--force` flag is provided.**
+**initCommand() creates `.agents-reverse-engineer/config.yaml` with defaults via writeDefaultConfig(), warns if configExists() returns true, and exits on EACCES/EPERM errors.**
 
-## Exported Function
+## Exported Interface
 
-**`initCommand(root: string, options?: { force?: boolean }): Promise<void>`** — Main entry point for `are init` command. Resolves `root` to absolute path, computes `configPath` as `<root>/.agents-reverse-engineer/config.yaml`, calls `configExists()` from `src/config/loader.ts` to check for existing config, and invokes `writeDefaultConfig()` if not present or if `force: true`. Logs instructional messages about customization options: `exclude.patterns`, `ai.concurrency`, `ai.timeoutMs`, `ai.backend`.
+```typescript
+async function initCommand(root: string, options?: { force?: boolean }): Promise<void>
+```
+
+Accepts `root` (resolved via `path.resolve()`) and optional `options.force` flag (default: `false`). When `force` is false and `configExists(resolvedRoot)` returns true, logs warning and skips creation. Otherwise calls `writeDefaultConfig(resolvedRoot)` to generate configuration file.
 
 ## Dependencies
 
-- **`src/config/loader.ts`**: Imports `configExists()`, `writeDefaultConfig()`, `CONFIG_DIR` constant (`'.agents-reverse-engineer'`), and `CONFIG_FILE` constant (`'config.yaml'`)
-- **`src/output/logger.ts`**: Imports `createLogger()` factory that returns logger with `warn()`, `info()`, `error()` methods supporting ANSI color codes when `colors: true` option passed
+- `configExists()` — Checks for existing configuration at `${root}/${CONFIG_DIR}/${CONFIG_FILE}`
+- `writeDefaultConfig()` — Writes YAML config with documented defaults from `src/config/loader.ts`
+- `CONFIG_DIR` — Constant `'.agents-reverse-engineer'` (config directory name)
+- `CONFIG_FILE` — Constant `'config.yaml'` (config file name)
+- `createLogger()` — Factory from `src/output/logger.ts` instantiated with `{ colors: true }`
 
 ## Error Handling
 
-Catches `NodeJS.ErrnoException` errors with two distinct code paths:
-- **Permission errors** (`EACCES`, `EPERM`): Logs "Permission denied" message with `configPath`, suggests checking write permissions, exits with code 1
-- **Other errors**: Logs generic failure message with `error.message`, exits with code 1
+Catches `NodeJS.ErrnoException` and discriminates on `error.code`:
 
-## CLI Output Pattern
+- `'EACCES'` or `'EPERM'` → Logs `"Permission denied: Cannot create ${configPath}"` with permission guidance, calls `process.exit(1)`
+- Other errors → Logs `"Failed to create configuration: ${error.message}"`, calls `process.exit(1)`
 
-Provides progressive disclosure of configuration options after successful initialization:
-1. Confirms creation at `configPath`
-2. Lists customization points with syntax: `- key: Description`
-3. References README.md for full documentation
+## Output Messages
 
-**Force flag behavior**: When `options.force` is `true`, skips `configExists()` check and unconditionally calls `writeDefaultConfig()`, allowing users to reset configuration to defaults.
+Success path logs:
+- `"Created configuration at ${configPath}"`
+- Multi-line guidance referencing `exclude.patterns`, `ai.concurrency` (range: 1-20), `ai.timeoutMs` (default: 300,000ms = 5 minutes), `ai.backend` (values: claude/gemini/opencode/auto)
+- `"See README.md for full configuration reference."`
+
+Existing config path logs:
+- `"Config already exists at ${configPath}"`
+- `"Edit the file to customize exclusions and options."`
+
+## File System Operations
+
+Constructs config path via `path.join(resolvedRoot, CONFIG_DIR, CONFIG_FILE)` where:
+- `CONFIG_DIR` = `'.agents-reverse-engineer'`
+- `CONFIG_FILE` = `'config.yaml'`
+
+Example resolved path: `${resolvedRoot}/.agents-reverse-engineer/config.yaml`

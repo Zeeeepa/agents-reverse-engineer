@@ -1,58 +1,116 @@
 ---
-generated_at: 2026-02-09T15:06:45.101Z
+generated_at: 2026-02-09T16:09:56.581Z
 content_hash: 232da2af981eb6c44ab5f5e8908ea14d6ee97fe4295f950b83f42ee45e40a95a
-purpose: AIService orchestrates AI CLI subprocess invocations with retry logic, timeout enforcement, telemetry logging, and tr...
+purpose: AIService orchestrates AI CLI subprocess invocations with retry logic, timeout enforcement, telemetry recording, and ...
 ---
-**AIService orchestrates AI CLI subprocess invocations with retry logic, timeout enforcement, telemetry logging, and trace emission for concurrent worker pools.**
+**AIService orchestrates AI CLI subprocess invocations with retry logic, timeout enforcement, telemetry recording, and trace emission for concurrent file analysis workflows.**
 
-## Exported Symbols
+## Exported API
 
-**AIServiceOptions** interface defines service configuration with `timeoutMs: number`, `maxRetries: number`, `model?: string`, and `telemetry: { keepRuns: number }`.
+**AIService** class coordinates AI backend interactions through:
+- `constructor(backend: AIBackend, options: AIServiceOptions)` — Initializes service with resolved backend adapter and config (timeoutMs, maxRetries, telemetry.keepRuns)
+- `call(options: AICallOptions): Promise<AIResponse>` — Executes AI invocation with retry wrapper, records TelemetryEntry, returns normalized AIResponse
+- `finalize(projectRoot: string): Promise<{ logPath: string; summary: RunLog['summary'] }>` — Writes RunLog to `.agents-reverse-engineer/logs/run-<timestamp>.json`, prunes old logs via cleanupOldLogs()
+- `setTracer(tracer: ITraceWriter): void` — Attaches trace writer for subprocess:spawn/exit/retry events
+- `setDebug(enabled: boolean): void` — Enables verbose subprocess logging with heap/RSS metrics to stderr
+- `setSubprocessLogDir(dir: string): void` — Configures directory for writing per-subprocess `.log` files (stdout+stderr+metadata)
+- `addFilesReadToLastEntry(filesRead: FileRead[]): void` — Attaches file context metadata to most recent telemetry entry
+- `getSummary(): RunLog['summary']` — Returns current run statistics (totalInputTokens, totalCacheReadTokens, errorCount, etc.) without finalizing
 
-**AIService** class provides `constructor(backend: AIBackend, options: AIServiceOptions)`, `call(options: AICallOptions): Promise<AIResponse>`, `finalize(projectRoot: string): Promise<{ logPath: string; summary: RunLog['summary'] }>`, `setTracer(tracer: ITraceWriter): void`, `setDebug(enabled: boolean): void`, `setSubprocessLogDir(dir: string): void`, `addFilesReadToLastEntry(filesRead: FileRead[]): void`, and `getSummary(): RunLog['summary']`.
+**AIServiceOptions** interface specifies:
+- `timeoutMs: number` — Default subprocess timeout (from config.ai.timeoutMs, typically 120000)
+- `maxRetries: number` — Retry attempt limit for transient errors (from config.ai.maxRetries, typically 3)
+- `model?: string` — Default model identifier applied to all calls unless overridden per AICallOptions.model
+- `telemetry.keepRuns: number` — Retention count for historical run logs (from config.ai.telemetry.keepRuns, typically 50)
 
-## Core Orchestration Flow
+**AIServiceError** type (re-exported from `./types.js`) with discriminated codes: `'TIMEOUT' | 'RATE_LIMIT' | 'SUBPROCESS_ERROR' | 'PARSE_ERROR'`
 
-AIService.call() executes: (1) builds CLI args via `AIBackend.buildArgs()`, (2) wraps `runSubprocess()` in `withRetry()` exponential backoff, (3) parses response via `AIBackend.parseResponse()`, (4) records `TelemetryEntry` via `TelemetryLogger.addEntry()`, (5) throws `AIServiceError` on failure with codes `TIMEOUT`/`RATE_LIMIT`/`PARSE_ERROR`/`SUBPROCESS_ERROR`.
+## Retry Strategy
 
-Model resolution merges service-level default (`options.model`) with per-call override (`AICallOptions.model`) via spread operator: `effectiveOptions = { ...options, model: options.model ?? this.options.model }`.
+**withRetry()** invoked from `./retry.js` with custom configuration:
+- `maxRetries: options.maxRetries` (typically 3)
+- `isRetryable: (error) => error.code === 'RATE_LIMIT'` — ONLY retries rate limits; timeouts are permanent failures to avoid resource exhaustion
+- `onRetry: (attempt, error) => ...` — Emits `retry` trace event and stderr warning with `[warn] Retrying "${taskLabel}" (attempt ${attempt}/${maxRetries}, reason: ${errorCode})`
 
-## Rate Limit Detection
+**isRateLimitStderr(stderr: string): boolean** detects transient errors via pattern matching:
+- Patterns: `['rate limit', '429', 'too many requests', 'overloaded']` (case-insensitive substring search)
+- Maps subprocess stderr to `AIServiceError('RATE_LIMIT', ...)` for retry eligibility
 
-`isRateLimitStderr()` scans stderr against `RATE_LIMIT_PATTERNS` array containing `['rate limit', '429', 'too many requests', 'overloaded']` via case-insensitive substring matching.
+## Subprocess Lifecycle
 
-`withRetry()` uses custom `isRetryable` predicate allowing only `AIServiceError` with `code === 'RATE_LIMIT'`. Timeouts (`code === 'TIMEOUT'`) are NOT retried to prevent resource exhaustion on overloaded systems.
-
-## Subprocess Lifecycle Tracing
-
-`call()` increments `activeSubprocesses` counter before `runSubprocess()`, decrements on completion, emits `subprocess:spawn` trace event via `onSpawn` callback with `childPid` synchronously available, emits `subprocess:exit` trace event after completion with `exitCode`, `signal`, `durationMs`, `timedOut` fields.
-
-Retry attempts emit `retry` trace event with `attempt`, `taskLabel`, `errorCode` via `withRetry()` `onRetry` callback.
+**call()** execution flow:
+1. Merges `options.model ?? this.options.model` into effectiveOptions
+2. Calls `backend.buildArgs(effectiveOptions)` to construct CLI argv
+3. Increments `activeSubprocesses` counter before spawn
+4. Invokes `runSubprocess(backend.cliCommand, args, { timeoutMs, input: prompt, onSpawn: (pid) => tracer.emit('subprocess:spawn', ...) })`
+5. Decrements `activeSubprocesses` after completion
+6. Emits `subprocess:exit` trace event with childPid, exitCode, signal, durationMs, timedOut
+7. Enqueues subprocess log write via `enqueueSubprocessLog()` (fire-and-forget, non-critical)
+8. Checks `result.timedOut` → throws `AIServiceError('TIMEOUT', ...)` with stderr warning showing PID and duration
+9. Checks `exitCode !== 0` → applies `isRateLimitStderr()` detection → throws RATE_LIMIT or SUBPROCESS_ERROR
+10. Calls `backend.parseResponse(stdout, durationMs, exitCode)` with try/catch wrapping parse errors as `AIServiceError('PARSE_ERROR', ...)`
+11. Records TelemetryEntry via `logger.addEntry()` with model, tokens, latencyMs, retryCount, filesRead (empty array initially)
 
 ## Telemetry Recording
 
-`TelemetryLogger` accumulates `TelemetryEntry[]` in-memory during run. Each `call()` invocation appends entry with `timestamp`, `prompt`, `systemPrompt`, `response`, `model`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`, `latencyMs`, `exitCode`, `retryCount`, `thinking: 'not supported'`, `filesRead: []`.
+**TelemetryLogger** (from `./telemetry/logger.js`) accumulates entries in-memory:
+- Each `call()` invocation adds entry with timestamp, prompt, systemPrompt, response, model, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, latencyMs, exitCode, retryCount, thinking='not supported', filesRead=[]
+- Failed calls record empty response, 0 tokens, error message string, exitCode=1
+- `addFilesReadToLastEntry(filesRead)` mutates most recent entry to attach FileRead[] metadata (path + sizeBytes)
+- `toRunLog()` converts entries to RunLog with aggregated summary: totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens, totalLatencyMs, callCount, errorCount, uniqueFilesRead
 
-Failed calls record `error: string` field with `response: ''` and `exitCode: 1`.
+**writeRunLog(projectRoot, runLog)** (from `./telemetry/run-log.js`) serializes to `.agents-reverse-engineer/logs/run-<timestamp>.json`
 
-`addFilesReadToLastEntry()` mutates most recent entry's `filesRead` array via `TelemetryLogger.setFilesReadOnLastEntry()` after prompt context is determined.
+**cleanupOldLogs(projectRoot, keepRuns)** (from `./telemetry/cleanup.js`) enforces retention policy by deleting oldest logs beyond keepRuns limit
 
-`finalize()` calls `TelemetryLogger.toRunLog()` → `writeRunLog(projectRoot, runLog)` → `cleanupOldLogs(projectRoot, keepRuns)` returning `{ logPath, summary }`.
+## Debug Logging
 
-## Debug and Diagnostic Logging
+**setDebug(true)** enables stderr output:
+- Before spawn: `[debug] Spawning subprocess for "${taskLabel}" (active: ${activeSubprocesses}, heapUsed: ${formatBytes(mem.heapUsed)}, rss: ${formatBytes(mem.rss)}, timeout: ${timeoutMs/1000}s)`
+- After exit: `[debug] Subprocess exited for "${taskLabel}" (PID ${childPid}, exitCode: ${exitCode}, duration: ${durationMs/1000}s, active: ${activeSubprocesses})`
+- Uses `formatBytes(bytes): string` helper producing `"123B"` / `"4.5KB"` / `"67.8MB"` strings
 
-`setDebug(true)` enables stderr logging before subprocess spawn showing `taskLabel`, `activeSubprocesses`, `heapUsed`, `rss`, `timeout` via `formatBytes()` conversion and after exit showing `childPid`, `exitCode`, `duration`, `activeSubprocesses`.
+**setSubprocessLogDir(dir)** writes `.log` files asynchronously:
+- Filename pattern: `${taskLabel.replace(/\//g, '--').replace(/[^a-zA-Z0-9._-]/g, '_')}_pid${childPid}.log`
+- Content format: metadata header (`task:`, `pid:`, `command:`, `exit:`, `signal:`, `duration:`, `timed_out:`) followed by `--- stdout ---` and `--- stderr ---` sections
+- Serialized via promise chain (`logWriteQueue`) to prevent concurrent mkdir races from worker pool
+- Failures silently swallowed (non-critical operation)
 
-`setSubprocessLogDir()` enables per-subprocess `.log` file writes via `enqueueSubprocessLog()` serialized through promise chain `logWriteQueue` to prevent concurrent `mkdir()` races. Log filename sanitizes `taskLabel` replacing `/` with `--` and non-alphanumerics with `_`, writes metadata header with `task`, `pid`, `command`, `exit`, `signal`, `duration`, `timed_out` followed by `--- stdout ---` and `--- stderr ---` sections.
+## Trace Event Emission
 
-Timeout warnings logged via `console.error()` showing `taskLabel`, `PID`, `durationMs`, configured `timeoutMs`.
+**setTracer(tracer)** enables ITraceWriter event emission:
+- `subprocess:spawn` — Emitted synchronously in `onSpawn` callback with childPid, command, taskLabel
+- `subprocess:exit` — Emitted after subprocess completion with childPid, exitCode, signal, durationMs, timedOut
+- `retry` — Emitted in retry handler with attempt number, taskLabel, errorCode
+
+## Backend Integration
+
+**AIBackend** interface (from `./types.js`) requires:
+- `name: string` — Backend identifier (e.g., "Claude", "Gemini", "OpenCode")
+- `cliCommand: string` — Executable name (e.g., "claude", "gemini", "opencode")
+- `buildArgs(options: AICallOptions): string[]` — Constructs argv from options (model, prompt, systemPrompt)
+- `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` — Extracts text, model, tokens, cacheReadTokens, cacheCreationTokens
+
+**Backend adapter examples:**
+- `./backends/claude.ts` — Parses JSON with `usage.input_tokens`, `usage.output_tokens`, `usage.cache_read_input_tokens`, `usage.cache_creation_input_tokens`
+- `./backends/gemini.ts` — Stub implementation throwing SUBPROCESS_ERROR
+- `./backends/opencode.ts` — Stub implementation throwing SUBPROCESS_ERROR
 
 ## Dependencies
 
-Imports `runSubprocess()` from `./subprocess.js` for `execFile()` wrapper with timeout/retry handling, `withRetry()` and `DEFAULT_RETRY_OPTIONS` from `./retry.js` for exponential backoff, `TelemetryLogger` from `./telemetry/logger.js` for entry accumulation, `writeRunLog()` from `./telemetry/run-log.js` for disk persistence, `cleanupOldLogs()` from `./telemetry/cleanup.js` for retention enforcement, `ITraceWriter` from `../orchestration/trace.js` for NDJSON event emission.
+- `runSubprocess()` from `./subprocess.js` — Spawns child processes with timeout, process group killing, SIGTERM/SIGKILL escalation
+- `withRetry()` from `./retry.js` — Exponential backoff wrapper with isRetryable predicate and onRetry callback
+- `TelemetryLogger` from `./telemetry/logger.js` — In-memory entry accumulation with summary aggregation
+- `writeRunLog()` from `./telemetry/run-log.js` — Persists RunLog JSON to disk
+- `cleanupOldLogs()` from `./telemetry/cleanup.js` — Prunes old logs via readdir + stat + unlink
+- `ITraceWriter` from `../orchestration/trace.js` — Trace event emission interface (NullTraceWriter or TraceWriter with NDJSON output)
 
-Uses types `AIBackend`, `AICallOptions`, `AIResponse`, `SubprocessResult`, `TelemetryEntry`, `RunLog`, `FileRead`, `AIServiceError` from `./types.js`.
+## Design Patterns
 
-## State Management
+**Template Method pattern** — `call()` defines subprocess invocation skeleton, delegates backend-specific logic to `backend.buildArgs()` and `backend.parseResponse()`
 
-Instance fields: `backend: AIBackend` (CLI adapter), `options: AIServiceOptions` (config), `logger: TelemetryLogger` (in-memory entries), `callCount: number` (incremented per `call()`), `tracer: ITraceWriter | null` (optional trace sink), `debug: boolean` (stderr logging toggle), `activeSubprocesses: number` (concurrency metric), `subprocessLogDir: string | null` (diagnostic output path), `logWriteQueue: Promise<void>` (serialization chain).
+**Strategy pattern** — Backend adapters (Claude, Gemini, OpenCode) implement AIBackend interface for pluggable CLI invocation
+
+**Promise chaining for serialization** — `logWriteQueue` ensures sequential execution of async mkdir+writeFile to avoid race conditions from concurrent workers
+
+**Resource tracking** — `activeSubprocesses` counter enables debug logging of subprocess concurrency for diagnosing resource exhaustion (see CLAUDE.md subprocess management section)

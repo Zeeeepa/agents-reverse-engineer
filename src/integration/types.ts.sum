@@ -1,29 +1,48 @@
 ---
-generated_at: 2026-02-09T15:07:35.360Z
+generated_at: 2026-02-09T16:10:44.417Z
 content_hash: 01bab7b9592390c583c058793bcf28fce57c72b8240bc084c0dbde7a8a9a5af1
-purpose: Defines TypeScript interfaces for AI coding assistant environment detection and integration template generation, supp...
+purpose: Defines TypeScript types for AI coding assistant environment detection and integration template generation across Cla...
 ---
-**Defines TypeScript interfaces for AI coding assistant environment detection and integration template generation, supporting Claude Code, OpenCode, Gemini, and Aider runtime environments.**
+**Defines TypeScript types for AI coding assistant environment detection and integration template generation across Claude Code, OpenCode, Gemini, and Aider platforms.**
 
 ## Exported Types
 
-**EnvironmentType**: String literal union type with values `'claude' | 'opencode' | 'aider' | 'gemini'` representing supported AI assistant platforms.
+### EnvironmentType
+```typescript
+type EnvironmentType = 'claude' | 'opencode' | 'aider' | 'gemini'
+```
+String literal union representing supported AI assistant platforms.
 
-**DetectedEnvironment**: Interface describing discovered AI assistant environment with fields:
-- `type: EnvironmentType` — AI assistant platform identifier
-- `configDir: string` — Configuration directory path (e.g., `.claude`, `.opencode`)
-- `detected: boolean` — Whether environment was found in project
+### DetectedEnvironment
+```typescript
+interface DetectedEnvironment {
+  type: EnvironmentType;
+  configDir: string;
+  detected: boolean;
+}
+```
+Represents discovery result from environment detection: `type` identifies the AI platform, `configDir` stores the configuration directory path (e.g., `.claude`, `.opencode`), `detected` boolean indicates presence in project.
 
-**IntegrationTemplate**: Interface modeling integration file template with fields:
-- `filename: string` — File name without path (e.g., `generate.md`)
-- `path: string` — Full relative path from project root (e.g., `.claude/commands/ar/generate.md`)
-- `content: string` — Template content to write
+### IntegrationTemplate
+```typescript
+interface IntegrationTemplate {
+  filename: string;
+  path: string;
+  content: string;
+}
+```
+Describes a single integration file to be written: `filename` is the base name (e.g., `'generate.md'`), `path` is the relative path from project root (e.g., `.claude/commands/ar/generate.md`), `content` holds the template text to write.
 
-**IntegrationResult**: Interface capturing integration file generation outcome with fields:
-- `environment: EnvironmentType` — Target environment type
-- `filesCreated: string[]` — Successfully written file paths
-- `filesSkipped: string[]` — Existing file paths skipped during generation
+### IntegrationResult
+```typescript
+interface IntegrationResult {
+  environment: EnvironmentType;
+  filesCreated: string[];
+  filesSkipped: string[];
+}
+```
+Aggregates outcome of integration file generation: `environment` identifies the target platform, `filesCreated` lists successfully written file paths, `filesSkipped` tracks paths that existed and were not overwritten.
 
-## Integration Context
+## Integration Points
 
-Used by `src/integration/detect.ts` for environment detection via config directory scanning and manifest file presence checks. Consumed by `src/integration/generate.ts` to orchestrate template writing for command files and session hooks. Templates sourced from `src/integration/templates.ts` which constructs platform-specific markdown/TOML/JavaScript content. Installation orchestrated by `src/installer/operations.ts` which prompts user for runtime selection and invokes generation workflow.
+Used by `src/integration/detect.ts` for environment detection return values and by `src/integration/generate.ts` for template construction and file writing results. Consumed by `src/installer/operations.ts` during npx-based command/hook installation workflow.

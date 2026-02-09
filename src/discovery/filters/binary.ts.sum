@@ -1,30 +1,38 @@
 ---
-generated_at: 2026-02-09T15:05:56.554Z
+generated_at: 2026-02-09T16:08:50.468Z
 content_hash: 0413cc0407abd16929f8e47ccef5f2f7a1ba233c05fce4b56e6da03dabba5981
-purpose: binary.ts implements extension-first binary file detection with content-analysis fallback and size-based exclusion fo...
+purpose: Binary file filter implementing two-phase detection (extension fast-path, content analysis fallback) with size-based ...
 ---
-**binary.ts implements extension-first binary file detection with content-analysis fallback and size-based exclusion for the discovery filter chain.**
+**Binary file filter implementing two-phase detection (extension fast-path, content analysis fallback) with size-based exclusion for file discovery.**
 
-## Exported Functions
+## Exported Interface
 
-`createBinaryFilter(options?: BinaryFilterOptions): FileFilter` returns a `FileFilter` instance that excludes binary files via two-phase detection: fast-path extension matching against `BINARY_EXTENSIONS` set, slow-path content analysis via `isBinaryFile()` from `isbinaryfile` package, plus size threshold enforcement (`maxFileSize`).
+`createBinaryFilter(options?: BinaryFilterOptions): FileFilter` — Factory returning a `FileFilter` with `name: 'binary'` and async `shouldExclude(absolutePath: string): Promise<boolean>` method. Combines extension-based detection with content analysis via `isbinaryfile.isBinaryFile()` and size threshold checks via `fs.stat()`.
 
-## Exported Constants
+`BinaryFilterOptions` — Configuration interface with optional `maxFileSize?: number` (bytes, default 1048576) and `additionalExtensions?: string[]` for supplementing default binary extension set.
 
-`BINARY_EXTENSIONS` is a `Set<string>` containing 80+ binary file extensions organized by category: images (`.png`, `.jpg`, `.gif`, `.webp`, `.svg`, `.psd`, `.raw`, `.heif`), archives (`.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.bz2`, `.tgz`), executables (`.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.msi`, `.app`, `.dmg`), media (`.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.mkv`, `.flac`, `.webm`), documents (`.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`), fonts (`.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`), compiled bytecode (`.class`, `.pyc`, `.o`, `.wasm`), databases (`.db`, `.sqlite`, `.mdb`), and JVM archives (`.jar`, `.war`, `.ear`).
+`BINARY_EXTENSIONS: Set<string>` — Exported set of 82 known binary extensions across 9 categories: images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.tiff`, `.tif`, `.psd`, `.raw`, `.heif`, `.heic`), archives (`.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.bz2`, `.xz`, `.tgz`), executables (`.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.msi`, `.app`, `.dmg`), media (`.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.mkv`, `.flac`, `.ogg`, `.webm`, `.m4a`, `.aac`, `.wma`, `.wmv`, `.flv`), binary documents (`.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp`), fonts (`.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`), compiled bytecode (`.class`, `.pyc`, `.pyo`, `.o`, `.obj`, `.a`, `.lib`, `.wasm`), database (`.db`, `.sqlite`, `.sqlite3`, `.mdb`), and miscellaneous (`.ico`, `.icns`, `.cur`, `.deb`, `.rpm`, `.jar`, `.war`, `.ear`).
 
-## Exported Types
-
-`BinaryFilterOptions` interface defines `maxFileSize?: number` (default 1MB via `DEFAULT_MAX_FILE_SIZE` constant of 1048576 bytes) and `additionalExtensions?: string[]` for extending the binary extension set beyond defaults.
+`DEFAULT_MAX_FILE_SIZE: number` — Constant set to `1024 * 1024` (1MB).
 
 ## Detection Algorithm
 
-`createBinaryFilter` implements three-layer exclusion logic within `shouldExclude(absolutePath: string): Promise<boolean>`: first checks `path.extname(absolutePath).toLowerCase()` against `binaryExtensions` set (merged from `BINARY_EXTENSIONS` and `additionalExtensions` with leading-dot normalization), then calls `fs.stat()` to enforce `maxFileSize` threshold, finally invokes `isBinaryFile(absolutePath)` for unknown extensions. Returns `true` on stat errors (unreadable files excluded by default).
+`shouldExclude()` executes three-phase check:
 
-## Integration Points
+1. **Fast path (extension)**: Extracts `path.extname(absolutePath).toLowerCase()`, checks membership in `binaryExtensions` set (merge of `BINARY_EXTENSIONS` and `additionalExtensions` normalized with leading dot via `ext.startsWith('.') ? ext : '.' + ext`), returns `true` on match.
 
-Implements `FileFilter` interface from `../types.js` with `name: 'binary'` property for filter chain identification. Used by `createBinaryFilter` factory in `src/discovery/filters/index.ts` and consumed by `discoverFiles()` walker via composable filter chain pattern. Extension set can be overridden via config schema (`src/config/schema.ts` field `binaryExtensions`).
+2. **Size threshold**: Invokes `fs.stat(absolutePath)`, compares `stats.size > maxFileSize`, returns `true` if exceeded.
 
-## Performance Characteristics
+3. **Slow path (content)**: Delegates to `isBinaryFile(absolutePath)` from `isbinaryfile` package for unknown extensions.
 
-Extension-based fast path avoids filesystem I/O for 80+ common binary types. Content analysis slow path only triggered for unknown extensions, reducing `isBinaryFile()` calls. Size check via `fs.stat()` prevents content analysis of large files (default 1MB threshold). Error handling returns `true` for permission errors or missing files to fail-safe exclude unreadable paths.
+Returns `true` on `fs.stat()` failure (file unreadable/missing). All operations are async via `async/await` pattern.
+
+## Integration with Discovery Pipeline
+
+Implements `FileFilter` interface from `../types.js` with `name` property for identification in filter chains. Composed with other filters (gitignore, vendor, custom) via `discovery/filters/index.ts` exports. Configured via `config.yaml` schema fields: `options.maxFileSize` and `exclude.binaryExtensions`.
+
+## Dependencies
+
+- `isbinaryfile` — Provides `isBinaryFile(path)` for content-based binary detection
+- `node:fs/promises` — Supplies `fs.stat()` for size retrieval
+- `node:path` — Supplies `path.extname()` for extension extraction

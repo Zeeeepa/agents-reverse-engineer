@@ -1,40 +1,48 @@
 ---
-generated_at: 2026-02-09T15:07:58.532Z
+generated_at: 2026-02-09T16:11:01.003Z
 content_hash: d8d7ef7e66d133a389b91d83401f8f63fdcdc9e43d3c6bd39a37e9100f11a118
-purpose: Terminal output logger providing colored CLI formatting with discoverable file/excluded/summary/warn/error methods an...
+purpose: Terminal logging facade with picocolors-based output formatting for CLI discovery, exclusion, summary, warning, and e...
 ---
-**Terminal output logger providing colored CLI formatting with discoverable file/excluded/summary/warn/error methods and silent mode for testing.**
+**Terminal logging facade with picocolors-based output formatting for CLI discovery, exclusion, summary, warning, and error messages.**
 
-## Exported Interfaces
+## Exported Interface
 
-**Logger** interface defines six output methods:
-- `info(message: string): void` — log informational message
-- `file(path: string): void` — log discovered file
-- `excluded(path: string, reason: string, filter: string): void` — log excluded file with reason and filter
-- `summary(included: number, excluded: number): void` — log discovery summary with counts
-- `warn(message: string): void` — log warning message
-- `error(message: string): void` — log error message
+`Logger` interface defines six methods:
+- `info(message: string): void` — Log informational message
+- `file(path: string): void` — Log discovered file
+- `excluded(path: string, reason: string, filter: string): void` — Log excluded file with reason and filter name
+- `summary(included: number, excluded: number): void` — Log discovery summary with counts
+- `warn(message: string): void` — Log warning message
+- `error(message: string): void` — Log error message
 
-**LoggerOptions** interface configures color support:
-- `colors: boolean` — enable/disable ANSI color codes (default true)
+`LoggerOptions` interface:
+- `colors: boolean` — Enable ANSI color codes (default true)
 
 ## Factory Functions
 
-**createLogger(options: LoggerOptions): Logger** instantiates color-enabled logger using picocolors or identity functions based on `options.colors`. Output format per CONTEXT.md specification:
-- `file`: green "  +" prefix + relative path
-- `excluded`: dim "  -" prefix + path + dim reason/filter in parentheses
-- `summary`: bold included count + dim excluded count
-- `warn`: yellow "Warning:" prefix
-- `error`: red "Error:" prefix
+`createLogger(options: LoggerOptions): Logger` constructs logger with conditional color support. When `options.colors` is true, uses `picocolors` (`pc`) for formatting; otherwise uses `noColor` identity functions. Output format per CONTEXT.md specification:
+- `file()`: green `"  +"` prefix + path
+- `excluded()`: dim `"  -"` prefix + path + dim `" (${reason}: ${filter})"`
+- `summary()`: bold `"\nDiscovered ${included} files"` + dim `" (${excluded} excluded)"`
+- `warn()`: yellow `"Warning: "` prefix + message via `console.warn()`
+- `error()`: red `"Error: "` prefix + message via `console.error()`
+- `info()`: plain `console.log()` without formatting
 
-**createSilentLogger(): Logger** returns no-op logger with all methods stubbed via noop function. Used for testing or programmatic usage requiring suppressed output.
+`createSilentLogger(): Logger` returns no-op logger with all methods as empty functions. Used for testing or programmatic usage where output suppression is required.
 
-## Implementation Details
+## Internal Types
 
-**ColorFunctions** interface wraps five picocolors methods: `green`, `dim`, `red`, `bold`, `yellow`. Each accepts string parameter and returns formatted string.
+`ColorFunctions` interface defines five formatting functions:
+- `green(s: string): string`
+- `dim(s: string): string`
+- `red(s: string): string`
+- `bold(s: string): string`
+- `yellow(s: string): string`
 
-**identity** function returns input string unchanged, used for no-color mode.
+`identity(s: string): string` returns input unchanged.
 
-**noColor** constant implements ColorFunctions interface with all methods mapped to identity function, avoiding picocolors overhead when colors disabled.
+`noColor: ColorFunctions` constant binds all five color functions to `identity` for no-color mode.
 
-Logger factory conditionally assigns `pc` (picocolors) or `noColor` to `c` variable based on `options.colors`, then returns Logger object with methods calling `console.log`/`console.warn`/`console.error` with appropriate color formatting.
+## Dependencies
+
+Imports `picocolors` as `pc` for ANSI color code generation. Falls back to `noColor` identity functions when `options.colors` is false.

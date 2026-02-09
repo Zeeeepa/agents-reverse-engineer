@@ -1,33 +1,36 @@
 ---
-generated_at: 2026-02-09T15:07:10.006Z
+generated_at: 2026-02-09T16:10:16.531Z
 content_hash: 170a8dbec49b601e218709256527ba0dbfa43f1f69e0aac7a6e7e3f9370fcb86
-purpose: Defines TypeScript interfaces for AI-generated analysis results, metadata extraction, and summary generation options ...
+purpose: types.ts defines the core TypeScript interfaces for the documentation generation pipeline: file analysis results (`An...
 ---
-**Defines TypeScript interfaces for AI-generated analysis results, metadata extraction, and summary generation options used throughout the three-phase documentation pipeline.**
+**types.ts defines the core TypeScript interfaces for the documentation generation pipeline: file analysis results (`AnalysisResult`), extracted metadata schemas (`SummaryMetadata`), and generation options (`SummaryOptions`).**
 
-## Exported Types
+## Exported Interfaces
 
-**`AnalysisResult`** — Result of Phase 1 file analysis populated by LLM via `AIService.call()`. Contains:
-- `summary: string` — Generated markdown summary text written to `.sum` files
-- `metadata: SummaryMetadata` — Extracted structured metadata for YAML frontmatter
+**`AnalysisResult`** — Result structure returned after LLM-based file analysis, containing:
+- `summary: string` — Generated markdown summary text
+- `metadata: SummaryMetadata` — Extracted structured metadata
 
-**`SummaryMetadata`** — Structured metadata extracted during file analysis and serialized to `.sum` YAML frontmatter. Contains:
-- `purpose: string` — One-line purpose statement (mandatory)
-- `criticalTodos?: string[]` — Security/breaking issues only (optional)
-- `relatedFiles?: string[]` — Tightly coupled sibling file paths (optional)
+**`SummaryMetadata`** — Metadata schema extracted during file analysis, with fields:
+- `purpose: string` — Primary purpose statement (mandatory)
+- `criticalTodos?: string[]` — Optional array of security/breaking issues only
+- `relatedFiles?: string[]` — Optional array of tightly-coupled sibling file paths
 
-**`SummaryOptions`** — Configuration for summary generation behavior. Contains:
+**`SummaryOptions`** — Configuration object for summary generation behavior:
 - `targetLength: 'short' | 'standard' | 'detailed'` — Controls output verbosity
-- `includeCodeSnippets: boolean` — Whether to embed code examples in summaries
+- `includeCodeSnippets: boolean` — Toggles code snippet inclusion in generated summaries
 
 ## Integration Points
 
-Used by `src/generation/executor.ts` to type-check AI service responses during Phase 1 concurrent file analysis. The `AnalysisResult.metadata` structure maps directly to YAML frontmatter fields written by `writeSumFile()` in `src/generation/writers/sum.ts`. The `content_hash` field (SHA-256) added during write is not part of this schema — it's injected by the writer layer.
+These types flow through the three-phase pipeline defined in `src/generation/orchestrator.ts`:
+- Phase 1 (file analysis): AI backends in `src/ai/backends/` return `AnalysisResult` via `AIService.call()`
+- Phase 2 (directory aggregation): `SummaryMetadata` fields (`relatedFiles`, `criticalTodos`) aggregated into `AGENTS.md` via `src/generation/writers/agents-md.ts`
+- Phase 3 (root synthesis): `purpose` field extracted from `.sum` YAML frontmatter via `src/generation/collector.ts`
 
-Referenced by `src/generation/prompts/builder.ts` when constructing prompts that specify expected LLM output format. The `SummaryOptions` type flows through `CommandRunOptions` in `src/orchestration/types.ts` to control prompt template selection.
+`SummaryOptions` consumed by prompt builders in `src/generation/prompts/builder.ts` to adjust template verbosity and code snippet inclusion rules.
 
-## Related Files
+## Design Constraints
 
-- `src/generation/writers/sum.ts` — Consumes `AnalysisResult` to write `.sum` files with YAML frontmatter
-- `src/generation/prompts/types.ts` — Defines `PromptContext` that carries `SummaryOptions`
-- `src/orchestration/types.ts` — Defines `Task` discriminated union where `AnalyzeFileTask` produces `AnalysisResult`
+- `SummaryMetadata.criticalTodos` intentionally limited to security/breaking issues (not general TODOs) per density rules in project instructions
+- `SummaryMetadata.relatedFiles` paths must resolve to actual source files to avoid phantom path validation errors from `src/quality/phantom-paths/validator.ts`
+- `AnalysisResult` populated by LLM via subprocess output parsing in `src/ai/subprocess.ts` (expects JSON-serializable structure)

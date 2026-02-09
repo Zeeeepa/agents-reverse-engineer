@@ -1,58 +1,46 @@
 ---
-generated_at: 2026-02-09T15:06:52.895Z
+generated_at: 2026-02-09T16:10:06.684Z
 content_hash: 40987c5270cd4d77bfee1562927e78816e76974b5bdcaf2248dc4fb478b45447
-purpose: discoverFiles() orchestrates the four-stage filter pipeline (gitignore, vendor, binary, custom) over walkDirectory() ...
+purpose: `run.ts` exports `discoverFiles()`, the high-level entry point orchestrating four-filter pipeline execution (gitignor...
 ---
-**discoverFiles() orchestrates the four-stage filter pipeline (gitignore, vendor, binary, custom) over walkDirectory() results, returning FilterResult with included/excluded file lists and filter attribution.**
+**`run.ts` exports `discoverFiles()`, the high-level entry point orchestrating four-filter pipeline execution (gitignore → vendor → binary → custom) after directory walking, returning `FilterResult` with included/excluded file lists and filter attribution.**
 
-## Exported Functions
+## Exported Interface
 
-**discoverFiles(root: string, config: DiscoveryConfig, options?: DiscoverFilesOptions): Promise<FilterResult>**
-- Creates filter chain via createGitignoreFilter(), createVendorFilter(), createBinaryFilter(), createCustomFilter()
-- Invokes walkDirectory() with followSymlinks from config.options
-- Applies filters via applyFilters() with optional tracer and debug passthrough
-- Returns FilterResult containing both included and excluded files with filter reason metadata
+**`DiscoveryConfig`** — Structural subset of full `Config` schema from `src/config/schema.ts` containing:
+- `exclude.vendorDirs: string[]` — Third-party directories to skip
+- `exclude.binaryExtensions: string[]` — Non-text file extensions
+- `exclude.patterns: string[]` — Gitignore-style globs
+- `options.maxFileSize: number` — Binary detection threshold in bytes
+- `options.followSymlinks: boolean` — Symlink traversal flag
 
-## Configuration Interface
+**`DiscoverFilesOptions`** — Optional parameters for pipeline execution:
+- `tracer?: ITraceWriter` — Trace event emitter for telemetry
+- `debug?: boolean` — Verbose logging flag
 
-**DiscoveryConfig**
-- Subset of full Config schema from src/config/schema.ts
-- Structure:
-  ```typescript
-  {
-    exclude: {
-      vendorDirs: string[];           // e.g., node_modules, .git, dist
-      binaryExtensions: string[];     // e.g., .png, .jpg, .zip
-      patterns: string[];             // gitignore-style globs
-    };
-    options: {
-      maxFileSize: number;            // binary detection threshold (1MB default)
-      followSymlinks: boolean;        // symlink traversal flag
-    };
-  }
-  ```
-- Structurally compatible with config/schema.ts Config type for duck typing
+**`discoverFiles(root: string, config: DiscoveryConfig, options?: DiscoverFilesOptions): Promise<FilterResult>`** — Async pipeline function creating filters in deterministic order (gitignore, vendor, binary, custom), invoking `walkDirectory()` with `cwd` and `followSymlinks` options, then applying filter chain via `applyFilters()` with tracer/debug propagation. Returns `FilterResult` containing `included: FileInfo[]`, `excluded: FileInfo[]` arrays with per-file filter attribution.
 
-**DiscoverFilesOptions**
-- Optional tracer: ITraceWriter for trace event emission
-- Optional debug: boolean for verbose filter logging
+## Filter Chain Composition
 
-## Filter Pipeline Order
+Constructs four filters via factory functions:
+1. **`createGitignoreFilter(root)`** — Parses `.gitignore` files using `ignore` library
+2. **`createVendorFilter(config.exclude.vendorDirs)`** — Blocks third-party directories (node_modules, .git, dist)
+3. **`createBinaryFilter({ maxFileSize, additionalExtensions })`** — Detects binary files via extension + content analysis
+4. **`createCustomFilter(config.exclude.patterns, root)`** — Applies user-defined glob patterns
 
-1. **createGitignoreFilter(root)** — async, reads .gitignore from root directory
-2. **createVendorFilter(config.exclude.vendorDirs)** — synchronous, blocks third-party directories
-3. **createBinaryFilter({ maxFileSize, additionalExtensions })** — synchronous, checks extension + content analysis
-4. **createCustomFilter(config.exclude.patterns, root)** — synchronous, applies user-defined glob patterns
-
-All filters imported from './filters/index.js' barrel export.
+Filters applied sequentially in declared order via `applyFilters()` from `./filters/index.js`.
 
 ## Integration Points
 
-- **walkDirectory()** from './walker.js' performs directory traversal with symlink handling
-- **applyFilters()** from './filters/index.js' executes filter chain and aggregates results
-- **ITraceWriter** from '../orchestration/trace.js' enables NDJSON trace event emission
-- Used by cli/discover.ts, cli/generate.ts, cli/update.ts as shared discovery entry point
+**Callers:** All CLI commands requiring file discovery (`src/cli/discover.ts`, `src/cli/generate.ts`, `src/cli/update.ts`) invoke `discoverFiles()` with config loaded from `loadConfig()`.
 
-## Design Rationale
+**Dependencies:**
+- `walkDirectory()` from `./walker.js` — Filesystem traversal with symlink control
+- `applyFilters()` from `./filters/index.js` — Sequential filter application with attribution
+- `ITraceWriter` from `../orchestration/trace.js` — Telemetry event emission
 
-High-level pipeline abstraction eliminates filter chain construction boilerplate across commands. Structural typing of DiscoveryConfig avoids circular dependency with config/schema.ts while maintaining type safety. Returns full FilterResult instead of just included files to support debug/diagnostics and plan generation metadata.
+**Output consumption:** Returned `FilterResult.included` feeds into Phase 1 file analysis worker pool, `FilterResult.excluded` populates `GENERATION-PLAN.md` statistics.
+
+## Design Pattern
+
+Facade pattern consolidating filter creation, directory walking, and filter application into single async function with config-driven parameterization. Promotes structural compatibility via `DiscoveryConfig` interface instead of tight coupling to full `Config` type, enabling unit testing with minimal mock objects.

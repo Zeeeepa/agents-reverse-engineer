@@ -1,85 +1,58 @@
 ---
-generated_at: 2026-02-09T15:07:47.655Z
+generated_at: 2026-02-09T16:10:46.021Z
 content_hash: 815c6784f88dbd27ad0b859beb5c7fa30845665400df4d51a3ed29f557812499
-purpose: Orchestrates AI assistant integration file generation by detecting environments (Claude, OpenCode, Gemini, Aider), re...
+purpose: generateIntegrationFiles() orchestrates AI assistant integration setup by detecting environments, retrieving platform...
 ---
-**Orchestrates AI assistant integration file generation by detecting environments (Claude, OpenCode, Gemini, Aider), retrieving platform-specific templates, writing command files to project-local config directories, and installing session lifecycle hooks with dry-run/force/environment-override support.**
+**generateIntegrationFiles() orchestrates AI assistant integration setup by detecting environments, retrieving platform-specific templates, writing command files, and copying bundled hook files from `hooks/dist/` to project directories.**
 
 ## Exported Functions
 
-### generateIntegrationFiles
-```typescript
-async function generateIntegrationFiles(
-  projectRoot: string,
-  options: GenerateOptions = {}
-): Promise<IntegrationResult[]>
-```
+**generateIntegrationFiles(projectRoot: string, options?: GenerateOptions): Promise<IntegrationResult[]>**
+- Detects AI environments via `detectEnvironments()` unless `options.environment` overrides detection
+- Maps `EnvironmentType` to config directories: `claude` → `.claude`, `opencode` → `.opencode`, `aider` → `.aider`, `gemini` → `.gemini`
+- Iterates detected environments, retrieves templates via `getTemplatesForEnvironment()`, writes files via `writeFileSync()` with `ensureDir()` parent directory creation
+- Skips existing files unless `options.force` is true, populates `IntegrationResult.filesSkipped[]`
+- For `claude` environment specifically, copies bundled hook `are-session-end.js` from `hooks/dist/` to `.claude/hooks/are-session-end.js` via `readBundledHook()` → `writeFileSync()`
+- Returns `IntegrationResult[]` with `filesCreated[]` and `filesSkipped[]` per environment
+- Respects `options.dryRun` to skip actual writes
 
-Main entry point that auto-detects AI assistant environments via `detectEnvironments()` or uses `options.environment` override. For each detected environment, retrieves templates via `getTemplatesForEnvironment()`, writes files to paths like `.claude/skills/are-generate/SKILL.md`, tracks created/skipped files in `IntegrationResult` array. Special handling for Claude environment: copies bundled hook `are-session-end.js` via `readBundledHook()` to `.claude/hooks/` directory. Respects `force` flag to overwrite existing files, `dryRun` flag to preview without writes.
+## Internal Functions
 
-### GenerateOptions
-```typescript
-interface GenerateOptions {
-  dryRun?: boolean;
-  force?: boolean;
-  environment?: EnvironmentType;
-}
-```
+**getBundledHookPath(hookName: string): string**
+- Resolves path from `dist/integration/` up two levels to project root, then into `hooks/dist/{hookName}`
+- Uses `fileURLToPath(import.meta.url)` for ES module `__dirname` equivalent
 
-Configuration interface controlling generation behavior: `dryRun` simulates writes without file I/O, `force` overwrites existing files instead of skipping, `environment` bypasses auto-detection to target single platform (Claude, OpenCode, Gemini, Aider).
+**readBundledHook(hookName: string): string**
+- Reads hook file content from path returned by `getBundledHookPath()`
+- Throws `Error` if `existsSync()` check fails with message pattern `"Bundled hook not found: {hookPath}"`
 
-## Template Routing
+**ensureDir(filePath: string): void**
+- Extracts directory via `path.dirname()`, creates recursively via `mkdirSync({ recursive: true })` if `existsSync()` returns false
 
-### getTemplatesForEnvironment
-```typescript
-function getTemplatesForEnvironment(
-  type: EnvironmentType
-): ReturnType<typeof getClaudeTemplates>
-```
+**getTemplatesForEnvironment(type: EnvironmentType): ReturnType<typeof getClaudeTemplates>**
+- Switch statement dispatching on `EnvironmentType`: `claude` → `getClaudeTemplates()`, `opencode` → `getOpenCodeTemplates()`, `gemini` → `getGeminiTemplates()`, `aider` → empty array `[]`
+- Returns array of template objects with `path` and `content` properties
 
-Routes environment type to platform-specific template factory: `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()`. Returns empty array for Aider (no command file support). Template objects contain `path` (relative to project root) and `content` (file body) properties.
+## Types
 
-## Bundled Hook Management
+**GenerateOptions interface**
+- `dryRun?: boolean` — Preview mode, no file writes
+- `force?: boolean` — Overwrite existing files instead of skipping
+- `environment?: EnvironmentType` — Bypass auto-detection, force specific environment
 
-### getBundledHookPath
-```typescript
-function getBundledHookPath(hookName: string): string
-```
+## Integration Points
 
-Resolves absolute path to pre-built hook files in `hooks/dist/` directory. Navigates from `dist/integration/` (current `__dirname`) up two levels to project root via `path.join(__dirname, '..', '..', 'hooks', 'dist', hookName)`.
+- Imports `detectEnvironments()` from `./detect.js` for environment auto-detection
+- Imports `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` from `./templates.js` for platform-specific command file content
+- Imports `IntegrationResult` and `EnvironmentType` from `./types.js`
+- File operations via Node.js `fs` module: `existsSync()`, `mkdirSync()`, `writeFileSync()`, `readFileSync()`
+- Path manipulation via `node:path` module and `fileURLToPath()` from `node:url`
 
-### readBundledHook
-```typescript
-function readBundledHook(hookName: string): string
-```
+## File Path Patterns
 
-Reads bundled hook content via `readFileSync()`. Throws error if hook file missing at path from `getBundledHookPath()`. Used to copy session-end hooks to Claude's `.claude/hooks/` directory.
+**Hook bundling convention:**
+- Hooks copied from `hooks/dist/{hookName}` (post-build artifacts from `scripts/build-hooks.js`)
+- Destination: `.claude/hooks/are-session-end.js` (only for `claude` environment)
 
-## File System Operations
-
-### ensureDir
-```typescript
-function ensureDir(filePath: string): void
-```
-
-Creates parent directory chain via `mkdirSync(dir, { recursive: true })` if not exists. Extracts directory path via `path.dirname(filePath)`, checks existence with `existsSync()`.
-
-## Integration with Other Modules
-
-- **detectEnvironments** (from `./detect.js`): Returns array of detected environments with `type` and `configDir` properties
-- **Template factories** (from `./templates.js`): `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` return template arrays
-- **IntegrationResult, EnvironmentType** (from `./types.js`): Result schema tracks `filesCreated`/`filesSkipped` per environment
-
-## Platform-Specific Behavior
-
-Maps `EnvironmentType` to config directory paths via `configDirMap`:
-- `claude` → `.claude`
-- `opencode` → `.opencode`
-- `gemini` → `.gemini`
-- `aider` → `.aider`
-
-Claude environment receives additional hook installation: reads `are-session-end.js` from bundled hooks, writes to `.claude/hooks/are-session-end.js` with same skip/force logic as command files.
-
-## File Write Strategy
-
-Iterates templates, constructs `fullPath` via `path.join(projectRoot, template.path)`. If file exists and `force=false`, appends to `result.filesSkipped`. Otherwise, calls `ensureDir()` to create parent directories, `writeFileSync()` to write content, appends to `result.filesCreated`. All writes skip when `dryRun=true` but still populate created/skipped tracking arrays.
+**Command file destinations:**
+- Platform-specific via templates: `.claude/skills/`, `.opencode/commands/`, `.gemini/commands/`

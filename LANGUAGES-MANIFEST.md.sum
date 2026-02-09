@@ -1,28 +1,53 @@
 ---
-generated_at: 2026-02-09T15:08:35.119Z
+generated_at: 2026-02-09T16:11:42.950Z
 content_hash: 6887e78721df5fe39e42f0d4515ab296cc48e536089ec8ca4b5916f7eddebed8
-purpose: LANGUAGES-MANIFEST.md catalogs package manifest file patterns across 25 programming languages with support status fla...
+purpose: LANGUAGES-MANIFEST.md documents package manager manifest files across 26 programming languages, mapping each ecosyste...
 ---
-**LANGUAGES-MANIFEST.md catalogs package manifest file patterns across 25 programming languages with support status flags for ARE's manifest detection system.**
+**LANGUAGES-MANIFEST.md documents package manager manifest files across 26 programming languages, mapping each ecosystem's dependency declaration files to their respective package managers and indicating which formats ARE's directory aggregation phase currently supports.**
 
-## Manifest Detection Support
+## Supported Manifest Detection
 
-**Supported languages** (9 total): JavaScript/TypeScript (`package.json`), Python (`requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`), Ruby (`Gemfile`), Go (`go.mod`), Rust (`Cargo.toml`), Java (`pom.xml`, `build.gradle`), PHP (`composer.json`), C/C++ (`CMakeLists.txt`, `conanfile.txt`, `vcpkg.json`).
+Phase 2 directory aggregation (`src/generation/prompts/builder.ts` via `detectManifest()`) recognizes 9 manifest types for inclusion in AGENTS.md prompts:
 
-**Unsupported languages** (16 total): Kotlin, C#/.NET, Swift, Elixir, Erlang, Scala, Clojure, Haskell, Dart/Flutter, Lua, R, Julia, Zig, Nim, OCaml, and others without support flags.
+- `package.json` (JavaScript/TypeScript: npm/yarn/pnpm)
+- `Cargo.toml` (Rust: cargo)
+- `go.mod` (Go: go modules)
+- `pyproject.toml` (Python: poetry)
+- `pom.xml` (Java: Maven)
+- `build.gradle` (Java/Kotlin: Gradle)
+- `Gemfile` (Ruby: bundler)
+- `composer.json` (PHP: Composer)
+- `CMakeLists.txt` and `Makefile` (C/C++: CMake/make)
 
-## Integration Points
+Supported languages marked with ✓ in table: JavaScript/TypeScript, Python, Go, Rust.
 
-References `src/generation/prompts/builder.ts` function `buildDirectoryPrompt()` which includes manifest detection logic scanning for 9 manifest types. Column structure matches internal manifest filename arrays used during Phase 2 directory aggregation.
+## Markdown Table Structure
 
-## Manifest Categories
-
-**Single-file manifests**: `package.json` (npm/yarn/pnpm), `go.mod` (Go modules), `Cargo.toml` (Cargo), `Gemfile` (Bundler), `composer.json` (Composer), `pubspec.yaml` (Dart pub), `mix.exs` (Elixir Mix).
-
-**Multi-file manifests**: Python supports 4 alternatives (`requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`), Java supports Maven (`pom.xml`) and Gradle (`build.gradle`), Haskell supports 3 formats (`package.yaml`, `*.cabal`, `stack.yaml`), C/C++ supports CMake/Conan/vcpkg variants.
-
-**Glob-based patterns**: Haskell `*.cabal`, C# `*.csproj`/`*.fsproj`, Lua `*.rockspec`, Nim `*.nimble`, OCaml `*.opam` require wildcard matching beyond exact filename checks.
+Column schema:
+- **Language**: Ecosystem name or language family (e.g., "C#/.NET", "Dart/Flutter")
+- **Manifest File(s)**: Comma-separated list of dependency declaration files, including alternatives (e.g., "requirements.txt", "pyproject.toml", "setup.py", "Pipfile" for Python)
+- **Package Manager**: Corresponding dependency resolution tools (e.g., "pip, poetry, pipenv")
+- **Supported**: ✓ indicates ARE's `detectManifest()` recognizes this format; empty cells indicate detection not implemented
 
 ## Coverage Gaps
 
-ARE currently implements exact filename matching for 9 manifest types. Unsupported languages with ✓ flags (Ruby, Java) indicate planned but unimplemented detection. Languages without flags represent documentation-only coverage without corresponding code paths in `buildDirectoryPrompt()`.
+Unsupported ecosystems with manifest entries but no detection logic:
+- Ruby (`Gemfile` listed but not in detection array despite being included in supported list)
+- Java/Kotlin Gradle variants (`build.gradle.kts`)
+- C#/.NET NuGet formats (`*.csproj`, `packages.config`, `*.fsproj`)
+- Swift (`Package.swift`)
+- Functional languages: Elixir (`mix.exs`), Erlang (`rebar.config`), Scala (`build.sbt`), Clojure (`deps.edn`, `project.clj`), Haskell (`package.yaml`, `*.cabal`, `stack.yaml`), OCaml (`dune-project`, `*.opam`)
+- Scientific/scripting: Dart (`pubspec.yaml`), Lua (`*.rockspec`), R (`DESCRIPTION`), Julia (`Project.toml`)
+- Systems languages: Zig (`build.zig.zon`), Nim (`*.nimble`)
+- C/C++ alternatives: Conan (`conanfile.txt`), vcpkg (`vcpkg.json`)
+
+## Integration Point
+
+Referenced by `buildDirectoryPrompt()` in `src/generation/prompts/builder.ts` when constructing Phase 2 aggregation prompts. Manifest content appended to prompt context via `fs.readFileSync(manifestPath, 'utf-8')` when `detectManifest(directoryPath)` returns non-null filename.
+
+## Extension Strategy
+
+Adding new manifest support requires:
+1. Append filename to `COMMON_MANIFESTS` array in `src/generation/prompts/builder.ts`
+2. Update Supported column (✓) in this reference table
+3. Verify `fs.existsSync(path.join(directoryPath, manifestFilename))` detection logic handles glob patterns (e.g., `*.csproj`) if wildcard matching needed

@@ -1,42 +1,42 @@
 ---
-generated_at: 2026-02-09T15:06:59.393Z
+generated_at: 2026-02-09T16:09:55.642Z
 content_hash: d0147438ee839084207379c5515a452f672f61498191379daa10e01067d4c333
-purpose: Computes resource-constrained concurrency defaults and provides static configuration constants for file discovery exc...
+purpose: defaults.ts computes adaptive concurrency limits based on CPU cores and system memory, exports default exclusion list...
 ---
-**Computes resource-constrained concurrency defaults and provides static configuration constants for file discovery exclusions, binary detection, and vendor directory filtering.**
+**defaults.ts computes adaptive concurrency limits based on CPU cores and system memory, exports default exclusion lists for vendor directories, file patterns, and binary extensions, and provides the complete default configuration object structure.**
 
 ## Exported Functions
 
-- `getDefaultConcurrency(): number` — Computes default worker pool concurrency by taking the minimum of CPU-scaled value (`cores * CONCURRENCY_MULTIPLIER`), memory-based capacity (`floor(totalMemGB * MEMORY_FRACTION / SUBPROCESS_HEAP_GB)`), and `MAX_CONCURRENCY`, then clamping to `MIN_CONCURRENCY` lower bound. Uses `os.availableParallelism()` (Node 18.14+) with fallback to `os.cpus().length`.
+**getDefaultConcurrency(): number** computes default worker pool size using formula `clamp(cores * 5, MIN, min(memCap, MAX))` where cores comes from `os.availableParallelism()` or `os.cpus().length` fallback, memCap equals `Math.floor((totalMemGB * 0.5) / 0.512)` capping memory usage at 50% of total RAM divided by 512MB subprocess heap budget, MIN_CONCURRENCY is 2, MAX_CONCURRENCY is 20, and CONCURRENCY_MULTIPLIER is 5.
 
 ## Exported Constants
 
-- `DEFAULT_VENDOR_DIRS` — 18-element readonly array of directory names excluded from discovery: package managers (`node_modules`, `vendor`), build outputs (`dist`, `build`, `.next`, `target`), version control (`.git`), virtual environments (`venv`, `.venv`, `__pycache__`), dependency caches (`.cargo`, `.gradle`), and AI tooling directories (`.agents-reverse-engineer`, `.agents`, `.planning`, `.claude`, `.opencode`, `.gemini`).
+**DEFAULT_VENDOR_DIRS** is readonly array of 18 directory names: `['node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target', '.cargo', '.gradle', '.agents-reverse-engineer', '.agents', '.planning', '.claude', '.opencode', '.gemini']`.
 
-- `DEFAULT_EXCLUDE_PATTERNS` — 32-element readonly array of gitignore-style glob patterns: AI documentation files (`AGENTS.md`, `CLAUDE.md`, `OPENCODE.md`, `GEMINI.md` with glob variants), lock files (`*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `bun.lockb`, `Gemfile.lock`, `Cargo.lock`, `poetry.lock`, `composer.lock`, `go.sum`), dotfiles (`.gitignore`, `.gitattributes`, `.gitkeep`), environment files (`.env`, `**/.env`, `**/.env.*`), logs (`*.log`), summaries (`*.sum`, `**/*.sum`), and skill files (`**/SKILL.md`).
+**DEFAULT_EXCLUDE_PATTERNS** is readonly array of 26 gitignore-style glob patterns excluding AI assistant docs (`AGENTS.md`, `CLAUDE.md`, `OPENCODE.md`, `GEMINI.md`, `**/AGENTS.md`, `**/CLAUDE.md`, `**/OPENCODE.md`, `**/GEMINI.md`), lock files (`*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `bun.lockb`, `Gemfile.lock`, `Cargo.lock`, `poetry.lock`, `composer.lock`, `go.sum`), and dotfiles/artifacts (`.gitignore`, `.gitattributes`, `.gitkeep`, `.env`, `**/.env`, `**/.env.*`, `*.log`, `*.sum`, `**/*.sum`, `**/SKILL.md`).
 
-- `DEFAULT_BINARY_EXTENSIONS` — 26-element readonly array of file extensions for non-text files: images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`), archives (`.zip`, `.tar`, `.gz`, `.rar`, `.7z`), executables (`.exe`, `.dll`, `.so`, `.dylib`), media (`.mp3`, `.mp4`, `.wav`), documents (`.pdf`), fonts (`.woff`, `.woff2`, `.ttf`, `.eot`), compiled bytecode (`.class`, `.pyc`).
+**DEFAULT_BINARY_EXTENSIONS** is readonly array of 26 extensions: images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`), archives (`.zip`, `.tar`, `.gz`, `.rar`, `.7z`), executables (`.exe`, `.dll`, `.so`, `.dylib`), media (`.mp3`, `.mp4`, `.wav`), documents (`.pdf`), fonts (`.woff`, `.woff2`, `.ttf`, `.eot`), compiled (`.class`, `.pyc`).
 
-- `DEFAULT_MAX_FILE_SIZE` — 1048576 bytes (1MB) size threshold for binary detection and file size warnings.
+**DEFAULT_MAX_FILE_SIZE** equals `1024 * 1024` (1MB byte threshold for binary detection).
 
-- `DEFAULT_CONFIG` — Nested readonly object matching Zod schema structure from `src/config/schema.ts` with properties: `exclude.patterns`, `exclude.vendorDirs`, `exclude.binaryExtensions`, `options.followSymlinks` (false), `options.maxFileSize` (1MB), `output.colors` (true). Used as fallback when config file absent or for missing fields during merge in `src/config/loader.ts`.
+**DEFAULT_CONFIG** is readonly object with structure `{ exclude: { patterns, vendorDirs, binaryExtensions }, options: { followSymlinks: false, maxFileSize }, output: { colors: true } }` spreading all default arrays and using DEFAULT_MAX_FILE_SIZE value.
 
-## Concurrency Computation Algorithm
+## Internal Constants
 
-`getDefaultConcurrency()` applies three-way clamping:
-1. **CPU-scaled**: `cores * CONCURRENCY_MULTIPLIER` (5x multiplier)
-2. **Memory-capped**: `floor(totalMemGB * MEMORY_FRACTION / SUBPROCESS_HEAP_GB)` where `MEMORY_FRACTION=0.5` and `SUBPROCESS_HEAP_GB=0.512` (matches `NODE_OPTIONS='--max-old-space-size=512'` from `src/ai/subprocess.ts`)
-3. **Hard bounds**: `MIN_CONCURRENCY=2`, `MAX_CONCURRENCY=20` (matches Zod schema `.max(20)` in `src/config/schema.ts`)
+**CONCURRENCY_MULTIPLIER** is 5 (factor applied to CPU core count).
 
-Memory capacity calculation prevents OOM in resource-constrained environments (WSL) by limiting total subprocess heap allocation to 50% of system RAM. Returns `Infinity` for `memCap` when `totalMemGB <= 1` to avoid zero concurrency on low-memory systems.
+**MIN_CONCURRENCY** is 2 (floor enforced by getDefaultConcurrency).
+
+**MAX_CONCURRENCY** is 20 (ceiling matching Zod schema `.max(20)` constraint).
+
+**SUBPROCESS_HEAP_GB** is 0.512 (512MB heap budget per subprocess matching `NODE_OPTIONS='--max-old-space-size=512'` in subprocess.ts).
+
+**MEMORY_FRACTION** is 0.5 (allocates 50% of total system memory to subprocess pool).
+
+## Memory-Aware Concurrency Logic
+
+getDefaultConcurrency checks if `totalMemGB > 1` before computing memCap to avoid division-by-zero or invalid floor operations on systems with less than 1GB RAM (returns Infinity bypassing memory constraint). Returns `Math.max(MIN_CONCURRENCY, Math.min(computed, memCap, MAX_CONCURRENCY))` ensuring result falls within [2, 20] interval while respecting memory capacity ceiling.
 
 ## Integration Points
 
-- Consumed by `src/config/loader.ts` for config merging: `DEFAULT_CONFIG` provides base values, user YAML overrides selectively
-- Referenced by `src/config/schema.ts` Zod defaults: `concurrency` field uses `getDefaultConcurrency()` as `.default()` value
-- Used by `src/discovery/filters/vendor.ts`, `src/discovery/filters/custom.ts`, `src/discovery/filters/binary.ts` for filter initialization
-- `SUBPROCESS_HEAP_GB` constant aligns with `NODE_OPTIONS='--max-old-space-size=512'` environment variable set in `src/ai/subprocess.ts` `runSubprocess()` function
-
-## Design Rationale
-
-Export defaults as frozen arrays (`as const`) to prevent accidental mutation. Separate `DEFAULT_EXCLUDE_PATTERNS` from `DEFAULT_BINARY_EXTENSIONS` because `path.extname()` returns empty string for dotfiles, requiring glob matching instead of extension comparison. Lock files excluded via glob patterns rather than binary extensions despite large size to maintain consistent filtering strategy.
+Referenced by `src/config/schema.ts` (merges with user config via `config.ai?.concurrency ?? getDefaultConcurrency()`), `src/config/loader.ts` (spreads DEFAULT_CONFIG as base object before YAML overlay), and indirectly by `src/orchestration/pool.ts` (consumes final concurrency value for worker pool sizing).

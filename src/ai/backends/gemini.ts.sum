@@ -1,34 +1,28 @@
 ---
-generated_at: 2026-02-09T15:05:52.785Z
+generated_at: 2026-02-09T16:08:45.406Z
 content_hash: 2fa047b790395f27759310eeb2030fc6be107b28d9c21108f95a33119d53ab06
-purpose: GeminiBackend implements AIBackend interface as a stub adapter for Gemini CLI integration, detecting CLI availability...
+purpose: GeminiBackend implements AIBackend interface as a stub demonstrating backend extension pattern, returning build confi...
 ---
-**GeminiBackend implements AIBackend interface as a stub adapter for Gemini CLI integration, detecting CLI availability and building argument arrays but throwing SUBPROCESS_ERROR on parseResponse() until Gemini JSON output format stabilizes.**
+**GeminiBackend implements AIBackend interface as a stub demonstrating backend extension pattern, returning build configuration for Gemini CLI but throwing SUBPROCESS_ERROR in parseResponse until Gemini JSON output format stabilizes.**
 
-## Exported Class
+## Exported Interface
 
-`GeminiBackend` implements `AIBackend` interface from `../types.js` with properties:
-- `name: 'gemini'` — backend identifier string
-- `cliCommand: 'gemini'` — executable name for PATH resolution
-
-## Public Methods
-
-`isAvailable(): Promise<boolean>` delegates to `isCommandOnPath(this.cliCommand)` imported from `claude.ts` to detect Gemini CLI presence on PATH.
-
-`buildArgs(_options: AICallOptions): string[]` returns `['-p', '--output-format', 'json']` based on documented Gemini CLI flags, expects prompt via stdin from subprocess wrapper.
-
-`parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse` throws `AIServiceError` with code `'SUBPROCESS_ERROR'` and message directing users to Claude backend, deferring implementation pending Gemini CLI JSON stability.
-
-`getInstallInstructions(): string` returns multiline string with npm install command `@anthropic-ai/gemini-cli` and GitHub repository URL `https://github.com/google-gemini/gemini-cli`.
-
-## Integration Pattern
-
-Follows backend extension pattern established by `ClaudeBackend` and `OpenCodeBackend` in same directory. Registered via `AIBackendRegistry` in `../registry.ts` for multi-platform backend detection. Subprocess orchestration handled by `runSubprocess()` in `../subprocess.ts` which spawns `execFile()` with CLI command and passes prompt via stdin.
+**GeminiBackend** — Stub class implementing AIBackend interface with:
+- `name: 'gemini'` — Backend identifier constant
+- `cliCommand: 'gemini'` — CLI executable name
+- `isAvailable(): Promise<boolean>` — Delegates to `isCommandOnPath(this.cliCommand)` to check PATH availability
+- `buildArgs(_options: AICallOptions): string[]` — Returns `['-p', '--output-format', 'json']` argument array for CLI invocation
+- `parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse` — Throws `AIServiceError` with code `'SUBPROCESS_ERROR'` and message `'Gemini backend is not yet implemented. Use Claude backend.'`
+- `getInstallInstructions(): string` — Returns multiline instructions referencing `npm install -g @anthropic-ai/gemini-cli` and GitHub URL `https://github.com/google-gemini/gemini-cli`
 
 ## Dependencies
 
-Imports `AIBackend`, `AICallOptions`, `AIResponse`, `AIServiceError` from `../types.js`. Imports `isCommandOnPath` utility from `./claude.js` for PATH-based availability detection.
+Imports `AIBackend`, `AICallOptions`, `AIResponse`, `AIServiceError` from `'../types.js'`. Imports `isCommandOnPath` utility from `'./claude.js'` for PATH detection.
 
 ## Implementation Status
 
-Stub implementation marked as incomplete in module docstring referencing "RESEARCH.md Open Question 2" regarding Gemini CLI JSON output stability. Full parsing logic deferred until format stabilizes, preventing execution failures when Gemini selected as backend in `.agents-reverse-engineer/config.yaml`.
+Backend deferred to future phase pending Gemini CLI JSON stability (references `RESEARCH.md Open Question 2` in module docstring). All methods except `parseResponse` provide operational implementations. Prompt delivery occurs via stdin through subprocess wrapper (noted in `buildArgs` docstring).
+
+## Integration Pattern
+
+Follows same AIBackend contract as ClaudeBackend and OpenCodeBackend, enabling registry-based detection via `AIBackendRegistry.detectAvailableBackend()` in `src/ai/registry.ts`. Backend registered in registry's `backends` array for automatic `--backend auto` resolution.

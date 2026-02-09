@@ -1,18 +1,27 @@
 ---
-generated_at: 2026-02-09T15:06:07.786Z
+generated_at: 2026-02-09T16:09:12.557Z
 content_hash: 9035c23a19fe33c400b3ebf272ce357a54458443d60020d4cecf68adbd478548
-purpose: Barrel export module re-exporting `checkPhantomPaths` validator for detecting unresolved file path references in gene...
+purpose: Re-exports `checkPhantomPaths` validator for phantom path detection in generated documentation.
 ---
-**Barrel export module re-exporting `checkPhantomPaths` validator for detecting unresolved file path references in generated `AGENTS.md` documentation.**
+**Re-exports `checkPhantomPaths` validator for phantom path detection in generated documentation.**
 
-## Exports
+## Exported Interface
 
-- `checkPhantomPaths` — Re-exported from `./validator.js`, validates that path-like strings extracted from `AGENTS.md` files resolve to actual source files
+- `checkPhantomPaths` — Re-exported from `./validator.js`, function implementing phantom path validation for `AGENTS.md` files
 
-## Module Role
+## Module Purpose
 
-Entry point for phantom-paths quality validation subsystem. Consolidates path resolution checking into single import surface for consumption by `src/quality/index.ts` quality orchestrator and `src/cli/generate.ts`/`src/cli/update.ts` command handlers.
+Barrel export consolidating phantom path validation functionality. Provides single import point for consumers needing to detect unresolvable file path references embedded in generated documentation.
 
-## Integration Points
+## Integration Context
 
-Consumed by `src/quality/index.ts` which aggregates all quality validators (`checkPhantomPaths`, `checkCodeVsDoc`, `checkCodeVsCode`) into unified `InconsistencyReport`. Implementation logic resides in `./validator.ts` which extracts paths via regex patterns (markdown links, backtick-quoted paths, prose-embedded paths), resolves against project root with `.ts`/`.js` fallback, and returns `PhantomPathInconsistency` objects for unresolved references.
+Part of quality validation subsystem (`src/quality/`) alongside code-vs-doc consistency checking (`src/quality/inconsistency/code-vs-doc.ts`) and code-vs-code duplicate detection (`src/quality/inconsistency/code-vs-code.ts`). Invoked during post-generation validation phase to identify broken path references that may mislead AI coding assistants.
+
+## Implementation Location
+
+Core validation logic resides in `./validator.ts` which extracts path-like strings from `AGENTS.md` using three regex patterns:
+- Markdown link targets: `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g`
+- Backtick-quoted paths: `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g ``
+- Prose-embedded paths: `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi`
+
+Resolves paths against AGENTS.md directory and project root with `.ts`/`.js` extension fallback, reporting `PhantomPathInconsistency` for unresolved references.

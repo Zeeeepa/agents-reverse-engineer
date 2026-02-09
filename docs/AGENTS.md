@@ -2,12 +2,22 @@
 
 # docs
 
-Contains the original vision document (INPUT.md) defining the Recursive Language Model (RLM) algorithm, brownfield documentation methodology, and core feature requirements that guide agents-reverse-engineer development.
+Original design specification and research artifacts defining the Recursive Language Model (RLM) algorithm and agents-reverse-engineer tool inception rationale.
 
 ## Contents
 
-**[INPUT.md](./INPUT.md)** — Original project specification defining RLM bottom-up recursive execution pattern (leaf-to-root file analysis → directory aggregation → root synthesis), intended integration partners (SpecKit, BMAD, Get Shit Done), session hook requirements, and CLI command surface (`/are-generate`, `/are-update`).
+### [INPUT.md](./INPUT.md)
+Inception document defining the RLM algorithm via post-order tree traversal (leaf file analysis → directory aggregation → root synthesis), proposed command interface (`/are-generate`, `/are-update`), session lifecycle integration requirements, and research directives for GSD/BMAD methodology analysis.
 
-## Role in Project
+## Purpose
 
-INPUT.md serves as the canonical requirements document referenced during feature development and architectural decisions. The RLM algorithm described therein drives the three-phase generation pipeline implemented in `src/generation/orchestrator.ts` and `src/orchestration/runner.ts`. Integration partner analysis (GSD, BMAD methodologies) informed the directory-level documentation patterns (`AGENTS.md`, optional architecture sections) and command execution via Claude Code/OpenCode/Gemini backends defined in `src/ai/backends/`.
+`INPUT.md` serves as the foundational design specification established before implementation began. It defines the core RLM workflow: (1) build project tree, (2) traverse post-order starting at deepest leaves, (3) generate `.sum` summaries for files, (4) generate `AGENTS.md` for directories once all children complete, (5) recurse upward to project root. The document specifies target AI platforms (Claude Code, OpenCode, Gemini) and automatic documentation synchronization via session-end hooks.
+
+## Relationship to Implementation
+
+The three-phase pipeline in `src/generation/orchestrator.ts` implements the RLM algorithm specified here:
+- **Phase 1** (concurrent file analysis) → `.sum` generation for leaf nodes
+- **Phase 2** (post-order directory aggregation) → `AGENTS.md` synthesis with depth-based sorting
+- **Phase 3** (root synthesis) → `CLAUDE.md`/`GEMINI.md`/`OPENCODE.md` platform-specific integration documents
+
+Session lifecycle hooks in `hooks/are-session-end.js` and `hooks/opencode-are-session-end.js` implement the automatic update mechanism proposed in this specification.

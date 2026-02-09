@@ -1,39 +1,28 @@
 ---
-generated_at: 2026-02-09T15:05:52.191Z
+generated_at: 2026-02-09T16:08:38.508Z
 content_hash: fb529e7928634e7d905de0768cd5e34fecc4318031610a43f56fc4f0e3fb38e9
-purpose: createCustomFilter() implements user-configurable gitignore-style pattern exclusion for file discovery via the `ignor...
+purpose: createCustomFilter constructs a FileFilter that excludes files matching user-provided gitignore-style patterns during...
 ---
-**createCustomFilter() implements user-configurable gitignore-style pattern exclusion for file discovery via the `ignore` library.**
+**createCustomFilter constructs a FileFilter that excludes files matching user-provided gitignore-style patterns during discovery.**
 
-## Exported Function
+## Exports
 
-**createCustomFilter(patterns: string[], root: string): FileFilter**
+- `createCustomFilter(patterns: string[], root: string): FileFilter` — constructs filter instance with `ignore` library matcher, returns FileFilter with `name: 'custom'` and `shouldExclude` method
 
-Constructs a FileFilter that excludes files matching gitignore-syntax patterns. Returns filter with `name: 'custom'` and `shouldExclude(absolutePath: string): boolean` method. Empty pattern array results in pass-through filter (returns false for all paths).
+## Implementation Details
 
-## Pattern Matching Algorithm
-
-createCustomFilter() normalizes root via `path.resolve()`, initializes `Ignore` instance from `ignore` library, adds all patterns via `ig.add(patterns)`. shouldExclude() converts absolute paths to relative via `path.relative(normalizedRoot, absolutePath)`, returns false for empty paths or paths starting with `..` (outside root), delegates to `ig.ignores(relativePath)` for pattern matching.
+createCustomFilter instantiates `Ignore` object via `ignore()` factory, normalizes root via `path.resolve(root)`, adds all patterns via `ig.add(patterns)` if array non-empty. Returns FileFilter with shouldExclude implementation that converts absolute paths to relative via `path.relative(normalizedRoot, absolutePath)`, returns false for empty patterns array or paths outside root (relative path starts with `..` or is empty string), otherwise delegates to `ig.ignores(relativePath)`.
 
 ## Integration Points
 
-Implements FileFilter interface from `../types.js` with required `name` property and `shouldExclude()` method. Used by file discovery walker (`src/discovery/walker.ts`) alongside gitignore, binary, and vendor filters to compose exclusion chain. Patterns populated from user configuration (`config.exclude.patterns` from `.agents-reverse-engineer/config.yaml`).
-
-## Dependencies
-
-- `ignore` library (Ignore type): gitignore-style pattern matching engine
-- `node:path`: path normalization and relative path computation
-- `../types.js`: FileFilter interface definition
+Consumed by file discovery pipeline in `src/discovery/walker.ts` as part of composable filter chain. Patterns sourced from `config.exclude.patterns` array in `.agents-reverse-engineer/config.yaml` loaded via `src/config/loader.ts`. Works alongside gitignore filter (`src/discovery/filters/gitignore.ts`), binary filter (`src/discovery/filters/binary.ts`), and vendor filter (`src/discovery/filters/vendor.ts`) exported from `src/discovery/filters/index.ts`.
 
 ## Path Handling
 
-Requires relative paths for `ignore` library compatibility. Absolute paths from walker converted via `path.relative()`. Guards against external paths (starting with `..`) by returning false to prevent exclusion of out-of-tree files. Empty relative path (when absolutePath equals root) also bypasses exclusion.
+Requires relative paths for `ignore` library compatibility. Absolute input paths resolved via normalizedRoot baseline. Edge case: paths outside root (e.g., symlinks resolving to parent directories) bypass filtering by returning false when relativePath starts with `..`. Empty relative paths also bypass exclusion.
 
-## Example Usage Pattern
+## Dependencies
 
-```typescript
-const filter = createCustomFilter(['*.log', 'tmp/**'], '/project');
-filter.shouldExclude('/project/debug.log');    // true
-filter.shouldExclude('/project/src/app.ts');   // false
-filter.shouldExclude('/external/file.ts');     // false (outside root)
-```
+- `ignore` library (Ignore type) for gitignore-style pattern matching with `ig.ignores(relativePath)` predicate
+- `node:path` for `path.relative()` and `path.resolve()` conversions
+- FileFilter interface from `../types.js` defining `name: string` and `shouldExclude(absolutePath: string): boolean` contract

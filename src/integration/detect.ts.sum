@@ -1,43 +1,45 @@
 ---
-generated_at: 2026-02-09T15:07:31.012Z
+generated_at: 2026-02-09T16:10:33.149Z
 content_hash: f2c64d262c35364a46b10b33f9d740d89cb81adccc17d12081bd23269592cea1
-purpose: detectEnvironments() and hasEnvironment() identify AI coding assistant installations by checking filesystem markers f...
+purpose: detectEnvironments() and hasEnvironment() identify AI coding assistant runtime environments (Claude Code, OpenCode, A...
 ---
-**detectEnvironments() and hasEnvironment() identify AI coding assistant installations by checking filesystem markers for Claude Code, OpenCode, and Aider.**
+**detectEnvironments() and hasEnvironment() identify AI coding assistant runtime environments (Claude Code, OpenCode, Aider) via filesystem marker detection.**
 
 ## Exported Functions
 
 **detectEnvironments(projectRoot: string): DetectedEnvironment[]**
-Returns array of all detected AI assistant environments. Checks three detection paths:
-- Claude Code: `.claude/` directory OR `CLAUDE.md` file presence → returns `DetectedEnvironment` with `type: 'claude'`, `configDir: '.claude'`, `detected: true`
-- OpenCode: `.opencode/` directory presence → returns `type: 'opencode'`, `configDir: '.opencode'`
-- Aider: `.aider.conf.yml` file OR `.aider/` directory presence → returns `type: 'aider'`, `configDir: '.aider'`
+Scans `projectRoot` for AI assistant configuration markers and returns array of detected environments. Checks three patterns:
+- Claude Code: `.claude/` directory OR `CLAUDE.md` file existence
+- OpenCode: `.opencode/` directory existence
+- Aider: `.aider.conf.yml` file OR `.aider/` directory existence
 
-Uses `existsSync()` from `node:fs` and `path.join()` for filesystem checks. May return empty array if no environments detected, or array with multiple `DetectedEnvironment` entries if multiple assistants installed.
+Returns `DetectedEnvironment[]` objects with fields: `type: EnvironmentType`, `configDir: string`, `detected: true`.
 
 **hasEnvironment(projectRoot: string, type: EnvironmentType): boolean**
-Tests single environment presence. Invokes `detectEnvironments()` and searches result array via `Array.some()` for matching `env.type`. Returns boolean.
+Predicate wrapper around `detectEnvironments()` that returns `true` if specified `EnvironmentType` exists in project. Uses `Array.some()` to match `env.type === type`.
+
+## Detection Logic
+
+Uses `existsSync()` from `node:fs` and `path.join()` for absolute path construction. No async I/O—all checks synchronous.
+
+**Claude Code detection:**
+- Primary marker: `.claude/` directory
+- Fallback marker: `CLAUDE.md` root file
+- Returns `configDir: '.claude'` regardless of detection path
+
+**OpenCode detection:**
+- Single marker: `.opencode/` directory
+- Returns `configDir: '.opencode'`
+
+**Aider detection:**
+- Primary marker: `.aider.conf.yml` file
+- Fallback marker: `.aider/` directory
+- Returns `configDir: '.aider'` regardless of detection path
 
 ## Type Dependencies
 
-**DetectedEnvironment** (from `./types.js`): Object with `type: EnvironmentType`, `configDir: string`, `detected: boolean` properties. 
-
-**EnvironmentType** (from `./types.js`): Union type constraining valid assistant identifiers to `'claude' | 'opencode' | 'aider'`.
-
-## Detection Heuristics
-
-Claude Code requires either `.claude/` directory or `CLAUDE.md` root file (dual-path detection accommodates pre-init projects with only integration document).
-
-OpenCode requires only `.opencode/` directory (no fallback file check).
-
-Aider requires either `.aider.conf.yml` YAML config file or `.aider/` directory (dual-path mirrors Claude pattern).
-
-All detection uses synchronous `existsSync()` checks without recursive directory traversal or content validation—presence alone indicates environment availability.
+Imports `DetectedEnvironment` and `EnvironmentType` from `./types.js`. `DetectedEnvironment` contains discriminated union with `type` field matching `'claude' | 'opencode' | 'aider'`.
 
 ## Integration Points
 
-Called by `src/integration/generate.ts` to filter applicable platform template generation (generates `CLAUDE.md`, `OPENCODE.md` only if corresponding environment detected).
-
-Used by `src/installer/prompts.ts` for runtime selection validation during hook installation.
-
-Consumed by `src/cli/init.ts` to warn users about missing AI assistant installations before configuration creation.
+Called by `src/integration/generate.ts` to determine which platform-specific templates to generate (`CLAUDE.md`, `OPENCODE.md`, etc.). Used by installer modules (`src/installer/`) to validate target environment presence before hook installation.

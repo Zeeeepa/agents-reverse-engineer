@@ -1,72 +1,57 @@
 ---
-generated_at: 2026-02-09T15:07:56.655Z
+generated_at: 2026-02-09T16:11:00.751Z
 content_hash: 5c48dfbd377760f6bb3545da841d652b5b0bd11487f2b489623056b193b7d121
-purpose: Platform-specific command template generator producing frontmatter-wrapped Markdown/TOML files for Claude Code (.clau...
+purpose: templates.ts generates platform-specific command file content (SKILL.md, .md, .toml) for Claude Code, OpenCode, and G...
 ---
-**Platform-specific command template generator producing frontmatter-wrapped Markdown/TOML files for Claude Code (.claude/skills/), OpenCode (.opencode/commands/), and Gemini CLI (.gemini/commands/) integration.**
+**templates.ts generates platform-specific command file content (SKILL.md, .md, .toml) for Claude Code, OpenCode, and Gemini CLI by substituting command prefix and version file path placeholders into shared command templates, then exporting via getClaudeTemplates(), getOpenCodeTemplates(), and getGeminiTemplates().**
 
 ## Exported Functions
 
-- `getClaudeTemplates(): IntegrationTemplate[]` — Returns array of Claude Code skill templates with YAML frontmatter containing `name: are-{command}` and `description`, writes to `.claude/skills/are-{command}/SKILL.md`
-- `getOpenCodeTemplates(): IntegrationTemplate[]` — Returns array of OpenCode command templates with YAML frontmatter containing `description` and `agent: build`, writes to `.opencode/commands/are-{command}.md`
-- `getGeminiTemplates(): IntegrationTemplate[]` — Returns array of Gemini CLI command templates in TOML format with `description` and triple-quoted `prompt` fields, writes to `.gemini/commands/are-{command}.toml`
+- `getClaudeTemplates(): IntegrationTemplate[]` — returns Claude Code SKILL.md templates for all commands
+- `getOpenCodeTemplates(): IntegrationTemplate[]` — returns OpenCode .md command templates
+- `getGeminiTemplates(): IntegrationTemplate[]` — returns Gemini .toml command templates
 
 ## Command Definitions
 
-Constant `COMMANDS` object defines seven commands (generate, update, init, discover, clean, specify, help), each with `description`, `argumentHint`, and `content` fields. Command content contains execution instructions with placeholders (`COMMAND_PREFIX`, `VERSION_FILE_PATH`) replaced per platform during template generation.
-
-### Shared Execution Patterns
-
-All long-running commands (generate, update, specify, discover) follow identical monitoring workflow:
-1. Display version by reading `VERSION_FILE_PATH`
-2. Delete stale `.agents-reverse-engineer/progress.log`
-3. Spawn background process via `run_in_background: true`
-4. Poll `progress.log` with Read tool using `offset` parameter every 10-15 seconds
-5. Check TaskOutput with `block: false` until completion
-6. Summarize results from background task output
-
-### Help Command Template
-
-Help command (`COMMAND_PREFIXhelp`) generates reference documentation with command table, CLI installation instructions, configuration schema, generated file formats, common workflows, and resource links. Template uses `COMMAND_PREFIX` placeholder for platform-specific prefixes (`/are-` for all platforms).
+`COMMANDS` object defines six command templates: `generate`, `update`, `init`, `discover`, `clean`, `specify`, `help`. Each has `description`, `argumentHint`, and `content` properties. Content uses placeholder strings `COMMAND_PREFIX` (replaced with `/are-` for all platforms), `VERSION_FILE_PATH` (replaced with `.claude/ARE-VERSION`, `.opencode/ARE-VERSION`, or `.gemini/ARE-VERSION`), and `$ARGUMENTS` (preserves user-supplied CLI flags).
 
 ## Platform Configuration
 
-Type `Platform = 'claude' | 'opencode' | 'gemini'` discriminates platform variants. Constant `PLATFORM_CONFIGS` maps each platform to `PlatformConfig` with:
-- `commandPrefix: string` — Command invocation prefix (`/are-` for all platforms)
-- `pathPrefix: string` — Installation directory (`.claude/skills/`, `.opencode/commands/`, `.gemini/commands/`)
-- `filenameSeparator: string` — Separator character between prefix and command name (`.` for Claude, `-` for OpenCode/Gemini)
-- `usesName: boolean` — Whether frontmatter includes `name` field (true for Claude, false for OpenCode/Gemini)
-- `versionFilePath: string` — Platform-specific version file path (`.claude/ARE-VERSION`, `.opencode/ARE-VERSION`, `.gemini/ARE-VERSION`)
-- `extraFrontmatter?: string` — Additional frontmatter lines (`agent: build` for OpenCode only)
+`PLATFORM_CONFIGS` maps `Platform` type (`'claude' | 'opencode' | 'gemini'`) to `PlatformConfig` objects:
 
-## Template Construction
+- **Claude**: `commandPrefix: '/are-'`, `pathPrefix: '.claude/skills/'`, `filenameSeparator: '.'`, `usesName: true`, `versionFilePath: '.claude/ARE-VERSION'`
+- **OpenCode**: `commandPrefix: '/are-'`, `pathPrefix: '.opencode/commands/'`, `filenameSeparator: '-'`, `extraFrontmatter: 'agent: build'`, `usesName: false`, `versionFilePath: '.opencode/ARE-VERSION'`
+- **Gemini**: `commandPrefix: '/are-'`, `pathPrefix: '.gemini/commands/'`, `filenameSeparator: '-'`, `usesName: false`, `versionFilePath: '.gemini/ARE-VERSION'`
 
-Function `buildFrontmatter(platform, commandName, description): string` constructs YAML frontmatter block with `name` (Claude only), `description`, and platform-specific extra fields wrapped in `---` delimiters.
+## Template Generation Strategy
 
-Function `buildGeminiToml(commandName, command): string` constructs TOML format with `description` string field, optional `# Arguments:` comment, and triple-quoted `prompt` multiline string. Applies placeholder replacement (`COMMAND_PREFIX`, `VERSION_FILE_PATH`) to prompt content before serialization.
+`buildTemplate()` constructs `IntegrationTemplate` with `filename`, `path`, and `content` properties. Claude produces `.claude/skills/are-{command}/SKILL.md`, OpenCode produces `.opencode/commands/are-{command}.md`, Gemini produces `.gemini/commands/are-{command}.toml`. `buildFrontmatter()` inserts YAML frontmatter with `name:` field only when `PlatformConfig.usesName` is true (Claude only), adds `description:` field for all platforms, appends `extraFrontmatter` if present (OpenCode's `agent: build`). `buildGeminiToml()` generates TOML format with `description = "..."` and triple-quoted `prompt = """..."""` fields wrapping command content.
 
-Function `buildTemplate(platform, commandName, command): IntegrationTemplate` branches on platform type:
-- Gemini: Calls `buildGeminiToml()`, returns template with `.toml` extension and flat path structure
-- Claude/OpenCode: Calls `buildFrontmatter()`, applies placeholder replacement, returns template with Markdown content format and platform-specific directory structure (Claude uses subdirectories `are-{command}/SKILL.md`, OpenCode uses flat `are-{command}.md`)
+## Command Content Patterns
 
-Function `getTemplatesForPlatform(platform): IntegrationTemplate[]` iterates `COMMANDS` entries, maps each to `buildTemplate()` result, returns array of `IntegrationTemplate` objects.
+All command templates except `help` and `clean` include background execution instructions using `run_in_background: true` with `TaskOutput` polling. Monitoring pattern appears verbatim in `generate`, `update`, `discover`, `specify` templates:
 
-## File Naming Conventions
+```
+3. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:
+   - Wait ~15 seconds (use `sleep 15` in Bash), then use the **Read** tool to read `.agents-reverse-engineer/progress.log` (use the `offset` parameter to read only the last ~20 lines for long files)
+   - Show the user a brief progress update
+   - Check whether the background task has completed using `TaskOutput` with `block: false`
+   - Repeat until the background task finishes
+   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+```
 
-Claude Code uses nested directory structure: `.claude/skills/are-generate/SKILL.md` (constant filename `SKILL.md` within command-specific subdirectory).
+`discover` and `clean` commands include strict rule blocks enforcing zero flag addition beyond user input:
 
-OpenCode and Gemini use flat structure with command suffix: `.opencode/commands/are-generate.md`, `.gemini/commands/are-generate.toml`.
+```
+## STRICT RULES - VIOLATION IS FORBIDDEN
 
-## Integration with Types
+1. Run ONLY this exact command: `npx agents-reverse-engineer@latest COMMAND $ARGUMENTS`
+2. DO NOT add ANY flags the user did not explicitly type
+3. If user typed nothing after `COMMAND_PREFIXcommand`, run with ZERO flags
+```
 
-Imports `IntegrationTemplate` interface from `./types.js` with shape `{ filename: string, path: string, content: string }`. Consumed by installer operations (`src/installer/operations.ts`) for file writing with permission setup.
+`help` command template contains full reference documentation with command tables, configuration schema, generated file examples, and common workflows. Uses `<objective>` and `<reference>` XML tags. Instructs AI to read `VERSION_FILE_PATH` first and output reference without project-specific analysis.
 
-## Command Argument Patterns
+## Path Construction
 
-Generate command accepts `[path]`, `--dry-run`, `--concurrency N`, `--fail-fast`, `--debug`, `--trace`.
-
-Update command adds `--uncommitted` flag for staged changes inclusion.
-
-Specify command adds `--output <path>`, `--multi-file`, `--force` flags.
-
-Discover and clean commands enforce strict no-flag-addition rule: "DO NOT add ANY flags the user did not explicitly type" to prevent unintended behavior.
+Claude commands use nested directory structure: `are-{command}/SKILL.md` under `.claude/skills/`. OpenCode and Gemini use flat structure: `are-{command}.md` or `are-{command}.toml` directly under `.opencode/commands/` or `.gemini/commands/`. `getTemplatesForPlatform()` iterates `COMMANDS` object entries, calls `buildTemplate()` for each, returns array of `IntegrationTemplate` objects consumed by installer module for file writes.

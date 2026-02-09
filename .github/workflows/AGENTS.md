@@ -2,21 +2,31 @@
 
 # .github/workflows
 
-GitHub Actions CI/CD workflows automating npm package publication with cryptographic provenance attestation on release events.
+GitHub Actions CI/CD automation for npm package publication with Sigstore-signed provenance attestation.
 
 ## Contents
 
 ### [publish.yml](./publish.yml)
-Defines workflow triggering on `release[published]` events or manual `workflow_dispatch`, executing `ubuntu-latest` job with `id-token: write` permission enabling Sigstore-signed provenance via `npm publish --provenance`. Runs `actions/checkout@v4`, `actions/setup-node@v4` with registry-url `https://registry.npmjs.org`, `npm ci`, `npm run build` (invokes `tsc` + `build:hooks` script from package.json `prepublishOnly`), and publishes with `--access public` using `NPM_TOKEN` secret.
+Workflow automating npm publication on `release[published]` events or manual `workflow_dispatch`. Executes `actions/checkout@v4`, `actions/setup-node@v4` (Node.js 20, registry `https://registry.npmjs.org`), `npm ci`, `npm run build` (invokes `prepublishOnly`: TypeScript compilation + `build:hooks` script from `scripts/build-hooks.js`), and `npm publish --provenance --access public` with `NODE_AUTH_TOKEN` from `secrets.NPM_TOKEN`. Grants `id-token: write` permission enabling Sigstore keyless signing to generate SLSA attestation linking published tarball to source commit SHA.
 
-## Provenance Mechanism
+## CI/CD Pipeline Architecture
 
-Workflow leverages GitHub's OIDC token system (`id-token: write` permission) to generate cryptographic attestation linking published npm artifact to source commit SHA in CI environment. `npm publish --provenance` flag produces Sigstore-signed metadata enabling supply chain verification via `npm audit signatures`, proving package was built from specific repository commit without tampering.
+**Trigger Strategy:**  
+Executes on GitHub release publication or manual dispatch, ensuring controlled release cadence.
+
+**Build Steps:**  
+Sequential execution: repository checkout at release commit SHA → Node.js 20 installation with npm registry configuration → clean dependency install via `npm ci` → TypeScript compilation and hook file preparation via `npm run build` → authenticated publication with cryptographic attestation.
+
+**Security Model:**  
+OIDC token-based authentication (`id-token: write`) enables Sigstore keyless signing without long-lived credentials. Generated provenance attestation creates verifiable supply chain metadata recording workflow execution context (commit SHA, repository coordinates, workflow file path) consumable via `npm audit signatures` or `sigstore-js` tooling.
 
 ## Integration Points
 
-**Secrets:** Requires `NPM_TOKEN` repository secret containing npm authentication token with publish scope.
+**Build System:**  
+Depends on `prepublishOnly` script in root `package.json` executing TypeScript compiler (`tsc`) and hook file copier (`scripts/build-hooks.js`). Outputs `dist/` directory tree and `hooks/dist/` session lifecycle hook bundles included in npm tarball.
 
-**Build Pipeline:** Depends on package.json `prepublishOnly` lifecycle hook executing `npm run build && npm run build:hooks`, which compiles TypeScript (`tsc` emits `src/` → `dist/`) and copies hooks (`scripts/build-hooks.js` copies `hooks/` → `hooks/dist/`).
+**Publication Authentication:**  
+Requires `NPM_TOKEN` repository secret storing npm automation token with publish permissions for package scope. Token injected as `NODE_AUTH_TOKEN` environment variable during `npm publish` execution.
 
-**Trigger Sources:** Activates via GitHub release creation UI (triggers `release[published]` event) or Actions tab manual dispatch button (`workflow_dispatch` event).
+**Provenance Attestation:**  
+`--provenance` flag triggers GitHub Actions attestation generation via `@actions/attest-build-provenance` internal API, uploading signed SLSA v0.2 attestation to npm registry metadata storage. Consumers verify authenticity by inspecting `attestations` field in registry metadata or using `npm audit signatures` command.

@@ -2,52 +2,64 @@
 
 # src/quality
 
-Post-generation validation suite detecting code-documentation inconsistencies via regex-based export extraction, duplicate symbol tracking, phantom path resolution, and structured reporting with discriminated union types.
+Code-documentation consistency validation subsystem executing three detection strategies: regex-based export extraction with substring matching (`code-vs-doc`), cross-file duplicate symbol aggregation (`code-vs-code`), and regex-based path reference resolution with filesystem verification (`phantom-paths`).
 
 ## Contents
 
-### Core API
+**[index.ts](./index.ts)** — Barrel module re-exporting `checkCodeVsDoc()`, `checkCodeVsCode()`, `checkPhantomPaths()` validators, `buildInconsistencyReport()`, `formatReportForCli()` reporters, disabled `validateFindability()` density validator, and discriminated union types (`CodeDocInconsistency`, `CodeCodeInconsistency`, `PhantomPathInconsistency`, `Inconsistency`, `InconsistencyReport`).
 
-**[index.ts](./index.ts)** — Barrel export aggregating all quality validators (`checkCodeVsDoc`, `checkCodeVsCode`, `checkPhantomPaths`, `validateFindability`) and report builders (`buildInconsistencyReport`, `formatReportForCli`) from subdirectories. Re-exports discriminated union types (`CodeDocInconsistency`, `CodeCodeInconsistency`, `PhantomPathInconsistency`, `Inconsistency`, `InconsistencyReport`) and `FindabilityResult` from `types.ts` and `density/validator.ts`.
-
-**[types.ts](./types.ts)** — Defines discriminated union schema with `InconsistencySeverity` (`'info' | 'warning' | 'error'`), `CodeDocInconsistency` (exports missing from `.sum` summaries), `CodeCodeInconsistency` (duplicate symbols across files), `PhantomPathInconsistency` (unresolvable AGENTS.md path references), `Inconsistency` union type, and `InconsistencyReport` aggregate structure with metadata (timestamp/projectRoot/filesChecked/durationMs) and summary counts by type/severity.
+**[types.ts](./types.ts)** — Defines `InconsistencySeverity` (`'info' | 'warning' | 'error'`), `CodeDocInconsistency` (exported symbols missing from `.sum` with `missingFromDoc[]`), `CodeCodeInconsistency` (duplicate exports across files with `pattern: 'duplicate-export'`), `PhantomPathInconsistency` (unresolved paths in `AGENTS.md` with `referencedPath`, `resolvedTo`, `context`), `Inconsistency` discriminated union, `InconsistencyReport` container with metadata (`timestamp`, `projectRoot`, `filesChecked`, `durationMs`) and summary counts.
 
 ## Subdirectories
 
-**[inconsistency/](./inconsistency/)** — Regex-based validators: `code-vs-doc.ts` extracts exports via `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` and verifies presence in `.sum` summaries via substring search, `code-vs-code.ts` aggregates exports into `Map<symbol, string[]>` to detect duplicates, `reporter.ts` constructs `InconsistencyReport` with type guard iteration and renders plain-text CLI output.
+**[inconsistency/](./inconsistency/)** — code-vs-doc validator extracting exports via `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` with substring verification against `.sum` content; code-vs-code detector aggregating exports into `Map<symbol, paths[]>` to identify duplicates; reporter building aggregated `InconsistencyReport` with formatted CLI output.
 
-**[phantom-paths/](./phantom-paths/)** — Validates AGENTS.md references: `validator.ts` applies three regex patterns (markdown links, backtick-quoted paths, prose-embedded paths) with six SKIP_PATTERNS exclusions, resolves candidates relative to AGENTS.md directory and project root with `.js`→`.ts` fallback, returns `PhantomPathInconsistency[]` for failed `existsSync()` checks. `index.ts` re-exports `checkPhantomPaths`.
+**[phantom-paths/](./phantom-paths/)** — Path reference validator extracting strings via three regex patterns (markdown links, backtick paths, prose references), resolving against `AGENTS.md` directory and project root with `.ts`/`.js` fallback, returning `PhantomPathInconsistency[]` for unresolved references.
 
-**[density/](./density/)** — Disabled findability validator: `validator.ts` defines `validateFindability()` returning empty array since `SumFileContent.publicInterface` removal, signature preserved for future structured metadata restoration. Exports `FindabilityResult` type with `symbolsTested`/`symbolsFound`/`symbolsMissing`/`score` fields.
+**[density/](./density/)** — Disabled `validateFindability()` stub previously verifying exported symbols from `.sum` files appeared in parent `AGENTS.md`; implementation gutted after `SumFileContent.metadata.publicInterface` removal.
 
-## Validation Pipeline
+## Validation Workflow
 
 **Code-vs-Doc Consistency:**  
-`extractExports()` applies regex to source content, `checkCodeVsDoc()` verifies all extracted symbols appear in `.sum` summary text via `includes()`, returns `CodeDocInconsistency` with `missingFromDoc[]` arrays for undocumented exports.
+`extractExports(filePath)` scans source via regex capturing export identifiers → `checkCodeVsDoc(filePath, sumContent)` performs substring search against `.sum` summary text → returns `CodeDocInconsistency` with `missingFromDoc[]` when drift detected or `null` when consistent.
 
 **Code-vs-Code Duplicate Detection:**  
-`checkCodeVsCode()` builds symbol-to-paths map via two-pass traversal, filters `exportMap.entries()` for paths.length > 1, returns `CodeCodeInconsistency[]` with `pattern: 'duplicate-export'` and `severity: 'warning'`.
+`checkCodeVsCode(files[])` aggregates `extractExports()` results into `Map<symbol, string[]>` → filters entries with `paths.length > 1` → returns `CodeCodeInconsistency[]` with `pattern: 'duplicate-export'` and `severity: 'warning'`.
 
 **Phantom Path Resolution:**  
-`checkPhantomPaths()` extracts path-like strings from AGENTS.md via PATH_PATTERNS, applies SKIP_PATTERNS filter, attempts four resolution candidates (AGENTS.md directory, project root, `.ts` fallback), reports `PhantomPathInconsistency` for unresolved references with deduplication via `seen` Set.
+`checkPhantomPaths(agentsMdPath, content, projectRoot)` applies three regex patterns to extract path references → attempts resolution via `existsSync()` against `AGENTS.md` directory and project root with extension substitution → returns `PhantomPathInconsistency[]` for unresolved paths with 120-char context excerpt.
 
 **Report Aggregation:**  
-`buildInconsistencyReport()` aggregates `Inconsistency[]` via type guard iteration (`issue.type === 'code-vs-doc'`), computes type/severity counts, wraps in `InconsistencyReport` with metadata. `formatReportForCli()` renders multi-line plain-text with severity tags (`[ERROR]`, `[WARN]`, `[INFO]`) for ANSI color wrapping in `src/output/logger.ts`.
+`buildInconsistencyReport(issues[], metadata)` merges inconsistency arrays → computes summary counts by `type` (`code-vs-doc`, `code-vs-code`, `phantom-path`) and `severity` (`error`, `warning`, `info`) → returns `InconsistencyReport` with timestamp metadata. `formatReportForCli(report)` transforms into plain-text output with severity tags (`[ERROR]`, `[WARN]`, `[INFO]`) and type-specific field rendering for stderr/`progress.log`.
 
-## Integration Points
+## Behavioral Contracts
 
-**Upstream:** `src/cli/generate.ts` and `src/cli/update.ts` call validators after Phase 1 (`.sum` generation) and Phase 2 (AGENTS.md aggregation), pass discovered files/content to `checkCodeVsDoc()`, `checkCodeVsCode()`, `checkPhantomPaths()`, aggregate results via `buildInconsistencyReport()`.
+**Export Extraction Regex (inconsistency/):**  
+`/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`
 
-**Downstream:** Formatted reports from `formatReportForCli()` logged to stderr via `logger.error()` with picocolors wrapping (`pc.red()`, `pc.yellow()`). Metrics written to `.agents-reverse-engineer/progress.log` as `code-vs-doc/code-vs-code inconsistencies: N`.
+**Path Extraction Patterns (phantom-paths/validator.ts):**  
+```javascript
+/\[(?:[^\]]*)\]\((\.[^)]+)\)/g              // Markdown: [text](./path)
+/`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g  // Backtick: `src/foo.ts`
+/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi // Prose: "from src/foo/"
+```
 
-**Type Dependencies:** Imports `SumFileContent` from `../generation/writers/sum.js` for parsed `.sum` schema, uses `path.resolve()`, `fs.existsSync()` from Node.js stdlib for phantom path resolution.
+**Severity Tags (inconsistency/reporter.ts):**  
+`severity: 'error'` → `[ERROR]`, `severity: 'warning'` → `[WARN]`, `severity: 'info'` → `[INFO]`
 
-## Limitations
+**Type Discriminator Field:**  
+`type: 'code-vs-doc' | 'code-vs-code' | 'phantom-path'` enables exhaustive switch narrowing.
 
-**Regex-Based Extraction:** Misses destructured exports, namespace exports (`export * from`), dynamic `export {}` statements. Relies on statement-level syntax matching without AST traversal.
+## Known Limitations
 
-**Substring Matching:** `sumText.includes(exportName)` yields false negatives for prose mentions unrelated to API surface (e.g., "exports data" matching `exports`). No semantic context analysis.
+**Regex-Based Export Extraction:**  
+Misses destructured (`export { foo }`), namespace (`export *`), dynamic exports, multiline declarations. No AST analysis—purely heuristic pattern matching.
 
-**No AST Analysis:** Duplicate detection operates on symbol names only, cannot distinguish intentional duplication (facade pattern, barrel re-exports) from conflicts. Legacy `missingFromCode` field in `CodeDocInconsistency` always empty after `publicInterface` removal.
+**Substring Verification:**  
+False negatives when export names appear in comments/prose rather than documented API surface. No structured field verification after `publicInterface` schema removal.
 
-**Disabled Density Validator:** `validateFindability()` inoperative until structured metadata extraction restored to `.sum` frontmatter schema.
+**Intentional Duplication:**  
+Code-vs-code cannot distinguish factory patterns, parallel implementations, intentional re-exports. Caller must scope input to per-directory groups to minimize false positives.
+
+**Extension Fallback Logic:**  
+Path resolution attempts `.js` → `.ts` substitution but doesn't handle `.jsx`/`.tsx`, `.cjs`/`.mjs`, or index file resolution (`./foo` → `./foo/index.ts`).

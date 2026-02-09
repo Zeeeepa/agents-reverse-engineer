@@ -1,44 +1,37 @@
 ---
-generated_at: 2026-02-09T15:08:27.478Z
+generated_at: 2026-02-09T16:11:22.736Z
 content_hash: 71675547e7ed7dc5b1c708febebf0e954ac52c258471feb19766f9b2e6dc5bec
-purpose: INPUT.md documents the original vision, RLM algorithm, and feature requirements for agents-reverse-engineer brownfiel...
+purpose: INPUT.md documents the original design vision and inception rationale for the agents-reverse-engineer tool, defining ...
 ---
-**INPUT.md documents the original vision, RLM algorithm, and feature requirements for agents-reverse-engineer brownfield documentation tool.**
+**INPUT.md documents the original design vision and inception rationale for the agents-reverse-engineer tool, defining the Recursive Language Model (RLM) algorithm for brownfield project documentation generation through post-order tree traversal of file summaries and directory aggregation.**
 
-## Vision & Motivation
+## Original Vision
 
-Defines ARE as "light-weight and powerful tool to reverse engineer a brownfield project" generating AGENTS.md and CLAUDE.md documentation compatible with Claude Code, OpenCode, and other agent tools. Created to streamline documenting existing projects and provide agents clear codebase overviews for maintenance.
+Created to streamline brownfield project documentation by providing AI agents with clear codebase overviews. Designed for compatibility with Claude Code, OpenCode, and other agent tools, complementing SpecKit (https://github.com/github/spec-kit), BMAD (https://github.com/bmad-code-org/BMAD-METHOD), and Get Shit Done (https://github.com/glittercowboy/get-shit-done).
 
-## Intended Integration Partners
+## RLM Algorithm Definition
 
-Lists three complementary tools:
-- SpecKit (https://github.com/github/spec-kit) for project specifications
-- BMAD (https://github.com/bmad-code-org/BMAD-METHOD) for brownfield documentation methodology  
-- Get Shit Done (https://github.com/glittercowboy/get-shit-done) for milestone-driven workflow
+The Recursive Language Model workflow executes as:
+1. Build project structure tree via directory traversal
+2. Start execution at first leaf (deepest file node) and build recursively backward toward root
+3. For leaf files: analyze content and generate `{filename}.sum` summary artifact
+4. For directories: once all child leaf summaries exist, analyze directory contents and generate `AGENTS.md` (plus optional `ARCHITECTURE.md`, `STRUCTURE.md`, `STACK.md`, `INTEGRATIONS.md`, `INFRASTRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `PATTERNS.md`, `CONCERNS.md`)
+5. Continue post-order traversal recursively until project root reached
 
-## Core Feature Requirements
+## Command Interface
 
-**Command Execution:** Should provide command executing scripts via Recursive Language Model (RLM) using Claude Code or alternative LLM agent tools, with platform-specific invocation (command for Claude, alternatives for others).
+Proposed command patterns:
+- `/are-generate` — Full documentation generation via RLM execution
+- `/are-update` — Incremental regeneration for modified files
 
-**Session Hooks:** Should support session-end hooks for updating impacted files automatically.
+## Research Directives
 
-**Directory Documentation:** Should generate AGENTS.md file in every directory describing current directory and sub-structure content, with optional references to ARCHITECTURE.md, STRUCTURE.md, STACK.md, INTEGRATIONS.md, INFRASTRUCTURE.md, CONVENTIONS.md, TESTING.md, PATTERNS.md, CONCERNS.md.
+Document instructed detailed analysis of GSD (Get Shit Done) and BMAD methodologies, specifically:
+- Repository structure patterns (primarily GSD-inspired with BMAD elements)
+- Brownfield project approach strategies
+- Special command implementations and execution details
+- Codebase architecture analysis requirements
 
-## RLM Algorithm Specification
+## Session Lifecycle Integration
 
-Defines bottom-up recursive execution pattern:
-1. Build project structure tree
-2. Start execution at first leaf, build recursively backward
-3. At file leaf: analyze file, generate `{filename}.sum` summary
-4. When all directory leaves summarized: analyze directory, generate AGENTS.md (plus other files if needed)
-5. Continue recursively until project root reached
-
-## Research Directive
-
-Instructs detailed analysis of GSD and BMAD methodologies, examining repository structure (primarily GSD, partially BMAD), brownfield project approach, special commands, implementation details, and codebase inspection.
-
-## Usage Commands
-
-Specifies two CLI commands:
-- `/are-generate` for full documentation generation
-- `/are-update` for incremental updates
+Original design specified session-end hook capability to automatically update impacted documentation files when agent sessions terminate, ensuring documentation remains synchronized with codebase changes without manual intervention.

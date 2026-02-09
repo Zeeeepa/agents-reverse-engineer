@@ -1,34 +1,58 @@
 ---
-generated_at: 2026-02-09T15:08:13.206Z
+generated_at: 2026-02-09T16:10:55.424Z
 content_hash: c54b67ea5f368404974a24012da22317186b49543249ead73a5cec227f874c98
-purpose: Barrel export aggregating orchestration module public API: runPool, ProgressReporter, ProgressLog, PlanTracker, creat...
+purpose: Barrel export module exposing the complete orchestration API: runPool, ProgressReporter, ProgressLog, PlanTracker, Co...
 ---
-**Barrel export aggregating orchestration module public API: runPool, ProgressReporter, ProgressLog, PlanTracker, createTraceWriter, cleanupOldTraces, CommandRunner, and shared types.**
+**Barrel export module exposing the complete orchestration API: runPool, ProgressReporter, ProgressLog, PlanTracker, CommandRunner, ITraceWriter, TraceEvent, TraceEventPayload, createTraceWriter, cleanupOldTraces, and shared types (FileTaskResult, RunSummary, ProgressEvent, CommandRunOptions, PoolOptions, TaskResult).**
 
 ## Exported Types
 
-Exports `FileTaskResult` interface with `path`, `success`, `tokensIn`, `tokensOut`, `cacheReadTokens`, `cacheCreationTokens`, `durationMs`, `model`, `error?` fields. Exports `RunSummary` interface containing `version`, `filesProcessed`, `filesFailed`, `filesSkipped`, `totalCalls`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `retryCount`, `totalFilesRead`, `uniqueFilesRead`, `inconsistenciesCodeVsDoc?`, `inconsistenciesCodeVsCode?`, `phantomPaths?`, `inconsistencyReport?` fields. Exports `ProgressEvent` interface with discriminated `type: 'start' | 'done' | 'error' | 'dir-done' | 'root-done'` and conditional fields `filePath`, `index`, `total`, `durationMs?`, `tokensIn?`, `tokensOut?`, `model?`, `error?`. Exports `CommandRunOptions` interface with `concurrency`, `failFast?`, `debug?`, `dryRun?`, `tracer?: ITraceWriter`, `progressLog?: ProgressLog`.
+**FileTaskResult** — Outcome of a single file analysis task (success/failure with error details).
 
-## Exported Concurrency Pool
+**RunSummary** — Aggregated metrics from CommandRunner execution (total files, errors, duration, token counts).
 
-Exports `runPool<T>(tasks, options, onComplete?)` function from `pool.ts`. Exports `PoolOptions` interface with `concurrency`, `failFast?`, `tracer?: ITraceWriter`, `phaseLabel?`, `taskLabels?: string[]`. Exports `TaskResult<T>` interface with `index`, `success`, `value?`, `error?`.
+**ProgressEvent** — Event payload emitted during pool execution for progress tracking.
 
-## Exported Progress Reporting
+**CommandRunOptions** — Configuration object passed to CommandRunner methods (includes concurrency, timeout, tracer, failFast flags).
 
-Exports `ProgressReporter` class providing `onFileStart(filePath)`, `onFileDone(filePath, durationMs, tokensIn, tokensOut, model, cacheReadTokens?, cacheCreationTokens?)`, `onFileError(filePath, error)`, `onDirectoryStart(dirPath)`, `onDirectoryDone(dirPath, durationMs, tokensIn, tokensOut, model, cacheReadTokens?, cacheCreationTokens?)`, `onRootDone(docPath)`, `printSummary(summary: RunSummary)` methods. Exports `ProgressLog` class with `static create(projectRoot): ProgressLog`, `write(line)`, `finalize(): Promise<void>` methods for file-based progress mirroring.
+**PoolOptions** — Configuration for runPool including concurrency limit and optional tracer.
 
-## Exported Plan Tracking
+**TaskResult** — Generic result type from runPool execution (success/failure discriminated union).
 
-Exports `PlanTracker` class with `constructor(projectRoot, initialMarkdown)`, `initialize(): Promise<void>`, `markDone(itemPath)`, `flush(): Promise<void>` methods for `GENERATION-PLAN.md` checkbox updates via promise-chain serialization.
+**ITraceWriter** — Interface defining emit() method for NDJSON trace event emission.
 
-## Exported Tracing
+**TraceEvent** — Union type of all trace event payloads (phase:start/end, worker:start/end, task:pickup/done, subprocess:spawn/exit, retry).
 
-Exports `ITraceWriter` interface with `emit(event: TraceEventPayload)`, `finalize(): Promise<void>`, `readonly filePath: string`. Exports `TraceEvent` discriminated union covering `phase:start/end`, `worker:start/end`, `task:pickup/done/start`, `subprocess:spawn/exit`, `retry`, `discovery:start/end`, `filter:applied`, `plan:created`, `config:loaded` event types. Exports `TraceEventPayload` as `DistributiveOmit<TraceEvent, 'seq' | 'ts' | 'pid' | 'elapsedMs'>` to exclude auto-populated base fields. Exports `createTraceWriter(projectRoot, enabled): ITraceWriter` factory returning `NullTraceWriter` when `enabled=false` or `TraceWriter` for NDJSON append-only `.agents-reverse-engineer/traces/trace-{timestamp}.ndjson` output. Exports `cleanupOldTraces(projectRoot, keepCount=500): Promise<number>` for retention management.
+**TraceEventPayload** — Base payload structure for all trace events (seq, ts, pid, elapsedMs).
 
-## Exported Command Execution
+## Exported Functions
 
-Exports `CommandRunner` class with `constructor(aiService: AIService, options: CommandRunOptions)`, `executeGenerate(plan: ExecutionPlan): Promise<RunSummary>`, `executeUpdate(filesToAnalyze: FileChange[], projectRoot, config): Promise<RunSummary>` methods. `executeGenerate` orchestrates three-phase pipeline: pre-phase-1-cache (concurrency=20, reads old `.sum` files), phase-1-files (concurrent file analysis via `runPool`), post-phase-1-quality (concurrency=10, runs `checkCodeVsDoc`/`checkCodeVsCode` grouped by directory), phase-2-dirs-depth-{N} (concurrent per depth level, post-order `AGENTS.md` generation), post-phase-2-phantom (validates path references via `checkPhantomPaths`), phase-3-root (sequential root document synthesis). `executeUpdate` runs update-phase-1-files followed by update-post-phase-1-quality inconsistency checks.
+**runPool** — Iterator-based worker pool executing async tasks with shared iterator across N workers, returns aggregated results with error handling.
 
-## Module Consolidation
+**createTraceWriter** — Factory function returning TraceWriter instance (writes NDJSON to `.agents-reverse-engineer/traces/`) or NullTraceWriter if tracing disabled.
 
-Single import point for orchestration engine subsystems. Re-exports from `types.ts`, `pool.ts`, `progress.ts`, `plan-tracker.ts`, `trace.ts`, `runner.ts`. Consumers import via `import { CommandRunner, runPool, ProgressReporter, createTraceWriter } from './orchestration/index.js'` to access concurrency pool, progress reporting, plan tracking, NDJSON tracing, and three-phase command execution.
+**cleanupOldTraces** — Deletes old trace files from `.agents-reverse-engineer/traces/` directory, retaining only the most recent keepCount files (default 500).
+
+## Exported Classes
+
+**ProgressReporter** — Streaming progress reporter with ETA calculation via moving average of last 10 task durations, emits ProgressEvent objects, supports spinner UI via ora integration.
+
+**ProgressLog** — File-based progress logger writing human-readable output to `.agents-reverse-engineer/progress.log`, mirrors console output for real-time monitoring.
+
+**PlanTracker** — Serialized writer for `GENERATION-PLAN.md` using promise-chain pattern to prevent corruption from concurrent workers, tracks phase breakdown with file counts.
+
+**CommandRunner** — High-level orchestrator executing three-phase pipeline (file analysis, directory aggregation, root synthesis) with configurable concurrency, timeout, and tracing.
+
+## Module Organization
+
+Re-exports from five submodules:
+- `./types.js` — Shared interfaces for task results and run configuration
+- `./pool.js` — Concurrency pool implementation with shared iterator pattern
+- `./progress.js` — Progress reporting with console and file logging
+- `./plan-tracker.js` — Serialized plan file writer
+- `./trace.js` — NDJSON trace event emission with cleanup utilities
+- `./runner.js` — Three-phase pipeline orchestration
+
+## Usage Pattern
+
+Primary entry point for orchestration layer. Import CommandRunner for high-level three-phase execution, or runPool for custom concurrent task processing. ProgressReporter provides real-time feedback with ETA calculation. TraceWriter enables detailed execution telemetry when `--trace` flag passed via CommandRunOptions.

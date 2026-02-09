@@ -2,40 +2,27 @@
 
 # src/types
 
-Shared type definitions for file discovery results, exclusion metadata, and discovery statistics consumed by the discovery pipeline, orchestration runners, and CLI commands.
+Shared TypeScript interface definitions for file discovery results, exclusion tracking, and statistics aggregation across ARE modules.
 
 ## Contents
 
 ### [index.ts](./index.ts)
-Exports `ExcludedFile` (path + exclusion reason), `DiscoveryResult` (included files array + excluded file metadata), and `DiscoveryStats` (metrics with `totalFiles`, `includedFiles`, `excludedFiles`, `exclusionReasons` histogram).
+Exports `ExcludedFile` (path + reason), `DiscoveryResult` (files + excluded arrays), `DiscoveryStats` (totalFiles, includedFiles, excludedFiles, exclusionReasons histogram).
 
-## Exported Types
+## Usage Pattern
 
-**ExcludedFile**
-- `path: string` — Absolute or relative file path
-- `reason: string` — Exclusion cause (gitignore pattern, binary file, vendor directory)
+`src/discovery/walker.ts` returns `DiscoveryResult` from traversal functions. `src/cli/discover.ts` consumes `DiscoveryResult` to format console output and write `GENERATION-PLAN.md`. `src/orchestration/runner.ts` logs `DiscoveryStats` to telemetry during discovery phase.
 
-**DiscoveryResult**
-- `files: string[]` — Files approved for analysis (passed filter chain)
-- `excluded: ExcludedFile[]` — Rejected files with exclusion metadata
+## Data Model
 
-**DiscoveryStats**
-- `totalFiles: number` — Sum of included + excluded files
-- `includedFiles: number` — Count passing all filters
-- `excludedFiles: number` — Count rejected by any filter
-- `exclusionReasons: Record<string, number>` — Aggregated reason histogram mapping exclusion causes to counts
+### ExcludedFile
+- `path: string` — Absolute/relative file path
+- `reason: string` — Exclusion rationale ("gitignore pattern", "binary file", "vendor directory")
 
-## Usage Across Modules
+### DiscoveryResult
+- `files: string[]` — Selected for analysis
+- `excluded: ExcludedFile[]` — Rejected with reasons
 
-**Producers:**
-- `src/discovery/run.ts` → `discoverFiles()` populates `DiscoveryResult` from `DirectoryWalker` output
-
-**Consumers:**
-- `src/orchestration/runner.ts` → `runGenerationPhase()` converts `DiscoveryResult.files` to task queue for Phase 1 worker pool
-- `src/cli/discover.ts` → Computes `DiscoveryStats` from `DiscoveryResult.excluded` for GENERATION-PLAN.md output
-- `src/generation/orchestrator.ts` → Ingests `files[]` for concurrent `.sum` file generation
-
-**Related types:**
-- `src/discovery/types.ts` — `DirectoryWalker`, `FileFilter` interfaces
-- `src/orchestration/types.ts` — `Task`, `WorkerPoolOptions` abstractions
-- `src/config/schema.ts` — `ConfigSchema` defining filter behavior (vendor directories, binary extensions, exclude patterns)
+### DiscoveryStats
+- `totalFiles: number`, `includedFiles: number`, `excludedFiles: number` — Counts
+- `exclusionReasons: Record<string, number>` — Reason → occurrence count map

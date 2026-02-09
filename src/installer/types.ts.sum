@@ -1,40 +1,83 @@
 ---
-generated_at: 2026-02-09T15:07:30.011Z
+generated_at: 2026-02-09T16:10:35.915Z
 content_hash: c9618acf7084121a419590d18820c6e7d77a9bae7c6e79d26cc1b558928b4584
-purpose: types.ts defines TypeScript interfaces and type aliases for the installer module's npx-based command and hook install...
+purpose: types.ts defines TypeScript interfaces and union types for the npx installer workflow supporting multi-runtime (Claud...
 ---
-**types.ts defines TypeScript interfaces and type aliases for the installer module's npx-based command and hook installation workflow targeting Claude Code, OpenCode, and Gemini runtimes.**
+**types.ts defines TypeScript interfaces and union types for the npx installer workflow supporting multi-runtime (Claude/OpenCode/Gemini) installation with global/local targeting, operation result tracking, and path resolution.**
 
 ## Exported Types
 
-**Runtime** — Union type `'claude' | 'opencode' | 'gemini' | 'all'` specifying supported AI coding assistant runtimes for installation, maps to platform-specific directories: `~/.claude`, `~/.config/opencode`, `~/.gemini`, or all three when `'all'` selected.
+**Runtime** — Union type: `'claude' | 'opencode' | 'gemini' | 'all'`
+- Maps to platform-specific directories: `~/.claude`, `~/.config/opencode`, `~/.gemini`
+- Special value `'all'` triggers installation to all three runtimes
 
-**Location** — Union type `'global' | 'local'` distinguishing user-level installation (home directory `~/`) from project-level installation (current working directory `./<runtime>/`).
+**Location** — Union type: `'global' | 'local'`
+- `'global'` targets user-level directories (home directory)
+- `'local'` targets project-level directories (working directory)
 
-**InstallerArgs** — Interface capturing parsed CLI arguments for installer command:
-- `runtime?: Runtime` — Optional target runtime, prompts interactively if omitted
-- `global: boolean` — Flag for `~/.claude` style installation
-- `local: boolean` — Flag for `.claude` style installation
-- `uninstall: boolean` — Triggers removal instead of installation
-- `force: boolean` — Enables overwrite of existing files without prompt
-- `help: boolean` — Shows usage information and exits
-- `quiet: boolean` — Suppresses banner and informational output
+**InstallerArgs** — Interface for CLI argument parsing
+```typescript
+interface InstallerArgs {
+  runtime?: Runtime;      // Target platform (optional, prompts if missing)
+  global: boolean;        // Install to ~/.claude, ~/.config/opencode, ~/.gemini
+  local: boolean;         // Install to .claude, .opencode, .gemini
+  uninstall: boolean;     // Remove instead of install
+  force: boolean;         // Overwrite existing files
+  help: boolean;          // Show usage and exit
+  quiet: boolean;         // Suppress banner/info output
+}
+```
+Supports both interactive mode (prompts when `runtime` undefined) and non-interactive mode (all flags set).
 
-**InstallerResult** — Interface representing outcome of single runtime/location installation operation:
-- `success: boolean` — Overall operation success indicator
-- `runtime: Exclude<Runtime, 'all'>` — Concrete runtime installed (excludes synthetic `'all'` value)
-- `location: Location` — Target location (global or local)
-- `filesCreated: string[]` — Absolute paths of successfully written files
-- `filesSkipped: string[]` — Paths skipped due to existing files without `--force` flag
-- `errors: string[]` — Error messages encountered during operation
-- `hookRegistered?: boolean` — Claude-specific flag indicating SessionEnd hook registration in `settings.json`
-- `versionWritten?: boolean` — Flag indicating ARE version file creation (e.g., `~/.claude/ARE-VERSION`)
+**InstallerResult** — Interface for per-runtime operation outcomes
+```typescript
+interface InstallerResult {
+  success: boolean;                  // Overall operation status
+  runtime: Exclude<Runtime, 'all'>; // Resolved runtime (never 'all')
+  location: Location;                // Target location
+  filesCreated: string[];            // Successfully written file paths
+  filesSkipped: string[];            // Existing files (no --force)
+  errors: string[];                  // Failure messages
+  hookRegistered?: boolean;          // Claude-specific: SessionEnd hook in settings.json
+  versionWritten?: boolean;          // ~/.claude/ARE-VERSION existence
+}
+```
+Used by installer operations (`src/installer/operations.ts`) for aggregated reporting.
 
-**RuntimePaths** — Interface mapping runtime to resolved filesystem paths:
-- `global: string` — Absolute path to global installation directory (e.g., `/home/user/.claude`)
-- `local: string` — Relative or absolute path to project-level directory (e.g., `./.claude`)
-- `settingsFile: string` — Absolute path to runtime's settings file for hook registration (e.g., `~/.claude/settings.json`)
+**RuntimePaths** — Interface for resolved directory paths
+```typescript
+interface RuntimePaths {
+  global: string;        // ~/.claude, ~/.config/opencode, ~/.gemini
+  local: string;         // .claude, .opencode, .gemini
+  settingsFile: string;  // settings.json path for hook registration
+}
+```
+Environment overrides respected via `CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR` (see `src/installer/paths.ts`).
 
 ## Integration Points
 
-Used by `src/installer/operations.ts` for file copying and hook registration logic, `src/installer/paths.ts` for directory resolution with environment variable overrides (`CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`), and `src/installer/prompts.ts` for interactive CLI argument collection via `enquirer` library.
+- `src/installer/prompts.ts` constructs `InstallerArgs` from interactive prompts
+- `src/installer/paths.ts` returns `RuntimePaths` for each runtime with environment variable overrides
+- `src/installer/operations.ts` produces `InstallerResult[]` arrays from installation operations
+- `src/installer/index.ts` consumes these types for CLI entry point orchestration
+
+## Usage Patterns
+
+**Parallel installation to all runtimes:**
+```typescript
+const results: InstallerResult[] = installToRuntime('all', 'global', args);
+// Expands to three operations: claude, opencode, gemini
+```
+
+**Location precedence validation:**
+```typescript
+if (args.global && args.local) {
+  throw new Error('Cannot specify both --global and --local');
+}
+```
+
+**Path resolution with environment override:**
+```typescript
+const paths: RuntimePaths = getRuntimePaths('claude');
+// Uses CLAUDE_CONFIG_DIR if set, else ~/.claude
+```

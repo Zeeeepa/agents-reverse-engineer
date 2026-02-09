@@ -1,28 +1,22 @@
 ---
-generated_at: 2026-02-09T15:06:06.267Z
+generated_at: 2026-02-09T16:08:58.787Z
 content_hash: c67fdb8a7cbf2059c4a63cf8ab6f62c235724007d0288b1c4b0d3b97c532aaaa
-purpose: Re-exports file analysis and directory aggregation writers for the three-phase documentation pipeline.
+purpose: index.ts re-exports writer utilities for .sum files and AGENTS.md generation.
 ---
-**Re-exports file analysis and directory aggregation writers for the three-phase documentation pipeline.**
+**index.ts re-exports writer utilities for .sum files and AGENTS.md generation.**
 
 ## Exported Symbols
 
-Aggregates writer functions from two submodules without introducing new logic.
-
 **From `./sum.js`:**
-- `writeSumFile` — Writes `.sum` file with YAML frontmatter containing `generated_at`, `content_hash`, `purpose`, `critical_todos`, `related_files`
-- `readSumFile` — Parses `.sum` file YAML frontmatter and markdown body into `SumFileContent` object
-- `getSumPath` — Computes `.sum` file path from source file path by appending `.sum` extension
-- `sumFileExists` — Checks filesystem for `.sum` file existence via `getSumPath()` + `existsSync()`
-- `SumFileContent` — Type representing parsed `.sum` file structure with `metadata` (frontmatter fields) and `content` (markdown body)
+- `writeSumFile` — Writes .sum files with YAML frontmatter containing `generated_at`, `content_hash`, `purpose`, `critical_todos`, `related_files`
+- `readSumFile` — Parses existing .sum files, extracts YAML frontmatter and markdown body
+- `getSumPath` — Computes .sum file path from source file path
+- `sumFileExists` — Checks if .sum file exists for given source file
+- `SumFileContent` — Type interface for .sum file structure with frontmatter fields and markdown content
 
 **From `./agents-md.js`:**
-- `writeAgentsMd` — Writes directory-level `AGENTS.md` files during Phase 2 post-order aggregation, preserving user-authored `AGENTS.local.md` content and inserting generation marker comment
+- `writeAgentsMd` — Writes directory-level AGENTS.md files from aggregated child .sum content and subdirectory AGENTS.md files during Phase 2 post-order traversal
 
-## Module Purpose
+## Module Role
 
-Provides centralized import point for file/directory writers consumed by:
-- `src/generation/orchestrator.ts` — Phase 1 calls `writeSumFile()` for concurrent file analysis
-- `src/generation/executor.ts` — Phase 2 calls `writeAgentsMd()` for directory aggregation
-- `src/update/orchestrator.ts` — Incremental updates call `readSumFile()` for hash comparison and `sumFileExists()` for orphan detection
-- `src/quality/inconsistency/code-vs-doc.ts` — Validation reads `.sum` files via `readSumFile()` to extract exported symbols
+index.ts serves as public API boundary for `src/generation/writers/` directory. Consumers import writer functions via `import { writeSumFile, readSumFile, writeAgentsMd } from './generation/writers/index.js'` without accessing implementation modules directly. Central to Phase 1 file analysis (writeSumFile) and Phase 2 directory aggregation (writeAgentsMd) in three-phase pipeline. SumFileContent type defines contract for frontmatter schema including SHA-256 content_hash used by incremental update system.

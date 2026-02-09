@@ -2,56 +2,89 @@
 
 # hooks/
 
-Session lifecycle hooks for AI IDE integration: version checking and auto-update triggers for Claude Code, Gemini CLI, and OpenCode plugin systems.
+**Session lifecycle hooks for Claude Code, Gemini CLI, and OpenCode runtimes that execute version checking on session start and incremental documentation updates on session end via detached background processes.**
 
 ## Contents
 
-### Claude Code / Gemini CLI Hooks
+### Session Start Hooks
 
-**[are-check-update.js](./are-check-update.js)** — SessionStart hook spawning detached background process to query `npm view agents-reverse-engineer version`, compare against local/global `ARE-VERSION` files (project `.claude/ARE-VERSION` before global `~/.claude/ARE-VERSION`), and cache results to `~/.claude/cache/are-update-check.json` with schema `{update_available, installed, latest, checked}`. Uses `execSync('npm view...')` with 10s timeout, falls back to `'0.0.0'`/`'unknown'` on errors. Creates cache directory via `mkdirSync({recursive:true})`. Cross-platform via `windowsHide:true` spawn option and `homedir()` resolution.
+**[are-check-update.js](./are-check-update.js)** — Claude/Gemini SessionStart hook spawning detached `npm view agents-reverse-engineer version` subprocess, comparing against local `ARE-VERSION` file (project `.claude/ARE-VERSION` before global `~/.claude/ARE-VERSION`), writing comparison result to `~/.claude/cache/are-update-check.json` with schema `{ update_available, installed, latest, checked }`.
 
-**[are-session-end.js](./are-session-end.js)** — SessionEnd hook triggering `npx agents-reverse-engineer@latest update --quiet` as detached background process when git working tree has uncommitted changes. Guards via early exit on `ARE_DISABLE_HOOK='1'` environment variable or `.agents-reverse-engineer.yaml` containing substring `'hook_enabled: false'` (no YAML parser). Checks `execSync('git status --porcelain')` for non-empty output, exits silently (code 0) on git errors or clean tree. Spawns via `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], {stdio:'ignore', detached:true})` followed by `child.unref()` to allow parent termination without blocking.
+**[opencode-are-check-update.js](./opencode-are-check-update.js)** — OpenCode plugin exporting `AreCheckUpdate()` async factory returning `event['session.created']` handler that spawns detached npm version check subprocess, writes cache to `~/.config/opencode/cache/are-update-check.json`.
 
-### OpenCode Plugin Hooks
+### Session End Hooks
 
-**[opencode-are-check-update.js](./opencode-are-check-update.js)** — Exports `AreCheckUpdate()` async factory returning plugin object with `event['session.created']` handler. Mirrors `are-check-update.js` behavior but targets `~/.config/opencode/cache/are-update-check.json` and checks `ARE-VERSION` files in project `.opencode/` before global `~/.config/opencode/`. Uses identical detached spawn pattern with inline script string executing `npm view` query and JSON cache write. Plugin structure conforms to OpenCode lifecycle API expecting async factories returning event handler registrations.
+**[are-session-end.js](./are-session-end.js)** — Claude/Gemini SessionEnd hook executing `git status --porcelain` change detection, spawning detached `npx agents-reverse-engineer@latest update --quiet` subprocess if uncommitted changes detected, exits silently if `ARE_DISABLE_HOOK=1` or config contains `hook_enabled: false` substring.
 
-**[opencode-are-session-end.js](./opencode-are-session-end.js)** — Exports `AreSessionEnd()` async factory returning plugin object with `event['session.deleted']` handler. Identical disable checks (`ARE_DISABLE_HOOK`, `.agents-reverse-engineer.yaml` substring search) and git change detection (`execSync('git status --porcelain')`) as `are-session-end.js`. Spawns detached `npx agents-reverse-engineer@latest update --quiet` background process via `spawn()` with `child.unref()` to prevent session close blocking.
+**[opencode-are-session-end.js](./opencode-are-session-end.js)** — OpenCode plugin exporting `AreSessionEnd()` async factory returning `event['session.deleted']` handler that executes identical git status check and detached update spawn as Claude/Gemini variant.
 
-## Architecture Patterns
+## Architecture
 
-**Detached Process Pattern** — All hooks use `spawn(process.execPath, ['-e', scriptString], {stdio:'ignore', detached:true, windowsHide:true})` followed by `child.unref()` to execute background tasks without blocking IDE lifecycle events. Script strings use synchronous APIs (`fs.readFileSync`, `execSync`) to avoid async coordination in detached subprocess.
+### Detached Subprocess Pattern
 
-**Version Resolution Priority** — Project-local paths checked before global paths:
-- Claude/Gemini: `${cwd}/.claude/ARE-VERSION` → `~/.claude/ARE-VERSION`
-- OpenCode: `${cwd}/.opencode/ARE-VERSION` → `~/.config/opencode/ARE-VERSION`
+All hooks use identical background process spawning pattern:
+```javascript
+spawn(process.execPath, ['-e', scriptString], { 
+  stdio: 'ignore', 
+  detached: true, 
+  windowsHide: true 
+}).unref()
+```
 
-**Silent Failure Semantics** — All hooks exit with code 0 on errors (non-git repos, network timeouts, missing binaries) to prevent hook failures from blocking session start/end. Version checks default to `'0.0.0'` on missing files, `'unknown'` on network errors.
+Inline script via `-e` flag executes synchronous Node.js APIs (`execSync`, `readFileSync`, `writeFileSync`) in isolated process that survives parent termination. `stdio: 'ignore'` prevents output blocking session lifecycle, `unref()` allows parent exit without waiting for completion.
 
-**Cross-Platform Handling** — `homedir()` resolves `~` on Unix and `%USERPROFILE%` on Windows. `path.join()` handles separators. `windowsHide:true` suppresses console flash on Windows.
+### Version File Resolution
 
-## Integration Points
+Check update hooks read sentinel `ARE-VERSION` file in priority order:
+1. Project-local: `<cwd>/.{claude,opencode}/ARE-VERSION`
+2. Global: `~/{.claude,.config/opencode}/ARE-VERSION`
 
-Installed to IDE-specific directories via `src/installer/operations.ts`:
-- Claude Code: `~/.claude/hooks/`
-- Gemini CLI: `~/.gemini/hooks/`
-- OpenCode: `~/.config/opencode/plugins/`
+Falls back to `'0.0.0'` if neither exists. Installer writes this file during setup (`src/installer/operations.ts`).
 
-Claude/Gemini hooks invoked directly as Node.js scripts (`#!/usr/bin/env node` shebang). OpenCode hooks loaded as ES modules exporting async factory functions.
+### Cache Schema
 
-## Disable Mechanisms
+Version check subprocess writes JSON to platform-specific cache:
+- Claude/Gemini: `~/.claude/cache/are-update-check.json`
+- OpenCode: `~/.config/opencode/cache/are-update-check.json`
 
-Two disable paths:
-1. **Runtime**: Environment variable `ARE_DISABLE_HOOK='1'`
-2. **Persistent**: Config file `.agents-reverse-engineer.yaml` containing substring `'hook_enabled: false'` (uses `fs.readFileSync()` + `String.includes()`, no YAML parser for performance)
+**Format:**
+```json
+{
+  "update_available": boolean,
+  "installed": "semver-string",
+  "latest": "semver-string" | "unknown",
+  "checked": 1234567890
+}
+```
 
-Both checked via early exit with code 0 to fail silently without blocking session lifecycle.
+### Disable Mechanisms
 
-## Dependencies
+Session-end hooks exit silently when:
+- `process.env.ARE_DISABLE_HOOK === '1'`
+- `.agents-reverse-engineer.yaml` exists and contains substring `'hook_enabled: false'` (no YAML parser)
 
-Node.js built-ins only:
-- `fs.{existsSync, readFileSync, writeFileSync, mkdirSync}` — version file I/O, cache writes
-- `os.homedir()` — user directory resolution
-- `path.join()` — cross-platform path construction
-- `child_process.{spawn, execSync}` — detached background processes, synchronous git/npm commands
-- `process.{execPath, cwd, exit, env}` — Node.js binary path, working directory, exit control, environment access
+### Change Detection
+
+Session-end hooks execute `execSync('git status --porcelain', { encoding: 'utf-8' })` and exit silently if output is empty (no uncommitted changes) or if command throws (non-git repo).
+
+## File Relationships
+
+**Hook installation:** `src/installer/operations.ts` copies hooks to platform-specific directories and writes `ARE-VERSION` sentinel file.
+
+**Build process:** `scripts/build-hooks.js` copies hook files to `hooks/dist/` directory for npm tarball inclusion before publish.
+
+**Session-end update invocation:** Spawns `npx agents-reverse-engineer@latest update --quiet` which executes `src/cli/update.ts` orchestrator with hash-based change detection and incremental regeneration.
+
+**Platform path resolution:** `src/installer/paths.ts` provides platform-specific config directory lookup respecting environment overrides (`CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`).
+
+## Behavioral Contracts
+
+**Git status command:** `'git status --porcelain'` with `{ encoding: 'utf-8' }` — detects uncommitted changes (modified/staged/untracked files).
+
+**npm version query:** `'npm view agents-reverse-engineer version'` with `{ encoding: 'utf8', timeout: 10000, windowsHide: true }` — queries registry for latest published version.
+
+**Update invocation:** `['npx', 'agents-reverse-engineer@latest', 'update', '--quiet']` — spawns latest published version with `--quiet` flag suppressing terminal output.
+
+**Config disable check pattern:** `readFileSync('.agents-reverse-engineer.yaml', 'utf-8').includes('hook_enabled: false')` — substring match without YAML parsing for fast disable detection.
+
+**Cache directory creation:** `mkdirSync(cacheDir, { recursive: true })` — ensures `~/{.claude,.config/opencode}/cache/` exists before subprocess spawn.

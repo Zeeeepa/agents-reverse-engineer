@@ -1,38 +1,29 @@
 ---
-generated_at: 2026-02-09T15:08:12.170Z
+generated_at: 2026-02-09T16:11:10.968Z
 content_hash: 38568303038b8592202e7cb3a10296983279d31d0297e87048561aa7d45cc41e
-purpose: Core type definitions for file discovery results, exclusion metadata, and discovery statistics shared across the ARE ...
+purpose: index.ts defines shared TypeScript interfaces for file discovery results, exclusion tracking, and statistics aggregat...
 ---
-**Core type definitions for file discovery results, exclusion metadata, and discovery statistics shared across the ARE discovery and orchestration modules.**
+**index.ts defines shared TypeScript interfaces for file discovery results, exclusion tracking, and statistics aggregation used across ARE modules.**
 
-## Exported Types
+## Exported Interfaces
 
 ### ExcludedFile
-Interface describing files filtered out during discovery:
+Represents a file excluded during discovery with metadata:
 - `path: string` — Absolute or relative path to excluded file
-- `reason: string` — Exclusion cause (gitignore pattern, binary file, vendor directory)
+- `reason: string` — Exclusion rationale (e.g., "gitignore pattern", "binary file", "vendor directory")
 
 ### DiscoveryResult
-Interface returned by `discoverFiles()` workflow:
-- `files: string[]` — Paths approved for analysis (passed all filters)
-- `excluded: ExcludedFile[]` — Rejected files with exclusion metadata
+Output contract for file discovery process:
+- `files: string[]` — Paths of files selected for analysis
+- `excluded: ExcludedFile[]` — Files rejected with explanatory reasons
 
 ### DiscoveryStats
-Interface for discovery metrics computation:
-- `totalFiles: number` — Sum of included + excluded files
-- `includedFiles: number` — Count passing filter chain
-- `excludedFiles: number` — Count rejected by any filter
-- `exclusionReasons: Record<string, number>` — Aggregated reason histogram (e.g., `{"binary file": 42, "gitignore pattern": 108}`)
+Aggregated metrics from discovery execution:
+- `totalFiles: number` — Count of all files encountered
+- `includedFiles: number` — Count selected for analysis
+- `excludedFiles: number` — Count rejected by filters
+- `exclusionReasons: Record<string, number>` — Histogram mapping reason strings to occurrence counts
 
-## Module Coupling
+## Integration Points
 
-Consumed by:
-- `src/discovery/run.ts` — Populates `DiscoveryResult` from walker output
-- `src/orchestration/runner.ts` — Converts `DiscoveryResult.files` to task queue
-- `src/cli/discover.ts` — Computes `DiscoveryStats` for GENERATION-PLAN.md output
-- `src/generation/orchestrator.ts` — Ingests `files[]` for Phase 1 pool execution
-
-Paired with:
-- `src/discovery/types.ts` — Walker and filter interfaces
-- `src/config/schema.ts` — Configuration driving filter behavior
-- `src/orchestration/types.ts` — Task and worker pool abstractions
+Consumed by `src/discovery/walker.ts` as return types for directory traversal functions. Used by `src/cli/discover.ts` to format console output and write `GENERATION-PLAN.md`. Referenced in `src/orchestration/runner.ts` for telemetry logging of discovery phase metrics.

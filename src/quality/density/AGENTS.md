@@ -2,24 +2,30 @@
 
 # src/quality/density
 
-Disabled findability validator that would verify AGENTS.md coverage of exported symbols from `.sum` file metadata (awaiting structured `publicInterface` extraction restoration).
+Disabled findability validation stub that previously verified exported symbols from .sum files appeared in parent AGENTS.md content, retained for future structured metadata extraction support.
 
 ## Contents
 
-**[validator.ts](./validator.ts)** — `validateFindability()` returns empty array since `SumFileContent.publicInterface` removal in schema. Signature preserved: accepts `agentsMdContent` string and `sumFiles` map, would return `FindabilityResult[]` with per-file symbol presence analysis (tested/found/missing arrays, coverage score 0-1). Design: substring search for symbols in AGENTS.md text without LLM inference, contrasts with code-vs-doc's regex-based export extraction from source files.
-
-## Architecture
-
-Non-AI heuristic validator using string matching to compute symbol findability scores. Imports `SumFileContent` from `../../generation/writers/sum.js` for type constraints. Called by `src/quality/index.ts` quality orchestration alongside `code-vs-doc`, `code-vs-code`, `phantom-paths` validators. Disabled state prevents execution until post-processing pass restores structured metadata extraction to `.sum` file frontmatter.
+**[validator.ts](./validator.ts)** — Exports `validateFindability()` returning empty array; previously extracted symbol names from `SumFileContent.metadata.publicInterface` and performed substring search in AGENTS.md content to compute per-file `FindabilityResult` with score calculation.
 
 ## Exported Interface
 
-**FindabilityResult** — Validation outcome with `filePath`, `symbolsTested`, `symbolsFound`, `symbolsMissing` string arrays, `score` ratio (found/tested).
+**FindabilityResult** — Validation result containing `filePath`, `symbolsTested[]`, `symbolsFound[]`, `symbolsMissing[]`, and `score` (0.0–1.0 ratio of found to tested symbols).
 
-## Relation to Quality Suite
+**validateFindability()** — `(agentsMdContent: string, sumFiles: Map<string, SumFileContent>) => FindabilityResult[]` — Returns empty array; signature preserved but implementation gutted after `SumFileContent.metadata.publicInterface` removal.
 
-Fourth validator in suite:
-- `code-vs-doc` (regex export extraction vs substring search in summaries)
-- `code-vs-code` (duplicate symbol detection via `Map<symbol, string[]>` aggregation)
-- `phantom-paths` (path resolution via three regex patterns + `existsSync()`)
-- `density` (this module: symbol findability in AGENTS.md from .sum metadata, disabled)
+## Disabled Feature Context
+
+validator.ts implements LLM-free validation using string-based symbol matching with no AI subprocess calls. Disabled in `../index.ts` quality validation pipeline when `publicInterface` field removed from `SumFileContent` schema in `../../generation/writers/sum.ts`. Previously detected when directory-level AGENTS.md aggregation failed to preserve critical symbol names from child .sum file summaries.
+
+## Restoration Path
+
+Re-implementation requires:
+1. Adding structured export extraction to .sum file generation (Phase 1 of three-phase pipeline in `../../generation/orchestrator.ts`)
+2. Parsing YAML frontmatter in .sum files via `readSumFile()` from `../../generation/writers/sum.ts`
+3. Implementing symbol presence checks against AGENTS.md content
+4. Re-enabling in `../index.ts` quality validator orchestrator
+
+## Type Dependencies
+
+Imports `SumFileContent` from `../../generation/writers/sum.ts` — Interface for parsed .sum file containing YAML frontmatter (`generated_at`, `content_hash`, `purpose`, `critical_todos[]`, `related_files[]`) and markdown summary content.

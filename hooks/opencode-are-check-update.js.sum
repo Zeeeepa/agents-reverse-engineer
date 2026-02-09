@@ -1,55 +1,66 @@
 ---
-generated_at: 2026-02-09T15:08:35.213Z
+generated_at: 2026-02-09T16:11:37.260Z
 content_hash: b6592de50e518a82f7185d14f371f7ccfff18a4569aa6e6fdf3d18d40b9f4d83
-purpose: opencode-are-check-update.js exports AreCheckUpdate factory for OpenCode session lifecycle integration, spawning deta...
+purpose: opencode-are-check-update.js spawns detached background process checking npm registry for agents-reverse-engineer ver...
 ---
-**opencode-are-check-update.js exports AreCheckUpdate factory for OpenCode session lifecycle integration, spawning detached background processes that compare installed ARE version against npm registry and cache results to ~/.config/opencode/cache/are-update-check.json.**
+**opencode-are-check-update.js spawns detached background process checking npm registry for agents-reverse-engineer version updates on OpenCode session creation, writes comparison result to `~/.config/opencode/cache/are-update-check.json`.**
 
 ## Exported Interface
 
-**AreCheckUpdate()** — Async factory function (default export) returning OpenCode plugin object with event handlers.
+- `AreCheckUpdate()` — Async factory returning OpenCode plugin object with `event['session.created']` handler
 
-Returns object shape:
+## Plugin Lifecycle Hook
+
+`AreCheckUpdate()` returns plugin object with `event: { 'session.created': async () => {...} }` structure. OpenCode invokes handler when new session starts.
+
+## Version File Resolution Strategy
+
+Checks two locations in priority order:
+1. Project-local: `<cwd>/.opencode/ARE-VERSION`
+2. Global: `~/.config/opencode/ARE-VERSION`
+
+Reads first existing file to determine installed version, defaults to `'0.0.0'` if neither exists.
+
+## Cache Directory Creation
+
+Constructs cache path: `join(homedir(), '.config', 'opencode', 'cache', 'are-update-check.json')`. Calls `mkdirSync(cacheDir, { recursive: true })` if directory missing via `!existsSync(cacheDir)` check.
+
+## Detached Subprocess Pattern
+
+Spawns background process using `spawn(process.execPath, ['-e', scriptString], { stdio: 'ignore', detached: true, windowsHide: true })`. Calls `child.unref()` to allow parent process exit without waiting. Subprocess runs Node.js inline script via `-e` flag.
+
+## Inline Script Execution
+
+Subprocess script uses synchronous Node.js APIs:
+- `fs.readFileSync(projectVersionFile, 'utf8')` or `fs.readFileSync(globalVersionFile, 'utf8')` for installed version
+- `execSync('npm view agents-reverse-engineer version', { encoding: 'utf8', timeout: 10000, windowsHide: true })` for latest registry version
+- `fs.writeFileSync(cacheFile, JSON.stringify(result))` for cache persistence
+
+## Cache Schema
+
+Writes JSON object with shape:
 ```javascript
 {
-  event: {
-    'session.created': async () => void
-  }
+  update_available: boolean,  // true when latest !== installed
+  installed: string,          // version from ARE-VERSION file
+  latest: string,             // npm registry version or 'unknown'
+  checked: number             // Unix timestamp (seconds)
 }
 ```
 
-## Session Hook Behavior
+## Error Handling
 
-**'session.created' handler** executes on OpenCode session start:
-1. Resolves cache directory path via `join(homedir(), '.config', 'opencode', 'cache')`
-2. Creates cache directory via `mkdirSync(cacheDir, { recursive: true })` if missing
-3. Checks for ARE-VERSION file in two locations (project-first precedence):
-   - Local: `join(cwd, '.opencode', 'ARE-VERSION')`
-   - Global: `join(homedir(), '.config', 'opencode', 'ARE-VERSION')`
-4. Spawns detached background Node.js process via `spawn(process.execPath, ['-e', scriptString], { stdio: 'ignore', detached: true, windowsHide: true })`
-5. Background process reads installed version from ARE-VERSION file (project before global)
-6. Background process queries latest version via `execSync('npm view agents-reverse-engineer version', { timeout: 10000 })`
-7. Writes cache file `are-update-check.json` with structure:
-   ```json
-   {
-     "update_available": boolean,
-     "installed": string,
-     "latest": string,
-     "checked": number (Unix timestamp)
-   }
-   ```
-8. Calls `child.unref()` to allow parent process termination without waiting
+Try-catch blocks around `fs.readFileSync()` (version file read) and `execSync()` (npm query) prevent subprocess crash. Failed version read defaults installed to `'0.0.0'`, failed npm query sets latest to `null` (serialized as `'unknown'`).
 
-## Background Process Pattern
+## Platform-Specific Configuration
 
-Inline script string passed to `spawn()` uses synchronous Node.js APIs (`fs.readFileSync`, `execSync`) to avoid async coordination in detached subprocess. Script re-requires `fs` and `child_process` modules via `require()` since string evaluation occurs in fresh V8 context.
+Uses OpenCode conventional paths:
+- Config directory: `~/.config/opencode/` (not overridable by environment)
+- Cache subdirectory: `.config/opencode/cache/`
+- Version file: `.config/opencode/ARE-VERSION`
 
-Version file fallback chain: project `.opencode/ARE-VERSION` → global `~/.config/opencode/ARE-VERSION` → default `'0.0.0'`.
+Contrasts with Claude (`~/.claude/`) and Gemini (`~/.gemini/`) paths in sibling hook files.
 
-Network timeout of 10000ms (10 seconds) enforced on `npm view` command via `execSync` options. Errors during version check write `"unknown"` to `latest` field and set `update_available: false`.
+## Integration with ARE Installer
 
-## Integration Points
-
-Designed for OpenCode plugin system expecting async factory functions that return event handler registrations. Mirrors functionality of `are-check-update.js` (Claude/Gemini SessionStart hook) but uses OpenCode-specific event names and directory conventions.
-
-Cache file consumed by OpenCode UI or ARE commands to display update notifications without blocking session initialization.
+Installer writes `ARE-VERSION` file during setup (see `src/installer/operations.ts`). Hook reads this sentinel to compare against npm registry. Version file absence triggers `'0.0.0'` default, causing `update_available: true` for any published version.

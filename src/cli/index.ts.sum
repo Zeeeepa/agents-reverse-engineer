@@ -1,79 +1,103 @@
 ---
-generated_at: 2026-02-09T15:06:45.705Z
+generated_at: 2026-02-09T16:09:54.759Z
 content_hash: f0e637c7e8763bd45f0698a292161427c5f42d9a3820aecfdf74d9759b6fafc8
-purpose: CLI entry point routing command-line arguments to init/discover/generate/update/specify/clean/install/uninstall comma...
+purpose: index.ts orchestrates CLI command routing, argument parsing, and interactive installer invocation for the agents-reve...
 ---
-**CLI entry point routing command-line arguments to init/discover/generate/update/specify/clean/install/uninstall commands with flag parsing, installer detection, and error handling.**
+**index.ts orchestrates CLI command routing, argument parsing, and interactive installer invocation for the agents-reverse-engineer tool.**
+
+## Exported Symbols
+
+None (entry point script with shebang `#!/usr/bin/env node`).
 
 ## Command Routing
 
-`main()` orchestrates CLI workflow: calls `parseArgs()` to extract command/flags/values, handles global flags (`--version`, `--help`), detects no-command installer invocation via `hasInstallerFlags()`, displays version banner via `showVersionBanner()`, routes to command-specific handlers via switch statement.
+`main()` async function parses `process.argv.slice(2)` via `parseArgs()`, routes to command handlers:
 
-## Exported Command Handlers
-
-Imports command implementations from sibling modules:
-- `initCommand` from `./init.js` — creates `.agents-reverse-engineer/config.yaml`
-- `discoverCommand` from `./discover.js` — writes `GENERATION-PLAN.md`
-- `generateCommand` from `./generate.js` — executes three-phase pipeline
-- `updateCommand` from `./update.js` — hash-based incremental regeneration
-- `cleanCommand` from `./clean.js` — removes `.sum`, `AGENTS.md`, root docs
-- `specifyCommand` from `./specify.js` — synthesizes `specs/SPEC.md`
-- `runInstaller`, `parseInstallerArgs` from `../installer/index.js` — interactive/non-interactive installation
+- `install` → `runInstaller()` with `parseInstallerArgs()`
+- `uninstall` → `runInstaller()` with `uninstall: true` override
+- `init` → `initCommand(positional[0] || '.', { force })`
+- `clean` → `cleanCommand(positional[0] || '.', { dryRun })`
+- `discover` → `discoverCommand(positional[0] || '.', {})`
+- `generate` → `generateCommand(positional[0] || '.', GenerateOptions)`
+- `update` → `updateCommand(positional[0] || '.', UpdateCommandOptions)`
+- `specify` → `specifyCommand(positional[0] || '.', SpecifyOptions)`
 
 ## Argument Parsing
 
-`parseArgs(args: string[])` returns `{ command: string | undefined, positional: string[], flags: Set<string>, values: Map<string, string> }`. Iterates args extracting:
-- `--flag` → adds to `flags` Set
-- `--key value` → adds to `values` Map
-- `-h`, `-g`, `-l`, `-V` → expands to `help`, `global`, `local`, `version` flags
+`parseArgs(args: string[])` returns `{ command: string | undefined, positional: string[], flags: Set<string>, values: Map<string, string> }`. Splits args into:
+
 - First non-flag arg → `command`
-- Subsequent non-flag args → `positional` array
+- Subsequent non-flag args → `positional[]`
+- `--flagName value` → `values.set('flagName', 'value')`
+- `--flagName` (no value) → `flags.add('flagName')`
+- Short flags `-h`, `-g`, `-l`, `-V` → mapped to long forms (`help`, `global`, `local`, `version`)
 
-## Installer Detection
+## Installer Invocation Modes
 
-`hasInstallerFlags(flags, values)` returns `true` if `flags` contains `global`/`local`/`force` or `values` contains `runtime`. Enables direct invocation pattern: `npx agents-reverse-engineer --runtime claude -g` without explicit `install` command.
+Three entry paths to installer:
 
-## Command Options
+1. **Interactive mode:** `args.length === 0` → `runInstaller({ global: false, local: false, uninstall: false, force: false, help: false, quiet: false })`
+2. **Direct installer flags:** No command + `hasInstallerFlags()` returns `true` → `runInstaller(parseInstallerArgs(args))` (supports `npx agents-reverse-engineer --runtime claude -g`)
+3. **Explicit install/uninstall command:** `command === 'install'` or `'uninstall'` → `runInstaller(parseInstallerArgs(args))`
 
-`GenerateOptions`: `{ dryRun?: boolean, concurrency?: number, failFast?: boolean, debug?: boolean, trace?: boolean }`
+`hasInstallerFlags(flags, values)` checks for `global`, `local`, `force`, or `runtime` presence.
 
-`UpdateCommandOptions`: extends `GenerateOptions` with `uncommitted?: boolean`
+## Flag Mappings
 
-`SpecifyOptions`: `{ output?: string, force?: boolean, dryRun?: boolean, multiFile?: boolean, debug?: boolean, trace?: boolean }`
+`GenerateOptions`:
+- `dryRun: flags.has('dry-run')`
+- `concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined`
+- `failFast: flags.has('fail-fast')`
+- `debug: flags.has('debug')`
+- `trace: flags.has('trace')`
 
-`CleanOptions`: `{ dryRun?: boolean }`
+`UpdateCommandOptions` extends `GenerateOptions` with:
+- `uncommitted: flags.has('uncommitted')`
 
-## Version Handling
+`SpecifyOptions`:
+- `output: values.get('output')`
+- `force: flags.has('force')`
+- `dryRun: flags.has('dry-run')`
+- `multiFile: flags.has('multi-file')`
+- `debug: flags.has('debug')`
+- `trace: flags.has('trace')`
 
-`getVersion()` imported from `../version.js` returns package version string. `VERSION` constant stores result. `showVersion()` prints `agents-reverse-engineer v${VERSION}` and exits. `showVersionBanner()` prints same with trailing newline (non-exiting).
+`CleanOptions`:
+- `dryRun: flags.has('dry-run')`
 
-## Error Handling
+## Version and Help Handling
 
-`showUnknownCommand(command)` prints error message referencing `are --help` and exits with code 1. Top-level `main().catch()` prints error message and exits with code 1 for uncaught exceptions.
+`showVersion()` prints `agents-reverse-engineer v${VERSION}` via `getVersion()` and exits with code 0.
+
+`showHelp()` prints `USAGE` constant and exits with code 0.
+
+`showVersionBanner()` prints `agents-reverse-engineer v${VERSION}\n` without exiting (shown before command execution).
+
+`showUnknownCommand(command)` prints error message and exits with code 1.
 
 ## Usage Documentation
 
-`USAGE` constant contains multiline string documenting all commands, flags, and examples. `showHelp()` prints `USAGE` and exits with code 0.
+`USAGE` constant (multiline string) documents:
 
-## Flag-to-Option Mapping
+- Commands: `install`, `uninstall`, `init`, `discover`, `generate`, `update`, `specify`, `clean`
+- Install/Uninstall options: `--runtime <name>`, `-g, --global`, `-l, --local`, `--force`
+- General options: `--debug`, `--trace`, `--dry-run`, `--output <path>`, `--multi-file`, `--concurrency <n>`, `--fail-fast`, `--uncommitted`, `--help, -h`, `--version, -V`
+- Examples: `are install`, `are install --runtime claude -g`, `are uninstall`, `are init`, `are discover`, `are generate --dry-run`, `are generate ./my-project --concurrency 3`, `are update --uncommitted`, `are specify --output ./docs/spec.md --force`
 
-`generate` command maps:
-- `--dry-run` → `options.dryRun`
-- `--concurrency <n>` → `options.concurrency` (parsed via `parseInt`)
-- `--fail-fast` → `options.failFast`
-- `--debug` → `options.debug`
-- `--trace` → `options.trace`
+## Error Handling
 
-`update` command inherits `generate` mappings plus `--uncommitted` → `options.uncommitted`
+`main().catch((err: Error) => { console.error(\`Error: ${err.message}\`); process.exit(1); })` catches uncaught errors and exits with code 1.
 
-`specify` command maps:
-- `--output <path>` → `specifyOpts.output`
-- `--force` → `specifyOpts.force`
-- `--dry-run` → `specifyOpts.dryRun`
-- `--multi-file` → `specifyOpts.multiFile`
-- `--debug` → `specifyOpts.debug`
-- `--trace` → `specifyOpts.trace`
+## Dependencies
 
-## Shebang and Node Invocation
+Imports command handlers from:
+- `./init.js` → `initCommand`
+- `./discover.js` → `discoverCommand`
+- `./generate.js` → `generateCommand, GenerateOptions`
+- `./update.js` → `updateCommand, UpdateCommandOptions`
+- `./clean.js` → `cleanCommand, CleanOptions`
+- `./specify.js` → `specifyCommand, SpecifyOptions`
 
-`#!/usr/bin/env node` enables direct execution. Binary entry points (`are`, `agents-reverse-engineer`) in `package.json` map to `dist/cli/index.js` after TypeScript compilation.
+Imports installer from `../installer/index.js` → `runInstaller, parseInstallerArgs`.
+
+Imports version from `../version.js` → `getVersion()`.

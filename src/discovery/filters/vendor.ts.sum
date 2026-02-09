@@ -1,37 +1,33 @@
 ---
-generated_at: 2026-02-09T15:05:53.329Z
+generated_at: 2026-02-09T16:08:40.934Z
 content_hash: 8334930ab77a89aadf421359a55e0a69194517b120a26ca30f7e986838eabec0
-purpose: createVendorFilter() implements directory exclusion filtering for third-party code paths via dual pattern matching (s...
+purpose: createVendorFilter() constructs a FileFilter that excludes files within third-party dependency directories and build ...
 ---
-**createVendorFilter() implements directory exclusion filtering for third-party code paths via dual pattern matching (single segment lookup, multi-segment substring search).**
+**createVendorFilter() constructs a FileFilter that excludes files within third-party dependency directories and build output paths using path segment matching and path pattern substring matching.**
 
-## Exported Functions
-
-### createVendorFilter(vendorDirs: string[]): FileFilter
-Returns FileFilter implementing vendor directory exclusion via two-phase path analysis:
-1. Splits vendorDirs into singleSegments (Set<string>) for directories like 'node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target'
-2. Normalizes multi-segment patterns (containing path.sep) into pathPatterns array for nested exclusions like 'apps/vendor' or '.agents/skills'
-
-Returned FileFilter.shouldExclude() first checks if any path segment exists in singleSegments Set (O(1) lookup per segment), then performs substring search for each pathPattern via includes().
-
-Pattern normalization replaces both forward/backslash with platform-specific path.sep via regex `/[\\/]/g`.
-
-## Exported Constants
+## Exported Symbols
 
 ### DEFAULT_VENDOR_DIRS
-Readonly tuple of 10 vendor directory names: 'node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target'. Used as default exclusion list in config schema (src/config/defaults.ts references this constant).
+```typescript
+const DEFAULT_VENDOR_DIRS: readonly [
+  'node_modules', 'vendor', '.git', 'dist', 'build',
+  '__pycache__', '.next', 'venv', '.venv', 'target'
+]
+```
+Array of common vendor directory names: `node_modules`, `vendor`, `.git`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`. Used as default exclusion list for third-party code, build artifacts, Python cache, Next.js build output, Python virtual environments, and Rust/Java build directories.
 
-## Type Dependencies
+### createVendorFilter
+```typescript
+function createVendorFilter(vendorDirs: string[]): FileFilter
+```
+Returns a `FileFilter` instance that excludes paths containing any directory from `vendorDirs`. Implements two matching strategies: (1) single-segment matching where directory names like `'node_modules'` match any path segment (e.g., `/project/node_modules/lodash/index.js`), (2) path-pattern matching where patterns like `'.agents/skills'` or `'apps/vendor'` match via substring search after normalizing separators to `path.sep`. The returned filter has `name: 'vendor'` and `shouldExclude(absolutePath: string): boolean` method.
 
-### FileFilter
-Interface from '../types.js' requiring:
-- name: string property (set to 'vendor' in returned object)
-- shouldExclude(absolutePath: string): boolean method
+## Pattern Matching Algorithm
 
-## Path Matching Strategy
+The `shouldExclude()` method splits `absolutePath` by `path.sep`, iterates segments checking membership in `singleSegments` Set (O(1) lookup), then iterates `pathPatterns` array checking `absolutePath.includes(pattern)` for substring match. Returns `true` on first match, `false` if no matches found.
 
-Single segments match any occurrence in path (e.g., singleSegments.has('node_modules') matches '/project/node_modules/pkg/index.js' and '/apps/client/node_modules/lib.js').
+Path patterns undergo normalization via `dir.replace(/[\\/]/g, path.sep)` to convert both forward and backslashes to OS-specific separator before classification. Classification uses `normalized.includes(path.sep)` to distinguish path patterns (containing separators) from single segments (no separators).
 
-Multi-segment patterns require ordered substring match (e.g., '.agents/skills' matches '/project/apps/foo/.agents/skills/bar.md' but not '/project/.agents/data/skills.md' or '/project/skills/.agents/foo.md').
+## Integration with Discovery Pipeline
 
-Normalization handles cross-platform paths before pattern split decision via path.sep boundary detection.
+Implements `FileFilter` interface from `../types.js` with `name: string` and `shouldExclude(absolutePath: string): boolean` signature. Composed with other filters (gitignore, binary, custom) in discovery filter chain orchestrated by `src/discovery/walker.ts`.

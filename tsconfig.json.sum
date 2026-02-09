@@ -1,56 +1,30 @@
 ---
-generated_at: 2026-02-09T15:08:50.569Z
+generated_at: 2026-02-09T16:11:48.632Z
 content_hash: bebbac9539b1852caf8c0855f599a72527e4266076aba139231fb1c036ad4e37
-purpose: tsconfig.json configures TypeScript compiler for ES2022 Node.js module compilation with strict type-checking and sour...
+purpose: tsconfig.json configures TypeScript compilation to ES2022 with NodeNext module resolution, emitting source maps and d...
 ---
-**tsconfig.json configures TypeScript compiler for ES2022 Node.js module compilation with strict type-checking and source map generation.**
+**tsconfig.json configures TypeScript compilation to ES2022 with NodeNext module resolution, emitting source maps and declarations from `src/` to `dist/` with strict type checking.**
 
-## Compiler Target Configuration
+## Compiler Target and Module System
 
-`target: "ES2022"` specifies ECMAScript 2022 as compilation target, enabling top-level await, class fields, and private methods in emitted JavaScript.
+`target: "ES2022"` emits JavaScript compatible with ES2022 runtime features (top-level await, class fields, private methods). `module: "NodeNext"` and `moduleResolution: "NodeNext"` enforce Node.js ESM conventions with explicit `.js` extensions in import statements and `package.json` `type: "module"` semantics. `lib: ["ES2022"]` provides ES2022 standard library type definitions.
 
-`lib: ["ES2022"]` restricts TypeScript to ES2022 standard library type definitions, preventing usage of newer APIs not available in Node.js ≥18.0.0.
+## Output Configuration
 
-## Module System
+`outDir: "dist"` emits compiled JavaScript to `dist/` directory. `rootDir: "src"` preserves source tree structure during compilation. `declaration: true` generates `.d.ts` type definition files for package consumers. `declarationMap: true` creates `.d.ts.map` files mapping declarations back to source for IDE navigation. `sourceMap: true` emits `.js.map` files for runtime debugging.
 
-`module: "NodeNext"` and `moduleResolution: "NodeNext"` enable Node.js native ESM support with `.js` extension requirements in import statements and package.json `"type": "module"` detection.
+## Type Checking Strictness
 
-`esModuleInterop: true` enables CommonJS/ESM interop via synthetic default imports for libraries without default exports.
+`strict: true` enables all strict type-checking options: `strictNullChecks`, `strictFunctionTypes`, `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitAny`, `noImplicitThis`, `alwaysStrict`. `forceConsistentCasingInFileNames: true` prevents case-insensitive import mismatches across filesystems.
 
-`resolveJsonModule: true` allows importing `.json` files as modules (used for package.json metadata in `src/integration/generate.ts` and version detection).
+## Module Interoperability
 
-`isolatedModules: true` enforces single-file transpilation compatibility required by `tsx` dev runner and Vite-based build tools.
+`esModuleInterop: true` enables synthetic default imports from CommonJS modules via `import x from 'cjs'` instead of `import * as x from 'cjs'`. `resolveJsonModule: true` allows importing JSON files with type inference (used for `package.json` metadata parsing in `src/generation/prompts/builder.ts`). `isolatedModules: true` ensures each file can be transpiled independently (required for TypeScript-on-demand bundlers like tsx).
 
-## Build Paths
+## Compilation Scope
 
-`rootDir: "src"` designates `src/` as compilation root, preserving directory structure in output.
+`include: ["src/**/*"]` compiles all files under `src/` directory. `exclude: ["node_modules", "dist"]` prevents recursive compilation of dependencies and output artifacts. `skipLibCheck: true` skips type checking of `.d.ts` files in `node_modules/` to improve compilation performance.
 
-`outDir: "dist"` emits compiled JavaScript to `dist/` directory (referenced by `package.json` bin entries `dist/cli/index.js`).
+## Build Integration
 
-`include: ["src/**/*"]` compiles all TypeScript files under `src/`.
-
-`exclude: ["node_modules", "dist"]` prevents compilation of dependencies and emitted output.
-
-## Type Declaration Generation
-
-`declaration: true` emits `.d.ts` type declaration files alongside compiled `.js` files for API consumers.
-
-`declarationMap: true` generates `.d.ts.map` files enabling IDE jump-to-source navigation from compiled declarations to original TypeScript source.
-
-`sourceMap: true` generates `.js.map` files for debugging compiled code with source-level stack traces.
-
-## Type Safety
-
-`strict: true` enables all strict type-checking options (strictNullChecks, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, noImplicitThis, alwaysStrict, noImplicitAny, noImplicitReturns, noFallthroughCasesInSwitch).
-
-`forceConsistentCasingInFileNames: true` prevents cross-platform issues from case-insensitive filesystems treating `Logger.ts` and `logger.ts` as identical.
-
-`skipLibCheck: true` skips type-checking of `.d.ts` files in `node_modules/` to reduce compilation time (necessary with 40+ dependencies including `@anthropic-ai/claude-code`, `fast-glob`, `zod`).
-
-## Integration with Build Pipeline
-
-Referenced by `npm run build` in package.json, which executes `tsc` without arguments (reads tsconfig.json by default).
-
-Consumed by `tsx watch src/cli/index.ts` dev mode (npm run dev) for hot-reload type-checking.
-
-Used by npm prepublishOnly hook to compile src/ → dist/ before tarball creation for registry publishing.
+Referenced by `npm run build` script invoking `tsc` compiler. Emitted `dist/` output structure mirrors `src/` tree: `src/cli/index.ts` → `dist/cli/index.js` + `dist/cli/index.d.ts` + `dist/cli/index.js.map`. Binary entry points in `package.json` (`bin.are`, `bin.agents-reverse-engineer`) resolve to `dist/cli/index.js`. Pre-publish hook (`prepublishOnly`) executes `npm run build` ensuring fresh compilation before npm tarball creation.
