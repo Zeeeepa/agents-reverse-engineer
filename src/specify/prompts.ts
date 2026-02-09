@@ -34,7 +34,10 @@ Group content by CONCERN, not by directory structure. Use these conceptual secti
    a. Runtime Behavior: error handling strategies (exact error types/codes and when thrown), retry logic (formulas, delay values), concurrency model, lifecycle hooks, resource management
    b. Implementation Contracts: every regex pattern used for parsing/validation/extraction (verbatim in backticks), every format string and output template (exact structure with examples), every magic constant and sentinel value with its meaning, every environment variable with expected values, every file format specification (YAML schemas, NDJSON structures). These are reproduction-critical — an AI agent needs them to rebuild the system with identical observable behavior.
 8. Test Contracts — what each module's tests should verify: scenarios, edge cases, expected behaviors, error conditions
-9. Build Plan — phased implementation sequence: what to build first and why, dependency order between modules, incremental milestones
+9. Build Plan — phased implementation sequence with explicit interface contracts per phase:
+   - Each phase MUST include a "Defines:" list naming the exact types, interfaces, classes, and functions this phase must export (use the exact names from section 3 Public API Surface)
+   - Each phase MUST include a "Consumes:" list naming the exact types and functions from earlier phases that this phase imports
+   - Include dependency ordering and implementation tasks as before
 10. Prompt Templates & System Instructions — every AI prompt template, system prompt, and user prompt template used by the system. Reproduce the FULL text verbatim from annex files or AGENTS.md content. Organize by pipeline phase or functional area. Include placeholder syntax exactly as defined (e.g., {{FILE_PATH}}). These are reproduction-critical — without them, a rebuilder cannot produce functionally equivalent AI output.
 11. IDE Integration & Installer — command templates per platform, platform configuration objects (path prefixes, filename conventions, frontmatter formats), installer permission lists, hook definitions and their activation status. Reproduce template content verbatim from annex files or AGENTS.md content.
 
@@ -48,6 +51,7 @@ RULES:
 - Include version numbers for ALL external dependencies
 - The Build Plan MUST list implementation phases with explicit dependency ordering
 - Each Build Plan phase must state what it depends on and what it enables
+- Build Plan phases MUST cross-reference the Public API Surface: every type/function in the API Surface section must appear in exactly one phase's "Defines:" list
 - Behavioral Contracts must specify exact error types/codes and when they are thrown
 - Behavioral Contracts MUST include verbatim regex patterns, format strings, and magic constants from the source documents — do NOT paraphrase regex patterns into prose descriptions
 - When multiple modules reference the same constant or pattern, consolidate into a single definition with cross-references to the modules that use it
@@ -112,7 +116,7 @@ export function buildSpecPrompt(docs: AgentsDocs, annexFiles?: AgentsDocs): Spec
     '6. Dependencies (each with version and rationale)',
     '7. Behavioral Contracts (error handling, concurrency, lifecycle, PLUS verbatim regex patterns, format specs, magic constants, templates)',
     '8. Test Contracts (per-module test scenarios and edge cases)',
-    '9. Build Plan (phased implementation order with dependencies)',
+    '9. Build Plan (phased implementation order with dependencies, each phase listing "Defines:" and "Consumes:" with exact names from API Surface)',
     '10. Prompt Templates & System Instructions (FULL verbatim text from annex content)',
     '11. IDE Integration & Installer (command templates, platform configs, permission lists — all verbatim from annex content)',
     '',

@@ -40,8 +40,14 @@ QUALITY:
 - Do not invent features not in the spec.
 - Do not add comments explaining what the spec says — write the code the spec describes.
 
+STRICT COMPLIANCE:
+- When the specification defines exact names for functions, methods, types, classes, or constants, you MUST use those exact names. Do not invent synonyms (e.g., if the spec says done(), do not write reportSuccess()).
+- Pay close attention to the "Interfaces for This Phase" section in the current phase — it contains the exact signatures you must implement.
+- When "Already Built" context shows an exported symbol, import and use it. Do not redefine it.
+
 CONTEXT AWARENESS:
-When "Already Built" context is provided, import from those modules and use their exported types/functions. Do not redefine types that already exist in built modules.`;
+When "Already Built" context is provided, import from those modules and use their exported types/functions. Do not redefine types that already exist in built modules.
+When "Already Built" context provides a function or method signature, your code MUST call it using the exact name shown. Match the API precisely.`;
 
 /**
  * Build the system + user prompt pair for a single rebuild unit.

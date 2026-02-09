@@ -132,23 +132,22 @@ function extractFromBuildPlan(fullContent: string): RebuildUnit[] {
     ? afterBuildPlan.slice(0, nextH2Match.index)
     : afterBuildPlan;
 
-  // Extract Architecture section for context
+  // Extract Architecture section for context (always included in full)
   const architectureContent = extractSection(fullContent, 'Architecture');
 
-  // Extract Public API Surface section for context
+  // Extract Public API Surface section for targeted injection
   const apiContent = extractSection(fullContent, 'Public API Surface');
+  const apiSubsections = apiContent ? extractSubsections(apiContent) : new Map<string, string>();
 
-  // Build context prefix
-  const contextParts: string[] = [];
-  if (architectureContent) {
-    contextParts.push(`## Architecture\n\n${architectureContent}`);
-  }
-  if (apiContent) {
-    contextParts.push(`## Public API Surface\n\n${apiContent}`);
-  }
-  const contextPrefix = contextParts.length > 0
-    ? contextParts.join('\n\n') + '\n\n'
-    : '';
+  // Extract Data Structures and Behavioral Contracts for targeted injection
+  const dataStructuresContent = extractSection(fullContent, 'Data Structures');
+  const dataSubsections = dataStructuresContent ? extractSubsections(dataStructuresContent) : new Map<string, string>();
+
+  const behavioralContent = extractSection(fullContent, 'Behavioral Contracts');
+  const behavioralSubsections = behavioralContent ? extractSubsections(behavioralContent) : new Map<string, string>();
+
+  // Check if any phase has Defines:/Consumes: lists (Change 2 format)
+  const hasDefinesConsumes = buildPlanContent.match(/^\*\*Defines:\*\*|^Defines:/m) !== null;
 
   // Extract phase subsections (### Phase N: ...)
   const phasePattern = /^### Phase (\d+):\s*(.+)$/gm;
@@ -165,7 +164,7 @@ function extractFromBuildPlan(fullContent: string): RebuildUnit[] {
 
   if (phases.length === 0) return [];
 
-  // Extract content for each phase
+  // Extract content for each phase with targeted API injection
   const units: RebuildUnit[] = [];
   for (let i = 0; i < phases.length; i++) {
     const phase = phases[i];
@@ -174,6 +173,37 @@ function extractFromBuildPlan(fullContent: string): RebuildUnit[] {
       ? phases[i + 1].startIndex
       : buildPlanContent.length;
     const phaseContent = buildPlanContent.slice(contentStart, contentEnd).trim();
+
+    // Build context prefix per phase
+    const contextParts: string[] = [];
+    if (architectureContent) {
+      contextParts.push(`## Architecture\n\n${architectureContent}`);
+    }
+
+    if (hasDefinesConsumes && apiSubsections.size > 0) {
+      // Targeted injection: only relevant API subsections
+      const relevantApi = findRelevantSubsections(phaseContent, apiSubsections);
+      if (relevantApi) {
+        contextParts.push(`## Interfaces for This Phase\n\n${relevantApi}`);
+      }
+      const relevantData = findRelevantSubsections(phaseContent, dataSubsections);
+      if (relevantData) {
+        contextParts.push(`## Data Structures for This Phase\n\n${relevantData}`);
+      }
+      const relevantBehavior = findRelevantSubsections(phaseContent, behavioralSubsections);
+      if (relevantBehavior) {
+        contextParts.push(`## Behavioral Contracts for This Phase\n\n${relevantBehavior}`);
+      }
+    } else {
+      // Graceful degradation: full API Surface for older specs without Defines:/Consumes:
+      if (apiContent) {
+        contextParts.push(`## Public API Surface\n\n${apiContent}`);
+      }
+    }
+
+    const contextPrefix = contextParts.length > 0
+      ? contextParts.join('\n\n') + '\n\n'
+      : '';
 
     units.push({
       name: `Phase ${phase.number}: ${phase.name}`,
@@ -221,6 +251,94 @@ function extractFromTopLevelHeadings(fullContent: string): RebuildUnit[] {
   }
 
   return units;
+}
+
+/**
+ * Parse a section's content into subsections keyed by `### ` headings.
+ *
+ * @param sectionContent - Content of a spec section (without the `## ` heading)
+ * @returns Map from heading text to full subsection content (including the heading)
+ */
+function extractSubsections(sectionContent: string): Map<string, string> {
+  const result = new Map<string, string>();
+  const pattern = /^### (.+)$/gm;
+  const headings: Array<{ key: string; startIndex: number }> = [];
+
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(sectionContent)) !== null) {
+    headings.push({ key: match[1].trim(), startIndex: match.index });
+  }
+
+  for (let i = 0; i < headings.length; i++) {
+    const heading = headings[i];
+    const end = i + 1 < headings.length
+      ? headings[i + 1].startIndex
+      : sectionContent.length;
+    result.set(heading.key, sectionContent.slice(heading.startIndex, end).trim());
+  }
+
+  return result;
+}
+
+/**
+ * Find subsections relevant to a phase based on its content.
+ *
+ * Matches using:
+ * 1. "Defines:" and "Consumes:" lists (exact symbol names)
+ * 2. File paths and module names mentioned in the phase's task list
+ *
+ * @param phaseContent - Raw text of the phase section
+ * @param subsections - Map of subsection heading → content
+ * @returns Concatenated matching subsections, or null if none match
+ */
+function findRelevantSubsections(
+  phaseContent: string,
+  subsections: Map<string, string>,
+): string | null {
+  if (subsections.size === 0) return null;
+
+  // Extract words from Defines: and Consumes: lines
+  const definesMatch = phaseContent.match(/(?:\*\*Defines:\*\*|^Defines:)\s*(.+)/m);
+  const consumesMatch = phaseContent.match(/(?:\*\*Consumes:\*\*|^Consumes:)\s*(.+)/m);
+
+  const keywords: string[] = [];
+  if (definesMatch) {
+    // Split on commas and semicolons, extract identifiers
+    keywords.push(...definesMatch[1].split(/[,;]/).map((s) => s.trim()).filter(Boolean));
+  }
+  if (consumesMatch) {
+    keywords.push(...consumesMatch[1].split(/[,;]/).map((s) => s.trim()).filter(Boolean));
+  }
+
+  // Also extract file paths and module-like references from the phase text
+  const pathRefs = phaseContent.match(/\b(?:src\/[\w\-./]+|[\w-]+\.(?:ts|js|py|rs|go))\b/g);
+  if (pathRefs) {
+    keywords.push(...pathRefs);
+  }
+
+  if (keywords.length === 0) {
+    // No structured references found — return all subsections as fallback
+    return [...subsections.values()].join('\n\n');
+  }
+
+  // Lowercase the keywords for case-insensitive matching
+  const lowerKeywords = keywords.map((k) => k.toLowerCase());
+
+  const matched: string[] = [];
+  for (const [key, content] of subsections) {
+    const lowerKey = key.toLowerCase();
+    // Check if any keyword appears in the subsection heading
+    const isRelevant = lowerKeywords.some((kw) =>
+      lowerKey.includes(kw) || kw.includes(lowerKey) ||
+      // Fuzzy: check individual words from the keyword against the key
+      kw.split(/[\s/()]+/).some((word) => word.length > 3 && lowerKey.includes(word)),
+    );
+    if (isRelevant) {
+      matched.push(content);
+    }
+  }
+
+  return matched.length > 0 ? matched.join('\n\n') : null;
 }
 
 /**

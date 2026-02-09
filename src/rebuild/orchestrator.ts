@@ -49,17 +49,14 @@ export interface RebuildExecutionOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Export extraction
+// Context accumulation
 // ---------------------------------------------------------------------------
 
-/**
- * Regex for extracting exported type signatures from generated files.
- *
- * Best-effort extraction -- complex patterns like destructured re-exports,
- * namespace exports, or default exports without names may be missed.
- * This is acceptable because the full spec is always included in every prompt.
- */
-const EXPORT_LINE_RE = /^export\s+(type|interface|class|function|const|enum|default)\s+/;
+/** Default character limit before truncating older group context */
+const BUILT_CONTEXT_LIMIT = 100_000;
+
+/** Number of lines to keep from truncated files (typically imports + type declarations) */
+const TRUNCATED_HEAD_LINES = 20;
 
 // ---------------------------------------------------------------------------
 // executeRebuild
@@ -265,19 +262,39 @@ export async function executeRebuild(
       tasksFailed: modulesFailed,
     });
 
-    // 13. After group completes, update builtContext with exported signatures
+    // 13. After group completes, accumulate full file content as context
     for (const filePath of filesWrittenInGroup) {
+      // Skip non-source files (configs, docs)
+      if (filePath.endsWith('.md') || filePath.endsWith('.json') || filePath.endsWith('.yml')) continue;
       try {
         const content = await readFile(path.join(outputDir, filePath), 'utf-8');
-        const exportLines = content
-          .split('\n')
-          .filter((line) => EXPORT_LINE_RE.test(line));
-        if (exportLines.length > 0) {
-          builtContext += `\n// From: ${filePath}\n${exportLines.join('\n')}\n`;
-        }
+        builtContext += `\n// === ${filePath} ===\n${content}\n`;
       } catch {
-        // Non-critical: file may have been written by a failed task that was cleaned up
-        console.error(`[warn] Could not read exports from ${filePath}`);
+        // Non-critical: skip unreadable files
+      }
+    }
+
+    // Truncate older context if it exceeds the limit
+    if (builtContext.length > BUILT_CONTEXT_LIMIT) {
+      const sections = builtContext.split(/\n\/\/ === /);
+      // Keep the first empty section prefix, truncate older sections
+      const recentCount = Math.max(1, Math.floor(sections.length / 2));
+      const olderSections = sections.slice(1, sections.length - recentCount);
+      const recentSections = sections.slice(sections.length - recentCount);
+
+      let truncated = '';
+      for (const section of olderSections) {
+        const lines = section.split('\n');
+        const head = lines.slice(0, TRUNCATED_HEAD_LINES).join('\n');
+        truncated += `\n// === ${head}\n// ... (truncated)\n`;
+      }
+      for (const section of recentSections) {
+        truncated += `\n// === ${section}`;
+      }
+      builtContext = truncated;
+
+      if (options.debug) {
+        console.error(`[debug] Built context truncated: keeping last ${recentCount} groups in full`);
       }
     }
   }
