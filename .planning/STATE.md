@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 
 ## Current Position
 
-Phase: 10 (Specify Command) -- NOT PLANNED
-Plan: 0/0
-Status: Awaiting planning
-Last activity: 2026-02-09 -- Phase 10 added to roadmap
+Phase: 10 of 10 (Specify Command)
+Plan: 1 of 3
+Status: In progress
+Last activity: 2026-02-09 -- Completed 10-01-PLAN.md
 
-Progress: [░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v3.0 -- 0 plans)
+Progress: [████████░░░░░░░░░░░░░░░░] 33% (v3.0 -- 1/3 plans)
 
 ## Performance Metrics
 
@@ -96,6 +96,10 @@ v2.0 decisions:
 - Inconsistency report prints to stderr to not interfere with JSON output on stdout
 - Old .sum cache reads happen before Phase 1 pool processing to capture pre-overwrite state
 
+v3.0 decisions:
+- collectAgentsDocs returns Array<{ relativePath, content }> (pre-read content) so callers skip manual readFile loops
+- SKIP_DIRS in collector.ts is module-private (not exported) to keep API surface minimal
+
 ### Pending Todos
 
 - **OpenCode plugin development**: Create `.opencode/plugin/` based hook for SessionEnd (deferred from v1.0, not in v2.0 scope)
@@ -112,5 +116,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Added Phase 10 (Specify Command) to roadmap
+Stopped at: Completed 10-01-PLAN.md (shared AGENTS.md collector)
 Resume file: None
