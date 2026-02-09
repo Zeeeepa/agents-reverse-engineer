@@ -302,7 +302,7 @@ export async function updateCommand(
         concurrency: 1,
       });
 
-      const dirReporter = new ProgressReporter(plan.affectedDirs.length);
+      const dirReporter = new ProgressReporter(0, plan.affectedDirs.length);
       for (const dir of plan.affectedDirs) {
         const taskStart = Date.now();
         const taskLabel = dir || '.';
@@ -315,6 +315,7 @@ export async function updateCommand(
         });
 
         const dirPath = dir === '.' ? absolutePath : path.join(absolutePath, dir);
+        dirReporter.onDirectoryStart(dir || '.');
         try {
           const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug, knownDirs);
           const response = await aiService.call({
@@ -322,7 +323,15 @@ export async function updateCommand(
             systemPrompt: prompt.system,
           });
           await writeAgentsMd(dirPath, absolutePath, response.text);
-          dirReporter.onDirectoryDone(dir || '.');
+          const dirDurationMs = Date.now() - taskStart;
+          dirReporter.onDirectoryDone(
+            dir || '.',
+            dirDurationMs,
+            response.inputTokens,
+            response.outputTokens,
+            response.model,
+            response.cacheReadTokens,
+          );
           dirsCompleted++;
 
           // Emit task:done (success)

@@ -37,6 +37,9 @@ export class ProgressReporter {
   /** Total number of file tasks in this run */
   private readonly totalFiles: number;
 
+  /** Number of files that have started processing */
+  private started: number = 0;
+
   /** Number of files completed successfully */
   private completed: number = 0;
 
@@ -52,13 +55,27 @@ export class ProgressReporter {
   /** Timestamp when the reporter was created */
   private readonly startTime: number = Date.now();
 
+  /** Total number of directory tasks in this run */
+  private totalDirectories: number = 0;
+
+  /** Number of directory tasks that have started */
+  private dirStarted: number = 0;
+
+  /** Number of directory tasks completed */
+  private dirCompleted: number = 0;
+
+  /** Sliding window of recent directory completion durations for ETA */
+  private readonly dirCompletionTimes: number[] = [];
+
   /**
    * Create a new progress reporter.
    *
    * @param totalFiles - Total number of file tasks to process
+   * @param totalDirectories - Total number of directory tasks to process
    */
-  constructor(totalFiles: number) {
+  constructor(totalFiles: number, totalDirectories: number = 0) {
     this.totalFiles = totalFiles;
+    this.totalDirectories = totalDirectories;
   }
 
   /**
@@ -69,7 +86,8 @@ export class ProgressReporter {
    * @param filePath - Relative path to the file being analyzed
    */
   onFileStart(filePath: string): void {
-    const counter = pc.dim(`[${this.completed + this.failed + 1}/${this.totalFiles}]`);
+    this.started++;
+    const counter = pc.dim(`[${this.started}/${this.totalFiles}]`);
     console.log(`${counter} ${pc.cyan('ANALYZING')} ${filePath}`);
   }
 
@@ -131,14 +149,56 @@ export class ProgressReporter {
   }
 
   /**
-   * Log the completion of directory AGENTS.md generation.
+   * Log the start of directory AGENTS.md generation.
    *
-   * Output format: `[dir] DONE dirPath/AGENTS.md`
+   * Output format: `[dir X/Y] ANALYZING dirPath/AGENTS.md`
    *
    * @param dirPath - Path to the directory
    */
-  onDirectoryDone(dirPath: string): void {
-    console.log(`${pc.dim('[dir]')} ${pc.blue('DONE')} ${dirPath}/AGENTS.md`);
+  onDirectoryStart(dirPath: string): void {
+    this.dirStarted++;
+    const counter = pc.dim(`[dir ${this.dirStarted}/${this.totalDirectories}]`);
+    console.log(`${counter} ${pc.cyan('ANALYZING')} ${dirPath}/AGENTS.md`);
+  }
+
+  /**
+   * Log the completion of directory AGENTS.md generation.
+   *
+   * Output format: `[dir X/Y] DONE dirPath/AGENTS.md Xs in/out tok model ~ETA`
+   *
+   * @param dirPath - Path to the directory
+   * @param durationMs - Wall-clock duration of the AI call
+   * @param tokensIn - Number of input tokens consumed (non-cached)
+   * @param tokensOut - Number of output tokens generated
+   * @param model - Model identifier used for this call
+   * @param cacheReadTokens - Number of cache read input tokens
+   */
+  onDirectoryDone(
+    dirPath: string,
+    durationMs: number,
+    tokensIn: number,
+    tokensOut: number,
+    model: string,
+    cacheReadTokens = 0,
+  ): void {
+    this.dirCompleted++;
+
+    // Record completion time for directory ETA
+    this.dirCompletionTimes.push(durationMs);
+    if (this.dirCompletionTimes.length > this.windowSize) {
+      this.dirCompletionTimes.shift();
+    }
+
+    const counter = pc.dim(`[dir ${this.dirCompleted}/${this.totalDirectories}]`);
+    const time = pc.dim(`${(durationMs / 1000).toFixed(1)}s`);
+    const effectiveIn = tokensIn + cacheReadTokens;
+    const tokens = pc.dim(`${effectiveIn}/${tokensOut} tok`);
+    const modelLabel = pc.dim(model);
+    const eta = this.formatDirectoryETA();
+
+    console.log(
+      `${counter} ${pc.blue('DONE')} ${dirPath}/AGENTS.md ${time} ${tokens} ${modelLabel}${eta}`,
+    );
   }
 
   /**
@@ -209,6 +269,34 @@ export class ProgressReporter {
       this.completionTimes.reduce((a, b) => a + b, 0) /
       this.completionTimes.length;
     const remaining = this.totalFiles - this.completed - this.failed;
+
+    if (remaining <= 0) return '';
+
+    const etaMs = avg * remaining;
+    const seconds = Math.round(etaMs / 1000);
+
+    if (seconds < 60) {
+      return pc.dim(` ~${seconds}s remaining`);
+    }
+
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return pc.dim(` ~${minutes}m ${secs}s remaining`);
+  }
+
+  /**
+   * Compute and format the estimated time remaining for directory tasks.
+   *
+   * Uses a moving average of the last 10 directory completion times.
+   * Returns an empty string if fewer than 2 completions have occurred.
+   */
+  private formatDirectoryETA(): string {
+    if (this.dirCompletionTimes.length < 2) return '';
+
+    const avg =
+      this.dirCompletionTimes.reduce((a, b) => a + b, 0) /
+      this.dirCompletionTimes.length;
+    const remaining = this.totalDirectories - this.dirCompleted;
 
     if (remaining <= 0) return '';
 

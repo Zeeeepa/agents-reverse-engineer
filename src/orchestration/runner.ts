@@ -105,7 +105,7 @@ export class CommandRunner {
    * @returns Aggregated run summary
    */
   async executeGenerate(plan: ExecutionPlan): Promise<RunSummary> {
-    const reporter = new ProgressReporter(plan.fileTasks.length);
+    const reporter = new ProgressReporter(plan.fileTasks.length, plan.directoryTasks.length);
 
     // Initialize plan tracker (writes GENERATION-PLAN.md with checkboxes)
     const planTracker = new PlanTracker(
@@ -432,6 +432,8 @@ export class CommandRunner {
 
       const dirTasks = dirsAtDepth.map(
         (dirTask) => async () => {
+          reporter.onDirectoryStart(dirTask.path);
+          const dirCallStart = Date.now();
           const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug, knownDirs, plan.projectStructure);
           const dirResponse: AIResponse = await this.aiService.call({
             prompt: prompt.user,
@@ -439,7 +441,15 @@ export class CommandRunner {
             taskLabel: `${dirTask.path}/AGENTS.md`,
           });
           await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
-          reporter.onDirectoryDone(dirTask.path);
+          const dirDurationMs = Date.now() - dirCallStart;
+          reporter.onDirectoryDone(
+            dirTask.path,
+            dirDurationMs,
+            dirResponse.inputTokens,
+            dirResponse.outputTokens,
+            dirResponse.model,
+            dirResponse.cacheReadTokens,
+          );
           planTracker.markDone(`${dirTask.path}/AGENTS.md`);
         },
       );

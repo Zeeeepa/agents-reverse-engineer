@@ -29,6 +29,7 @@ const SKIP_PATTERNS: RegExp[] = [
   /\{\{/,          // template placeholders
   /\$\{/,          // template literals
   /\*/,            // glob patterns
+  /\{[^}]*,[^}]*\}/,  // brace expansion: {a,b,c}
 ];
 
 /**
