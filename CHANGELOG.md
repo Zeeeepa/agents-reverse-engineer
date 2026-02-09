@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-02-09
+
+### Added
+- **`--model` option for all CLI commands** — `generate`, `update`, `specify`, and `rebuild` commands now accept `--model <name>` to override the AI model at the command level (e.g., `are generate --model sonnet`)
+- **`/are-rebuild` skill** for IDE integration — project reconstruction from specification documents with background execution and progress polling
+- **Rebuild command in installer templates** — `rebuild` command template added to `COMMANDS` object for skill file generation across all platforms (Claude, OpenCode, Gemini) with full options, usage, and how-it-works documentation
+- **Rebuild command in `/are-help`** — help reference updated with rebuild command documentation
+
+### Changed
+- Rebuild spec reader enhanced with improved context accumulation — better section partitioning and handling of spec files for more accurate rebuild unit extraction
+- Rebuild orchestrator enhanced with compliance tracking — accumulated context (export signatures) passed between rebuild groups for cross-file coherence
+- Rebuild and specify prompts updated with stricter compliance and context instructions
+- `rebuild/` directory added to `.gitignore`
+
 ## [0.7.0] - 2026-02-09
 
 ### Added
@@ -541,7 +555,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.6...v0.7.0
 [0.6.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.4...v0.6.5
