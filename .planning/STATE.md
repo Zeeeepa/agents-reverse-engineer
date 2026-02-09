@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 11 (Rebuild Command)
-Plan: 0 of 2
-Status: Planned -- ready for execution
-Last activity: 2026-02-09 -- Phase 11 planned (2 plans, 2 waves)
+Plan: 1 of 2
+Status: In progress
+Last activity: 2026-02-09 -- Completed 11-01-PLAN.md
 
-Progress: [░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v4.0 -- 0/2 plans)
+Progress: [████████████░░░░░░░░░░░░] 50% (v4.0 -- 1/2 plans)
 
 ## Performance Metrics
 
@@ -58,6 +58,12 @@ Progress: [░░░░░░░░░░░░░░░░░░░░░░░
 - Plans completed: 3
 - Total execution time: 13 min
 - Average duration: 4 min per plan
+
+**v4.0 Progress:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 11. Rebuild Command | 1/2 | 3 min | 3 min |
 
 ## Accumulated Context
 
@@ -119,6 +125,14 @@ v3.0 decisions:
 - Debug output goes to stderr (console.error) to keep stdout clean for piping
 - Auto-generate fallback: when no AGENTS.md found, invoke generateCommand() then re-collect (skipped in dry-run)
 
+v4.0 decisions:
+- Zod schema for checkpoint validation on disk load (consistent with config schema pattern)
+- Build Plan phases as primary spec partition strategy; top-level headings as fallback
+- Architecture + Public API Surface sections injected as context prefix in each rebuild unit
+- Dual output format support: ===FILE:=== delimiters (primary) and fenced code blocks (fallback)
+- CheckpointManager uses static factory methods (load/createFresh) instead of constructor overloading
+- Spec drift detection checks both individual hash values and file count (added/removed files)
+
 ### Pending Todos
 
 - **OpenCode plugin development**: Create `.opencode/plugin/` based hook for SessionEnd (deferred from v1.0, not in v2.0 scope)
@@ -136,5 +150,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Phase 11 planned -- ready for execution
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
