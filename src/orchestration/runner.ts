@@ -222,6 +222,7 @@ export class CommandRunner {
           tokensIn: response.inputTokens,
           tokensOut: response.outputTokens,
           cacheReadTokens: response.cacheReadTokens,
+          cacheCreationTokens: response.cacheCreationTokens,
           durationMs,
           model: response.model,
         };
@@ -241,7 +242,7 @@ export class CommandRunner {
         if (result.success && result.value) {
           const v = result.value;
           filesProcessed++;
-          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model, v.cacheReadTokens);
+          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model, v.cacheReadTokens, v.cacheCreationTokens);
           planTracker.markDone(v.path);
         } else {
           filesFailed++;
@@ -449,6 +450,7 @@ export class CommandRunner {
             dirResponse.outputTokens,
             dirResponse.model,
             dirResponse.cacheReadTokens,
+            dirResponse.cacheCreationTokens,
           );
           planTracker.markDone(`${dirTask.path}/AGENTS.md`);
         },
@@ -729,6 +731,7 @@ export class CommandRunner {
           tokensIn: response.inputTokens,
           tokensOut: response.outputTokens,
           cacheReadTokens: response.cacheReadTokens,
+          cacheCreationTokens: response.cacheCreationTokens,
           durationMs,
           model: response.model,
         };
@@ -748,7 +751,7 @@ export class CommandRunner {
         if (result.success && result.value) {
           const v = result.value;
           filesProcessed++;
-          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model, v.cacheReadTokens);
+          reporter.onFileDone(v.path, v.durationMs, v.tokensIn, v.tokensOut, v.model, v.cacheReadTokens, v.cacheCreationTokens);
         } else {
           filesFailed++;
           const errorMsg = result.error?.message ?? 'Unknown error';

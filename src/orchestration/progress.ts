@@ -112,6 +112,7 @@ export class ProgressReporter {
     tokensOut: number,
     model: string,
     cacheReadTokens = 0,
+    cacheCreationTokens = 0,
   ): void {
     this.completed++;
 
@@ -123,8 +124,9 @@ export class ProgressReporter {
 
     const counter = pc.dim(`[${this.completed + this.failed}/${this.totalFiles}]`);
     const time = pc.dim(`${(durationMs / 1000).toFixed(1)}s`);
-    const effectiveIn = tokensIn + cacheReadTokens;
-    const tokens = pc.dim(`${effectiveIn}/${tokensOut} tok`);
+    // Total prompt size = non-cached + cache read + cache creation tokens
+    const totalIn = tokensIn + cacheReadTokens + cacheCreationTokens;
+    const tokens = pc.dim(`${totalIn}/${tokensOut} tok`);
     const modelLabel = pc.dim(model);
     const eta = this.formatETA();
 
@@ -180,6 +182,7 @@ export class ProgressReporter {
     tokensOut: number,
     model: string,
     cacheReadTokens = 0,
+    cacheCreationTokens = 0,
   ): void {
     this.dirCompleted++;
 
@@ -191,8 +194,9 @@ export class ProgressReporter {
 
     const counter = pc.dim(`[dir ${this.dirCompleted}/${this.totalDirectories}]`);
     const time = pc.dim(`${(durationMs / 1000).toFixed(1)}s`);
-    const effectiveIn = tokensIn + cacheReadTokens;
-    const tokens = pc.dim(`${effectiveIn}/${tokensOut} tok`);
+    // Total prompt size = non-cached + cache read + cache creation tokens
+    const totalIn = tokensIn + cacheReadTokens + cacheCreationTokens;
+    const tokens = pc.dim(`${totalIn}/${tokensOut} tok`);
     const modelLabel = pc.dim(model);
     const eta = this.formatDirectoryETA();
 

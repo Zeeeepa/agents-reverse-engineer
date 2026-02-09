@@ -331,6 +331,7 @@ export async function updateCommand(
             response.outputTokens,
             response.model,
             response.cacheReadTokens,
+            response.cacheCreationTokens,
           );
           dirsCompleted++;
 

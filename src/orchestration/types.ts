@@ -32,6 +32,8 @@ export interface FileTaskResult {
   tokensOut: number;
   /** Number of cache read input tokens */
   cacheReadTokens: number;
+  /** Number of cache creation input tokens */
+  cacheCreationTokens: number;
   /** Wall-clock duration in milliseconds */
   durationMs: number;
   /** Model identifier used for this call */
