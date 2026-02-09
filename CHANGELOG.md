@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-09
+
+### Added
+- **`specify` command** — New CLI command (`are specify`) that generates a project specification document from existing AGENTS.md documentation by collecting all AGENTS.md files, synthesizing them via AI, and writing a comprehensive spec to disk. Supports `--output` path, `--force` overwrite, `--dry-run` preview, `--multi-file` output mode, and `--debug`/`--trace` flags
+- Shared `collectAgentsDocs()` utility (`src/generation/collector.ts`) — reusable function that walks the project tree and collects all AGENTS.md file contents, used by both root prompt building and the new specify command
+- Spec generation prompt templates (`src/specify/prompts.ts`) for specification synthesis from collected documentation
+- Spec output writer (`src/specify/writer.ts`) with overwrite protection (`SpecExistsError`) to prevent accidental overwrites
+- ETA calculation in progress reporting — directory and root tasks now show estimated time remaining based on elapsed time and completed task ratio
+- Cache creation tokens tracked in progress reporting and `FileTaskResult`/`RunSummary` interfaces
+
+### Changed
+- `buildRootPrompt()` refactored to use shared `collectAgentsDocs()` instead of inline AGENTS.md collection logic
+
+### Fixed
+- `--dry-run` in specify command no longer triggers auto-generation fallback — dry-run check moved before the auto-generate code path
+- Removed language-specific `readPackageSection()` from specify prompts (tool is language-agnostic)
+
 ## [0.5.5] - 2026-02-09
 
 ### Added
@@ -427,7 +444,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.2...v0.5.3
