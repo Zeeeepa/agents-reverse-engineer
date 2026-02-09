@@ -30,7 +30,9 @@ Group content by CONCERN, not by directory structure. Use these conceptual secti
 4. Data Structures & State — key types, schemas, config objects, state management patterns, serialization formats
 5. Configuration — all config options with types, defaults, validation rules, environment variables
 6. Dependencies — each external dependency with exact version and rationale for inclusion
-7. Behavioral Contracts — error handling strategies, retry logic, concurrency model, lifecycle hooks, resource management
+7. Behavioral Contracts — Split into two subsections:
+   a. Runtime Behavior: error handling strategies (exact error types/codes and when thrown), retry logic (formulas, delay values), concurrency model, lifecycle hooks, resource management
+   b. Implementation Contracts: every regex pattern used for parsing/validation/extraction (verbatim in backticks), every format string and output template (exact structure with examples), every magic constant and sentinel value with its meaning, every environment variable with expected values, every file format specification (YAML schemas, NDJSON structures). These are reproduction-critical — an AI agent needs them to rebuild the system with identical observable behavior.
 8. Test Contracts — what each module's tests should verify: scenarios, edge cases, expected behaviors, error conditions
 9. Build Plan — phased implementation sequence: what to build first and why, dependency order between modules, incremental milestones
 
@@ -45,6 +47,8 @@ RULES:
 - The Build Plan MUST list implementation phases with explicit dependency ordering
 - Each Build Plan phase must state what it depends on and what it enables
 - Behavioral Contracts must specify exact error types/codes and when they are thrown
+- Behavioral Contracts MUST include verbatim regex patterns, format strings, and magic constants from the source documents — do NOT paraphrase regex patterns into prose descriptions
+- When multiple modules reference the same constant or pattern, consolidate into a single definition with cross-references to the modules that use it
 
 OUTPUT: Raw markdown. No preamble. No meta-commentary. No "Here is..." or "I've generated..." prefix.`;
 
@@ -80,7 +84,7 @@ export function buildSpecPrompt(docs: AgentsDocs): SpecPrompt {
     '4. Data Structures & State (types, schemas, config objects)',
     '5. Configuration (options, types, defaults, validation)',
     '6. Dependencies (each with version and rationale)',
-    '7. Behavioral Contracts (error handling, concurrency, lifecycle)',
+    '7. Behavioral Contracts (error handling, concurrency, lifecycle, PLUS verbatim regex patterns, format specs, magic constants, templates)',
     '8. Test Contracts (per-module test scenarios and edge cases)',
     '9. Build Plan (phased implementation order with dependencies)',
     '',

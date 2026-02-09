@@ -22,7 +22,7 @@ export interface PromptContext {
  */
 export const SUMMARY_GUIDELINES = {
   /** Target word count range */
-  targetLength: { min: 200, max: 300 },
+  targetLength: { min: 300, max: 500 },
   /** What to include */
   include: [
     'Purpose and responsibility',
@@ -31,10 +31,11 @@ export const SUMMARY_GUIDELINES = {
     'Dependencies with usage context',
     'Key function signatures as code snippets',
     'Tightly coupled sibling files',
+    'Behavioral contracts: verbatim regex patterns, format strings, magic constants, sentinel values, output templates, environment variables',
   ],
   /** What to exclude */
   exclude: [
-    'Internal implementation details',
+    'Control flow minutiae (loop structures, variable naming, temporary state)',
     'Generic TODOs/FIXMEs (keep only security/breaking)',
     'Broad architectural relationships (handled by AGENTS.md)',
   ],

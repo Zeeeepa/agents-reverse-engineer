@@ -16,6 +16,7 @@ Consider topics such as (choose what applies):
 - Error handling strategies or validation boundaries
 - Concurrency, lifecycle, or resource management concerns
 - Domain-specific patterns (middleware chains, event handlers, schema definitions, factories)
+- Behavioral contracts: verbatim regex patterns, format strings, output templates, magic constants, sentinel values, error code strings, environment variable names
 
 DENSITY RULES (MANDATORY):
 - Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
@@ -38,9 +39,19 @@ WHAT TO INCLUDE:
 - Only critical TODOs (security, breaking issues)
 
 WHAT TO EXCLUDE:
-- Internal implementation details
+- Control flow minutiae (loop structures, variable naming, temporary state)
 - Generic descriptions without identifiers
 - Filler phrases and transitions
+
+BEHAVIORAL CONTRACTS (NEVER EXCLUDE):
+- Regex patterns for parsing/validation/extraction — include the full pattern verbatim in backticks
+- Format strings, output templates, serialization structures — show exact format
+- Magic constants, sentinel values, numeric thresholds (timeouts, buffer sizes, retry counts)
+- Prompt text or template strings that control AI/LLM behavior
+- Error message patterns and error code strings used for matching
+- Environment variable names and their expected values
+- File format specifications (YAML frontmatter schemas, NDJSON line formats)
+These define observable behavior that must be reproduced exactly.
 
 OUTPUT FORMAT (MANDATORY):
 - Start your response DIRECTLY with the purpose statement — a single bold line: **Purpose statement here.**
@@ -89,6 +100,7 @@ Consider these section types (choose what applies):
 - **Configuration**: If the directory contains config files, schemas, or environment definitions, document the config surface area.
 - **API Surface**: If the directory exports a public API (barrel index, route definitions, SDK), document the interface contract.
 - **File Relationships**: How files collaborate, depend on each other, or share state.
+- **Behavioral Contracts**: If files contain regex patterns, format specifications, magic constants, or template strings that define observable behavior, collect them in a dedicated section. Preserve verbatim patterns from file summaries — do NOT paraphrase regex into prose. This section is MANDATORY when file summaries contain behavioral artifacts.
 
 Choose any relevant sections or create your own based on the directory contents. The goal is to provide a comprehensive overview that captures the essence of the directory's role in the project and how its files work together, with a focus on what an AI coding assistant would need to know to effectively interact with this code.
 
@@ -115,7 +127,8 @@ DENSITY RULES (MANDATORY):
 - Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
 - Never use filler phrases: "this directory", "this module", "provides", "responsible for", "is used to"
 - Use technical shorthand: "exports X, Y, Z" not "this module exports a function called X..."
-- Per-file descriptions: 1-2 sentences maximum. Reference key symbols but do not reproduce full summaries.
+- Per-file descriptions in Contents sections: 1-2 sentences maximum. Reference key symbols but do not reproduce full summaries.
+- Behavioral contracts (regex patterns, format specs, constants) belong in a separate Behavioral Contracts section, not in per-file descriptions.
 - Subdirectory descriptions: 1-2 sentences maximum. Capture the directory's role, not its full contents.
 
 ANCHOR TERM PRESERVATION (MANDATORY):
@@ -141,6 +154,11 @@ CRITICAL — INCREMENTAL UPDATE RULES:
 - Add new sections only if the code changes introduce entirely new concepts
 - Remove sections only if the code they described has been deleted
 - Update signatures, type names, and identifiers to match the current source exactly
+
+BEHAVIORAL CONTRACT PRESERVATION (MANDATORY):
+- Regex patterns, format strings, magic constants, and template content from the existing summary MUST be preserved verbatim unless the source code changed them
+- If source code changes a regex pattern or constant, update the summary to show the NEW value verbatim
+- Never summarize or paraphrase regex patterns — always show the exact pattern in backticks
 
 DENSITY RULES (MANDATORY):
 - Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
@@ -173,6 +191,7 @@ CRITICAL — INCREMENTAL UPDATE RULES:
 - Add entries for new files, remove entries for deleted files
 - Do NOT reorganize, rephrase, or restructure sections that are unaffected by changes
 - Keep the same section ordering unless files were added/removed in a way that requires regrouping
+- Behavioral Contracts section: preserve verbatim regex patterns and constants unless source file summaries show they changed
 
 CRITICAL: Output ONLY the raw markdown content. No code fences, no preamble, no explanations, no conversational text. Your entire response IS the AGENTS.md file content.
 
