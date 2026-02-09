@@ -13,6 +13,8 @@ export interface PromptContext {
   }>;
   /** Project structure listing for bird's-eye context */
   projectPlan?: string;
+  /** Existing .sum summary text for incremental updates */
+  existingSum?: string;
 }
 
 /**

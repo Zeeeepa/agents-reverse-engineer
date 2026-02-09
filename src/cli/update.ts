@@ -7,6 +7,7 @@
  * Regenerates AGENTS.md for affected directories after analysis.
  */
 import * as path from 'node:path';
+import { readFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import { loadConfig } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
@@ -14,7 +15,7 @@ import {
   createUpdateOrchestrator,
   type UpdatePlan,
 } from '../update/index.js';
-import { writeAgentsMd } from '../generation/writers/agents-md.js';
+import { writeAgentsMd, GENERATED_MARKER } from '../generation/writers/agents-md.js';
 import { buildDirectoryPrompt } from '../generation/prompts/index.js';
 import {
   AIService,
@@ -325,7 +326,18 @@ export async function updateCommand(
         const dirPath = dir === '.' ? absolutePath : path.join(absolutePath, dir);
         dirReporter.onDirectoryStart(dir || '.');
         try {
-          const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug, knownDirs);
+          // Read existing generated AGENTS.md for incremental update context
+          let existingAgentsMd: string | undefined;
+          try {
+            const agentsContent = await readFile(path.join(dirPath, 'AGENTS.md'), 'utf-8');
+            if (agentsContent.includes(GENERATED_MARKER)) {
+              existingAgentsMd = agentsContent;
+            }
+          } catch {
+            // No existing AGENTS.md — will generate from scratch
+          }
+
+          const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug, knownDirs, undefined, existingAgentsMd);
           const response = await aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,

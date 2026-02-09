@@ -691,11 +691,15 @@ export class CommandRunner {
         const sourceContent = await readFile(absolutePath, 'utf-8');
         updateSourceCache.set(file.path, sourceContent);
 
+        // Read existing .sum for incremental update context
+        const existingSumContent = await readSumFile(`${absolutePath}.sum`);
+
         // Build prompt
         const prompt = buildFilePrompt({
           filePath: file.path,
           content: sourceContent,
           projectPlan,
+          existingSum: existingSumContent?.summary,
         }, this.options.debug);
 
         // Call AI

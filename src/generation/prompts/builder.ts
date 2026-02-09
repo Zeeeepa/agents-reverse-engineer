@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { readdir, readFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import type { PromptContext } from './types.js';
-import { FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, DIRECTORY_SYSTEM_PROMPT, ROOT_SYSTEM_PROMPT } from './templates.js';
+import { FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, FILE_UPDATE_SYSTEM_PROMPT, DIRECTORY_SYSTEM_PROMPT, DIRECTORY_UPDATE_SYSTEM_PROMPT, ROOT_SYSTEM_PROMPT } from './templates.js';
 import { readSumFile, getSumPath } from '../writers/sum.js';
 import { GENERATED_MARKER } from '../writers/agents-md.js';
 import { extractDirectoryImports, formatImportMap } from '../../imports/index.js';
@@ -78,6 +78,15 @@ export function buildFilePrompt(context: PromptContext, debug = false): {
     userPrompt += `\n\n## Related Files\n${contextSection}`;
   }
 
+  // For incremental updates: include existing summary and use update-specific system prompt
+  if (context.existingSum) {
+    userPrompt += `\n\n## Existing Summary (update this — preserve stable content, modify only what changed)\n\n${context.existingSum}`;
+    return {
+      system: FILE_UPDATE_SYSTEM_PROMPT,
+      user: userPrompt,
+    };
+  }
+
   return {
     system: FILE_SYSTEM_PROMPT,
     user: userPrompt,
@@ -96,6 +105,7 @@ export async function buildDirectoryPrompt(
   debug = false,
   knownDirs?: Set<string>,
   projectStructure?: string,
+  existingAgentsMd?: string,
 ): Promise<{ system: string; user: string }> {
   const relativePath = path.relative(projectRoot, dirPath) || '.';
   const dirName = path.basename(dirPath) || 'root';
@@ -216,6 +226,20 @@ export async function buildDirectoryPrompt(
 
   if (localSection) {
     userSections.push(localSection);
+  }
+
+  // For incremental updates: include existing AGENTS.md and use update-specific system prompt
+  if (existingAgentsMd) {
+    userSections.push(
+      '',
+      '## Existing AGENTS.md (update this — preserve stable content, modify only what changed)',
+      '',
+      existingAgentsMd,
+    );
+    return {
+      system: DIRECTORY_UPDATE_SYSTEM_PROMPT,
+      user: userSections.join('\n'),
+    };
   }
 
   return {
