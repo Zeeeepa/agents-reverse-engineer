@@ -1,93 +1,107 @@
 ---
-generated_at: 2026-02-09T16:11:05.932Z
+generated_at: 2026-02-09T17:46:04.338Z
 content_hash: 6ac4e72fce4d5bde875f091b195d159ef667222d8c871b9f30b1d4b4eb838126
-purpose: Shared type definitions for orchestration module: FileTaskResult carries per-file AI call metrics (tokensIn/tokensOut...
+purpose: types.ts defines TypeScript interfaces for orchestration module contracts: task results from AI subprocess execution,...
 ---
-**Shared type definitions for orchestration module: FileTaskResult carries per-file AI call metrics (tokensIn/tokensOut/cacheReadTokens/cacheCreationTokens/durationMs/model), RunSummary aggregates cross-command totals with quality metrics (inconsistenciesCodeVsDoc/inconsistenciesCodeVsCode/phantomPaths), ProgressEvent discriminates five event types (start/done/error/dir-done/root-done) with type-specific optional fields, CommandRunOptions threads concurrency/failFast/debug/dryRun/tracer/progressLog through pool/runner/AIService.**
+**types.ts defines TypeScript interfaces for orchestration module contracts: task results from AI subprocess execution, aggregated run summaries with token/cost metrics, progress events for streaming reporter updates, and command execution options threading concurrency/debug/trace configuration across the three-phase pipeline.**
 
-## Exported Types
+## Exported Interfaces
 
 ### FileTaskResult
-Per-file AI analysis outcome returned by command runner workers:
+Per-file AI analysis outcome returned by command runner to pool coordinator.
+
 ```typescript
 interface FileTaskResult {
-  path: string;              // Relative source file path
-  success: boolean;          // Whether AI call succeeded
-  tokensIn: number;          // Input tokens (non-cached)
-  tokensOut: number;         // Output tokens generated
-  cacheReadTokens: number;   // Cached input tokens
-  cacheCreationTokens: number; // Cache creation tokens
-  durationMs: number;        // Wall-clock duration
-  model: string;             // Model identifier used
-  error?: string;            // Error message on failure
+  path: string;                    // Relative source file path
+  success: boolean;                // AI subprocess succeeded
+  tokensIn: number;                // Non-cached input tokens consumed
+  tokensOut: number;               // Generated output tokens
+  cacheReadTokens: number;         // Cache-hit input tokens
+  cacheCreationTokens: number;     // Cache-write input tokens
+  durationMs: number;              // Wall-clock execution time
+  model: string;                   // AI model identifier used
+  error?: string;                  // Failure message if success=false
 }
 ```
+
+Produced by `src/orchestration/runner.ts` for each completed file task, aggregated into `RunSummary` for telemetry logging.
 
 ### RunSummary
-Aggregated metrics spanning entire generate/update command execution:
+Command-level aggregation of all `FileTaskResult` instances plus quality metrics.
+
 ```typescript
 interface RunSummary {
-  version: string;                     // ARE version
-  filesProcessed: number;              // Successful file count
-  filesFailed: number;                 // Failed file count
-  filesSkipped: number;                // Skipped file count (dry-run)
-  totalCalls: number;                  // AI call count
-  totalInputTokens: number;            // Sum of tokensIn
-  totalOutputTokens: number;           // Sum of tokensOut
-  totalCacheReadTokens: number;        // Sum of cacheReadTokens
-  totalCacheCreationTokens: number;    // Sum of cacheCreationTokens
-  totalDurationMs: number;             // Total wall-clock time
-  errorCount: number;                  // Error count
-  retryCount: number;                  // Retry attempt count
-  totalFilesRead: number;              // Total file reads across calls
-  uniqueFilesRead: number;             // Deduplicated file reads
-  inconsistenciesCodeVsDoc?: number;   // Code-vs-doc issue count
-  inconsistenciesCodeVsCode?: number;  // Code-vs-code issue count
-  phantomPaths?: number;               // Phantom path reference count
-  inconsistencyReport?: InconsistencyReport; // Full quality report
+  version: string;                      // ARE version (from src/version.ts)
+  filesProcessed: number;               // Success count
+  filesFailed: number;                  // Error count
+  filesSkipped: number;                 // Dry-run count
+  totalCalls: number;                   // AI subprocess invocations
+  totalInputTokens: number;             // Sum of tokensIn across calls
+  totalOutputTokens: number;            // Sum of tokensOut
+  totalCacheReadTokens: number;         // Sum of cacheReadTokens
+  totalCacheCreationTokens: number;     // Sum of cacheCreationTokens
+  totalDurationMs: number;              // Wall-clock total
+  errorCount: number;                   // Failed tasks
+  retryCount: number;                   // Exponential backoff retry attempts
+  totalFilesRead: number;               // Sum of filesRead[] lengths
+  uniqueFilesRead: number;              // Deduped count via Set<path>
+  inconsistenciesCodeVsDoc?: number;    // Code-vs-doc validator findings
+  inconsistenciesCodeVsCode?: number;   // Duplicate export detector findings
+  phantomPaths?: number;                // Unresolved path references in AGENTS.md
+  inconsistencyReport?: InconsistencyReport; // Full quality report from src/quality/
 }
 ```
 
+Written to `.agents-reverse-engineer/logs/run-<timestamp>.json` by `src/ai/telemetry/logger.ts`. Optional quality fields populated only when validators execute post-generation.
+
 ### ProgressEvent
-Discriminated union emitted by runner to progress reporter with five event types:
+Discriminated union for streaming progress updates from runner to `ProgressLog`.
+
 ```typescript
 interface ProgressEvent {
   type: 'start' | 'done' | 'error' | 'dir-done' | 'root-done';
-  filePath: string;   // File or directory path
-  index: number;      // Zero-based task index in phase
-  total: number;      // Total phase task count
-  durationMs?: number; // Wall-clock duration ('done' events)
-  tokensIn?: number;   // Input tokens ('done' events)
-  tokensOut?: number;  // Output tokens ('done' events)
-  model?: string;      // Model identifier ('done' events)
-  error?: string;      // Error message ('error' events)
+  filePath: string;                // File or directory path
+  index: number;                   // Zero-based task position in phase
+  total: number;                   // Total tasks in current phase
+  durationMs?: number;             // Wall-clock time (type='done')
+  tokensIn?: number;               // Input tokens (type='done')
+  tokensOut?: number;              // Output tokens (type='done')
+  model?: string;                  // Model identifier (type='done')
+  error?: string;                  // Error message (type='error')
 }
 ```
 
-**Event type field mappings:**
-- `start`: filePath, index, total
-- `done`: filePath, index, total, durationMs, tokensIn, tokensOut, model
-- `error`: filePath, index, total, error
-- `dir-done`: filePath (directory path)
-- `root-done`: filePath (root document path)
+Event types:
+- `start` — Task picked up by worker (requires `filePath`, `index`, `total`)
+- `done` — Task completed successfully (adds `durationMs`, `tokensIn`, `tokensOut`, `model`)
+- `error` — Task failed (adds `error` message)
+- `dir-done` — Directory `AGENTS.md` written (Phase 2 completion marker)
+- `root-done` — Root document written (`CLAUDE.md`/`GEMINI.md`/`OPENCODE.md`, Phase 3 marker)
+
+Consumed by `src/orchestration/progress.ts` for console spinner updates and ETA calculation (moving average of last 10 `durationMs` values).
 
 ### CommandRunOptions
-Configuration threading object passed from CLI through runner to pool and AIService:
+Configuration threading object passed from CLI → orchestrator → pool → AIService.
+
 ```typescript
 interface CommandRunOptions {
-  concurrency: number;       // Max concurrent AI calls
-  failFast?: boolean;        // Stop on first error
-  debug?: boolean;           // Show exact prompts sent
-  dryRun?: boolean;          // Preview without execution
-  tracer?: ITraceWriter;     // NDJSON trace emitter (NullTraceWriter when --trace off)
-  progressLog?: ProgressLog; // File-based progress mirror (tail -f monitoring)
+  concurrency: number;            // Worker pool size (1-10, default 2 WSL/5 other)
+  failFast?: boolean;             // Abort on first task failure
+  debug?: boolean;                // Log exact prompts + subprocess heap/RSS metrics
+  dryRun?: boolean;               // Preview without file writes
+  tracer?: ITraceWriter;          // NDJSON trace emitter (NullTraceWriter when --trace off)
+  progressLog?: ProgressLog;      // File-based progress mirror for tail -f monitoring
 }
 ```
 
-## Cross-Module Dependencies
+`tracer` field populated by `src/orchestration/trace.ts:TraceWriter` when `--trace` flag active, otherwise `NullTraceWriter` (no-op). `progressLog` initialized by `src/cli/generate.ts` and `src/cli/update.ts` to mirror console output to `.agents-reverse-engineer/progress.log`.
 
-Imports `InconsistencyReport` from `src/quality/index.ts` (embedded in RunSummary.inconsistencyReport), `ProgressLog` from `src/orchestration/progress.ts` (threaded via CommandRunOptions.progressLog), `ITraceWriter` from `src/orchestration/trace.ts` (threaded via CommandRunOptions.tracer).
+## Integration Points
 
-## Integration with Orchestration Flow
-
-FileTaskResult flows from `src/orchestration/runner.ts` worker callbacks → aggregated into RunSummary by runner.run() → consumed by telemetry logger (`src/ai/telemetry/logger.ts`). ProgressEvent emitted by runner via `progressReporter.emit()` → rendered by `src/orchestration/progress.ts` with ETA calculation. CommandRunOptions populated in CLI entry points (`src/cli/generate.ts`, `src/cli/update.ts`) from config defaults + CLI flag overrides → threaded through executor → pool → AIService.call().
+- **FileTaskResult**: Produced by `src/orchestration/runner.ts:runFileAnalysis()`, consumed by pool workers in `src/orchestration/pool.ts:runPool()` for aggregation
+- **RunSummary**: Built by `src/generation/orchestrator.ts:generateDocs()` and `src/update/orchestrator.ts:runUpdate()`, passed to `src/ai/telemetry/logger.ts:logRun()`
+- **ProgressEvent**: Emitted by runner via `emit(event)` callback, handled by `src/orchestration/progress.ts:ProgressReporter.update()` for spinner/ETA/file-log writes
+- **CommandRunOptions**: Merged from config defaults (`src/config/schema.ts`) + CLI flag overrides (`src/cli/generate.ts`, `src/cli/update.ts`) before passing to orchestrator
+- **InconsistencyReport** (type dependency): Imported from `src/quality/index.ts`, contains discriminated union of `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` with metadata (timestamp, projectRoot, filesChecked, durationMs)
+- **ITraceWriter** (type dependency): Imported from `src/orchestration/trace.ts`, interface with `trace(event)` method for NDJSON event emission
+- **ProgressLog** (type dependency): Imported from `src/orchestration/progress.ts`, interface with `write(msg)` method for `.agents-reverse-engineer/progress.log` writes

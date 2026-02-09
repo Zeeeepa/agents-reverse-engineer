@@ -1,74 +1,64 @@
 ---
-generated_at: 2026-02-09T16:11:57.056Z
-content_hash: 944f204c6f735b19415225dc70994c938e63b51ecb2e161ed6febc707ce2301d
-purpose: package.json defines npm package metadata for agents-reverse-engineer 0.6.5, a CLI tool that reverse-engineers codeba...
+generated_at: 2026-02-09T17:46:29.138Z
+content_hash: 44f4b5c2567bb0fd3473f956af24509d8e62dc5fa0f8b19307880607e085d04e
+purpose: package.json defines npm package metadata, CLI entry points, build scripts, runtime dependencies, and distribution co...
 ---
-**package.json defines npm package metadata for agents-reverse-engineer 0.6.5, a CLI tool that reverse-engineers codebase documentation for AI agents via ES module-based TypeScript compilation and dual binary entry points.**
+**package.json defines npm package metadata, CLI entry points, build scripts, runtime dependencies, and distribution configuration for the agents-reverse-engineer project.**
+
+## Package Identity
+
+`name` is `"agents-reverse-engineer"`, `version` is `"0.6.6"`, `description` is `"CLI tool for reverse-engineering codebase documentation for AI agents"`. `author` is `"GeoloeG-IsT"`, `license` is `"MIT"`. `type` is `"module"` (ES modules). Repository URL is `git+https://github.com/GeoloeG-IsT/agents-reverse-engineer.git`.
 
 ## Binary Entry Points
 
-`bin` declares two executable names (`agents-reverse-engineer`, `are`) both resolving to `dist/cli/index.js` after TypeScript compilation.
+`bin` maps two CLI commands to the same entry point:
+- `"agents-reverse-engineer"` → `"dist/cli/index.js"`
+- `"are"` → `"dist/cli/index.js"`
+
+Both invoke the compiled TypeScript CLI dispatcher from `src/cli/index.ts`.
 
 ## Build Scripts
 
-`build` invokes `tsc` to compile TypeScript sources from `src/` to `dist/`.
-
-`build:hooks` executes `node scripts/build-hooks.js` to copy hook files from `hooks/` to `hooks/dist/` for npm tarball inclusion.
-
-`prepack` removes documentation artifacts `LICENSE.sum` and `README.md.sum` before packaging to prevent pollution of published package.
-
-`prepublishOnly` chains `npm run build && npm run build:hooks` ensuring TypeScript compilation and hook preparation execute before `npm publish`.
-
-`dev` launches `tsx watch src/cli/index.ts` for hot-reloading development mode.
+`scripts` section defines lifecycle and development commands:
+- `"build"`: `"tsc"` — compiles TypeScript source to `dist/` via TypeScript compiler
+- `"build:hooks"`: `"node scripts/build-hooks.js"` — copies `hooks/` directory to `hooks/dist/` for npm tarball inclusion
+- `"prepack"`: `"rm -f LICENSE.sum README.md.sum"` — removes generated summary files before packaging to prevent accidental inclusion
+- `"prepublishOnly"`: `"npm run build && npm run build:hooks"` — ensures TypeScript compilation and hook distribution before npm publish
+- `"dev"`: `"tsx watch src/cli/index.ts"` — hot-reload development mode using tsx runtime
 
 ## Runtime Dependencies
 
-`fast-glob` (^3.3.3) provides file discovery with glob pattern matching for codebase traversal.
-
-`ignore` (^7.0.3) parses `.gitignore` files to filter discovered files.
-
-`isbinaryfile` (^5.0.4) detects binary files via extension and content analysis to exclude from text-based processing.
-
-`ora` (^8.1.1) renders terminal spinners for progress indication during long-running operations.
-
-`picocolors` (^1.1.1) adds ANSI color codes to CLI output for formatted logging.
-
-`simple-git` (^3.27.0) executes git commands for change detection via `git diff`, `git status`, SHA-256 fallback.
-
-`yaml` (^2.7.0) parses `.agents-reverse-engineer/config.yaml` configuration files.
-
-`zod` (^3.24.1) validates configuration schema against defined TypeScript types in `src/config/schema.ts`.
+Production dependencies required at runtime:
+- `fast-glob` ^3.3.3 — file discovery with glob patterns
+- `ignore` ^7.0.3 — gitignore parsing for file filtering
+- `isbinaryfile` ^5.0.4 — binary file detection via extension and content analysis
+- `ora` ^8.1.1 — terminal spinner UI for progress indication
+- `picocolors` ^1.1.1 — ANSI terminal color formatting
+- `simple-git` ^3.27.0 — git diff parsing for change detection
+- `yaml` ^2.7.0 — YAML configuration file parsing
+- `zod` ^3.24.1 — schema validation for configuration
 
 ## Development Dependencies
 
-`@types/node` (^22.10.7) provides Node.js API type definitions for TypeScript compilation.
+Build-time dependencies not included in published package:
+- `@types/node` ^22.10.7 — TypeScript type definitions for Node.js APIs
+- `tsx` ^4.19.2 — TypeScript execution and watch mode for development
+- `typescript` ^5.7.3 — TypeScript compiler
 
-`tsx` (^4.19.2) executes TypeScript files directly without precompilation for dev script.
+## Distribution Configuration
 
-`typescript` (^5.7.3) compiles TypeScript sources to JavaScript in `dist/` output directory.
+`files` array specifies npm tarball contents:
+- `"dist"` — compiled JavaScript output from TypeScript build
+- `"hooks/dist"` — session lifecycle hooks copied by `build:hooks` script
+- `"README.md"` — project documentation
+- `"LICENSE"` — MIT license text
+
+Excluded from tarball: source TypeScript files (`src/`), configuration files (`tsconfig.json`), build scripts (`scripts/`), original hooks (`hooks/*.js` without `dist/` prefix).
 
 ## Engine Requirements
 
-`node` field specifies `>=18.0.0` as minimum required Node.js version for ES module support.
+`engines.node` specifies `">=18.0.0"` — requires Node.js version 18.0.0 or higher for ES module support and modern JavaScript features.
 
-## Package Distribution
+## Package Metadata
 
-`type: "module"` declares package uses ES modules instead of CommonJS.
-
-`main` points to `dist/cli/index.js` as default entry when required as module.
-
-`files` array whitelists `dist`, `hooks/dist`, `README.md`, `LICENSE` for inclusion in published tarball (excludes `src/`, `scripts/`, raw `hooks/` before build).
-
-## Repository Metadata
-
-`repository.url` links to `git+https://github.com/GeoloeG-IsT/agents-reverse-engineer.git` for source browsing.
-
-`bugs.url` directs issue reports to `https://github.com/GeoloeG-IsT/agents-reverse-engineer/issues`.
-
-`homepage` references `https://github.com/GeoloeG-IsT/agents-reverse-engineer#readme` for documentation.
-
-`author` identifies package maintainer as "GeoloeG-IsT".
-
-`license` declares "MIT" license for open-source distribution.
-
-`keywords` array includes `["documentation", "codebase", "ai", "agents", "reverse-engineering"]` for npm registry search indexing.
+`keywords` array for npm search discoverability: `["documentation", "codebase", "ai", "agents", "reverse-engineering"]`. `main` points to `"dist/cli/index.js"` as CommonJS entry point fallback. `bugs.url` directs to GitHub issues. `homepage` links to repository README.

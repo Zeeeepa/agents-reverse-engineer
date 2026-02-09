@@ -1,49 +1,48 @@
 ---
-generated_at: 2026-02-09T16:10:39.087Z
+generated_at: 2026-02-09T17:45:29.118Z
 content_hash: 807d633ab0a3f34ba82995ad8707fd0c6baf723f73c6eedbd50258b6fbe3725c
-purpose: Orchestrates npx installation workflow for IDE command/hook registration with runtime-specific path resolution, inter...
+purpose: src/installer/index.ts orchestrates the npx installation workflow for agents-reverse-engineer with interactive prompt...
 ---
-**Orchestrates npx installation workflow for IDE command/hook registration with runtime-specific path resolution, interactive prompts for missing parameters, and parallel support for Claude Code, OpenCode, and Gemini backends.**
+**src/installer/index.ts orchestrates the npx installation workflow for agents-reverse-engineer with interactive prompts, argument parsing, and coordinated installation/uninstallation of commands and hooks across Claude/OpenCode/Gemini runtimes.**
 
 ## Exported Functions
 
-**`runInstaller(args: InstallerArgs): Promise<InstallerResult[]>`** — Main entry point executing install/uninstall workflow with location determination, runtime selection, file operations via `installFiles()`/`uninstallFiles()`, verification via `verifyInstallation()`, and styled output formatting. Returns empty array if `args.help` is true. Exits with code 1 in non-interactive mode when `--runtime` or location flags missing.
+**parseInstallerArgs(args: string[]): InstallerArgs** — Parses command-line arguments supporting short flags (`-g`, `-l`, `-h`, `-q`) and long flags (`--global`, `--local`, `--runtime`, `--force`, `--quiet`, `--help`). Validates `--runtime` value against `['claude', 'opencode', 'gemini', 'all']`. Returns InstallerArgs with `runtime`, `global`, `local`, `uninstall`, `force`, `help`, `quiet` properties.
 
-**`parseInstallerArgs(args: string[]): InstallerArgs`** — Parses CLI arguments supporting short flags (`-g`, `-l`, `-h`, `-q`) and long flags (`--global`, `--local`, `--force`, `--quiet`, `--help`), extracts `--runtime` value with validation against `validRuntimes: Runtime[] = ['claude', 'opencode', 'gemini', 'all']`, returns `InstallerArgs` with boolean flags and optional `runtime` field.
-
-## Re-exported Symbols
-
-Exports types from `./types.js`: `InstallerArgs`, `InstallerResult`, `Runtime`, `Location`, `RuntimePaths`
-
-Exports functions from module dependencies:
-- `./paths.js`: `getRuntimePaths`, `getAllRuntimes`, `resolveInstallPath`, `getSettingsPath`
-- `./banner.js`: `displayBanner`, `showHelp`, `showSuccess`, `showError`, `showWarning`, `showInfo`, `showNextSteps`, `VERSION`
-- `./prompts.js`: `selectRuntime`, `selectLocation`, `confirmAction`, `isInteractive`
+**runInstaller(args: InstallerArgs): Promise<InstallerResult[]>** — Main entry point executing installation workflow. Returns empty array if `args.help` is true (displays help via `showHelp()`). Calls `displayBanner()` unless `args.quiet`. Validates non-interactive mode requires `--runtime` and location flags, exits with `process.exit(1)` on missing values. Prompts for missing `runtime` via `selectRuntime(mode)` and `location` via `selectLocation(mode)` when `isInteractive()` returns true. Routes to `runUninstall()` if `args.uninstall`, otherwise `runInstall()`.
 
 ## Internal Workflow Functions
 
-**`determineLocation(args: InstallerArgs): Location | undefined`** — Returns `'global'` if `args.global && !args.local`, returns `'local'` if `args.local && !args.global`, returns `undefined` (triggers interactive prompt) if both or neither flags set.
+**determineLocation(args: InstallerArgs): Location | undefined** — Returns `'global'` if `args.global && !args.local`, returns `'local'` if `args.local && !args.global`, returns `undefined` if both or neither set (triggers interactive prompt).
 
-**`determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime, 'all'>>`** — Returns empty array if `runtime` is undefined (triggers prompt), calls `getAllRuntimes()` if `runtime === 'all'`, otherwise returns single-element array with specific runtime.
+**determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime, 'all'>>** — Returns empty array if `runtime` is undefined (needs prompt). Returns `getAllRuntimes()` array if `runtime === 'all'`. Returns single-element array `[runtime]` for specific runtime.
 
-**`runInstall(runtime: Runtime, location: Location, force: boolean, quiet: boolean): Promise<InstallerResult[]>`** — Executes installation by calling `installFiles(runtime, location, { force, dryRun: false })`, flattens `results.flatMap((r) => r.filesCreated)` for verification input, calls `verifyInstallation(allCreatedFiles)`, logs errors for missing files via `verification.missing`, invokes `displayInstallResults(results)` unless `quiet` is true.
+**runInstall(runtime: Runtime, location: Location, force: boolean, quiet: boolean): Promise<InstallerResult[]>** — Executes installation workflow: calls `installFiles(runtime, location, { force, dryRun: false })`, flattens `filesCreated` arrays via `flatMap()`, calls `verifyInstallation(allCreatedFiles)`, displays errors via `showError()` and `showWarning()` if verification fails, calls `displayInstallResults(results)` unless `quiet`.
 
-**`runUninstall(runtime: Runtime, location: Location, quiet: boolean): InstallerResult[]`** — Executes uninstallation by calling `uninstallFiles(runtime, location, false)`, calls `deleteConfigFolder(location, false)` returning `configDeleted` boolean, invokes `displayUninstallResults(results, configDeleted)` unless `quiet` is true.
+**runUninstall(runtime: Runtime, location: Location, quiet: boolean): InstallerResult[]** — Executes uninstallation workflow: calls `uninstallFiles(runtime, location, false)`, calls `deleteConfigFolder(location, false)` to remove `.agents-reverse-engineer/` directory, calls `displayUninstallResults(results, configDeleted)` unless `quiet`.
 
 ## Display Functions
 
-**`displayInstallResults(results: InstallerResult[]): void`** — Iterates over results accumulating `totalCreated`, `totalSkipped`, `hooksRegistered` counters, calls `showSuccess()`/`showError()` per result, displays summary with `showSuccess()` for created files and registered hooks, calls `showWarning()` for skipped files with `--force` hint, invokes `showNextSteps(primaryRuntime, totalCreated)` where `primaryRuntime = results[0]?.runtime || 'claude'`, outputs GitHub docs link via `showInfo('Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer')`.
+**displayInstallResults(results: InstallerResult[]): void** — Iterates results calling `showSuccess()` for `result.success`, `showError()` and `showWarning()` for failures. Accumulates `totalCreated` from `result.filesCreated.length`, `totalSkipped` from `result.filesSkipped.length`, `hooksRegistered` from `result.hookRegistered` boolean. Displays summary via `showSuccess()` for created files/hooks, `showWarning()` for skipped files with "use --force to overwrite" message. Calls `showNextSteps(primaryRuntime, totalCreated)` with first result's runtime. Displays GitHub link via `showInfo('Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer')`.
 
-**`displayUninstallResults(results: InstallerResult[], configDeleted: boolean = false): void`** — Iterates results tracking `totalDeleted` (from `result.filesCreated.length` repurposed for deleted files), `hooksUnregistered` (from `result.hookRegistered` repurposed for unregister count), calls `showSuccess()` for non-zero deletions, `showInfo()` when no files found, displays summary with removal counts and config folder deletion status.
+**displayUninstallResults(results: InstallerResult[], configDeleted: boolean): void** — Iterates results accumulating `totalDeleted` from `result.filesCreated.length` (repurposed for deleted file count), `hooksUnregistered` from `result.hookRegistered` (repurposed for unregistration status). Calls `showSuccess()` for deletions, `showInfo()` for "No files found" cases, `showError()` for failures. Displays summary with removed file count, unregistered hook count, and config folder deletion status.
 
-## Non-Interactive Mode Constraints
+## Re-exported Symbols
 
-Requires `--runtime` flag with validated value (`'claude'` | `'opencode'` | `'gemini'` | `'all'`), requires `-g`/`--global` or `-l`/`--local` flag, calls `showError()` and `process.exit(1)` if either missing when `!isInteractive()`, skips prompts entirely in non-interactive context.
+Module re-exports types and functions from sibling modules:
+- **Types**: `InstallerArgs`, `InstallerResult`, `Runtime`, `Location`, `RuntimePaths` from `./types.js`
+- **Path utilities**: `getRuntimePaths`, `getAllRuntimes`, `resolveInstallPath`, `getSettingsPath` from `./paths.js`
+- **Banner/display**: `displayBanner`, `showHelp`, `showSuccess`, `showError`, `showWarning`, `showInfo`, `showNextSteps`, `VERSION` from `./banner.js`
+- **Prompts**: `selectRuntime`, `selectLocation`, `confirmAction`, `isInteractive` from `./prompts.js`
 
-## Integration Points
+## Validation Logic
 
-Depends on `./operations.js` for `installFiles()`, `verifyInstallation()`, `formatInstallResult()`, depends on `./uninstall.js` for `uninstallFiles()`, `deleteConfigFolder()`, depends on `./prompts.js` for `selectRuntime()`, `selectLocation()`, `isInteractive()` interactive mode detection, depends on `./banner.js` for all styled terminal output functions, depends on `./paths.js` for `getAllRuntimes()` and `resolveInstallPath()`.
+Non-interactive mode (when `isInteractive()` returns false) enforces required flags: exits with `showError('Missing --runtime flag')` if `runtimeArg` undefined, exits with `showError('Missing -g/--global or -l/--local flag')` if `location` undefined. Interactive mode prompts for missing values via `selectRuntime()` and `selectLocation()`. Final safety check exits with `showError('Unable to determine runtime and location')` if either remains undefined.
 
-## Runtime Type Definition
+## Valid Runtime Values
 
-Type `Runtime = 'claude' | 'opencode' | 'gemini' | 'all'` validated in `parseInstallerArgs()` via `validRuntimes` array, expanded to specific runtime array via `determineRuntimes()` when value is `'all'`, passed to `installFiles()`/`uninstallFiles()` which handle multi-runtime fan-out internally.
+Pattern: `const validRuntimes: Runtime[] = ['claude', 'opencode', 'gemini', 'all']` — Used in `parseInstallerArgs()` to validate `--runtime` argument via `validRuntimes.includes(runtimeValue as Runtime)`.
+
+## Operation Mode Routing
+
+Variable `mode` set to `'uninstall'` if `args.uninstall`, otherwise `'install'` — passed to `selectRuntime(mode)` and `selectLocation(mode)` to customize prompt text. Uninstall workflow triggered by `args.uninstall` flag (not directly parsed in this file, set by caller in CLI layer).

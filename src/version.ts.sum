@@ -1,22 +1,22 @@
 ---
-generated_at: 2026-02-09T16:11:34.235Z
+generated_at: 2026-02-09T17:46:14.179Z
 content_hash: d9caa33615b771069b778e0f5f27babaff43c440b86055ccf94e42c0751b0632
-purpose: getVersion() reads package.json from the filesystem to return the current package version string, with fallback to 'u...
+purpose: getVersion() reads the package.json version field from the parent directory of the compiled module, returning 'unknow...
 ---
-**getVersion() reads package.json from the filesystem to return the current package version string, with fallback to 'unknown' on error.**
+**getVersion() reads the package.json version field from the parent directory of the compiled module, returning 'unknown' on any error.**
 
-## Exported Functions
+## Exported Function
 
-- **getVersion(): string** — Synchronously reads `package.json` from the parent directory of the compiled module, parses JSON, extracts `version` field, returns 'unknown' on any error (file not found, JSON parse failure, missing version field)
+- `getVersion(): string` — Synchronously reads `../package.json` relative to the compiled module location, parses JSON, extracts `version` field, returns it or `'unknown'` if parsing/reading fails.
 
 ## Implementation Details
 
-Uses `import.meta.url` → `fileURLToPath()` → `dirname()` to resolve current module directory, then `join(__dirname, '..', 'package.json')` to traverse one level up (from `dist/` to project root in compiled output). Reads file synchronously via `readFileSync(packagePath, 'utf-8')`, parses with `JSON.parse()`, accesses `packageJson.version` with `|| 'unknown'` fallback for nullish values. Wraps entire operation in try-catch returning 'unknown' on exception.
+Uses `import.meta.url` to resolve current module path via `fileURLToPath()`, then `dirname()` to get containing directory, constructs `join(__dirname, '..', 'package.json')` path pointing to project root package.json. Reads file synchronously with `readFileSync(packagePath, 'utf-8')`, parses via `JSON.parse()`, accesses `packageJson.version` with fallback `|| 'unknown'`. Wraps entire logic in try-catch returning `'unknown'` on any exception (file not found, invalid JSON, missing version field).
 
-## Usage Context
+## Integration Points
 
-Called by CLI entry point (`src/cli/index.ts`) to display version in help text and version flag output. Called by session lifecycle hooks (`hooks/are-check-update.js`) to compare local version against npm registry during update checks. Read at runtime from compiled `dist/version.js` after build process (`npm run build` via tsc).
+Called by CLI entry point (`src/cli/index.ts`) to display version in `--version` flag handler and by session lifecycle hooks (`hooks/are-check-update.js`) to compare local version against npm registry for update notifications.
 
-## Path Resolution
+## Runtime Assumptions
 
-Compiled module location: `dist/version.js` (ES2022 target, NodeNext module resolution per tsconfig.json). Package.json location: project root `package.json`. Relative traversal: `dist/` → project root via `..` ensures correct resolution regardless of execution context (global install, npx, local node_modules).
+Assumes build output structure places compiled `version.js` in `dist/` directory with `package.json` at `dist/../package.json` (project root). ES module context required for `import.meta.url` support (Node.js ≥18.0.0).

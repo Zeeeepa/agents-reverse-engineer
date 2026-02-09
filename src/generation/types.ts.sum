@@ -1,36 +1,52 @@
 ---
-generated_at: 2026-02-09T16:10:16.531Z
+generated_at: 2026-02-09T17:45:08.856Z
 content_hash: 170a8dbec49b601e218709256527ba0dbfa43f1f69e0aac7a6e7e3f9370fcb86
-purpose: types.ts defines the core TypeScript interfaces for the documentation generation pipeline: file analysis results (`An...
+purpose: Defines TypeScript interfaces for the documentation generation pipeline's analysis results, metadata extraction, and ...
 ---
-**types.ts defines the core TypeScript interfaces for the documentation generation pipeline: file analysis results (`AnalysisResult`), extracted metadata schemas (`SummaryMetadata`), and generation options (`SummaryOptions`).**
+**Defines TypeScript interfaces for the documentation generation pipeline's analysis results, metadata extraction, and summary configuration.**
 
-## Exported Interfaces
+## Exported Types
 
-**`AnalysisResult`** — Result structure returned after LLM-based file analysis, containing:
-- `summary: string` — Generated markdown summary text
-- `metadata: SummaryMetadata` — Extracted structured metadata
+### AnalysisResult
+```typescript
+interface AnalysisResult {
+  summary: string;
+  metadata: SummaryMetadata;
+}
+```
+Represents the output from LLM-based file analysis, containing both the generated markdown summary text and structured metadata extracted during analysis.
 
-**`SummaryMetadata`** — Metadata schema extracted during file analysis, with fields:
-- `purpose: string` — Primary purpose statement (mandatory)
-- `criticalTodos?: string[]` — Optional array of security/breaking issues only
-- `relatedFiles?: string[]` — Optional array of tightly-coupled sibling file paths
+### SummaryMetadata
+```typescript
+interface SummaryMetadata {
+  purpose: string;
+  criticalTodos?: string[];
+  relatedFiles?: string[];
+}
+```
+Encapsulates metadata extracted from source files during Phase 1 analysis. The `purpose` field stores the one-line purpose statement. The optional `criticalTodos` array contains only security or breaking issues (not general TODOs). The optional `relatedFiles` array lists tightly coupled sibling files.
 
-**`SummaryOptions`** — Configuration object for summary generation behavior:
-- `targetLength: 'short' | 'standard' | 'detailed'` — Controls output verbosity
-- `includeCodeSnippets: boolean` — Toggles code snippet inclusion in generated summaries
+### SummaryOptions
+```typescript
+interface SummaryOptions {
+  targetLength: 'short' | 'standard' | 'detailed';
+  includeCodeSnippets: boolean;
+}
+```
+Configuration options for controlling summary generation behavior. The `targetLength` discriminated union determines verbosity levels. The `includeCodeSnippets` boolean flag controls whether code examples appear in output summaries.
 
 ## Integration Points
 
-These types flow through the three-phase pipeline defined in `src/generation/orchestrator.ts`:
-- Phase 1 (file analysis): AI backends in `src/ai/backends/` return `AnalysisResult` via `AIService.call()`
-- Phase 2 (directory aggregation): `SummaryMetadata` fields (`relatedFiles`, `criticalTodos`) aggregated into `AGENTS.md` via `src/generation/writers/agents-md.ts`
-- Phase 3 (root synthesis): `purpose` field extracted from `.sum` YAML frontmatter via `src/generation/collector.ts`
+These types are consumed by:
+- `src/generation/executor.ts` — Uses `AnalysisResult` as return type from `AIService.call()`
+- `src/generation/writers/sum.ts` — Serializes `SummaryMetadata` to YAML frontmatter in `.sum` files
+- `src/generation/prompts/builder.ts` — May consume `SummaryOptions` to tailor prompt instructions (implementation-dependent)
 
-`SummaryOptions` consumed by prompt builders in `src/generation/prompts/builder.ts` to adjust template verbosity and code snippet inclusion rules.
-
-## Design Constraints
-
-- `SummaryMetadata.criticalTodos` intentionally limited to security/breaking issues (not general TODOs) per density rules in project instructions
-- `SummaryMetadata.relatedFiles` paths must resolve to actual source files to avoid phantom path validation errors from `src/quality/phantom-paths/validator.ts`
-- `AnalysisResult` populated by LLM via subprocess output parsing in `src/ai/subprocess.ts` (expects JSON-serializable structure)
+The `SummaryMetadata` structure directly maps to the YAML frontmatter schema documented in CLAUDE.md:
+```yaml
+---
+purpose: [purpose field]
+critical_todos: [criticalTodos array]
+related_files: [relatedFiles array]
+---
+```

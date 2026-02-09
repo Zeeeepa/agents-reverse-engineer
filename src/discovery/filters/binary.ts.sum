@@ -1,38 +1,49 @@
 ---
-generated_at: 2026-02-09T16:08:50.468Z
+generated_at: 2026-02-09T17:44:06.937Z
 content_hash: 0413cc0407abd16929f8e47ccef5f2f7a1ba233c05fce4b56e6da03dabba5981
-purpose: Binary file filter implementing two-phase detection (extension fast-path, content analysis fallback) with size-based ...
+purpose: binary.ts implements two-phase binary file detection for file discovery: extension-based fast path against `BINARY_EX...
 ---
-**Binary file filter implementing two-phase detection (extension fast-path, content analysis fallback) with size-based exclusion for file discovery.**
+**binary.ts implements two-phase binary file detection for file discovery: extension-based fast path against `BINARY_EXTENSIONS` set followed by content analysis via `isBinaryFile()` for unknown extensions, with configurable file size thresholds.**
 
-## Exported Interface
+## Exported Constants
 
-`createBinaryFilter(options?: BinaryFilterOptions): FileFilter` — Factory returning a `FileFilter` with `name: 'binary'` and async `shouldExclude(absolutePath: string): Promise<boolean>` method. Combines extension-based detection with content analysis via `isbinaryfile.isBinaryFile()` and size threshold checks via `fs.stat()`.
+`BINARY_EXTENSIONS` is a `Set<string>` containing 80+ file extensions known to be binary, organized by category:
+- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.tiff`, `.tif`, `.psd`, `.raw`, `.heif`, `.heic`
+- Archives: `.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.bz2`, `.xz`, `.tgz`
+- Executables: `.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.msi`, `.app`, `.dmg`
+- Media: `.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.mkv`, `.flac`, `.ogg`, `.webm`, `.m4a`, `.aac`, `.wma`, `.wmv`, `.flv`
+- Documents: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp`
+- Fonts: `.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`
+- Compiled/bytecode: `.class`, `.pyc`, `.pyo`, `.o`, `.obj`, `.a`, `.lib`, `.wasm`
+- Database: `.db`, `.sqlite`, `.sqlite3`, `.mdb`
+- Other: `.ico`, `.icns`, `.cur`, `.deb`, `.rpm`, `.jar`, `.war`, `.ear`
 
-`BinaryFilterOptions` — Configuration interface with optional `maxFileSize?: number` (bytes, default 1048576) and `additionalExtensions?: string[]` for supplementing default binary extension set.
+`DEFAULT_MAX_FILE_SIZE` constant is `1048576` (1MB in bytes).
 
-`BINARY_EXTENSIONS: Set<string>` — Exported set of 82 known binary extensions across 9 categories: images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.tiff`, `.tif`, `.psd`, `.raw`, `.heif`, `.heic`), archives (`.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.bz2`, `.xz`, `.tgz`), executables (`.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.msi`, `.app`, `.dmg`), media (`.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.mkv`, `.flac`, `.ogg`, `.webm`, `.m4a`, `.aac`, `.wma`, `.wmv`, `.flv`), binary documents (`.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp`), fonts (`.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`), compiled bytecode (`.class`, `.pyc`, `.pyo`, `.o`, `.obj`, `.a`, `.lib`, `.wasm`), database (`.db`, `.sqlite`, `.sqlite3`, `.mdb`), and miscellaneous (`.ico`, `.icns`, `.cur`, `.deb`, `.rpm`, `.jar`, `.war`, `.ear`).
+## Exported Interfaces
 
-`DEFAULT_MAX_FILE_SIZE: number` — Constant set to `1024 * 1024` (1MB).
+`BinaryFilterOptions` configures `createBinaryFilter()` with optional fields:
+- `maxFileSize?: number` — Maximum file size in bytes (default: `DEFAULT_MAX_FILE_SIZE` = 1MB)
+- `additionalExtensions?: string[]` — Extra binary extensions beyond `BINARY_EXTENSIONS` defaults
 
-## Detection Algorithm
+## Exported Functions
 
-`shouldExclude()` executes three-phase check:
+`createBinaryFilter(options?: BinaryFilterOptions): FileFilter` returns a `FileFilter` implementation with `name: 'binary'` and `shouldExclude()` method. Detection algorithm:
 
-1. **Fast path (extension)**: Extracts `path.extname(absolutePath).toLowerCase()`, checks membership in `binaryExtensions` set (merge of `BINARY_EXTENSIONS` and `additionalExtensions` normalized with leading dot via `ext.startsWith('.') ? ext : '.' + ext`), returns `true` on match.
+1. **Fast path:** Extract extension via `path.extname(absolutePath).toLowerCase()`, return `true` if present in merged `binaryExtensions` set (combines `BINARY_EXTENSIONS` + `additionalExtensions` with leading-dot normalization)
+2. **Size check:** Call `fs.stat(absolutePath)` and return `true` if `stats.size > maxFileSize`
+3. **Slow path:** For unknown extensions below size threshold, delegate to `isBinaryFile(absolutePath)` for content analysis
+4. **Error handling:** Return `true` for any `fs.stat()` or `isBinaryFile()` errors (skip unreadable files)
 
-2. **Size threshold**: Invokes `fs.stat(absolutePath)`, compares `stats.size > maxFileSize`, returns `true` if exceeded.
-
-3. **Slow path (content)**: Delegates to `isBinaryFile(absolutePath)` from `isbinaryfile` package for unknown extensions.
-
-Returns `true` on `fs.stat()` failure (file unreadable/missing). All operations are async via `async/await` pattern.
-
-## Integration with Discovery Pipeline
-
-Implements `FileFilter` interface from `../types.js` with `name` property for identification in filter chains. Composed with other filters (gitignore, vendor, custom) via `discovery/filters/index.ts` exports. Configured via `config.yaml` schema fields: `options.maxFileSize` and `exclude.binaryExtensions`.
+The `additionalExtensions` array undergoes normalization: non-dot-prefixed strings get `.` prepended via ternary `ext.startsWith('.') ? ext : \`.${ext}\``.
 
 ## Dependencies
 
-- `isbinaryfile` — Provides `isBinaryFile(path)` for content-based binary detection
-- `node:fs/promises` — Supplies `fs.stat()` for size retrieval
-- `node:path` — Supplies `path.extname()` for extension extraction
+- `isbinaryfile` — Content-based binary detection for unknown extensions
+- `node:fs/promises` — Async `fs.stat()` for file size retrieval
+- `node:path` — `path.extname()` for extension extraction
+- `../types.js` — `FileFilter` interface defining `name: string` and `shouldExclude(absolutePath: string): Promise<boolean>`
+
+## Integration Points
+
+`createBinaryFilter()` composes with other `FileFilter` implementations from `src/discovery/filters/` (gitignore, custom, vendor) via filter chains in discovery walker. The `maxFileSize` parameter enforces hard exclusion threshold distinct from config's `options.maxFileSize` used elsewhere for binary detection triggering.

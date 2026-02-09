@@ -1,12 +1,12 @@
 # agents-reverse-engineer
 
-**AI-driven codebase documentation generator executing Recursive Language Model (RLM) algorithm: concurrent per-file `.sum` analysis via subprocess pools, post-order directory `AGENTS.md` aggregation, and platform-specific root synthesis (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`) with gitignore-aware discovery, SHA-256 incremental updates, and session lifecycle hooks.**
+**CLI tool implementing Recursive Language Model (RLM) algorithm for AI-driven codebase documentation via three-phase pipeline: concurrent `.sum` file generation with subprocess pools, post-order `AGENTS.md` directory aggregation, and platform-specific root synthesis (`CLAUDE.md`/`GEMINI.md`/`OPENCODE.md`) with gitignore-aware discovery, SHA-256 incremental updates, and NDJSON telemetry.**
 
 ## Project Overview
 
 agents-reverse-engineer (ARE) automates brownfield documentation for AI coding assistants by executing a three-phase pipeline that discovers source files, analyzes them concurrently via AI CLI subprocesses (Claude Code, Gemini, OpenCode), generates file summaries with YAML frontmatter containing SHA-256 content hashes, synthesizes directory-level documentation from bottom-up via post-order traversal, and produces root integration documents tailored to each AI platform.
 
-**Version**: 0.6.5  
+**Version**: 0.6.6  
 **License**: MIT (GeoloeG-IsT, 2026)  
 **Runtime**: Node.js ≥18.0.0 (ES modules)
 

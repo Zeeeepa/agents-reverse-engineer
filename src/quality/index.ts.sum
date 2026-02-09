@@ -1,56 +1,40 @@
 ---
-generated_at: 2026-02-09T16:11:18.525Z
+generated_at: 2026-02-09T17:45:56.904Z
 content_hash: ace71137f853e1fd5c989c3d4e5326fe3cb526ea38d3fc753486e7d037c687b9
-purpose: Public API barrel module for quality analysis subsystem, re-exporting inconsistency detection functions (`checkCodeVs...
+purpose: Public API barrel module for quality analysis system, re-exporting inconsistency detection validators (`extractExport...
 ---
-**Public API barrel module for quality analysis subsystem, re-exporting inconsistency detection functions (`checkCodeVsDoc`, `checkCodeVsCode`, `checkPhantomPaths`), reporting utilities (`buildInconsistencyReport`, `formatReportForCli`), density validation (`validateFindability`), and all discriminated union types for inconsistency classification.**
+**Public API barrel module for quality analysis system, re-exporting inconsistency detection validators (`extractExports`, `checkCodeVsDoc`, `checkCodeVsCode`, `checkPhantomPaths`), density validation (`validateFindability`), reporting utilities (`buildInconsistencyReport`, `formatReportForCli`), and all shared types (`Inconsistency`, `InconsistencyReport`, `FindabilityResult`) from submodules.**
 
 ## Exported Types
 
-Re-exports from `./types.js`:
-- `InconsistencySeverity` — Severity classification type
-- `CodeDocInconsistency` — Discriminated union member for missing exported symbols in `.sum` documentation
-- `CodeCodeInconsistency` — Discriminated union member for duplicate symbol exports across multiple files
-- `PhantomPathInconsistency` — Discriminated union member for unresolved path references in `AGENTS.md`
+- `InconsistencySeverity` — Severity level enumeration from `./types.js`
+- `CodeDocInconsistency` — Code-vs-documentation mismatch structure with `missingFromDoc` array tracking exported symbols absent from `.sum` summary text
+- `CodeCodeInconsistency` — Code-vs-code duplicate symbol structure detecting symbols appearing in multiple files within same directory
+- `PhantomPathInconsistency` — Unresolved path reference structure capturing file paths mentioned in `AGENTS.md` that fail `existsSync()` validation
 - `Inconsistency` — Discriminated union of all inconsistency types
-- `InconsistencyReport` — Container type with `metadata`, `issues[]`, and `summary` aggregation
+- `InconsistencyReport` — Aggregated validation report with `metadata` (timestamp, projectRoot, filesChecked, durationMs), `issues[]` array, and `summary` counts by type/severity
+- `FindabilityResult` — Density validation result structure from `./density/validator.js`
 
-Re-exports from `./density/validator.js`:
-- `FindabilityResult` — Return type from `validateFindability()` containing density metrics
+## Exported Functions
 
-## Code-vs-Doc Validation
-
-Exports from `./inconsistency/code-vs-doc.js`:
-- `extractExports(filePath: string): string[]` — Regex-based extraction of exported symbols via pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`
-- `checkCodeVsDoc(filePath: string, sumContent: string): CodeDocInconsistency | null` — Verifies all extracted exports appear in `.sum` summary text via substring search, returns `null` on pass or `CodeDocInconsistency` with `missingFromDoc` array on failure
-
-## Code-vs-Code Validation
-
-Exports from `./inconsistency/code-vs-code.js`:
-- `checkCodeVsCode(files: string[]): CodeCodeInconsistency[]` — Aggregates exports across per-directory file groups into `Map<symbol, string[]>`, returns array of `CodeCodeInconsistency` for symbols appearing in multiple files with pattern `'duplicate-export'`
-
-## Phantom Path Detection
-
-Exports from `./phantom-paths/index.js`:
-- `checkPhantomPaths(agentsMdPath: string): PhantomPathInconsistency[]` — Extracts path-like strings from `AGENTS.md` via three regex patterns (markdown links `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g`, backtick-quoted paths `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g ``, prose-embedded `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi`), resolves against AGENTS.md directory and project root with `.ts`/`.js` fallback, returns array of unresolved references
-
-## Inconsistency Reporting
-
-Exports from `./inconsistency/reporter.js`:
-- `buildInconsistencyReport(issues: Inconsistency[], metadata: object): InconsistencyReport` — Constructs report with timestamp, projectRoot, filesChecked, durationMs metadata and summary counts by type/severity
-- `formatReportForCli(report: InconsistencyReport): string` — Formats `InconsistencyReport` for terminal display with ANSI color codes via picocolors
-
-## Density Validation
-
-Exports from `./density/validator.js`:
-- `validateFindability(sumContent: string): FindabilityResult` — Disabled feature after removal of structured `publicInterface` from `SumFileContent` schema, returns density metrics for identifier-rich summary validation
+- `extractExports(filePath: string): string[]` — Regex-based export extraction using pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` from `./inconsistency/code-vs-doc.js`
+- `checkCodeVsDoc(filePath: string, sumContent: string): CodeDocInconsistency | null` — Verifies all extracted exports appear in summary via substring search, returns inconsistency object with `missingFromDoc` array or null if all exports documented
+- `checkCodeVsCode(files: string[], baseDir: string): CodeCodeInconsistency[]` — Aggregates exports across file groups into `Map<symbol, string[]>`, reports duplicate symbols with pattern `'duplicate-export'` from `./inconsistency/code-vs-code.js`
+- `buildInconsistencyReport(issues: Inconsistency[], metadata: object): InconsistencyReport` — Constructs aggregated report with summary counts from `./inconsistency/reporter.js`
+- `formatReportForCli(report: InconsistencyReport): string` — Formats inconsistency report for terminal output with picocolors formatting from `./inconsistency/reporter.js`
+- `checkPhantomPaths(agentsMdPath: string, projectRoot: string): PhantomPathInconsistency[]` — Extracts path-like strings via three regex patterns (markdown links, backtick-quoted paths, prose-embedded paths), resolves against AGENTS.md directory and project root with `.ts`/`.js` fallback, returns array of unresolved references from `./phantom-paths/index.js`
+- `validateFindability(sumFilePath: string): FindabilityResult` — Density validation function from `./density/validator.js` (currently disabled after structured `publicInterface` removal from `SumFileContent` schema per CLAUDE.md Known Limitations)
 
 ## Module Organization
 
-Barrel pattern aggregates four subsystems:
-1. **Inconsistency detection** — code-vs-doc (exports missing from summaries), code-vs-code (duplicate symbols), phantom-paths (unresolved references in `AGENTS.md`)
-2. **Reporting** — `buildInconsistencyReport()` aggregation, `formatReportForCli()` terminal rendering
-3. **Density validation** — `validateFindability()` checks for identifier density in summaries (currently disabled)
-4. **Shared types** — Discriminated unions for inconsistency classification with `pattern` discriminator field
+Index module delegates implementation to five submodules organized by validation concern:
+1. `./types.js` — Shared type definitions for all validators
+2. `./inconsistency/code-vs-doc.js` — Export extraction and summary verification
+3. `./inconsistency/code-vs-code.js` — Duplicate symbol detection across directory files
+4. `./inconsistency/reporter.js` — Report aggregation and CLI formatting
+5. `./phantom-paths/index.js` — Path resolution validation for documentation references
+6. `./density/validator.js` — Findability validation (feature disabled)
 
-Consumer modules import via `import { checkCodeVsDoc, buildInconsistencyReport } from '@/quality'` instead of direct submodule paths.
+## Integration Points
+
+Consumed by `src/generation/orchestrator.ts` post-generation validation phase and `src/cli/generate.ts` for terminal reporting. Report format matches telemetry schema in `src/ai/telemetry/run-log.ts` for `qualityMetrics` aggregation. All validators operate on generated artifacts (`.sum`, `AGENTS.md`) rather than source code, enforcing post-generation validation contract.

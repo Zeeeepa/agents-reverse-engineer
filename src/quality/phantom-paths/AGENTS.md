@@ -2,36 +2,44 @@
 
 # src/quality/phantom-paths
 
-Detects unresolvable path references in `AGENTS.md` files by extracting path-like strings via regex patterns, resolving them against both the `AGENTS.md` directory and project root with `.ts`/`.js` fallback logic, and returning `PhantomPathInconsistency` objects for non-existent paths.
+Validates path references in `AGENTS.md` files by extracting path-like strings via regex patterns, resolving them against filesystem locations with TypeScript/JavaScript extension fallbacks, and reporting unresolved references as `PhantomPathInconsistency` objects in quality reports.
 
 ## Contents
 
-### [index.ts](./index.ts)
-Barrel re-export consolidating `checkPhantomPaths` validator for single import point.
+**[index.ts](./index.ts)** — Barrel export of `checkPhantomPaths` validator function.
 
-### [validator.ts](./validator.ts)
-Core validation logic extracting paths via `PATH_PATTERNS`, resolving with extension fallback, reporting `PhantomPathInconsistency` for unresolved references.
-
-## Exported Interface
-
-- **`checkPhantomPaths(agentsMdPath, content, projectRoot)`** — Validates path references in `AGENTS.md` content, returns `PhantomPathInconsistency[]` with `type: 'phantom-path'`, `severity: 'warning'`, `referencedPath`, `resolvedTo`, and 120-char `context` excerpt
+**[validator.ts](./validator.ts)** — Extracts path references from `AGENTS.md` content using `PATH_PATTERNS` (markdown links, backtick-quoted paths, prose-embedded paths), resolves each path against `agentsMdDir` and `projectRoot` with `.ts`/`.js` extension fallback via `tryPaths[]`, filters excluded patterns (URLs, template literals, globs), and returns `PhantomPathInconsistency[]` array with deduplication via `seen` Set.
 
 ## Path Extraction Patterns
 
-Three regex patterns (`PATH_PATTERNS`) capture references:
-
-```javascript
-/\[(?:[^\]]*)\]\((\.[^)]+)\)/g              // Markdown links: [text](./path)
-/`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g  // Backtick paths: `src/foo/bar.ts`
-/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi // Prose paths: "from src/foo/"
-```
-
-`SKIP_PATTERNS` excludes `node_modules`, `.git/`, URLs (`https?:`), template syntax (`{{`, `${`), glob wildcards (`*`), brace expansions (`{a,b,c}`).
+`PATH_PATTERNS` captures three reference types:
+- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` — Markdown link targets
+- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` — Backtick-quoted paths with extensions
+- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` — Prose-embedded paths following contextual keywords
 
 ## Resolution Strategy
 
-Attempts resolution in order: (1) relative to `agentsMdDir` via `path.dirname(agentsMdPath)`, (2) relative to `projectRoot`, (3) `.js` → `.ts` substitution for TypeScript import convention. Uses `existsSync()` to validate at least one candidate exists. Deduplicates via `seen` Set tracking `rawPath` strings.
+For each extracted path, `checkPhantomPaths()` attempts resolution in priority order:
 
-## Integration Context
+1. Relative to `AGENTS.md` directory: `path.resolve(agentsMdDir, rawPath)`
+2. Relative to project root: `path.resolve(projectRoot, rawPath)`
+3. TypeScript convention fallback: append `.replace(/\.js$/, '.ts')` variants to `tryPaths[]` when `rawPath.endsWith('.js')`
 
-Part of quality validation subsystem (`src/quality/`) alongside code-vs-doc consistency (`../inconsistency/code-vs-doc.js`) and code-vs-code duplicate detection (`../inconsistency/code-vs-code.js`). Invoked during post-generation validation phase via `src/quality/index.ts` to identify broken path references that may mislead AI coding assistants.
+Validates existence via `existsSync()` on all candidate paths; returns `PhantomPathInconsistency` with `severity: 'warning'` when all attempts fail.
+
+## Exclusion Patterns
+
+`SKIP_PATTERNS` filters non-file references before validation:
+- `/node_modules/`, `/\.git\//` — Dependency/VCS paths
+- `/^https?:/` — URLs
+- `/\{\{/`, `/\$\{/` — Template placeholders/literals
+- `/\*/`, `/\{[^}]*,[^}]*\}/` — Glob patterns/brace expansions
+
+## Inconsistency Reporting
+
+Each phantom path generates `PhantomPathInconsistency` containing:
+- `agentsMdPath` — Normalized via `path.relative(projectRoot, agentsMdPath)`
+- `description` — `"Phantom path reference: \"${rawPath}\" does not exist"`
+- `details.referencedPath` — Original extracted path
+- `details.resolvedTo` — Attempted resolution relative to project root
+- `details.context` — Containing line truncated to 120 characters

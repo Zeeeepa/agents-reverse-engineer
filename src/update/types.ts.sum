@@ -1,47 +1,35 @@
 ---
-generated_at: 2026-02-09T16:11:30.119Z
+generated_at: 2026-02-09T17:46:03.960Z
 content_hash: 7c45f747a3c815a11629fab142997544da6ffc1f850dce8a181dc9a6b8fe78d4
-purpose: types.ts defines TypeScript interfaces for the incremental update workflow including change results, cleanup operatio...
+purpose: Defines TypeScript interfaces for incremental update workflow including change results, cleanup tracking, progress ca...
 ---
-**types.ts defines TypeScript interfaces for the incremental update workflow including change results, cleanup operations, progress callbacks, and command options.**
+**Defines TypeScript interfaces for incremental update workflow including change results, cleanup tracking, progress callbacks, and dry-run configuration.**
 
 ## Exported Interfaces
 
-### CleanupResult
-Represents the outcome of orphan cleanup operations performed during incremental updates.
+`CleanupResult` tracks orphan cleanup outcomes with two fields:
+- `deletedSumFiles: string[]` — paths of removed `.sum` files
+- `deletedAgentsMd: string[]` — paths of removed `AGENTS.md` files from empty directories
 
-**Properties:**
-- `deletedSumFiles: string[]` — Paths to `.sum` files removed because their source files were deleted or renamed
-- `deletedAgentsMd: string[]` — Paths to `AGENTS.md` files removed from directories that became empty after cleanup
+`UpdateOptions` configures update command behavior:
+- `includeUncommitted?: boolean` — merge staged and working directory changes into detection
+- `dryRun?: boolean` — preview changes without writing files
 
-### UpdateOptions
-Configuration flags for the `are update` command execution.
+`UpdateResult` aggregates update execution outcomes:
+- `analyzedFiles: string[]` — files regenerated due to added/modified status
+- `skippedFiles: string[]` — files with matching `content_hash` in frontmatter
+- `cleanup: CleanupResult` — orphan deletion summary
+- `regeneratedDirs: string[]` — directories whose `AGENTS.md` was rewritten
+- `baseCommit: string` — git SHA at update start
+- `currentCommit: string` — git SHA at update end
+- `dryRun: boolean` — whether execution was preview-only
 
-**Properties:**
-- `includeUncommitted?: boolean` — When true, includes both staged and working directory changes via `git status --porcelain` merge with `git diff`; when false, only processes committed changes since last run
-- `dryRun?: boolean` — When true, computes change set and displays preview without writing `.sum` files, regenerating `AGENTS.md`, or deleting orphans
+`UpdateProgress` provides lifecycle callbacks for streaming progress:
+- `onFileStart?: (path: string, status: 'analyzing' | 'skipping') => void` — invoked before processing file
+- `onFileDone?: (path: string, status: 'analyzed' | 'skipped' | 'error') => void` — invoked after file completion
+- `onCleanup?: (path: string, type: 'sum' | 'agents-md') => void` — invoked when orphan deleted
+- `onDirRegenerate?: (path: string) => void` — invoked when directory `AGENTS.md` regenerated
 
-### UpdateResult
-Complete summary of an incremental update execution returned by update orchestrator.
+## Dependencies
 
-**Properties:**
-- `analyzedFiles: string[]` — Source files regenerated due to `content_hash` mismatch (status `'added'` or `'modified'` from `FileChange`)
-- `skippedFiles: string[]` — Source files with matching `content_hash` in YAML frontmatter (SHA-256 comparison passed)
-- `cleanup: CleanupResult` — Orphan removal results from `cleanupOrphans()` and `cleanupEmptyDirectoryDocs()`
-- `regeneratedDirs: string[]` — Directory paths whose `AGENTS.md` files were synthesized via Phase 2 aggregation after child `.sum` changes
-- `baseCommit: string` — Git commit SHA at update start (typically from previous update or HEAD~1)
-- `currentCommit: string` — Git commit SHA at update end (typically HEAD after processing changes)
-- `dryRun: boolean` — Mirrors the `UpdateOptions.dryRun` flag indicating preview-only execution
-
-### UpdateProgress
-Callback interface for streaming progress notifications during incremental update operations, consumed by `ProgressReporter` in `src/orchestration/progress.ts`.
-
-**Properties:**
-- `onFileStart?: (path: string, status: 'analyzing' | 'skipping') => void` — Invoked before processing each source file; `'analyzing'` for hash mismatch, `'skipping'` for hash match
-- `onFileDone?: (path: string, status: 'analyzed' | 'skipped' | 'error') => void` — Invoked after processing completes; `'error'` status indicates subprocess failure or timeout
-- `onCleanup?: (path: string, type: 'sum' | 'agents-md') => void` — Invoked when `cleanupOrphans()` deletes a `.sum` file or `cleanupEmptyDirectoryDocs()` removes an `AGENTS.md`
-- `onDirRegenerate?: (path: string) => void` — Invoked when directory aggregation rewrites an `AGENTS.md` file due to child `.sum` changes in `affectedDirs` set
-
-## Integration Points
-
-This module re-exports `FileChange` from `../change-detection/types.js`, which represents git-detected or SHA-256-detected modifications with `status: 'added' | 'modified' | 'deleted' | 'renamed'` discriminated union. Update orchestrator (`src/update/orchestrator.ts`) consumes these types to coordinate hash-based change detection, Phase 1 pool execution for modified files, orphan cleanup via `orphan-cleaner.ts`, and targeted directory regeneration.
+Imports `FileChange` from `../change-detection/types.js` to represent added/modified/deleted/renamed file states with `status` discriminator and optional `oldPath` for renames.

@@ -2,30 +2,25 @@
 
 # src/quality/density
 
-Disabled findability validation stub that previously verified exported symbols from .sum files appeared in parent AGENTS.md content, retained for future structured metadata extraction support.
+Stub validation module for findability analysis (symbol presence in aggregated AGENTS.md), disabled after `SumFileContent.metadata.publicInterface` removal pending structured extraction re-implementation.
 
 ## Contents
 
-**[validator.ts](./validator.ts)** — Exports `validateFindability()` returning empty array; previously extracted symbol names from `SumFileContent.metadata.publicInterface` and performed substring search in AGENTS.md content to compute per-file `FindabilityResult` with score calculation.
+**[validator.ts](./validator.ts)** — Exports `validateFindability(_agentsMdContent, _sumFiles)` returning empty `FindabilityResult[]` array; previously verified exported symbols from `.sum` files appeared in parent `AGENTS.md` via string matching, now disabled awaiting post-processing extraction support.
 
-## Exported Interface
+## Implementation Status
 
-**FindabilityResult** — Validation result containing `filePath`, `symbolsTested[]`, `symbolsFound[]`, `symbolsMissing[]`, and `score` (0.0–1.0 ratio of found to tested symbols).
+`validateFindability()` signature preserved for future re-implementation but returns `[]` unconditionally. Original logic performed heuristic substring search to detect whether key symbols from source file summaries appeared in aggregated directory documentation. Disabled when `SumFileContent` schema removed structured `publicInterface` field (see `src/generation/writers/sum.ts`). Module retained to support future LLM-based or AST-based symbol extraction passes.
 
-**validateFindability()** — `(agentsMdContent: string, sumFiles: Map<string, SumFileContent>) => FindabilityResult[]` — Returns empty array; signature preserved but implementation gutted after `SumFileContent.metadata.publicInterface` removal.
+## Type Surface
 
-## Disabled Feature Context
+`FindabilityResult` interface with fields:
+- `filePath: string` — validated `.sum` file path
+- `symbolsTested: string[]` — symbols checked for presence
+- `symbolsFound: string[]` — symbols located in AGENTS.md
+- `symbolsMissing: string[]` — symbols absent from AGENTS.md
+- `score: number` — ratio `symbolsFound.length / symbolsTested.length` (0-1 range)
 
-validator.ts implements LLM-free validation using string-based symbol matching with no AI subprocess calls. Disabled in `../index.ts` quality validation pipeline when `publicInterface` field removed from `SumFileContent` schema in `../../generation/writers/sum.ts`. Previously detected when directory-level AGENTS.md aggregation failed to preserve critical symbol names from child .sum file summaries.
+## Dependencies
 
-## Restoration Path
-
-Re-implementation requires:
-1. Adding structured export extraction to .sum file generation (Phase 1 of three-phase pipeline in `../../generation/orchestrator.ts`)
-2. Parsing YAML frontmatter in .sum files via `readSumFile()` from `../../generation/writers/sum.ts`
-3. Implementing symbol presence checks against AGENTS.md content
-4. Re-enabling in `../index.ts` quality validator orchestrator
-
-## Type Dependencies
-
-Imports `SumFileContent` from `../../generation/writers/sum.ts` — Interface for parsed .sum file containing YAML frontmatter (`generated_at`, `content_hash`, `purpose`, `critical_todos[]`, `related_files[]`) and markdown summary content.
+Imports `SumFileContent` type from `../../generation/writers/sum.js` for parameter type annotation. No runtime dependencies since function body returns empty array.

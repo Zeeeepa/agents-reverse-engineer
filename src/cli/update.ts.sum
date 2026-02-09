@@ -1,73 +1,74 @@
 ---
-generated_at: 2026-02-09T16:10:20.904Z
+generated_at: 2026-02-09T17:45:04.766Z
 content_hash: 51393074cfc44dc242f45c53188fb0f3513f9e01643ea37b0548f4c31f4691f3
-purpose: update.ts implements the incremental documentation update CLI command, detecting changed files via SHA-256 hash compa...
+purpose: `update.ts` implements the CLI entry point for incremental documentation updates via `updateCommand()`, detecting cha...
 ---
-**update.ts implements the incremental documentation update CLI command, detecting changed files via SHA-256 hash comparison, spawning concurrent AI analysis via CommandRunner, regenerating AGENTS.md for affected directories, and writing telemetry/trace logs with exit code 0/1/2 for success/partial/total failure.**
-
-## Exported Function
-
-`updateCommand(targetPath: string, options: UpdateCommandOptions): Promise<void>` — Main entry point for the `are update` CLI command. Orchestrates seven-step workflow: (1) loads config via `loadConfig()`, (2) creates `UpdateOrchestrator` via `createUpdateOrchestrator()`, (3) generates `UpdatePlan` via `orchestrator.preparePlan()` with `includeUncommitted`/`dryRun` flags, (4) resolves AI backend via `resolveBackend()` and instantiates `AIService`, (5) executes Phase 1 file analysis via `runner.executeUpdate()` with configured concurrency, (6) executes Phase 2 AGENTS.md regeneration for `plan.affectedDirs` sequentially (concurrency=1), (7) finalizes telemetry via `aiService.finalize()` and records run state via `orchestrator.recordRun()`. Exits with code 0 (all success), 1 (partial failure with `summary.filesFailed > 0`), or 2 (total failure or CLI not found).
+**`update.ts` implements the CLI entry point for incremental documentation updates via `updateCommand()`, detecting changed files through SHA-256 hash comparison, cleaning orphaned artifacts, resolving AI backends, executing concurrent file analysis via `CommandRunner`, and regenerating `AGENTS.md` for affected directories.**
 
 ## Exported Interface
 
-`UpdateCommandOptions` — Configuration for `updateCommand()` with fields:
-- `uncommitted?: boolean` — Include staged + working directory changes in change detection
-- `dryRun?: boolean` — Display plan without writing files
-- `concurrency?: number` — Override config worker pool size
-- `failFast?: boolean` — Abort on first file analysis error
-- `debug?: boolean` — Enable verbose subprocess logging with heap/RSS metrics
-- `trace?: boolean` — Emit NDJSON trace events to `.agents-reverse-engineer/traces/`
+`updateCommand(targetPath: string, options: UpdateCommandOptions): Promise<void>` — main entry point for the `are update` CLI command, orchestrates the incremental update workflow including plan preparation, backend resolution, AI service initialization, concurrent file analysis, and directory-level documentation regeneration. Exit codes: 0 (all success), 1 (partial failure), 2 (total failure/no CLI found).
 
-## AI Service Integration
+`UpdateCommandOptions` — configuration interface with fields:
+- `uncommitted?: boolean` — include staged + working directory changes via `git status --porcelain`
+- `dryRun?: boolean` — display update plan without writing files
+- `concurrency?: number` — override worker pool size (1-10, default from config)
+- `failFast?: boolean` — abort on first task failure
+- `debug?: boolean` — enable verbose subprocess logging with heap/RSS metrics
+- `trace?: boolean` — emit NDJSON trace events to `.agents-reverse-engineer/traces/`
 
-Backend resolution follows pattern: `createBackendRegistry()` → `resolveBackend(registry, config.ai.backend)` → catch `AIServiceError` with `code === 'CLI_NOT_FOUND'` → print `getInstallInstructions(registry)` → `process.exit(2)`. Creates `AIService` instance with timeout/retry/model from config, enables debug mode via `aiService.setDebug(true)` if `options.debug`, configures subprocess log directory via `aiService.setSubprocessLogDir(logDir)` if `options.trace` (path pattern: `.agents-reverse-engineer/subprocess-logs/<ISO-timestamp>/`).
+## Update Workflow
 
-## Update Plan Display
+`updateCommand()` executes a six-phase incremental workflow:
 
-`formatPlan(plan: UpdatePlan): string` — Renders plan summary with sections: baseline commit hash (7-char abbreviated), file counts (`analyzeCount`, `skipCount`, `cleanupCount`), file list with status markers (`+` for added via `pc.green()`, `R` for renamed via `pc.blue()`, `M` for modified via `pc.yellow()`, `=` for unchanged via `pc.dim()`), cleanup actions via `formatCleanup()`, affected directories for AGENTS.md regeneration. Returns early with message "No changes detected since last run." if all counts are zero.
+1. **Trace initialization**: `createTraceWriter()` before config loading to enable tracing throughout orchestrator
+2. **Plan preparation**: `orchestrator.preparePlan({ includeUncommitted, dryRun })` returns `UpdatePlan` with `filesToAnalyze`, `filesToSkip`, `cleanup` (deleted `.sum` files, deleted `AGENTS.md`), `affectedDirs`, `currentCommit`, `isFirstRun`
+3. **Backend resolution**: `resolveBackend(registry, config.ai.backend)` with error handling for `CLI_NOT_FOUND` (prints install instructions, exits with code 2)
+4. **AI service setup**: instantiates `AIService` with timeout/retry config, enables debug mode if `--debug`, sets subprocess log directory if `--trace` (creates timestamped subdirectory in `.agents-reverse-engineer/subprocess-logs/`)
+5. **File analysis**: `runner.executeUpdate(plan.filesToAnalyze, absolutePath, config)` processes changed files concurrently, returns `summary` with `filesProcessed`, `filesFailed`
+6. **Directory regeneration**: iterates `plan.affectedDirs` sequentially (concurrency=1), reads existing `AGENTS.md` via `readFile()` checking for `GENERATED_MARKER`, calls `buildDirectoryPrompt()` with `existingAgentsMd` parameter for incremental context, invokes `aiService.call()`, writes via `writeAgentsMd()`
 
-`formatCleanup(plan: UpdatePlan): string[]` — Formats `plan.cleanup.deletedSumFiles` and `plan.cleanup.deletedAgentsMd` arrays with `pc.red('-')` markers under `pc.yellow()` headers "Cleanup (deleted .sum files):" and "Cleanup (deleted AGENTS.md from empty dirs):".
+## Display Formatting
 
-## Phase Execution
+`formatPlan(plan: UpdatePlan): string` — renders update plan with status markers:
+- File statuses: `+` (added, green), `R` (renamed, blue), `M` (modified, yellow), `=` (unchanged, dim)
+- Displays `currentCommit` (7-char truncation), file counts (analyze/skip/cleanup), renamed file oldPath with `(was: ...)` annotation
+- Special case: first run detection via `plan.isFirstRun` → suggests `are generate` for initial documentation
+- Empty plan detection: all counts zero → "No changes detected since last run"
 
-**Phase 1 (File Analysis):** Invokes `runner.executeUpdate(plan.filesToAnalyze, absolutePath, config)` with `CommandRunner` configured with `concurrency` from options/config. Returns `summary` object with `filesProcessed`/`filesFailed` counts. Writes progress to `ProgressLog` instance created via `ProgressLog.create(absolutePath)` with initial metadata: `=== ARE Update (<ISO-timestamp>) ===`, `Project: <absolutePath>`, `Files to analyze: <count> | Directories: <count>`.
+`formatCleanup(plan: UpdatePlan): string[]` — renders cleanup actions:
+- `cleanup.deletedSumFiles` — orphaned `.sum` files (deleted/renamed sources)
+- `cleanup.deletedAgentsMd` — `AGENTS.md` removed from empty directories
 
-**Phase 2 (Directory Regeneration):** Iterates `plan.affectedDirs` sequentially (no worker pool). For each directory: (1) reads existing `AGENTS.md` via `readFile()` and checks for `GENERATED_MARKER`, stores as `existingAgentsMd` context, (2) builds prompt via `buildDirectoryPrompt(dirPath, absolutePath, debug, knownDirs, undefined, existingAgentsMd)` where `knownDirs = new Set(plan.affectedDirs)`, (3) calls `aiService.call()` with prompt, (4) writes output via `writeAgentsMd()`, (5) emits trace events `task:start`/`task:done` with `phase: 'update-phase-dir-regen'`. Emits phase-level events `phase:start`/`phase:end` with `phase: 'update-phase-dir-regen'`, `taskCount`, `tasksCompleted`, `tasksFailed`. Updates `ProgressReporter` via `onDirectoryStart()`/`onDirectoryDone()` with token counts and duration. Catches errors and logs via `pc.yellow('WARN')` without aborting loop (continues to next directory).
+## Phase 2: Directory Regeneration
 
-## Trace Integration
+Sequential iteration over `plan.affectedDirs` with:
+- `knownDirs` set prevents phantom path validation errors by passing to `buildDirectoryPrompt()`
+- Reads existing `AGENTS.md` via `readFile()`, checks for `GENERATED_MARKER` substring (user-authored files skipped)
+- Passes `existingAgentsMd` to `buildDirectoryPrompt()` for incremental update context (preserves user annotations)
+- Emits trace events: `phase:start` (phase: `'update-phase-dir-regen'`), `task:start`/`task:done` for each directory
+- Uses `ProgressReporter.onDirectoryStart()`/`onDirectoryDone()` for console/log output with token counts
+- Error handling: logs `WARN` without aborting, increments `dirsFailed` counter
 
-Creates `TraceWriter` via `createTraceWriter(absolutePath, options.trace ?? false)` before config loading (used in `loadConfig()` and `createUpdateOrchestrator()` options). Passes `tracer` to `CommandRunner` constructor for worker/task event emission. Phase 2 manually emits events with `type: 'phase:start'/'phase:end'/'task:start'/'task:done'`, `phase: 'update-phase-dir-regen'`. Finalizes trace via `tracer.finalize()` and cleans old traces via `cleanupOldTraces(absolutePath)` if `options.trace`. Logs trace file path to stderr via `pc.dim('[trace] Writing to <path>')`.
+## Telemetry and State Management
 
-## Progress Logging
+After phase completion:
+- `aiService.finalize(absolutePath)` writes run log to `.agents-reverse-engineer/logs/run-<timestamp>.json`
+- `progressLog.finalize()` flushes human-readable `.agents-reverse-engineer/progress.log`
+- `tracer.finalize()` writes buffered NDJSON trace events via promise-chain serialization
+- `cleanupOldTraces(absolutePath)` if `--trace` enabled, retains 500 most recent trace files
+- `orchestrator.recordRun(currentCommit, filesProcessed, filesSkipped)` — no-op in frontmatter mode (SHA-256 hashing), kept for API compatibility with legacy metadata tracking
 
-Creates `ProgressLog` instance with header lines: `=== ARE Update (<ISO-timestamp>) ===`, `Project: <absolutePath>`, `Files to analyze: <count> | Directories: <count>`, empty line. Passes `progressLog` to `CommandRunner` and `ProgressReporter` for real-time streaming output. Finalizes via `progressLog.finalize()` after Phase 2 completion. Designed for tail -f monitoring pattern.
+## Progress Monitoring
 
-## First Run Handling
-
-Checks `plan.isFirstRun` flag after `orchestrator.preparePlan()`. Prints `pc.yellow()` message: "First run detected. Use 'are generate' for initial documentation." followed by "Hint: Run 'are generate' first to create initial documentation. Then run 'are update' after making changes." Returns early without backend resolution or execution phases.
-
-## No-Change Handling
-
-After first run check, verifies `plan.filesToAnalyze.length === 0 && plan.cleanup.deletedSumFiles.length === 0 && plan.cleanup.deletedAgentsMd.length === 0`. Prints `pc.green('All files are up to date.')` and returns early.
+`ProgressLog.create(absolutePath)` creates `.agents-reverse-engineer/progress.log` for real-time monitoring:
+- Writes session header with ISO 8601 timestamp, project path, file/directory counts
+- `progressLog.write()` called for each directory start/done event
+- Enables `tail -f .agents-reverse-engineer/progress.log` pattern for long-running updates
 
 ## Exit Code Strategy
 
-After telemetry finalization and run state recording:
-- `process.exit(2)` if `summary.filesProcessed === 0 && summary.filesFailed > 0` (total failure)
-- `process.exit(1)` if `summary.filesFailed > 0` (partial failure)
-- Implicit exit code 0 if all files succeeded or no files to process
-
-Also uses `process.exit(2)` during backend resolution if `AIServiceError` with `code === 'CLI_NOT_FOUND'` caught.
-
-## Dry Run Mode
-
-If `options.dryRun` is true, displays plan via `console.log(formatPlan(plan))` then logs "Dry run complete. No files written." and returns early before backend resolution phase. Does not create AI service or execute Phase 1/Phase 2.
-
-## State Recording
-
-Calls `orchestrator.recordRun(plan.currentCommit, summary.filesProcessed, filesSkipped)` after telemetry finalization where `filesSkipped = plan.filesToSkip.length`. Comment indicates this is "no-op in frontmatter mode, kept for API compatibility" (legacy from state file approach before SHA-256 hash migration).
-
-## Dependencies
-
-Imports: `path` (Node.js), `readFile` from `node:fs/promises`, `pc` (picocolors), `loadConfig` from `../config/loader.js`, `createLogger` from `../output/logger.js`, `createUpdateOrchestrator`/`UpdatePlan` from `../update/index.js`, `writeAgentsMd`/`GENERATED_MARKER` from `../generation/writers/agents-md.js`, `buildDirectoryPrompt` from `../generation/prompts/index.js`, `AIService`/`AIServiceError`/`createBackendRegistry`/`resolveBackend`/`getInstallInstructions` from `../ai/index.js`, `CommandRunner`/`ProgressReporter`/`ProgressLog`/`createTraceWriter`/`cleanupOldTraces` from `../orchestration/index.js`.
+Determines exit code based on `summary.filesProcessed` and `summary.filesFailed`:
+- Code 2: total failure (zero files processed, nonzero failed) or CLI not found
+- Code 1: partial failure (some files processed, some failed)
+- Code 0: all success (zero failures) or no files to process (no-op update)

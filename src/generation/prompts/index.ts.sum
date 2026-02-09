@@ -1,29 +1,26 @@
 ---
-generated_at: 2026-02-09T16:08:47.066Z
+generated_at: 2026-02-09T17:43:58.317Z
 content_hash: 9e8e20e4c2bb7c66f849ccaba5230cb66a1ca6795bd4c2bdf5dd7fb70387cbb1
-purpose: index.ts re-exports prompt construction functions, type definitions, and validation guidelines from the generation/pr...
+purpose: Barrel module exporting prompt construction API for three-phase documentation generation: file analysis, directory ag...
 ---
-**index.ts re-exports prompt construction functions, type definitions, and validation guidelines from the generation/prompts module, serving as the public interface for three-phase documentation generation prompt engineering.**
+**Barrel module exporting prompt construction API for three-phase documentation generation: file analysis, directory aggregation, and root synthesis.**
 
 ## Exported Types
 
-- `PromptContext` — Type re-exported from `./types.js`, contains contextual data passed to prompt builders (file metadata, import maps, directory structure, aggregated child content)
-- `SUMMARY_GUIDELINES` — Constant re-exported from `./types.js`, contains the behavioral contract text embedded in all AI prompts defining documentation density rules, identifier preservation requirements, and forbidden filler phrases
+- `PromptContext` — Context object passed to prompt builders containing file metadata, import maps, child summaries, and configuration
+- `SUMMARY_GUIDELINES` — Constant string containing behavioral contracts for AI-generated summaries (density rules, anchor term preservation, reproduction-critical content handling)
 
 ## Exported Functions
 
-- `buildFilePrompt(context: PromptContext): string` — Re-exported from `./builder.js`, constructs Phase 1 prompts for individual file analysis including import maps and language-specific guidance
-- `buildDirectoryPrompt(context: PromptContext): string` — Re-exported from `./builder.js`, constructs Phase 2 prompts for directory-level `AGENTS.md` aggregation consuming child `.sum` files and subdirectory `AGENTS.md` content
-- `buildRootPrompt(context: PromptContext): string` — Re-exported from `./builder.js`, constructs Phase 3 prompts for root integration document synthesis (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`) consuming all `AGENTS.md` files
-- `detectLanguage(filePath: string): string` — Re-exported from `./builder.js`, maps file extensions to language names for prompt customization (e.g., `.ts` → `"TypeScript"`, `.py` → `"Python"`)
+- `buildFilePrompt(context: PromptContext): string` — Constructs Phase 1 prompt for `.sum` file generation from source code with import maps and language detection
+- `buildDirectoryPrompt(context: PromptContext): string` — Constructs Phase 2 prompt for `AGENTS.md` synthesis from child `.sum` files, subdirectory docs, and manifest detection
+- `buildRootPrompt(context: PromptContext): string` — Constructs Phase 3 prompt for root integration documents (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`) from aggregated `AGENTS.md` corpus
+- `detectLanguage(filePath: string): string` — Maps file extensions to language names for prompt context (e.g., `.ts` → `"TypeScript"`, `.py` → `"Python"`)
 
-## Module Architecture
+## Module Organization
 
-This barrel export consolidates the prompt engineering subsystem, separating public API (`index.ts`) from implementation details across three internal modules:
-- `types.ts` — Type definitions and embedded guideline text
-- `builder.ts` — Prompt construction logic with phase-specific templating
-- `templates.ts` — Raw prompt text fragments (not re-exported, internal only)
+Re-exports from `./types.js` provide shared interfaces and constants, while `./builder.js` contains concrete prompt construction logic. Separates prompt template strings (in `./templates.js`) from assembly logic.
 
 ## Integration Points
 
-Consumed by `src/generation/executor.ts` which invokes `buildFilePrompt()`, `buildDirectoryPrompt()`, and `buildRootPrompt()` during three-phase pipeline execution, passing `PromptContext` instances populated by `src/generation/collector.ts` with aggregated content, import maps from `src/imports/extractor.ts`, and manifest detection results.
+Used by `src/generation/executor.ts` Phase 1/2/3 runners to construct AI service prompts. `PromptContext` populated by orchestrator with discovery results, import extractor output, and child document content via `src/generation/collector.ts`.

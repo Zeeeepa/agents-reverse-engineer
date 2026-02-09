@@ -1,31 +1,33 @@
 ---
-generated_at: 2026-02-09T16:09:41.991Z
+generated_at: 2026-02-09T17:44:36.626Z
 content_hash: c77dda0aa1a589b4b753f5790ede7d263fca6eb7a99f509b4e07fe04bf0e20f8
-purpose: src/change-detection/index.ts exports the public API for git-based change detection, providing hash computation and f...
+purpose: Barrel module exporting git-based change detection functions and types for incremental documentation updates with SHA...
 ---
-**src/change-detection/index.ts exports the public API for git-based change detection, providing hash computation and file change detection for incremental updates.**
+**Barrel module exporting git-based change detection functions and types for incremental documentation updates with SHA-256 content hashing.**
 
 ## Exported Functions
 
-- `isGitRepo(): Promise<boolean>` — Checks if current directory is a git repository
-- `getCurrentCommit(): Promise<string>` — Returns current HEAD commit SHA
-- `getChangedFiles(options: ChangeDetectionOptions): Promise<ChangeDetectionResult>` — Detects added/modified/deleted/renamed files between commits or in working tree
-- `computeContentHash(filePath: string): Promise<string>` — Computes SHA-256 hex hash of file content at `filePath`
-- `computeContentHashFromString(content: string): string` — Computes SHA-256 hex hash of string content
+Re-exports five functions from `./detector.js`:
+
+- `isGitRepo(): Promise<boolean>` — Detects whether current directory is inside a git repository
+- `getCurrentCommit(): Promise<string | null>` — Returns current HEAD commit SHA or null if not in git repo
+- `getChangedFiles(options: ChangeDetectionOptions): Promise<ChangeDetectionResult>` — Detects added/modified/deleted/renamed files via git diff with optional uncommitted changes merge
+- `computeContentHash(filePath: string): Promise<string>` — Computes SHA-256 hash of file content for incremental update comparison
+- `computeContentHashFromString(content: string): string` — Computes SHA-256 hash of string content directly
 
 ## Exported Types
 
-- `ChangeType` — Union literal: `'added' | 'modified' | 'deleted' | 'renamed'`
-- `FileChange` — Object with `path: string`, `status: ChangeType`, optional `oldPath?: string` (for renames), optional `contentHash?: string`
-- `ChangeDetectionResult` — Object with `changes: FileChange[]` array and `baseCommit?: string`
-- `ChangeDetectionOptions` — Configuration object for `getChangedFiles()` with optional `baseCommit?: string`, `includeUncommitted?: boolean`
+Re-exports four types from `./types.js`:
 
-## Module Role
-
-Acts as public-facing barrel export for `./detector.js` implementation module. All git operations (`git diff`, `git status`, rename detection via `-M` flag) and SHA-256 hashing logic reside in `detector.ts`. Consumers import from this index for change detection workflow in `src/update/orchestrator.ts` and hash verification in `.sum` YAML frontmatter processing.
+- `ChangeType` — Discriminated union literal: `'added' | 'modified' | 'deleted' | 'renamed'`
+- `FileChange` — Object containing `{ path: string, status: ChangeType, oldPath?: string }` where oldPath populated only for `status: 'renamed'`
+- `ChangeDetectionResult` — Object containing `{ changes: FileChange[], baseCommit: string | null }` where baseCommit is source commit SHA
+- `ChangeDetectionOptions` — Configuration object controlling `{ baseCommit?: string, includeUncommitted?: boolean }` for `getChangedFiles()`
 
 ## Integration Points
 
-- **src/update/orchestrator.ts**: Calls `getChangedFiles()` with `includeUncommitted` flag from CLI `--uncommitted` option, compares `FileChange.contentHash` against `.sum` frontmatter `content_hash` field to build `filesToAnalyze` and `filesToSkip` sets
-- **src/generation/writers/sum.ts**: Calls `computeContentHash()` before writing `.sum` files to populate YAML frontmatter `content_hash` field
-- **src/update/orphan-cleaner.ts**: Uses `ChangeType === 'deleted'` or `'renamed'` to identify `.sum` files requiring cleanup via `FileChange.path` and `FileChange.oldPath` matching
+Consumed by `src/update/orchestrator.ts` which calls `getChangedFiles()` to compute `filesToAnalyze`, `filesToSkip`, and orphaned `.sum` files requiring cleanup. The `computeContentHash()` function compares against `content_hash` from YAML frontmatter in existing `.sum` files to determine modification status.
+
+## Module Organization
+
+Pure barrel module providing single import path `src/change-detection` for consumers. Implementation logic resides in `detector.ts` (git operations, SHA-256 hashing) and `types.ts` (TypeScript interfaces). No runtime logic executed in this index file.

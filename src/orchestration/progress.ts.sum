@@ -1,66 +1,79 @@
 ---
-generated_at: 2026-02-09T16:11:11.209Z
+generated_at: 2026-02-09T17:45:57.105Z
 content_hash: c129325fa41c4f2e6b88188dde1cc731f4ca8446e1efa863699cf9f1ae71447d
-purpose: ProgressReporter streams colored build-log progress events with ETA calculation via moving average of completion time...
+purpose: ProgressReporter provides streaming build-log progress reporting with ETA calculation via moving averages, outputting...
 ---
-**ProgressReporter streams colored build-log progress events with ETA calculation via moving average of completion times, optionally mirroring ANSI-stripped output to `.agents-reverse-engineer/progress.log` through ProgressLog for `tail -f` monitoring in buffered environments.**
+**ProgressReporter provides streaming build-log progress reporting with ETA calculation via moving averages, outputting colored console lines and optionally mirroring plain-text output to `.agents-reverse-engineer/progress.log` for tail monitoring in buffered environments.**
 
 ## Exported Classes
 
-**ProgressLog**: Promise-chain serialized file writer for plain-text progress logging.
-- `static create(projectRoot: string): ProgressLog` — creates instance with path `<projectRoot>/.agents-reverse-engineer/progress.log`
-- `write(line: string): void` — appends line to log file, creating parent directory and opening handle on first call in truncate mode ('w'), silently swallows write errors
-- `async finalize(): Promise<void>` — flushes pending writes and closes file handle
-- Uses pattern `writeQueue: Promise<void>` with chained `.then()` for serialization (same as TraceWriter)
-- Private fields: `filePath: string`, `fd: FileHandle | null`, `writeQueue: Promise<void>`
+**ProgressLog** — Plain-text progress log file writer mirroring console output without ANSI codes.
 
-**ProgressReporter**: Streaming progress reporter with ETA calculation for file/directory/root tasks.
-- `constructor(totalFiles: number, totalDirectories: number = 0, progressLog?: ProgressLog)` — initializes with task counts and optional log mirror
-- `onFileStart(filePath: string): void` — logs `[X/Y] ANALYZING path` with cyan color
-- `onFileDone(filePath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens = 0, cacheCreationTokens = 0): void` — logs `[X/Y] DONE path Xs in/out tok model ~ETA` with green color, records completion time for ETA
-- `onFileError(filePath: string, error: string): void` — logs `[X/Y] FAIL path error` with red color
-- `onDirectoryStart(dirPath: string): void` — logs `[dir X/Y] ANALYZING dirPath/AGENTS.md` with cyan color
-- `onDirectoryDone(dirPath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens = 0, cacheCreationTokens = 0): void` — logs `[dir X/Y] DONE dirPath/AGENTS.md Xs in/out tok model ~ETA` with blue color, records directory completion time
-- `onRootDone(docPath: string): void` — logs `[root] DONE docPath` with blue color
-- `printSummary(summary: RunSummary): void` — prints final summary with ARE version, files processed/failed/skipped, total calls, tokens (input + cache read + cache creation / output), cache statistics, files read (total and unique), elapsed time, errors, retries
+```typescript
+class ProgressLog {
+  constructor(private readonly filePath: string)
+  static create(projectRoot: string): ProgressLog
+  write(line: string): void
+  async finalize(): Promise<void>
+}
+```
 
-## ETA Calculation Algorithm
+Uses promise-chain serialization (`this.writeQueue = this.writeQueue.then(...)`) to serialize concurrent writes from multiple pool workers. Opens file handle in truncate mode (`'w'`) on first write, appends to open handle on subsequent writes. Silently swallows write failures (non-critical telemetry). Creates parent directory via `mkdir(path.dirname(this.filePath), { recursive: true })`. Static factory `create()` constructs path as `<projectRoot>/.agents-reverse-engineer/progress.log` using constant `PROGRESS_LOG_FILENAME = 'progress.log'`.
 
-- **File ETA**: `formatETA()` computes moving average of last `windowSize` (10) completion times from `completionTimes` array, multiplies by remaining file count (`totalFiles - completed - failed`), formats as `~Ns remaining` or `~Mm Ss remaining`, returns empty string if fewer than 2 completions
-- **Directory ETA**: `formatDirectoryETA()` uses same algorithm with `dirCompletionTimes` array and `totalDirectories - dirCompleted` remaining count
-- Sliding window maintenance: `completionTimes.push(durationMs); if (completionTimes.length > windowSize) completionTimes.shift()`
+**ProgressReporter** — Streaming build-log progress reporter tracking file and directory tasks with ETA calculation.
 
-## State Tracking
+```typescript
+class ProgressReporter {
+  constructor(totalFiles: number, totalDirectories: number = 0, progressLog?: ProgressLog)
+  onFileStart(filePath: string): void
+  onFileDone(filePath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens?: number, cacheCreationTokens?: number): void
+  onFileError(filePath: string, error: string): void
+  onDirectoryStart(dirPath: string): void
+  onDirectoryDone(dirPath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens?: number, cacheCreationTokens?: number): void
+  onRootDone(docPath: string): void
+  printSummary(summary: RunSummary): void
+}
+```
 
-ProgressReporter maintains counters:
-- `totalFiles: number`, `totalDirectories: number` — immutable task counts
-- `started: number`, `completed: number`, `failed: number` — file task progress
-- `dirStarted: number`, `dirCompleted: number` — directory task progress
-- `completionTimes: number[]`, `dirCompletionTimes: number[]` — sliding windows for ETA (max length 10)
-- `startTime: number` — timestamp from `Date.now()` at construction for total elapsed calculation
-- `progressLog: ProgressLog | null` — optional file mirror
+Tracks counters: `started`, `completed`, `failed` for file tasks; `dirStarted`, `dirCompleted` for directory tasks. Maintains sliding windows `completionTimes` and `dirCompletionTimes` (max size `windowSize = 10`) for ETA moving averages. Records `startTime` via `Date.now()` for elapsed time calculation.
 
-## Output Format
+## Output Formats
 
-All console output uses `console.log()` for atomic writes. Colored via `picocolors`:
-- `pc.dim()` — counters, timestamps, token counts, model labels, ETA
-- `pc.cyan('ANALYZING')` — file/directory start events
-- `pc.green('DONE')` — file completion
-- `pc.blue('DONE')` — directory/root completion
-- `pc.red('FAIL')` — file errors
-- `pc.bold()` — summary header
-- `pc.yellow()` — skipped files count
+File analysis start: `[X/Y] ANALYZING path` (cyan ANALYZING)  
+File analysis done: `[X/Y] DONE path Xs in/out tok model ~Ns remaining` (green DONE)  
+File analysis fail: `[X/Y] FAIL path error` (red FAIL)  
+Directory start: `[dir X/Y] ANALYZING dirPath/AGENTS.md` (cyan ANALYZING)  
+Directory done: `[dir X/Y] DONE dirPath/AGENTS.md Xs in/out tok model ~ETA` (blue DONE)  
+Root document done: `[root] DONE docPath` (blue DONE)
+
+All output uses `console.log()` for atomic non-corrupting concurrent writes. Color formatting via `picocolors` aliases: `pc.dim()`, `pc.cyan()`, `pc.green()`, `pc.red()`, `pc.blue()`, `pc.yellow()`, `pc.bold()`.
+
+## ETA Calculation
+
+`formatETA()` computes file task ETA using moving average of `completionTimes` array. Requires minimum 2 completions before displaying ETA. Calculates `avg = sum(completionTimes) / completionTimes.length`, `remaining = totalFiles - completed - failed`, `etaMs = avg * remaining`. Formats as `~Ns remaining` for <60s, `~Mm Ss remaining` for ≥60s. Returns empty string if `remaining <= 0` or fewer than 2 completions.
+
+`formatDirectoryETA()` uses identical algorithm on `dirCompletionTimes` for directory tasks with `remaining = totalDirectories - dirCompleted`.
+
+## Token Counting
+
+`onFileDone()` and `onDirectoryDone()` accept `tokensIn` (non-cached input), `tokensOut` (output), `cacheReadTokens` (cache hits), `cacheCreationTokens` (cache writes). Displays total prompt size as `totalIn = tokensIn + cacheReadTokens + cacheCreationTokens` in format `${totalIn}/${tokensOut} tok`.
+
+## Summary Output
+
+`printSummary(summary: RunSummary)` prints multi-line report:
+- `ARE version` from `summary.version`
+- `Files processed` (green), `Files failed` (red if >0), `Files skipped` (yellow if >0)
+- `Total calls`, `Tokens: X in / Y out`
+- `Cache: X read / Y created` (if `totalCacheReadTokens > 0`)
+- `Files read: X (Y unique)` (if `totalFilesRead > 0`)
+- `Total time`, `Errors`, `Retries` (if `retryCount > 0`)
+
+Computes elapsed time as `(Date.now() - this.startTime) / 1000` formatted to 1 decimal place.
 
 ## ANSI Stripping
 
-`stripAnsi(str: string): string` removes ANSI escape codes via regex `/\x1b\[[0-9;]*m/g` for plain-text log output.
-
-## Token Accounting
-
-Total input tokens calculated as `tokensIn + cacheReadTokens + cacheCreationTokens` for display in completion messages and summary. Output tokens tracked separately.
+`stripAnsi(str: string)` removes ANSI escape codes via regex `/\x1b\[[0-9;]*m/g` before writing to ProgressLog. Matches all SGR, cursor, and erase sequences.
 
 ## Integration Points
 
-- Imported by `src/orchestration/runner.ts` and `src/generation/executor.ts` for progress reporting during pool execution
-- Consumes `RunSummary` type from `src/orchestration/types.ts` for summary formatting
-- Mirrors output to `PROGRESS_LOG_FILENAME` constant (`'progress.log'`) within `.agents-reverse-engineer/` directory
+Receives `RunSummary` type from `./types.js` with fields: `version`, `filesProcessed`, `filesFailed`, `filesSkipped`, `totalCalls`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalFilesRead`, `uniqueFilesRead`, `errorCount`, `retryCount`. Instantiated per command run with total file/directory counts from discovery phase. Event methods called by worker pool during task execution. `printSummary()` invoked by orchestrator after all phases complete.

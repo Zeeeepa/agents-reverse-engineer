@@ -1,54 +1,190 @@
 ---
-generated_at: 2026-02-09T16:11:43.268Z
-content_hash: de27101980410fdd151600c2437ed1304b0f82022289c1be39ce621cc324d670
-purpose: CommandRunner orchestrates AI-driven three-phase documentation generation (file analysis, directory AGENTS.md aggrega...
+generated_at: 2026-02-09T17:46:44.932Z
+content_hash: b5718adeb12dc90b39e4f47c108aec5e6d3b567e90d393393a20141c48c4a12c
+purpose: CommandRunner orchestrates three-phase AI-driven documentation generation via concurrent worker pools, executing file...
 ---
-**CommandRunner orchestrates AI-driven three-phase documentation generation (file analysis, directory AGENTS.md aggregation, root document synthesis) with concurrency pool execution, quality validation, telemetry integration, and trace emission.**
+**CommandRunner orchestrates three-phase AI-driven documentation generation via concurrent worker pools, executing file analysis (Phase 1), post-order directory aggregation (Phase 2), and sequential root synthesis (Phase 3) with integrated quality validation, trace emission, and progress tracking.**
 
-## Exported Classes
+## Public Interface
 
-**CommandRunner** — Main orchestration class accepting `AIService` instance and `CommandRunOptions`, exposes `executeGenerate(plan: ExecutionPlan): Promise<RunSummary>` for full three-phase generation and `executeUpdate(filesToAnalyze: FileChange[], projectRoot: string, config: Config): Promise<RunSummary>` for incremental file re-analysis.
+### CommandRunner Class
 
-Constructor accepts `aiService: AIService` and `options: CommandRunOptions`, optionally wires `options.tracer` into AI service via `setTracer()` for subprocess/retry event emission.
+```typescript
+class CommandRunner {
+  constructor(aiService: AIService, options: CommandRunOptions)
+  async executeGenerate(plan: ExecutionPlan): Promise<RunSummary>
+  async executeUpdate(
+    filesToAnalyze: FileChange[],
+    projectRoot: string,
+    config: Config
+  ): Promise<RunSummary>
+}
+```
+
+CommandRunner holds references to `AIService` and `CommandRunOptions`, wires tracer into AIService via `setTracer()`, manages lifecycle of `ProgressReporter` and `PlanTracker` instances.
 
 ## Three-Phase Execution Pipeline
 
-**Phase 1: File Analysis (executeGenerate lines 84-259)** — Pre-phase caches existing `.sum` files via `readSumFile()` at concurrency=20 for stale-doc detection. Maps file tasks to async functions reading source via `readFile()`, computing `contentHash` via `computeContentHashFromString()`, calling `aiService.call()` with `buildFilePrompt()` output, stripping preamble via `stripPreamble()`, extracting purpose via `extractPurpose()`, constructing `SumFileContent` with `generatedAt`/`contentHash`/`summary`/`metadata.purpose`, writing via `writeSumFile()`. Executes via `runPool(fileTasks, { concurrency, failFast, tracer, phaseLabel: 'phase-1-files', taskLabels })` with progress callback invoking `reporter.onFileDone()` and `planTracker.markDone()`. Caches `sourceContent` in `Map<string, string>` for quality checks.
+### executeGenerate() Orchestration
 
-**Post-Phase 1 Quality (lines 261-362)** — Groups processed files by directory via `path.dirname()` into `Map<string, string[]>`. Runs throttled (concurrency=10) validation per directory group: reads cached source content, compares against old `.sum` via `checkCodeVsDoc(sourceContent, oldSum, filePath)` appending `(stale documentation)` label, reads fresh `.sum` via `readSumFile()` and runs second `checkCodeVsDoc()` pass, aggregates `filesForCodeVsCode` array and runs `checkCodeVsCode()` for duplicate symbol detection. Flattens results, builds `InconsistencyReport` via `buildInconsistencyReport()`, prints via `formatReportForCli()`, clears `sourceContentCache`.
+**Pre-Phase 1 (Cache Old Sum):**
+- Reads existing `.sum` files concurrently (concurrency=20) via `readSumFile()` to populate `oldSumCache` Map
+- Stores `SumFileContent` keyed by relative path for stale documentation detection
+- Emits `phase:start`/`phase:end` trace events with `phase: 'pre-phase-1-cache'`
 
-**Phase 2: Directory AGENTS.md (lines 364-445)** — Groups `plan.directoryTasks` by `metadata.depth` into `Map<number, ExecutionTask[]>`, sorts depth levels descending (deepest-first post-order traversal). For each depth level: builds `phaseLabel` as `phase-2-dirs-depth-${depth}`, computes `dirConcurrency = Math.min(options.concurrency, dirsAtDepth.length)`, emits `phase:start` trace event, maps directory tasks to async functions calling `buildDirectoryPrompt(dirTask.absolutePath, projectRoot, debug, knownDirs, projectStructure)` with `knownDirs` set for filtering, calls `aiService.call()` with prompt, writes via `writeAgentsMd(dirTask.absolutePath, projectRoot, dirResponse.text)`, updates reporter and plan tracker. Executes via `runPool()` with `phaseLabel`/`taskLabels`, emits `phase:end` with `tasksCompleted`/`tasksFailed` counts.
+**Phase 1 (File Analysis):**
+- Builds file tasks from `plan.fileTasks` array, each reading source via `readFile()`, caching content in `sourceContentCache` Map
+- Calls `aiService.call()` with prompts from task, tracks file size via `aiService.addFilesReadToLastEntry([{path, sizeBytes}])`
+- Computes `contentHash` via `computeContentHashFromString()` from in-memory content (avoids second readFile)
+- Strips preamble via `stripPreamble()`, extracts purpose via `extractPurpose()`, writes `SumFileContent` via `writeSumFile()`
+- Detects `## Annex References` marker in cleaned text, writes annex via `writeAnnexFile()` if present
+- Executes via `runPool()` with `concurrency: options.concurrency`, emits `phase:start`/`phase:end` with label `'phase-1-files'`
+- Updates `PlanTracker` via `markDone(path)`, reports progress via `ProgressReporter.onFileDone()` or `onFileError()`
 
-**Post-Phase 2 Quality (lines 447-467)** — Iterates `plan.directoryTasks`, reads `AGENTS.md` via `readFile(path.join(dirTask.absolutePath, 'AGENTS.md'))`, runs `checkPhantomPaths(agentsMdPath, content, projectRoot)`, aggregates issues, builds `phantomReport` via `buildInconsistencyReport()`, prints via `formatReportForCli()`. Non-throwing with catch-all error handler.
+**Post-Phase 1 (Quality Validation):**
+- Groups processed files by directory via `Map<dirname, paths[]>`
+- Runs quality checks per directory group concurrently (concurrency=10) via `runPool()` with phase label `'post-phase-1-quality'`
+- For each file: reads cached source from `sourceContentCache`, checks stale docs via `checkCodeVsDoc(source, oldSum)` (marks with `' (stale documentation)'` suffix), checks fresh docs via `checkCodeVsDoc(source, newSum)` from `readSumFile()`
+- Aggregates directory-scoped code-vs-code issues via `checkCodeVsCode(filesForCodeVsCode)` where `filesForCodeVsCode` is `Array<{path, content}>`
+- Clears `sourceContentCache` after validation to free memory
+- Builds `InconsistencyReport` via `buildInconsistencyReport()`, prints via `formatReportForCli()`, stores counts in `inconsistenciesCodeVsDoc`/`inconsistenciesCodeVsCode`
+- Non-throwing: catches errors and logs to stderr with `[quality]` prefix
 
-**Phase 3: Root Documents (lines 469-532)** — Sequential execution (concurrency=1) over `plan.rootTasks`. Emits `task:start` trace event, calls `buildRootPrompt(projectRoot, debug)` with all AGENTS.md injected, calls `aiService.call({ prompt, systemPrompt, maxTurns: 1 })`, strips conversational preamble via `content.indexOf('# ')` slice if leading content lacks `#` or `<!--`, writes via `writeFile(rootTask.outputPath, content)`, emits `task:done` with `workerId: 0`/`success`/`error`, updates reporter and plan tracker. Flushes `planTracker` via `await planTracker.flush()` after loop.
+**Phase 2 (Directory Docs):**
+- Builds `knownDirs` Set from `plan.directoryTasks.map(t => t.path)` for prompt filtering
+- Groups directory tasks by depth via `Map<depth, tasks[]>` where depth from `task.metadata.depth`
+- Processes depth levels in descending order (deepest first) via `Array.from(dirsByDepth.keys()).sort((a,b) => b-a)` for post-order traversal
+- Per depth level: creates phase label `phase-2-dirs-depth-${depth}`, sets concurrency to `Math.min(options.concurrency, dirsAtDepth.length)`
+- Builds prompts via `buildDirectoryPrompt(absolutePath, projectRoot, debug, knownDirs, projectStructure)`, calls `aiService.call()`, writes via `writeAgentsMd()`
+- Updates tracker via `markDone('${path}/AGENTS.md')`, reports via `ProgressReporter.onDirectoryDone()`
 
-## Incremental Update Execution
+**Post-Phase 2 (Phantom Path Validation):**
+- Iterates `plan.directoryTasks`, reads `AGENTS.md` via `readFile(path.join(absolutePath, 'AGENTS.md'))`
+- Calls `checkPhantomPaths(agentsMdPath, content, projectRoot)` to extract/resolve path references
+- Builds phantom report via `buildInconsistencyReport()`, prints via `formatReportForCli()`, stores count in `phantomPathCount`
+- Non-throwing: catches errors and logs to stderr with `[quality]` prefix
 
-**executeUpdate(filesToAnalyze, projectRoot, config)** — Phase 1 only implementation for changed file re-analysis. Attempts to load `GENERATION-PLAN.md` from `.agents-reverse-engineer/` via `path.join(projectRoot, CONFIG_DIR, 'GENERATION-PLAN.md')` for `projectPlan` context (falls through on error). Maps `filesToAnalyze` to async tasks reading source via `readFile()`, reading existing `.sum` via `readSumFile()`, building prompt via `buildFilePrompt({ filePath, content, projectPlan, existingSum })`, calling AI service, writing `.sum` with hash. Caches source in `updateSourceCache`. Runs post-analysis quality checks (lines 616-717) identical to generate flow but without stale-doc comparison. Builds `RunSummary` with `updateInconsistenciesCodeVsDoc`/`updateInconsistenciesCodeVsCode` from `report.summary`.
+**Phase 3 (Root Documents):**
+- Executes `plan.rootTasks` sequentially (concurrency=1) with phase label `'phase-3-root'`
+- Builds prompt via `buildRootPrompt(projectRoot, debug)`, calls `aiService.call()` with `maxTurns: 1` (no tool use)
+- Strips conversational preamble: finds first `# ` header via `indexOf()`, checks if preceding text is preamble (no `#`, no `<!--`), slices from header start
+- Writes output via `writeFile(rootTask.outputPath)`, updates tracker/reporter
+- Emits `task:start`/`task:done` trace events with `workerId: 0` for sequential execution
+
+**Finalization:**
+- Flushes `planTracker` via `await planTracker.flush()` to ensure serialized writes complete
+- Builds `RunSummary` from `aiService.getSummary()` with counts: `filesProcessed`, `filesFailed`, `inconsistenciesCodeVsDoc`, `inconsistenciesCodeVsCode`, `phantomPaths`, `inconsistencyReport`
+- Calls `reporter.printSummary(summary)`, returns summary
+
+### executeUpdate() Orchestration
+
+**Phase 1 (File Analysis):**
+- Caches source in `updateSourceCache` Map keyed by relative path
+- Reads existing project plan from `${CONFIG_DIR}/GENERATION-PLAN.md` for bird's-eye context (fallback to undefined on error)
+- Reads existing `.sum` via `readSumFile()`, passes to `buildFilePrompt()` as `existingSum` for incremental update context
+- Computes hash via `computeContentHashFromString()`, writes `.sum` via `writeSumFile()`, writes annex if `## Annex References` detected
+- Executes via `runPool()` with phase label `'update-phase-1-files'`
+
+**Post-Phase 1 (Quality Validation):**
+- Groups files by directory, runs checks concurrently (concurrency=10) with phase label `'update-post-phase-1-quality'`
+- Skips stale documentation check (no `oldSumCache` in update path)
+- Checks fresh docs via `checkCodeVsDoc(source, newSum)`, aggregates code-vs-code via `checkCodeVsCode()`
+- Clears `updateSourceCache` after validation, builds/prints report if issues detected
+- Non-throwing error handling with `[quality]` prefix
+
+**No Phase 2/3:**
+- Update command regenerates only `.sum` files; parent update orchestrator handles affected `AGENTS.md` regeneration separately
 
 ## Helper Functions
 
-**stripPreamble(responseText: string): string** — Pattern 1: detects `\n---\n` separator within first 500 chars, returns content after. Pattern 2: regex `/^[\s\S]{0,500}?(\*\*[A-Z])/` matches bold uppercase start, strips preceding content if <300 chars and no `##` markdown headers. Returns original text if no patterns match.
+### stripPreamble(responseText: string): string
 
-**extractPurpose(responseText: string): string** — Splits on newlines, skips empty/`#`/`---` lines, filters lines starting with `PREAMBLE_PREFIXES` array (`['now i', 'perfect', 'based on', 'let me', 'here is', 'i\'ll', 'i will', 'great', 'okay', 'sure', 'certainly', 'alright']`) via `lower.startsWith()` checks, strips bold markdown via `.replace(/^\*\*(.+)\*\*$/, '$1')`, truncates to 120 chars with `...` suffix. Returns empty string if no valid line found.
+- **Pattern 1 (separator)**: Detects `\n---\n` within first 500 chars, returns content after separator+5 if non-empty
+- **Pattern 2 (bold header)**: Matches `/^[\s\S]{0,500}?(\*\*[A-Z])/`, strips preceding content if <300 chars, no `##` markers
+- Returns original text if no preamble detected
+
+### extractPurpose(responseText: string): string
+
+- Splits on newlines, skips empty lines, `#` headers, `---` separators
+- Skips lines starting with preamble prefixes: `'now i'`, `'perfect'`, `'based on'`, `'let me'`, `'here is'`, `'i\'ll'`, `'i will'`, `'great'`, `'okay'`, `'sure'`, `'certainly'`, `'alright'` (case-insensitive)
+- Strips bold wrapper via `/^\*\*(.+)\*\*$/`, truncates to 120 chars with `'...'` suffix
+- Returns empty string if no valid purpose line found
 
 ## Integration Points
 
-**Dependencies:** `AIService` from `../ai/index.js`, `ExecutionPlan`/`ExecutionTask` from `../generation/executor.js`, `writeSumFile`/`readSumFile` from `../generation/writers/sum.js`, `writeAgentsMd` from `../generation/writers/agents-md.js`, `buildFilePrompt`/`buildDirectoryPrompt`/`buildRootPrompt` from `../generation/prompts/index.js`, `runPool` from `./pool.js`, `PlanTracker` from `./plan-tracker.js`, `ProgressReporter` from `./progress.js`, `ITraceWriter` from `./trace.js`, `checkCodeVsDoc`/`checkCodeVsCode`/`checkPhantomPaths`/`buildInconsistencyReport`/`formatReportForCli` from `../quality/index.js`, `computeContentHashFromString` from `../change-detection/index.js`, `getVersion` from `../version.js`.
+**Dependencies on generation module:**
+- Consumes `ExecutionPlan` from `executor.ts` with `fileTasks`, `directoryTasks`, `rootTasks`, `projectRoot`, `projectStructure`
+- Calls `buildFilePrompt()`, `buildDirectoryPrompt()`, `buildRootPrompt()` from `prompts/index.ts`
+- Calls `writeSumFile()`, `readSumFile()`, `writeAnnexFile()` from `writers/sum.ts`, `writeAgentsMd()` from `writers/agents-md.ts`
+- Calls `formatExecutionPlanAsMarkdown()` from `executor.ts` for plan tracker initialization
 
-**Configuration:** `CommandRunOptions` with `concurrency` (worker pool size), `failFast` (abort on first error), `debug` (verbose prompts), `tracer` (ITraceWriter instance), `progressLog` (Writable stream for mirrored output). `Config` type threaded through `executeUpdate` for prompt building.
+**Dependencies on orchestration module:**
+- Calls `runPool()` from `pool.ts` with `PoolOptions` (concurrency, failFast, tracer, phaseLabel, taskLabels)
+- Instantiates `PlanTracker` from `plan-tracker.ts`, calls `initialize()`, `markDone()`, `flush()`
+- Instantiates `ProgressReporter` from `progress.ts`, calls `onFileStart/Done/Error`, `onDirectoryStart/Done`, `onRootDone`, `printSummary()`
 
-**Telemetry:** Calls `aiService.addFilesReadToLastEntry([{ path, sizeBytes }])` after each AI call to track file metadata. Calls `aiService.getSummary()` for aggregated token/cost/duration counts. Emits trace events via `tracer?.emit()`: `phase:start/end` with `taskCount`/`concurrency`/`durationMs`/`tasksCompleted`/`tasksFailed`, `task:start` with `taskLabel`/`phase`, `task:done` with `workerId`/`taskIndex`/`durationMs`/`success`/`error`/`activeTasks`.
+**Dependencies on quality module:**
+- Calls `checkCodeVsDoc(source, sum, path)`, `checkCodeVsCode(files)`, `checkPhantomPaths(path, content, root)` from `quality/index.ts`
+- Calls `buildInconsistencyReport(issues, metadata)`, `formatReportForCli(report)` from `quality/index.ts`
 
-## Error Handling
+**Dependencies on AIService:**
+- Calls `aiService.call({prompt, systemPrompt, taskLabel, maxTurns?})` returning `AIResponse`
+- Calls `aiService.addFilesReadToLastEntry([{path, sizeBytes}])` for telemetry tracking
+- Calls `aiService.getSummary()` returning `{totalCalls, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens, errorCount, totalFilesRead, uniqueFilesRead}`
+- Calls `aiService.setTracer(tracer)` to wire trace events for subprocess/retry tracking
 
-**Quality Validation Non-Throwing:** Both post-Phase 1 inconsistency detection (lines 261-362 generate, 616-717 update) and post-Phase 2 phantom path validation (lines 447-467) wrapped in try-catch blocks logging `[quality] Inconsistency detection failed: ${err.message}` or `[quality] Phantom path validation failed:` without propagating errors.
+**Dependencies on change-detection:**
+- Calls `computeContentHashFromString(content)` from `change-detection/index.ts` returning SHA-256 hex string
+- Consumes `FileChange[]` array in `executeUpdate()`
 
-**Pool Error Handling:** Delegates to `runPool()` with `failFast` option. Progress callback distinguishes `result.success` vs `result.error`, invokes `reporter.onFileDone()` for success and `reporter.onFileError(taskPath, errorMsg)` for failure, increments `filesProcessed`/`filesFailed` counters.
+## Trace Event Emission
 
-**Root Task Errors:** Phase 3 sequential loop wraps each task in try-catch, increments `rootTasksFailed`, emits `task:done` with `success: false`/`error`, re-throws to maintain existing error handling.
+**Phase-level events:**
+- `phase:start` with `{phase, taskCount, concurrency}` for pre-phase-1-cache, phase-1-files, post-phase-1-quality, phase-2-dirs-depth-N, post-phase-2-phantom, phase-3-root, update-phase-1-files, update-post-phase-1-quality
+- `phase:end` with `{phase, durationMs, tasksCompleted, tasksFailed}` for same phase labels
 
-## RunSummary Construction
+**Task-level events (Phase 3 only):**
+- `task:start` with `{taskLabel, phase: 'phase-3-root'}` before root document generation
+- `task:done` with `{workerId: 0, taskIndex, taskLabel, durationMs, success, error?, activeTasks: 0}` after root task completion or failure
 
-**Fields:** `version` (from `getVersion()`), `filesProcessed`/`filesFailed`/`filesSkipped`, `totalCalls`/`totalInputTokens`/`totalOutputTokens`/`totalCacheReadTokens`/`totalCacheCreationTokens` (from `aiService.getSummary()`), `totalDurationMs` (`Date.now() - runStart`), `errorCount`, `retryCount: 0` (hardcoded), `totalFilesRead`/`uniqueFilesRead`, `inconsistenciesCodeVsDoc`/`inconsistenciesCodeVsCode`/`phantomPaths`, `inconsistencyReport`. Printed via `reporter.printSummary(summary)`.
+**Pool-level events (delegated to runPool):**
+- `worker:start/end`, `task:pickup/done` for Phase 1, Phase 2, quality checks (emitted by pool.ts)
+
+## Return Value Schema
+
+**RunSummary:**
+```typescript
+{
+  version: string,              // from getVersion()
+  filesProcessed: number,       // Successful Phase 1 file tasks
+  filesFailed: number,          // Failed Phase 1 file tasks
+  filesSkipped: number,         // Always 0 in runner (incremental logic in update orchestrator)
+  totalCalls: number,           // From aiService.getSummary()
+  totalInputTokens: number,
+  totalOutputTokens: number,
+  totalCacheReadTokens: number,
+  totalCacheCreationTokens: number,
+  totalDurationMs: number,      // Elapsed time from run start
+  errorCount: number,
+  retryCount: number,           // Always 0 (retry tracking in AIService)
+  totalFilesRead: number,
+  uniqueFilesRead: number,
+  inconsistenciesCodeVsDoc?: number,
+  inconsistenciesCodeVsCode?: number,
+  phantomPaths?: number,
+  inconsistencyReport?: InconsistencyReport,
+}
+```
+
+## Error Handling Strategy
+
+- Pool execution with `failFast: options.failFast` controls early termination on task failures
+- Quality validation failures logged to stderr with `[quality]` prefix but never throw (non-blocking)
+- Phase 3 root task failures re-throw after emitting `task:done` event with `success: false`
+- Missing project plan in `executeUpdate()` caught silently (proceeds with undefined `projectPlan`)
+
+## Resource Management
+
+- `sourceContentCache`/`updateSourceCache` Maps explicitly cleared via `clear()` after quality validation to free memory
+- Concurrent I/O throttled via pool concurrency limits: 20 for sum reads, 10 for quality checks, `options.concurrency` for AI calls
+- Cached content reused across phases: source read once in Phase 1, consumed by quality checks (avoids redundant `readFile()`)

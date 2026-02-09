@@ -1,35 +1,39 @@
 ---
-generated_at: 2026-02-09T16:11:15.215Z
+generated_at: 2026-02-09T17:46:03.422Z
 content_hash: 879100cdd04f7597c7afab3563e6d72212a2e1f2197ade1c1baa1dfd0fd4139f
-purpose: Module barrel for incremental update functionality exporting UpdateOrchestrator, orchestrator factory, cleanup utilit...
+purpose: Barrel module exporting UpdateOrchestrator, orphan cleanup utilities, and TypeScript interfaces for incremental docum...
 ---
-**Module barrel for incremental update functionality exporting UpdateOrchestrator, orchestrator factory, cleanup utilities, and type definitions.**
+**Barrel module exporting UpdateOrchestrator, orphan cleanup utilities, and TypeScript interfaces for incremental documentation updates via hash-based change detection and affected directory recomputation.**
 
-## Exported Symbols
+## Exported Types
 
-### From `./orchestrator.js`
-- **UpdateOrchestrator** (class) — Coordinates incremental update workflow with state management and change detection
-- **createUpdateOrchestrator** (factory function) — Creates UpdateOrchestrator instance
-- **UpdatePlan** (type) — Describes files to analyze/skip and directories to regenerate
+- `UpdateOrchestrator` — Class orchestrating incremental update workflow (from `./orchestrator.js`)
+- `createUpdateOrchestrator` — Factory function returning configured UpdateOrchestrator instance
+- `UpdatePlan` — Interface describing files to analyze, skip, and affected directories
+- `UpdateOptions` — Configuration for update execution (includes `uncommitted` flag for git working tree changes)
+- `UpdateResult` — Result summary with counts of regenerated files and directories
+- `UpdateProgress` — Progress event payload for streaming updates
+- `CleanupResult` — Result of orphan cleanup operations with deleted file/directory counts
 
-### From `./orphan-cleaner.js`
-- **cleanupOrphans** (function) — Deletes `.sum` files for deleted source files or renamed oldPaths
-- **cleanupEmptyDirectoryDocs** (function) — Removes `AGENTS.md` from directories with no remaining sources
-- **getAffectedDirectories** (function) — Computes parent directory paths requiring AGENTS.md regeneration by walking up from changed files
+## Exported Functions
 
-### From `./types.js`
-- **UpdateOptions** (type) — Configuration for update command including uncommitted changes flag
-- **UpdateResult** (type) — Aggregated outcome with counts for analyzed/skipped/orphaned files
-- **UpdateProgress** (type) — Streaming progress events during update execution
-- **CleanupResult** (type) — Counts of orphaned `.sum` files and empty `AGENTS.md` files removed
+- `cleanupOrphans(orphanSumFiles: string[], orphanAgentsMdFiles: string[]): Promise<CleanupResult>` — Deletes `.sum` files for removed sources and `AGENTS.md` files from directories with no remaining sources
+- `cleanupEmptyDirectoryDocs(affectedDirs: string[], projectRoot: string): Promise<void>` — Removes `AGENTS.md` files from directories that no longer contain source files or child directories with documentation
+- `getAffectedDirectories(changedFiles: string[], projectRoot: string): string[]` — Computes set of directories requiring `AGENTS.md` regeneration by walking parent directories of changed files
+
+## Module Organization
+
+Re-exports from three internal modules:
+- `./orchestrator.js` — UpdateOrchestrator class and factory, UpdatePlan interface
+- `./orphan-cleaner.js` — Cleanup utilities for stale artifacts and affected directory computation
+- `./types.js` — UpdateOptions, UpdateResult, UpdateProgress, CleanupResult interfaces
 
 ## Integration Points
 
-Re-exports types and functions consumed by:
-- `src/cli/update.ts` — CLI entry point invoking `createUpdateOrchestrator()` with parsed options
-- `src/update/orchestrator.ts` — Core incremental update logic calling `cleanupOrphans()` and `getAffectedDirectories()`
-- `hooks/are-session-end.js` — Session hook spawning `npx agents-reverse-engineer@latest update --quiet` on uncommitted changes
+UpdateOrchestrator coordinates:
+- `src/change-detection/` — SHA-256 hash comparison via `content_hash` in `.sum` YAML frontmatter
+- `src/generation/` — Phase 1 pool execution for `filesToAnalyze`, sequential AGENTS.md regeneration for `affectedDirs`
+- `src/orchestration/` — Worker pool and progress reporter for parallel `.sum` regeneration
+- `src/discovery/` — File discovery results for orphan detection
 
-## Module Role
-
-Serves as public API boundary for the `src/update/` directory, exposing only the orchestrator, factory, cleanup utilities, and type contracts while hiding internal implementation details of SHA-256 hash comparison, git diff parsing, and orphan detection logic.
+Orphan cleanup removes `.sum` files when source files deleted/renamed and `AGENTS.md` files when directories become empty after updates.

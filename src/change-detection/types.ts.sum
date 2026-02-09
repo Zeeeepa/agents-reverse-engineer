@@ -1,38 +1,20 @@
 ---
-generated_at: 2026-02-09T16:09:45.216Z
+generated_at: 2026-02-09T17:44:34.525Z
 content_hash: 78cff2ed3b8efd6a7641dbc57fffa5d8b41fc24da285f3d31326bfc74d582b82
-purpose: Defines TypeScript types and interfaces for git-based change detection, representing file modifications tracked via `...
+purpose: Defines TypeScript interfaces and types for git-based change detection, representing file changes, change detection r...
 ---
-**Defines TypeScript types and interfaces for git-based change detection, representing file modifications tracked via `ChangeType` discriminants ('added' | 'modified' | 'deleted' | 'renamed') and structured as `FileChange` objects with path information and optional rename tracking.**
+**Defines TypeScript interfaces and types for git-based change detection, representing file changes, change detection results, and configuration options.**
 
 ## Exported Types
 
-**`ChangeType`** — String literal union type representing the four possible file change states:
-```typescript
-type ChangeType = 'added' | 'modified' | 'deleted' | 'renamed'
-```
+**ChangeType** — Union type `'added' | 'modified' | 'deleted' | 'renamed'` representing possible git diff statuses for files.
 
-## Exported Interfaces
+**FileChange** — Interface with `path: string` (relative path, new path for renames), `status: ChangeType`, optional `oldPath?: string` (original path for renamed files). Represents individual file change detected from git diff.
 
-**`FileChange`** — Represents a single file modification detected from git diff output:
-- `path: string` — Relative path to the file (for renamed files, contains the new path)
-- `status: ChangeType` — Discriminant field indicating change type
-- `oldPath?: string` — Optional field present only when `status === 'renamed'`, stores original pre-rename path
+**ChangeDetectionResult** — Interface aggregating `currentCommit: string`, `baseCommit: string`, `changes: FileChange[]`, `includesUncommitted: boolean`. Returned by change detection operations to describe what changed between commits.
 
-**`ChangeDetectionResult`** — Aggregated output from git diff analysis:
-- `currentCommit: string` — SHA-1 hash of HEAD or current working tree state
-- `baseCommit: string` — SHA-1 hash of comparison baseline (e.g., previous commit, tag, or branch)
-- `changes: FileChange[]` — Array of detected modifications
-- `includesUncommitted: boolean` — Flag indicating whether working tree and staged changes were merged into results (corresponds to `git status --porcelain` inclusion)
+**ChangeDetectionOptions** — Configuration interface with optional `includeUncommitted?: boolean` flag controlling whether staged and working directory changes merge into detection results.
 
-**`ChangeDetectionOptions`** — Configuration object for change detection behavior:
-- `includeUncommitted?: boolean` — When `true`, merges uncommitted working tree and staged changes with committed diff results via `git status --porcelain` parsing
+## Integration Context
 
-## Usage Context
-
-These types support the incremental update workflow (`src/update/orchestrator.ts`) where `FileChange` objects drive selective `.sum` regeneration. The `status` field enables conditional logic:
-- `'added'` or `'modified'` → queue for Phase 1 analysis
-- `'deleted'` → trigger orphan cleanup via `cleanupOrphans()`
-- `'renamed'` → use `oldPath` to locate stale `.sum` file and `path` for new generation target
-
-The `includesUncommitted` flag in `ChangeDetectionResult` determines whether `getAffectedDirectories()` must account for working tree modifications not yet committed, ensuring `AGENTS.md` regeneration covers all dirty state.
+Used by `src/change-detection/detector.ts` which implements git diff parsing via `simple-git` library. Supports `git diff --name-status -M` with rename detection (50% similarity threshold). The `FileChange.oldPath` field populated when `ChangeType` is `'renamed'`. Consumed by `src/update/orchestrator.ts` for incremental documentation updates via SHA-256 hash comparison against `.sum` frontmatter `content_hash` fields.

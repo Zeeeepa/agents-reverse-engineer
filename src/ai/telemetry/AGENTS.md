@@ -2,98 +2,66 @@
 
 # src/ai/telemetry
 
-Persistent telemetry accumulation and retention management: in-memory RunLog assembly via TelemetryLogger, JSON serialization with sanitized ISO 8601 filenames, and log rotation enforcing configurable retention limits.
+Telemetry subsystem for accumulating AI service call metrics, writing JSON run logs with retention management, and tracking token costs, durations, and file metadata across concurrent worker pool operations.
 
 ## Contents
 
-**[cleanup.ts](./cleanup.ts)** — `cleanupOldLogs(projectRoot, keepCount)` deletes old run log files from `.agents-reverse-engineer/logs/`, retaining N most recent via lexicographic sort on ISO 8601 filenames, handles ENOENT gracefully.
+### [cleanup.ts](./cleanup.ts)
+Exports `cleanupOldLogs(projectRoot, keepCount)` deleting expired telemetry logs from `.agents-reverse-engineer/logs/` by lexicographic timestamp sorting on `run-*.json` filenames. Returns count of deleted files.
 
-**[logger.ts](./logger.ts)** — `TelemetryLogger` class accumulates per-call `TelemetryEntry` objects in memory, computes aggregate summary statistics (total tokens/costs/errors, unique files read), exports `toRunLog()` for serialization.
+### [logger.ts](./logger.ts)
+Exports `TelemetryLogger` class accumulating `TelemetryEntry` instances in memory during CLI runs. Methods: `addEntry()` appends call metrics, `setFilesReadOnLastEntry()` attaches file metadata to most recent entry, `getSummary()` computes aggregate statistics (token totals, error counts, unique file paths), `toRunLog()` serializes complete `RunLog` object.
 
-**[run-log.ts](./run-log.ts)** — `writeRunLog(projectRoot, runLog)` writes RunLog JSON to `.agents-reverse-engineer/logs/run-<timestamp>.json` with directory creation and filename sanitization (`/[:.]/g` → `-`).
-
-## Architecture
-
-**Single-Run Lifecycle:**
-1. CLI invokes `new TelemetryLogger(runId)` with ISO timestamp, captures `startTime`
-2. AIService calls `addEntry(entry)` after each subprocess completion, `setFilesReadOnLastEntry(filesRead)` after file metadata attachment
-3. CLI invokes `toRunLog()` to freeze in-memory state into RunLog structure with computed summary
-4. `writeRunLog()` persists JSON to disk with 2-space indentation
-5. `cleanupOldLogs(projectRoot, config.ai.telemetry.keepRuns)` removes oldest files beyond retention limit
-
-**Cross-Run Retention:**
-- Log filenames encode sortable timestamps via `run-2026-02-07T12-00-00-000Z.json` pattern
-- Lexicographic sort produces correct chronological ordering without timestamp parsing
-- Retention enforced via `entries.slice(keepCount)` after newest-first reversal
+### [run-log.ts](./run-log.ts)
+Exports `writeRunLog(projectRoot, runLog)` persisting `RunLog` as pretty-printed JSON with ISO-8601-derived filename pattern `run-2026-02-07T12-00-00-000Z.json`. Creates `.agents-reverse-engineer/logs/` directory via `mkdir(recursive: true)`.
 
 ## Data Flow
 
-```
-AIService subprocess
-  ↓ (per-call metrics)
-TelemetryLogger.addEntry()
-  ↓ (in-memory accumulation)
-TelemetryLogger.toRunLog()
-  ↓ (RunLog structure with summary)
-writeRunLog()
-  ↓ (filesystem persistence)
-.agents-reverse-engineer/logs/run-<timestamp>.json
-  ↓ (retention enforcement)
-cleanupOldLogs() removes oldest files
-```
-
-## RunLog Summary Computation
-
-`TelemetryLogger.getSummary()` iterates all `entries[]` to compute:
-- `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens` (sum of per-call counts)
-- `totalDurationMs` (sum of `latencyMs` values)
-- `errorCount` (count where `error !== undefined`)
-- `totalFilesRead` (sum of `filesRead.length` across entries)
-- `uniqueFilesRead` (cardinality of `Set<string>` from all `file.path` values)
-
-Recomputes on every invocation without caching (safe because typically called once at run end).
-
-## Filesystem Safety
-
-**Filename Sanitization:**
-- ISO 8601 contains `:` (Windows path separator) and `.` (shell metacharacter)
-- `runLog.startTime.replace(/[:.]/g, '-')` produces cross-platform-safe filenames
-- Example: `2026-02-07T12:00:00.000Z` → `run-2026-02-07T12-00-00-000Z.json`
-
-**Directory Creation:**
-- `fs.mkdir()` with `recursive: true` creates `.agents-reverse-engineer/logs/` if absent
-- `cleanupOldLogs()` catches ENOENT from `fs.readdir()` and returns `0` when logs directory missing
-
-## Integration Points
-
-- **TelemetryLogger** threaded via `CommandRunOptions.telemetryLogger` → AIService constructor → per-call hooks
-- **writeRunLog** called by command runners after run completion when `config.ai.telemetry.enabled === true`
-- **cleanupOldLogs** invoked immediately after `writeRunLog()` with `config.ai.telemetry.keepRuns` (default 50)
-- Complements `src/orchestration/trace.ts` which retains 500 NDJSON trace files via similar lexicographic sort + slice pattern
-
-## Type Dependencies
-
-All modules import from `../types.js`:
-- `TelemetryEntry`: per-call metrics with `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`, `latencyMs`, `error?: string`, `filesRead: FileRead[]`
-- `RunLog`: container with `runId`, `startTime`, `endTime`, `entries: TelemetryEntry[]`, `summary` (aggregate statistics)
-- `FileRead`: file metadata with `path`, `sizeBytes`, `linesRead`
+1. `TelemetryLogger` instantiated once per CLI invocation with unique `runId` (ISO timestamp)
+2. AIService calls `logger.addEntry(entry)` after each subprocess completion with token counts, cost, duration, error status
+3. Command runner invokes `logger.setFilesReadOnLastEntry(filesRead)` to attach file metadata to last entry
+4. On run completion, caller invokes `logger.toRunLog()` → serializes in-memory entries + summary
+5. `writeRunLog(projectRoot, runLog)` persists JSON to disk with timestamp-derived filename
+6. `cleanupOldLogs(projectRoot, keepCount)` enforces retention policy by deleting oldest logs exceeding `keepRuns` threshold (default 50)
 
 ## Behavioral Contracts
 
-**Filename Pattern:**
-```regex
-^run-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$
-```
-Matches sanitized ISO 8601 timestamps where `:` and `.` replaced with `-`.
-
-**Log File Filtering:**
+**Filename derivation pattern** (from `run-log.ts`):
 ```typescript
-name.startsWith('run-') && name.endsWith('.json')
+const timestamp = runLog.startTime.replace(/:/g, '-').replace(/\./g, '-');
+const filename = `run-${timestamp}.json`;
 ```
-Isolates run log files from other potential artifacts in `.agents-reverse-engineer/logs/`.
 
-**Timestamp Sanitization Transform:**
-```javascript
-runLog.startTime.replace(/[:.]/g, '-')
+**Log directory constant** (shared across all modules):
+```typescript
+const LOGS_DIR = '.agents-reverse-engineer/logs';
 ```
-Converts ISO 8601 string to filesystem-safe filename component.
+
+**Cleanup sort order** (from `cleanup.ts`):
+```typescript
+entries.sort();      // Lexicographic ascending
+entries.reverse();   // Newest first
+const toDelete = entries.slice(keepCount);  // Oldest logs
+```
+
+**Summary deduplication** (from `logger.ts`):
+```typescript
+const uniquePaths = new Set<string>();
+for (const entry of this.entries) {
+  for (const file of entry.filesRead || []) {
+    uniquePaths.add(file.path);
+  }
+}
+return { uniqueFilesRead: uniquePaths.size };
+```
+
+## Integration Points
+
+- **Created by**: `src/ai/service.ts` constructs `TelemetryLogger` when `config.ai.telemetry.enabled === true`
+- **Consumed by**: `src/orchestration/runner.ts` invokes `writeRunLog()` after Phase 3 completion, then calls `cleanupOldLogs()` with `config.ai.telemetry.keepRuns`
+- **Types imported from**: `../types.js` provides `TelemetryEntry`, `RunLog`, `FileRead` interfaces
+- **Related configuration**: `src/config/schema.ts` defines `ai.telemetry.enabled`, `ai.telemetry.keepRuns`, `ai.telemetry.costThresholdUsd` validation rules
+
+## Design Notes
+
+`TelemetryLogger` uses eager summary computation on every `getSummary()` invocation without caching — acceptable since `toRunLog()` called once per run. Single-level flat `entries` array without phase-aware partitioning simplifies aggregation logic at cost of phase-specific analytics. Cleanup operates on filename lexicographic order assuming ISO 8601 timestamp sort equivalence (year-month-day-hour-minute-second-millisecond).

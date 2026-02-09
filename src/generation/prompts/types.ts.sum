@@ -1,62 +1,40 @@
 ---
-generated_at: 2026-02-09T16:08:52.110Z
-content_hash: 6c9b1af94741c383797e983a214b9053f46ebbd3312eb0cd56ec42aec4624ccb
-purpose: Defines prompt context structure and summary generation guidelines for AI-driven file analysis.
+generated_at: 2026-02-09T17:43:57.297Z
+content_hash: f53c95d0ca14366b01b3c308f8a715ab591f45b624b30958caafa6def2fa2c65
+purpose: Defines TypeScript interfaces and constants for prompt construction context in the three-phase documentation generati...
 ---
-**Defines prompt context structure and summary generation guidelines for AI-driven file analysis.**
+**Defines TypeScript interfaces and constants for prompt construction context in the three-phase documentation generation pipeline.**
 
 ## Exported Types
 
-### PromptContext
-Interface supplying input data for prompt construction in file/directory/root analysis phases.
+**`PromptContext`** — Interface providing file analysis context to prompt builders during Phase 1 (file analysis) and Phase 2 (directory aggregation):
+- `filePath: string` — Absolute path to file being analyzed
+- `content: string` — Raw file content to analyze
+- `contextFiles?: Array<{path: string; content: string}>` — Optional related files for dependency context
+- `projectPlan?: string` — Optional GENERATION-PLAN.md content providing bird's-eye project structure
+- `existingSum?: string` — Optional existing `.sum` summary text for incremental update workflows (enables delta-aware regeneration)
 
-```typescript
-interface PromptContext {
-  filePath: string;              // Absolute path to analyzed file
-  content: string;               // Raw file content for AI processing
-  contextFiles?: Array<{         // Optional related files for cross-reference
-    path: string;
-    content: string;
-  }>;
-  projectPlan?: string;          // GENERATION-PLAN.md content for hierarchical context
-  existingSum?: string;          // Prior .sum summary text for incremental updates
-}
-```
+## Documentation Guidelines
 
-Consumed by `buildFilePrompt()`, `buildDirectoryPrompt()`, `buildRootPrompt()` in `src/generation/prompts/builder.ts` to construct AI subprocess prompts with file content, import maps, child AGENTS.md aggregations, and project metadata.
+**`SUMMARY_GUIDELINES`** — Immutable configuration object (as const) defining documentation generation constraints consumed by `src/generation/prompts/builder.ts` and `src/generation/prompts/templates.ts`:
 
-### SUMMARY_GUIDELINES
-Const object encoding documentation density rules and inclusion/exclusion constraints for `.sum` generation.
+**`targetLength`** — Word count boundaries: `{min: 300, max: 500}`
 
-```typescript
-const SUMMARY_GUIDELINES = {
-  targetLength: { min: 300, max: 500 },  // Word count range for summaries
-  include: [
-    'Purpose and responsibility',
-    'Public interface (exports, key functions)',
-    'Key patterns and notable algorithms',
-    'Dependencies with usage context',
-    'Key function signatures as code snippets',
-    'Tightly coupled sibling files',
-    'Behavioral contracts: verbatim regex patterns, format strings, magic constants, sentinel values, output templates, environment variables',
-  ],
-  exclude: [
-    'Control flow minutiae (loop structures, variable naming, temporary state)',
-    'Generic TODOs/FIXMEs (keep only security/breaking)',
-    'Broad architectural relationships (handled by AGENTS.md)',
-  ],
-}
-```
+**`include`** — Array of 8 mandatory content categories:
+1. Purpose and responsibility
+2. Public interface (exports, key functions)
+3. Key patterns and notable algorithms
+4. Dependencies with usage context
+5. Key function signatures as code snippets
+6. Tightly coupled sibling files
+7. Behavioral contracts: verbatim regex patterns, format strings, magic constants, sentinel values, output templates, environment variables
+8. Annex references: for files with large string constants (prompt templates, config arrays, IDE templates), list each constant name with a one-line description in an ## Annex References section
 
-Embedded in `buildFilePrompt()` prompt template (`FILE_SUMMARY_TEMPLATE` in `src/generation/prompts/templates.ts`) to enforce consistency across AI backends (Claude Code, Gemini CLI, OpenCode). The `include` array explicitly mandates capturing behavioral contracts (regex patterns, format strings, magic constants, sentinel values, environment variable names) that define reproducible behavior.
+**`exclude`** — Array of 3 prohibited content categories:
+1. Control flow minutiae (loop structures, variable naming, temporary state)
+2. Generic TODOs/FIXMEs (keep only security/breaking)
+3. Broad architectural relationships (handled by AGENTS.md)
 
 ## Integration Points
 
-- **Prompt Builder**: `buildFilePrompt()` destructures `PromptContext` fields and injects `SUMMARY_GUIDELINES.include`/`exclude` arrays into template string literals.
-- **Update Workflow**: `existingSum` field populated by `readSumFile()` in `src/generation/writers/sum.ts` for incremental regeneration when `content_hash` mismatches.
-- **Template System**: `SUMMARY_GUIDELINES` constants referenced in `FILE_SUMMARY_TEMPLATE`, `DIRECTORY_AGGREGATION_TEMPLATE`, `ROOT_SYNTHESIS_TEMPLATE` via string interpolation.
-- **Quality Validation**: `targetLength` range not enforced programmatically but used as heuristic during `validateFindability()` (disabled in v0.6.5 after `publicInterface` schema field removal).
-
-## Design Rationale
-
-Separates data contracts (`PromptContext`) from prompt engineering constraints (`SUMMARY_GUIDELINES`) to enable independent evolution. The `as const` assertion on `SUMMARY_GUIDELINES` provides TypeScript literal type inference for readonly arrays, preventing accidental mutations during template construction. The explicit enumeration of "behavioral contracts" in `include` array addresses phantom path and code-vs-doc inconsistencies by mandating verbatim capture of regex patterns, format strings, and sentinel values that define observable system behavior.
+Consumed by `PromptBuilder` class in `src/generation/prompts/builder.ts` for constructing AI prompts with standardized documentation quality constraints. The `existingSum` field enables incremental update workflows orchestrated by `src/update/orchestrator.ts` where hash-mismatched files receive their previous summary as context for delta-aware regeneration.

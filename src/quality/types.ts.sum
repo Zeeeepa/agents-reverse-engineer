@@ -1,39 +1,24 @@
 ---
-generated_at: 2026-02-09T16:11:11.217Z
+generated_at: 2026-02-09T17:45:49.534Z
 content_hash: cf3a2e38893eba8c064f647e2325adb2358162304275fc28ae3760811fbab6fe
-purpose: types.ts defines the discriminated union types for quality validation inconsistencies detected across code-vs-doc, co...
+purpose: types.ts defines the discriminated union of quality inconsistency types and structured report format for code-documen...
 ---
-**types.ts defines the discriminated union types for quality validation inconsistencies detected across code-vs-doc, code-vs-code, and phantom-path analysis, plus the structured report format for validation output.**
+**types.ts defines the discriminated union of quality inconsistency types and structured report format for code-documentation validation.**
 
 ## Exported Types
 
-**InconsistencySeverity**: String literal union `'info' | 'warning' | 'error'` classifying inconsistency impact levels.
+**InconsistencySeverity** — String literal union `'info' | 'warning' | 'error'` classifying issue priority.
 
-**CodeDocInconsistency**: Interface with `type: 'code-vs-doc'` discriminator representing mismatches between exported symbols in source files and their `.sum` documentation. Contains `severity: InconsistencySeverity`, `filePath: string` (source file), `sumPath: string` (corresponding `.sum` file), `description: string`, and `details` object with `missingFromDoc: string[]` (symbols exported but undocumented), `missingFromCode: string[]` (symbols documented but not exported), and optional `purposeMismatch?: string` for contradictory purpose statements.
+**CodeDocInconsistency** — Inconsistency between `.sum` documentation and source code exports detected via symbol extraction and substring search. Fields: `type: 'code-vs-doc'`, `severity`, `filePath` (source), `sumPath` (.sum file), `description`, `details.missingFromDoc` (exported symbols absent from .sum), `details.missingFromCode` (symbols in .sum not found in source), `details.purposeMismatch` (optional purpose statement contradiction).
 
-**CodeCodeInconsistency**: Interface with `type: 'code-vs-code'` discriminator representing conflicts between multiple source files. Contains `severity: InconsistencySeverity`, `files: string[]` (conflicting file paths), `description: string`, and `pattern: string` identifying the detected inconsistency pattern (e.g., `'duplicate-export'` for symbols appearing across multiple files).
+**CodeCodeInconsistency** — Cross-file inconsistency detected by pattern analysis across multiple source files. Fields: `type: 'code-vs-code'`, `severity`, `files` (conflicting paths), `description`, `pattern` (e.g., `'duplicate-export'` for symbols appearing in multiple files).
 
-**PhantomPathInconsistency**: Interface with `type: 'phantom-path'` discriminator representing unresolvable path references in generated `AGENTS.md` documentation. Contains `severity: InconsistencySeverity`, `agentsMdPath: string` (document containing the reference), `description: string`, and `details` object with `referencedPath: string` (raw phantom path), `resolvedTo: string` (resolution attempt context: project root or AGENTS.md location), and `context: string` (line of text containing the reference).
+**PhantomPathInconsistency** — Unresolvable path reference found in `AGENTS.md` via regex extraction and `existsSync()` validation. Fields: `type: 'phantom-path'`, `severity`, `agentsMdPath` (containing document), `description`, `details.referencedPath` (original string from markdown), `details.resolvedTo` (attempted resolution target), `details.context` (surrounding text line).
 
-**Inconsistency**: Discriminated union `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` enabling type-safe pattern matching via the `type` discriminator field.
+**Inconsistency** — Discriminated union `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` with `type` discriminator enabling exhaustive pattern matching.
 
-**InconsistencyReport**: Interface structuring validation output with `metadata` object (contains `timestamp: string`, `projectRoot: string`, `filesChecked: number`, `durationMs: number`), `issues: Inconsistency[]` array of all detected problems, and `summary` object with aggregate counts (`total: number`, `codeVsDoc: number`, `codeVsCode: number`, `phantomPaths: number`, `errors: number`, `warnings: number`, `info: number`).
+**InconsistencyReport** — Structured quality validation output. Fields: `metadata` containing `timestamp`, `projectRoot`, `filesChecked`, `durationMs`; `issues[]` array of `Inconsistency` instances; `summary` object with `total`, `codeVsDoc`, `codeVsCode`, `phantomPaths`, `errors`, `warnings`, `info` counts.
 
-## Integration Points
+## Integration Context
 
-Consumed by quality validation modules:
-- `src/quality/inconsistency/code-vs-doc.ts`: Produces `CodeDocInconsistency` instances via regex-based export extraction and substring matching
-- `src/quality/inconsistency/code-vs-code.ts`: Produces `CodeCodeInconsistency` instances via cross-file export aggregation into `Map<symbol, string[]>`
-- `src/quality/phantom-paths/validator.ts`: Produces `PhantomPathInconsistency` instances via regex path extraction and `existsSync()` resolution
-- `src/quality/inconsistency/reporter.ts`: Aggregates all inconsistency types into `InconsistencyReport` with formatted output
-
-## Design Pattern
-
-Uses discriminated union pattern with `type` literal field enabling exhaustive type narrowing:
-```typescript
-switch (inconsistency.type) {
-  case 'code-vs-doc': /* access missingFromDoc, missingFromCode */ break;
-  case 'code-vs-code': /* access files, pattern */ break;
-  case 'phantom-path': /* access referencedPath, resolvedTo */ break;
-}
-```
+Consumed by `src/quality/inconsistency/code-vs-doc.ts` (export extraction + substring validation), `src/quality/inconsistency/code-vs-code.ts` (duplicate symbol detection), `src/quality/phantom-paths/validator.ts` (markdown path resolution), and `src/quality/inconsistency/reporter.ts` (aggregation and summary computation). The `type` discriminator enables type-safe narrowing in switch statements for severity assignment and detail extraction.

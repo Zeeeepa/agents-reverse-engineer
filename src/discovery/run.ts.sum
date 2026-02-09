@@ -1,46 +1,38 @@
 ---
-generated_at: 2026-02-09T16:10:06.684Z
+generated_at: 2026-02-09T17:44:52.732Z
 content_hash: 40987c5270cd4d77bfee1562927e78816e76974b5bdcaf2248dc4fb478b45447
-purpose: `run.ts` exports `discoverFiles()`, the high-level entry point orchestrating four-filter pipeline execution (gitignor...
+purpose: discoverFiles orchestrates the four-stage filter chain over walkDirectory results to produce FilterResult with includ...
 ---
-**`run.ts` exports `discoverFiles()`, the high-level entry point orchestrating four-filter pipeline execution (gitignore → vendor → binary → custom) after directory walking, returning `FilterResult` with included/excluded file lists and filter attribution.**
+**discoverFiles orchestrates the four-stage filter chain over walkDirectory results to produce FilterResult with included/excluded file lists and filter attribution.**
 
-## Exported Interface
+## Exported Functions
 
-**`DiscoveryConfig`** — Structural subset of full `Config` schema from `src/config/schema.ts` containing:
-- `exclude.vendorDirs: string[]` — Third-party directories to skip
-- `exclude.binaryExtensions: string[]` — Non-text file extensions
-- `exclude.patterns: string[]` — Gitignore-style globs
-- `options.maxFileSize: number` — Binary detection threshold in bytes
-- `options.followSymlinks: boolean` — Symlink traversal flag
+**discoverFiles(root: string, config: DiscoveryConfig, options?: DiscoverFilesOptions): Promise<FilterResult>** — Creates gitignore, vendor, binary, and custom filters in order via createGitignoreFilter, createVendorFilter, createBinaryFilter, createCustomFilter; invokes walkDirectory with cwd=root and followSymlinks flag; applies filters via applyFilters with optional tracer/debug; returns FilterResult containing included/excluded arrays.
 
-**`DiscoverFilesOptions`** — Optional parameters for pipeline execution:
-- `tracer?: ITraceWriter` — Trace event emitter for telemetry
-- `debug?: boolean` — Verbose logging flag
+## Type Definitions
 
-**`discoverFiles(root: string, config: DiscoveryConfig, options?: DiscoverFilesOptions): Promise<FilterResult>`** — Async pipeline function creating filters in deterministic order (gitignore, vendor, binary, custom), invoking `walkDirectory()` with `cwd` and `followSymlinks` options, then applying filter chain via `applyFilters()` with tracer/debug propagation. Returns `FilterResult` containing `included: FileInfo[]`, `excluded: FileInfo[]` arrays with per-file filter attribution.
+**DiscoveryConfig** — Structural subset interface with exclude: {vendorDirs: string[], binaryExtensions: string[], patterns: string[]} and options: {maxFileSize: number, followSymlinks: boolean}. Compatible with full Config from src/config/schema.ts for dependency inversion.
+
+**DiscoverFilesOptions** — Optional interface with tracer?: ITraceWriter and debug?: boolean for trace emission and verbose logging control.
 
 ## Filter Chain Composition
 
-Constructs four filters via factory functions:
-1. **`createGitignoreFilter(root)`** — Parses `.gitignore` files using `ignore` library
-2. **`createVendorFilter(config.exclude.vendorDirs)`** — Blocks third-party directories (node_modules, .git, dist)
-3. **`createBinaryFilter({ maxFileSize, additionalExtensions })`** — Detects binary files via extension + content analysis
-4. **`createCustomFilter(config.exclude.patterns, root)`** — Applies user-defined glob patterns
+Creates four filters in fixed order before applying to walked files:
 
-Filters applied sequentially in declared order via `applyFilters()` from `./filters/index.js`.
+1. **gitignoreFilter** — Async createGitignoreFilter(root) parses .gitignore files
+2. **vendorFilter** — createVendorFilter(config.exclude.vendorDirs) excludes node_modules/.git/dist
+3. **binaryFilter** — createBinaryFilter({maxFileSize, additionalExtensions}) detects non-text files
+4. **customFilter** — createCustomFilter(config.exclude.patterns, root) applies user glob patterns
+
+Filter array passed to applyFilters with tracer/debug options threaded through.
 
 ## Integration Points
 
-**Callers:** All CLI commands requiring file discovery (`src/cli/discover.ts`, `src/cli/generate.ts`, `src/cli/update.ts`) invoke `discoverFiles()` with config loaded from `loadConfig()`.
+Imported by src/cli/discover.ts, src/cli/generate.ts, src/cli/update.ts as single entry point for file discovery. Decouples command layer from walker/filter implementation details. DiscoveryConfig interface allows commands to pass full Config object without circular dependency on src/config/schema.ts.
 
-**Dependencies:**
-- `walkDirectory()` from `./walker.js` — Filesystem traversal with symlink control
-- `applyFilters()` from `./filters/index.js` — Sequential filter application with attribution
-- `ITraceWriter` from `../orchestration/trace.js` — Telemetry event emission
+## Dependencies
 
-**Output consumption:** Returned `FilterResult.included` feeds into Phase 1 file analysis worker pool, `FilterResult.excluded` populates `GENERATION-PLAN.md` statistics.
-
-## Design Pattern
-
-Facade pattern consolidating filter creation, directory walking, and filter application into single async function with config-driven parameterization. Promotes structural compatibility via `DiscoveryConfig` interface instead of tight coupling to full `Config` type, enabling unit testing with minimal mock objects.
+- `./walker.js` — walkDirectory function
+- `./filters/index.js` — Filter factory functions and applyFilters orchestrator
+- `./types.js` — FilterResult type definition
+- `../orchestration/trace.js` — ITraceWriter interface for trace emission

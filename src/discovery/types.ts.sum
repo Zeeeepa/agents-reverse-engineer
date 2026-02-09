@@ -1,38 +1,20 @@
 ---
-generated_at: 2026-02-09T16:10:02.027Z
+generated_at: 2026-02-09T17:44:52.054Z
 content_hash: 4c45840b650bc80b1f64e7a9fdcb91facda8d7364bf0159ba9453de1df0fcb92
-purpose: types.ts defines TypeScript interfaces for the file discovery system's filter chain architecture, including filter co...
+purpose: Defines core TypeScript interfaces for the file discovery pipeline: FileFilter for composable exclusion predicates, F...
 ---
-**types.ts defines TypeScript interfaces for the file discovery system's filter chain architecture, including filter contracts, exclusion metadata, and walker configuration.**
+**Defines core TypeScript interfaces for the file discovery pipeline: FileFilter for composable exclusion predicates, FilterResult for discovery outcomes, WalkerOptions for traversal configuration, and ExcludedFile for audit trails.**
 
 ## Exported Interfaces
 
-**FileFilter** — Filter contract with two properties:
-- `name: string` (readonly) identifies which filter excluded a file for logging
-- `shouldExclude(path: string, stats?: Stats): Promise<boolean> | boolean` determines file inclusion (returns true to exclude)
+**FileFilter** — Contract for composable file exclusion predicates in the discovery filter chain. Exposes `name: string` for audit logging and `shouldExclude(path: string, stats?: Stats): Promise<boolean> | boolean` for synchronous or asynchronous exclusion decisions. Implemented by GitignoreFilter, BinaryFilter, VendorFilter, CustomPatternFilter.
 
-Takes absolute file path and optional `Stats` from `node:fs` for size-based or metadata filtering. Supports both sync and async implementations. Known implementations: GitignoreFilter, BinaryFilter, VendorFilter, CustomPatternFilter (per inline documentation).
+**ExcludedFile** — Record structure for excluded files with `path: string` (absolute path), `reason: string` (human-readable exclusion explanation), `filter: string` (name of the FileFilter that triggered exclusion).
 
-**ExcludedFile** — Exclusion record with three properties:
-- `path: string` absolute path to excluded file
-- `reason: string` human-readable exclusion explanation
-- `filter: string` name of the filter that excluded the file
+**FilterResult** — Discriminated discovery outcome containing `included: string[]` (absolute paths passing all filters) and `excluded: ExcludedFile[]` (rejected files with exclusion metadata).
 
-Used to track why files were rejected during discovery pipeline execution.
-
-**FilterResult** — Discovery pipeline output with two properties:
-- `included: string[]` files passing all filters (ready for analysis)
-- `excluded: ExcludedFile[]` rejected files with metadata
-
-Aggregates results from filter chain execution across all discovered files.
-
-**WalkerOptions** — Directory traversal configuration with three properties:
-- `cwd: string` root directory for walking (absolute path, required)
-- `followSymlinks?: boolean` whether to traverse symlinks (default false per CONTEXT.md)
-- `dot?: boolean` whether to include dotfiles starting with `.` (default true for analysis)
-
-Passed to directory walker to control filesystem traversal behavior.
+**WalkerOptions** — Configuration for directory traversal with `cwd: string` (absolute root path), `followSymlinks?: boolean` (default false per CONTEXT.md), `dot?: boolean` (include dotfiles, default true).
 
 ## Integration Points
 
-All interfaces consumed by `src/discovery/walker.ts` (directory walker) and `src/discovery/filters/` implementations (gitignore.ts, binary.ts, vendor.ts, custom.ts). The `FileFilter` interface enables composable filter chains where each filter can independently reject files. The `Stats` parameter in `shouldExclude()` allows filters to inspect file metadata without additional filesystem calls.
+Consumed by `src/discovery/walker.ts` for traversal configuration and `src/discovery/filters/` implementations (binary.ts, gitignore.ts, vendor.ts, custom.ts) for FileFilter contract adherence. FilterResult returned by `src/discovery/run.ts` aggregates results across the filter chain. Stats type imported from `node:fs` enables size-based filtering (see BinaryFilter with maxFileSize threshold).

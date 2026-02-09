@@ -1,44 +1,62 @@
 ---
-generated_at: 2026-02-09T16:10:04.505Z
+generated_at: 2026-02-09T17:44:53.427Z
 content_hash: ddcb35a58fc7c96be861daff467611b0b3f9fa7cb760da90af97960452c887c8
-purpose: ConfigSchema defines Zod validation schema for `.agents-reverse-engineer/config.yaml` with nested object schemas for ...
+purpose: ConfigSchema defines Zod validation schema for `.agents-reverse-engineer/config.yaml` with nested object structures f...
 ---
-**ConfigSchema defines Zod validation schema for `.agents-reverse-engineer/config.yaml` with nested object schemas for exclusion rules, discovery options, output formatting, and AI service configuration, providing type-safe defaults via z.default() chaining.**
+**ConfigSchema defines Zod validation schema for `.agents-reverse-engineer/config.yaml` with nested object structures for exclusion rules, discovery options, output formatting, and AI service configuration, enforcing type safety and providing default values for all fields.**
+
+## Schema Structure
+
+ConfigSchema is the root schema composed of four nested schemas: ExcludeSchema, OptionsSchema, OutputSchema, and AISchema. Each sub-schema has `.default({})` fallback enabling empty object validation.
 
 ## Exported Schemas
 
-**ConfigSchema** (z.ZodDefault<z.ZodObject>) — Root configuration schema with four nested sections: `exclude`, `options`, `output`, `ai`. Accepts empty object `{}` which populates all fields with defaults via `.default({})` at schema level.
+**ExcludeSchema** validates exclusion configuration with three array fields:
+- `patterns: z.array(z.string()).default([...DEFAULT_EXCLUDE_PATTERNS])` — custom glob patterns for file exclusion
+- `vendorDirs: z.array(z.string()).default([...DEFAULT_VENDOR_DIRS])` — vendor directory names to skip
+- `binaryExtensions: z.array(z.string()).default([...DEFAULT_BINARY_EXTENSIONS])` — binary file extension list
 
-**ExcludeSchema** (z.ZodDefault<z.ZodObject>) — Defines `patterns` (array of gitignore-style globs from `DEFAULT_EXCLUDE_PATTERNS`), `vendorDirs` (array from `DEFAULT_VENDOR_DIRS`), `binaryExtensions` (array from `DEFAULT_BINARY_EXTENSIONS`). All arrays cloned via spread operator `[...DEFAULT_*]` to prevent mutation.
+**OptionsSchema** validates discovery behavior with two fields:
+- `followSymlinks: z.boolean().default(false)` — symbolic link traversal toggle
+- `maxFileSize: z.number().positive().default(DEFAULT_MAX_FILE_SIZE)` — file size threshold in bytes for skipping large files
 
-**OptionsSchema** (z.ZodDefault<z.ZodObject>) — Defines `followSymlinks` (boolean, default false), `maxFileSize` (positive number from `DEFAULT_MAX_FILE_SIZE`). Controls file discovery traversal behavior.
+**OutputSchema** validates terminal output formatting:
+- `colors: z.boolean().default(true)` — ANSI color code toggle for CLI output
 
-**OutputSchema** (z.ZodDefault<z.ZodObject>) — Defines `colors` (boolean, default true) for ANSI terminal color code enablement.
+**AISchema** validates AI service configuration with six fields:
+- `backend: z.enum(['claude', 'gemini', 'opencode', 'auto']).default('auto')` — AI CLI backend selection with auto-detection
+- `model: z.string().default('sonnet')` — backend-specific model identifier
+- `timeoutMs: z.number().positive().default(300_000)` — subprocess timeout (5 minutes default)
+- `maxRetries: z.number().min(0).default(3)` — exponential backoff retry limit
+- `concurrency: z.number().min(1).max(20).default(getDefaultConcurrency)` — worker pool size (1-20 range, auto-detected default)
+- `telemetry: z.object({ keepRuns: z.number().min(0).default(50) }).default({})` — nested schema for run log retention count
 
-**AISchema** (z.ZodDefault<z.ZodObject>) — Defines `backend` (enum: 'claude' | 'gemini' | 'opencode' | 'auto', default 'auto'), `model` (string, default 'sonnet'), `timeoutMs` (positive number, default 300000 = 5 minutes), `maxRetries` (min 0, default 3), `concurrency` (min 1, max 20, default from `getDefaultConcurrency()` function), `telemetry` nested object with `keepRuns` (min 0, default 50). Concurrency default is computed dynamically via function invocation during schema construction.
+**ConfigSchema** combines all sub-schemas:
+```typescript
+z.object({
+  exclude: ExcludeSchema,
+  options: OptionsSchema,
+  output: OutputSchema,
+  ai: AISchema,
+}).default({})
+```
 
-## Exported TypeScript Types
+## Exported Types
 
-**Config** — Inferred via `z.infer<typeof ConfigSchema>` representing fully parsed configuration object with all defaults applied.
+**Config** = `z.infer<typeof ConfigSchema>` — inferred TypeScript type for full configuration object
 
-**ExcludeConfig** — Inferred from ExcludeSchema: `{ patterns: string[], vendorDirs: string[], binaryExtensions: string[] }`.
+**ExcludeConfig** = `z.infer<typeof ExcludeSchema>` — inferred type for `exclude` section
 
-**OptionsConfig** — Inferred from OptionsSchema: `{ followSymlinks: boolean, maxFileSize: number }`.
+**OptionsConfig** = `z.infer<typeof OptionsSchema>` — inferred type for `options` section
 
-**OutputConfig** — Inferred from OutputSchema: `{ colors: boolean }`.
+**OutputConfig** = `z.infer<typeof OutputSchema>` — inferred type for `output` section
 
-**AIConfig** — Inferred from AISchema: `{ backend: 'claude' | 'gemini' | 'opencode' | 'auto', model: string, timeoutMs: number, maxRetries: number, concurrency: number, telemetry: { keepRuns: number } }`.
+**AIConfig** = `z.infer<typeof AISchema>` — inferred type for `ai` section
 
-## Import Dependencies
+## Dependencies
 
-Imports `z` from 'zod' for schema construction. Imports constants `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, `DEFAULT_EXCLUDE_PATTERNS` and function `getDefaultConcurrency` from `./defaults.js`. These provide platform-specific defaults (e.g., concurrency adjusted for WSL vs. macOS/Linux based on CPU cores and available memory).
+Imports DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS, and getDefaultConcurrency from `./defaults.js` for default value arrays and computation.
 
-## Schema Validation Pattern
+## Validation Behavior
 
-All schemas use `.default()` chaining at both field level (individual fields) and object level (entire section). This enables partial configuration merging: user provides `{ ai: { backend: 'claude' } }`, Zod merges with defaults to produce complete AIConfig with timeoutMs, maxRetries, concurrency, telemetry.keepRuns populated from schema defaults.
-
-Array defaults use spread operator `[...DEFAULT_PATTERNS]` to clone imported arrays, preventing accidental mutation of shared constant references during schema validation.
-
-## Dynamic Default Resolution
-
-AISchema.concurrency uses function invocation `.default(getDefaultConcurrency)` instead of static value. Zod evaluates function during parse to compute platform-specific concurrency (2 for WSL, 5 for others, adjusted for CPU cores/memory). Function must return number matching `.min(1).max(20)` constraint.
+All schemas use `.default()` chaining enabling partial configuration parsing: `ConfigSchema.parse({})` returns fully populated Config object with all defaults applied. Spread operator `[...DEFAULT_VENDOR_DIRS]` creates shallow copies preventing array mutation across parse invocations.

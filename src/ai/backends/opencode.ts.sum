@@ -1,32 +1,26 @@
 ---
-generated_at: 2026-02-09T16:08:46.706Z
+generated_at: 2026-02-09T17:43:56.501Z
 content_hash: 766b567d891820428c3ef97c56fd538afc9041ec7b387958ce79194294ded8e9
-purpose: OpenCodeBackend implements AIBackend interface as stub demonstrating extension pattern for future OpenCode CLI integr...
+purpose: OpenCodeBackend implements AIBackend interface as a stub demonstrating extension pattern for OpenCode CLI integration...
 ---
-**OpenCodeBackend implements AIBackend interface as stub demonstrating extension pattern for future OpenCode CLI integration, currently throwing SUBPROCESS_ERROR in parseResponse() until JSONL output parsing implementation completes.**
+**OpenCodeBackend implements AIBackend interface as a stub demonstrating extension pattern for OpenCode CLI integration, throwing "not implemented" errors until JSONL output parsing is built.**
 
-## Exported Symbols
+## Exported Class
 
-**OpenCodeBackend** class implements AIBackend interface with readonly properties `name: 'opencode'` and `cliCommand: 'opencode'`.
-
-## Public Interface
-
-**isAvailable(): Promise<boolean>** checks if `opencode` CLI exists on PATH by delegating to `isCommandOnPath(this.cliCommand)` imported from `claude.js`.
-
-**buildArgs(_options: AICallOptions): string[]** constructs CLI argument array `['run', '--format', 'json']` based on documented OpenCode CLI flags from RESEARCH.md. Prompt content passes via stdin through subprocess wrapper, not as CLI argument.
-
-**parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse** always throws `AIServiceError('SUBPROCESS_ERROR', 'OpenCode backend is not yet implemented. Use Claude backend.')` since JSONL parsing remains unimplemented per RESEARCH.md Open Question 3.
-
-**getInstallInstructions(): string** returns multi-line string with curl-based install command `curl -fsSL https://opencode.ai/install | bash` and URL reference `https://opencode.ai`.
-
-## Integration Pattern
-
-Demonstrates backend extension architecture where AIBackend interface enables pluggable AI CLI adapters. OpenCodeBackend mirrors ClaudeBackend and GeminiBackend structure (sibling files `claude.ts`, `gemini.ts`) but defers output parsing implementation to future development phase.
-
-## Dependencies
-
-Imports `AIBackend`, `AICallOptions`, `AIResponse` interfaces and `AIServiceError` class from `../types.js`. Imports `isCommandOnPath()` utility from `./claude.js` for PATH existence checking.
+`OpenCodeBackend` implements `AIBackend` interface with four readonly/method members: `name: 'opencode'`, `cliCommand: 'opencode'`, `isAvailable(): Promise<boolean>`, `buildArgs(_options: AICallOptions): string[]`, `parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse`, `getInstallInstructions(): string`.
 
 ## Implementation Status
 
-Stub implementation allows registry detection and argument construction but blocks execution at response parsing stage. Full implementation requires JSONL format specification and parser matching OpenCode CLI output structure.
+`parseResponse()` throws `AIServiceError` with code `'SUBPROCESS_ERROR'` and message `'OpenCode backend is not yet implemented. Use Claude backend.'` blocking all AI calls until JSONL parsing implemented (deferred per RESEARCH.md Open Question 3).
+
+## CLI Interaction
+
+`isAvailable()` delegates to `isCommandOnPath(this.cliCommand)` imported from `claude.ts` module to detect `opencode` binary on PATH.
+
+`buildArgs()` returns `['run', '--format', 'json']` based on documented OpenCode CLI flags from RESEARCH.md, expects prompt via stdin through subprocess wrapper.
+
+`getInstallInstructions()` returns three-line string with curl install command `'curl -fsSL https://opencode.ai/install | bash'` and URL `'https://opencode.ai'`.
+
+## Integration Points
+
+Imports `AIBackend`, `AICallOptions`, `AIResponse` from `../types.js` and `AIServiceError` from same module for error throwing. Imports `isCommandOnPath` utility from `./claude.ts` for CLI detection. Follows same interface contract as `ClaudeBackend` and `GeminiBackend` siblings, enabling registration in `src/ai/registry.ts` backend map.

@@ -1,30 +1,40 @@
 ---
-generated_at: 2026-02-09T16:11:34.878Z
+generated_at: 2026-02-09T17:46:20.253Z
 content_hash: d1466918414db67dbb0d230e53203cb4d8b01df54d267427a029d1494fc00406
-purpose: LICENSE grants MIT License permissions for agents-reverse-engineer software under Copyright (c) 2026 GeoloeG-IsT.
+purpose: LICENSE declares MIT license grant for agents-reverse-engineer software, granting unrestricted usage, modification, a...
 ---
-**LICENSE grants MIT License permissions for agents-reverse-engineer software under Copyright (c) 2026 GeoloeG-IsT.**
+**LICENSE declares MIT license grant for agents-reverse-engineer software, granting unrestricted usage, modification, and distribution rights to all recipients.**
 
-## License Type and Grant
+## License Terms
 
-MIT License permits unrestricted use, modification, distribution, sublicensing, and sale of the Software and associated documentation files without royalties or fees, subject to preservation of copyright notice and permission notice in all copies or substantial portions.
+Grants permission without restriction for:
+- use
+- copy
+- modify
+- merge
+- publish
+- distribute
+- sublicense
+- sell
+
+of the Software and associated documentation files.
 
 ## Copyright Holder
 
-Copyright (c) 2026 GeoloeG-IsT owns all intellectual property rights to the agents-reverse-engineer codebase.
+Copyright (c) 2026 GeoloeG-IsT
 
 ## Warranty Disclaimer
 
-SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT disclaims all warranties and representations.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
-## Liability Limitation
+## Liability Waiver
 
-AUTHORS OR COPYRIGHT HOLDERS SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE limits legal exposure for maintainers.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-## Required Attribution
+## Inclusion Requirement
 
-"The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software" mandates preservation of attribution in derivative works and distributions.
+This copyright notice and permission notice shall be included in all copies or substantial portions of the Software.
 
-## Integration Impact
+## Legal Effect
 
-CI/CD workflow (`.github/workflows/publish.yml`) publishes npm package with `--provenance --access public` flags, making MIT License terms apply to all distributed artifacts. Package.json `"license": "MIT"` field declares license for npm registry. README.md references LICENSE file as source of legal terms for users and contributors.
+This is a standard MIT License text providing maximum permissiveness while disclaiming all warranties and liability. No exports, no executable code—purely a legal artifact required for npm package publication and downstream redistribution compliance.

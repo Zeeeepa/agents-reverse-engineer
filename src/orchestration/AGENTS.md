@@ -2,153 +2,94 @@
 
 # src/orchestration
 
-**Iterator-based concurrency pool orchestrating three-phase AI-driven documentation generation (file analysis → directory aggregation → root synthesis) with streaming progress, promise-chain serialized writes for GENERATION-PLAN.md updates and NDJSON trace emission, ETA calculation via moving average, and quality validation integration.**
+**Worker pool concurrency control, promise-chain serialized progress tracking, NDJSON trace emission, and three-phase pipeline orchestration executing concurrent file analysis, post-order directory aggregation, and sequential root synthesis with integrated quality validation, ETA calculation, and subprocess lifecycle tracing.**
 
 ## Contents
 
 ### Core Orchestration
 
-**[runner.ts](./runner.ts)** — `CommandRunner` executes three-phase pipeline: concurrent file `.sum` generation via `runPool()` with stale-doc detection, post-order directory `AGENTS.md` traversal grouped by depth, sequential root document synthesis (`CLAUDE.md`/`GEMINI.md`/`OPENCODE.md`), embeds quality validators (`checkCodeVsDoc`/`checkCodeVsCode`/`checkPhantomPaths`) post-phase with throttled directory grouping, builds `RunSummary` with token/cost/duration/inconsistency aggregates.
+**[index.ts](./index.ts)** — Barrel export consolidating `runPool`, `ProgressReporter`, `ProgressLog`, `PlanTracker`, `createTraceWriter`, `cleanupOldTraces`, `CommandRunner`, and shared types (`FileTaskResult`, `RunSummary`, `ProgressEvent`, `CommandRunOptions`, `PoolOptions`, `TaskResult`, `ITraceWriter`, `TraceEvent`, `TraceEventPayload`).
 
-**[pool.ts](./pool.ts)** — `runPool<T>()` implements shared-iterator worker pattern: all N workers pull from single `tasks.entries()` iterator preventing idle time between batches, emits `worker:start/end` and `task:pickup/done` trace events with `activeTasks` counter, supports `failFast` abort via mutable `aborted` flag checked before each task pickup, returns sparse `TaskResult<T>[]` array indexed by original task position.
+**[pool.ts](./pool.ts)** — Iterator-based worker pool executing `Array<() => Promise<T>>` tasks via shared `tasks.entries()` iterator consumed by N workers, preventing batch-stall anti-pattern where `Promise.all()` chunks idle workers waiting for slowest task. Emits `worker:start/end`, `task:pickup/done` trace events. Supports `failFast` via shared `aborted` boolean flag checked at loop start. Effective concurrency via `Math.min(options.concurrency, tasks.length)`.
 
-**[progress.ts](./progress.ts)** — `ProgressReporter` streams colored console output (`pc.cyan('ANALYZING')`, `pc.green('DONE')`, `pc.red('FAIL')`) with ETA calculated via sliding window (last 10 completion times) for files and directories separately, `ProgressLog` mirrors ANSI-stripped output to `.agents-reverse-engineer/progress.log` via promise-chain serialized writes for `tail -f` monitoring in buffered environments.
+**[runner.ts](./runner.ts)** — `CommandRunner` orchestrates three-phase pipeline via `executeGenerate(plan)` and `executeUpdate(filesToAnalyze, projectRoot, config)`. Phase 1: concurrent file analysis via `runPool()` with `options.concurrency`, reads source via `readFile()`, caches in `sourceContentCache`, calls `aiService.call()`, computes `contentHash` via `computeContentHashFromString()`, strips preamble via `stripPreamble()`, extracts purpose via `extractPurpose()`, writes via `writeSumFile()`, detects `## Annex References` marker for `writeAnnexFile()`. Post-Phase 1: groups files by directory, runs quality checks concurrently (concurrency=10) via `checkCodeVsDoc(source, oldSum)` (stale), `checkCodeVsDoc(source, newSum)` (fresh), `checkCodeVsCode(filesForCodeVsCode)`, builds `InconsistencyReport`, clears `sourceContentCache`. Phase 2: groups `directoryTasks` by depth, processes in descending order (deepest first) with concurrency `Math.min(options.concurrency, dirsAtDepth.length)`, builds prompts via `buildDirectoryPrompt()`, writes via `writeAgentsMd()`. Post-Phase 2: validates phantom paths via `checkPhantomPaths(agentsMdPath, content, projectRoot)`. Phase 3: sequential root document synthesis (concurrency=1), strips conversational preamble before `writeFile()`. Returns `RunSummary` with counts from `aiService.getSummary()` plus `inconsistenciesCodeVsDoc`, `inconsistenciesCodeVsCode`, `phantomPaths`.
 
-**[plan-tracker.ts](./plan-tracker.ts)** — `PlanTracker` serializes concurrent checkbox updates (`- [ ] → - [x]`) for `GENERATION-PLAN.md` via promise-chain pattern (`writeQueue`), maintains in-memory markdown state, requires exact backtick-wrapped path matching (`` `src/cli/init.ts` ``), swallows write errors (non-critical operation).
+### Progress Tracking
 
-**[trace.ts](./trace.ts)** — `createTraceWriter()` factory returns `NullTraceWriter` (zero overhead) or `TraceWriter` (appends to `.agents-reverse-engineer/traces/trace-{timestamp}.ndjson`), auto-populates `seq`/`ts`/`pid`/`elapsedMs` base fields, emits 14 event types (`phase:start/end`, `worker:start/end`, `task:pickup/done`, `subprocess:spawn/exit`, `retry`, `discovery:start/end`, `filter:applied`, `plan:created`, `config:loaded`), `cleanupOldTraces()` enforces 500-file retention, uses `DistributiveOmit<TraceEvent, BaseKeys>` for discriminated union stripping.
+**[progress.ts](./progress.ts)** — `ProgressReporter` streams colored console output with ETA calculation via moving average of last 10 `completionTimes` (window size 10), displays after 2+ completions. `ProgressLog` mirrors plain-text output to `.agents-reverse-engineer/progress.log` via promise-chain serialized writes with ANSI stripping (`/\x1b\[[0-9;]*m/g`). Static factory `ProgressLog.create(projectRoot)` constructs path. Methods: `onFileStart(filePath)` (`[X/Y] ANALYZING path`), `onFileDone(filePath, durationMs, tokensIn, tokensOut, model, cacheReadTokens?, cacheCreationTokens?)` (`[X/Y] DONE path Xs in/out tok model ~Ns remaining`), `onFileError(filePath, error)` (`[X/Y] FAIL path error`), `onDirectoryStart(dirPath)`, `onDirectoryDone()`, `onRootDone(docPath)`, `printSummary(summary)`. ETA formatted via `formatETA()` computing `avg * remaining` as `~Ns remaining` (<60s) or `~Mm Ss remaining` (≥60s).
 
-### Type Definitions
+**[plan-tracker.ts](./plan-tracker.ts)** — `PlanTracker` maintains in-memory `GENERATION-PLAN.md` content, serializes concurrent checkbox updates via promise-chain writes. Constructor accepts `projectRoot` and `initialMarkdown`, computes `planPath` as `path.join(projectRoot, CONFIG_DIR, 'GENERATION-PLAN.md')`. `markDone(itemPath)` replaces `` `- [ ] \`${itemPath}\`` `` → `` `- [x] \`${itemPath}\`` ``, chains write to `writeQueue` promise. `initialize()` creates parent directory via `mkdir(..., {recursive: true})`, writes initial content. `flush()` awaits `writeQueue` completion.
 
-**[types.ts](./types.ts)** — `FileTaskResult` carries per-task metrics (`tokensIn`/`tokensOut`/`cacheReadTokens`/`cacheCreationTokens`/`durationMs`/`model`), `RunSummary` aggregates command-level totals with quality counts (`inconsistenciesCodeVsDoc`/`inconsistenciesCodeVsCode`/`phantomPaths`), `ProgressEvent` discriminates five event types (`start`/`done`/`error`/`dir-done`/`root-done`) with type-specific optional fields, `CommandRunOptions` threads `concurrency`/`failFast`/`debug`/`dryRun`/`tracer`/`progressLog` from CLI through runner to pool and AIService.
+### Trace Infrastructure
 
-**[index.ts](./index.ts)** — Barrel export exposing `runPool`, `ProgressReporter`, `ProgressLog`, `PlanTracker`, `CommandRunner`, `ITraceWriter`, `TraceEvent`, `TraceEventPayload`, `createTraceWriter`, `cleanupOldTraces`, and shared types (`FileTaskResult`, `RunSummary`, `ProgressEvent`, `CommandRunOptions`, `PoolOptions`, `TaskResult`).
+**[trace.ts](./trace.ts)** — `createTraceWriter(projectRoot, enabled)` factory returns `NullTraceWriter` (zero overhead) when disabled or `TraceWriter` appending NDJSON to `.agents-reverse-engineer/traces/trace-{timestamp}.ndjson` with promise-chain serialization. `TraceWriter` auto-populates `seq` (monotonic), `ts` (ISO 8601), `pid` (`process.pid`), `elapsedMs` (high-resolution `process.hrtime.bigint()` delta) on `emit(partial: TraceEventPayload)`. `finalize()` awaits `writeQueue`, closes `fd`. `cleanupOldTraces(projectRoot, keepCount=500)` removes old traces, keeps most recent 500.
 
-## Concurrency Architecture
+**Event types:** `phase:start/end` (phase, taskCount, concurrency, durationMs, tasksCompleted, tasksFailed), `worker:start/end` (workerId, phase, tasksExecuted), `task:pickup/done` (workerId, taskIndex, taskLabel, activeTasks, durationMs, success, error?), `task:start` (taskLabel, phase), `subprocess:spawn/exit` (childPid, command, taskLabel, exitCode, signal, durationMs, timedOut), `retry` (attempt, taskLabel, errorCode), `discovery:start/end` (targetPath, filesIncluded, filesExcluded, durationMs), `filter:applied` (filterName, filesMatched, filesRejected), `plan:created` (planType, fileCount, taskCount), `config:loaded` (configPath, model, concurrency).
 
-### Shared-Iterator Pattern
+**[types.ts](./types.ts)** — Defines `FileTaskResult` (path, success, tokensIn, tokensOut, cacheReadTokens, cacheCreationTokens, durationMs, model, error?), `RunSummary` (version, filesProcessed, filesFailed, filesSkipped, totalCalls, totalInputTokens, totalOutputTokens, totalCacheReadTokens, totalCacheCreationTokens, totalDurationMs, errorCount, retryCount, totalFilesRead, uniqueFilesRead, inconsistenciesCodeVsDoc?, inconsistenciesCodeVsCode?, phantomPaths?, inconsistencyReport?), `ProgressEvent` (discriminated type: start|done|error|dir-done|root-done with filePath, index, total, durationMs?, tokensIn?, tokensOut?, model?, error?), `CommandRunOptions` (concurrency, failFast?, debug?, dryRun?, tracer?: ITraceWriter, progressLog?: ProgressLog), `PoolOptions` (concurrency, failFast?, tracer?, phaseLabel?, taskLabels?), `TaskResult<T>` (index, success, value?, error?).
 
-`runPool()` avoids batch-based idling by sharing single `tasks.entries()` iterator across N workers. Each worker pulls next `[index, taskFn]` tuple immediately after completing previous task, ensuring all slots stay busy until iterator exhausts. `Promise.allSettled(workers)` waits for all workers to finish or abort.
+## Architecture
 
-### Fail-Fast Abort
+### Shared-Iterator Concurrency
 
-Mutable `aborted` boolean flag set by any worker encountering error when `failFast: true`. Workers check `if (aborted) break` before pulling next task but do not interrupt running tasks. Results array remains sparse (undefined entries at aborted indices).
+`runPool()` creates `tasks.entries()` iterator shared across N workers via `for (const [index, task] of iterator)` loop. Workers race to pull tasks atomically via iterator protocol, preventing over-allocation where `Promise.all()` chunks spawn tasks eagerly. Effective concurrency via `Math.min(options.concurrency, tasks.length)` prevents idle workers when task count < pool size.
 
-### Serialization Guarantees
+### Promise-Chain Serialization
 
-`PlanTracker` and `TraceWriter` use promise-chain pattern (`writeQueue: Promise<void>`) to serialize concurrent writes. Each `markDone()` or `emit()` call chains onto previous write: `this.writeQueue = this.writeQueue.then(() => fs.writeFile(...))`. Guarantees NDJSON line order matches emission order despite pool concurrency.
+`PlanTracker`, `ProgressLog`, `TraceWriter` serialize concurrent writes via `this.writeQueue = this.writeQueue.then(() => writeOp())` pattern. Each write operation chains onto tail of promise, forming sequential execution queue despite concurrent worker invocations. Errors caught via `.catch()` suppression (non-critical telemetry).
 
-## Three-Phase Execution Flow
+### Three-Phase Pipeline
 
-### Phase 1: File Analysis (Concurrent)
+Phase 1: concurrent file analysis via `runPool(fileTasks, {concurrency: options.concurrency})`, reads source via `readFile()` once, caches in `sourceContentCache` Map, calls `aiService.call()`, writes `.sum` via `writeSumFile()`, writes `.annex.md` if `## Annex References` detected. Post-Phase 1: groups files by directory, validates via `checkCodeVsDoc(source, oldSum)` (stale docs), `checkCodeVsDoc(source, newSum)` (LLM omissions), `checkCodeVsCode(files)` (duplicate exports) at concurrency=10, clears `sourceContentCache`.
 
-`CommandRunner.executeGenerate()` pre-caches existing `.sum` files at concurrency=20 for stale-doc detection. Maps file tasks to async functions reading source via `fs.readFile()`, computing `contentHash` via `computeContentHashFromString()`, calling `AIService.call()` with `buildFilePrompt()`, stripping preamble, extracting purpose (first non-preamble line truncated to 120 chars), writing `SumFileContent` with YAML frontmatter (`generated_at`, `content_hash`, `purpose`). Executes via `runPool(fileTasks, { concurrency, failFast, tracer, phaseLabel: 'phase-1-files' })`. Post-phase: groups files by directory, runs throttled (concurrency=10) `checkCodeVsDoc()` comparing old vs. new `.sum` against source content, aggregates `filesForCodeVsCode` array and runs `checkCodeVsCode()` for duplicate symbol detection.
+Phase 2: groups `directoryTasks` by depth (`task.metadata.depth`), processes depth levels sequentially in descending order (deepest first) via `Array.from(dirsByDepth.keys()).sort((a,b) => b-a)`, executes depth level concurrently with `Math.min(concurrency, dirsAtDepth.length)`, builds prompts via `buildDirectoryPrompt()`, writes via `writeAgentsMd()`. Post-Phase 2: validates phantom paths via `checkPhantomPaths()` extracting path-like strings via three regex patterns, resolving against directory and project root.
 
-### Phase 2: Directory Aggregation (Post-Order Traversal)
+Phase 3: sequential root synthesis (concurrency=1), builds prompts via `buildRootPrompt()`, calls `aiService.call()` with `maxTurns: 1`, strips conversational preamble before `writeFile()`.
 
-Groups `plan.directoryTasks` by `metadata.depth` into `Map<number, ExecutionTask[]>`, sorts depth levels descending (deepest-first). For each depth level: computes `dirConcurrency = Math.min(concurrency, dirsAtDepth.length)`, emits `phase:start`, maps directory tasks to async functions calling `buildDirectoryPrompt()` with `knownDirs` set and project structure context, calls AI service, writes via `writeAgentsMd()` (prepends existing `AGENTS.local.md` content if present), updates reporter and plan tracker. Executes via `runPool()` with depth-specific `phaseLabel`. Post-phase: runs `checkPhantomPaths()` on each generated `AGENTS.md` (three regex patterns: markdown links, backtick-quoted paths, prose-embedded paths), aggregates issues into `phantomReport`.
+### Quality Validation Timing
 
-### Phase 3: Root Synthesis (Sequential)
+Pre-Phase 1: reads existing `.sum` files concurrently (concurrency=20) into `oldSumCache` Map. Post-Phase 1: compares `oldSum` vs. source (stale documentation from previous runs), compares `newSum` vs. source (LLM omissions in current run), aggregates duplicate exports. Post-Phase 2: validates AGENTS.md path references. Validation failures logged to stderr with `[quality]` prefix, never throw (non-blocking).
 
-Sequential execution (concurrency=1) over `plan.rootTasks` (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`). Emits `task:start`, calls `buildRootPrompt()` with all `AGENTS.md` injected and root `package.json` metadata, calls `AIService.call({ prompt, systemPrompt, maxTurns: 1 })`, strips conversational preamble (two patterns: `\n---\n` separator or bold uppercase start), writes via `fs.writeFile()`, emits `task:done`, updates reporter and plan tracker. Flushes `planTracker.flush()` after loop.
+### Trace Event Threading
 
-## Progress Reporting & ETA
+`CommandRunOptions.tracer` threaded through pool → AIService → runner. Phase-level `phase:start/end` emitted by runner. Pool-level `worker:start/end`, `task:pickup/done` emitted by `runPool()`. Subprocess-level `subprocess:spawn/exit`, `retry` emitted by `AIService`. Zero overhead when `tracer` is `NullTraceWriter`.
 
-### Moving Average ETA
+### ETA Calculation
 
-`ProgressReporter` maintains `completionTimes: number[]` (files) and `dirCompletionTimes: number[]` (directories) sliding windows (max 10 entries). On task completion: pushes `durationMs`, shifts oldest if window exceeds size. `formatETA()` computes moving average `(sum / count) * remaining`, formats as `~Ns` or `~Mm Ss`, returns empty string if fewer than 2 completions.
-
-### Dual Output Streams
-
-Console output uses `picocolors` for colored ANSI codes (`pc.cyan('ANALYZING')`, `pc.green('DONE')`, `pc.blue('DONE')` for directories/roots, `pc.red('FAIL')`). `ProgressLog` strips ANSI via regex `/\x1b\[[0-9;]*m/g` and appends to `.agents-reverse-engineer/progress.log` via promise-chain serialization. File handle opened lazily in truncate mode ('w') on first write, closed via `finalize()`.
-
-### Token Accounting Display
-
-Total input tokens displayed as `tokensIn + cacheReadTokens + cacheCreationTokens`. Completion messages show format: `[X/Y] DONE path Xs in/out tok model ~ETA`. Summary prints: files processed/failed/skipped, total calls, tokens (input + cache read + cache creation / output), cache statistics (% read tokens, % creation tokens), files read (total and unique), elapsed time, errors, retries.
-
-## Trace Event System
-
-### Event Types & Schema
-
-Discriminated union `TraceEvent` with 14 types. All events extend `TraceEventBase` with auto-populated fields: `seq` (monotonic counter), `ts` (ISO 8601), `pid` (`process.pid`), `elapsedMs` (high-resolution delta from `process.hrtime.bigint()` start).
-
-**Pool events:** `worker:start` (workerId, phase), `worker:end` (workerId, phase, tasksExecuted), `task:pickup` (workerId, taskIndex, taskLabel, activeTasks), `task:done` (workerId, taskIndex, taskLabel, durationMs, success, error?, activeTasks).
-
-**Subprocess events:** `subprocess:spawn` (childPid, command, taskLabel), `subprocess:exit` (childPid, command, taskLabel, exitCode, signal, durationMs, timedOut).
-
-**Phase events:** `phase:start` (phase, taskCount, concurrency), `phase:end` (phase, durationMs, tasksCompleted, tasksFailed).
-
-**Other events:** `retry` (attempt, taskLabel, errorCode), `discovery:start/end`, `filter:applied`, `plan:created`, `config:loaded`.
-
-### Emission & Serialization
-
-Users call `tracer.emit(payload)` with `TraceEventPayload = DistributiveOmit<TraceEvent, BaseKeys>` (user-supplied data without auto-populated fields). `TraceWriter.emit()` populates base fields, serializes to JSON line, enqueues write via `writeQueue = writeQueue.then(() => fd.write(line))` promise-chain. Lazy-opens file handle via `fs.open(filePath, 'a')` after ensuring directory exists. `finalize()` awaits `writeQueue`, closes handle.
-
-### Cleanup & Retention
-
-`cleanupOldTraces(projectRoot, keepCount = 500)` reads `.agents-reverse-engineer/traces/`, sorts files by creation time descending via `fs.stat()`, deletes excess files, returns deletion count. Auto-invoked by `AIService.finalize()` in telemetry shutdown.
-
-## Quality Validation Integration
-
-### Code-vs-Doc Consistency
-
-Post-Phase 1: groups processed files by `path.dirname()`, runs throttled (concurrency=10) validation per directory. For each file: reads cached `sourceContent` from map, reads old `.sum` via `readSumFile()`, runs `checkCodeVsDoc(sourceContent, oldSum.summary, filePath)` appending `(stale documentation)` label, reads fresh `.sum`, runs second pass. `checkCodeVsDoc()` extracts exported symbols via regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`, verifies all exports appear in summary via substring search, reports `CodeDocInconsistency` with `missingFromDoc` arrays.
-
-### Code-vs-Code Duplicate Detection
-
-Aggregates exports across per-directory file groups into `Map<symbol, string[]>`. Runs `checkCodeVsCode(filesForCodeVsCode)` detecting symbols appearing in multiple files, reports `CodeCodeInconsistency` with `pattern: 'duplicate-export'`.
-
-### Phantom Path Resolution
-
-Post-Phase 2: for each generated `AGENTS.md`, runs `checkPhantomPaths(agentsMdPath, content, projectRoot)` extracting path-like strings via three regex patterns (markdown links, backtick-quoted paths, prose-embedded paths), resolves against AGENTS.md directory and project root with `.ts`/`.js` fallback, reports `PhantomPathInconsistency` for unresolved references.
-
-### Report Formatting
-
-Builds `InconsistencyReport` via `buildInconsistencyReport(issues, metadata)` with `metadata` (timestamp, projectRoot, filesChecked, durationMs), `issues[]` (discriminated union), `summary` (counts by type/severity). Prints via `formatReportForCli(report)` showing counts and groupings. Embeds in `RunSummary.inconsistencyReport` field.
-
-## Incremental Update Support
-
-`CommandRunner.executeUpdate()` implements Phase 1 only re-analysis for changed files. Attempts to load `GENERATION-PLAN.md` from `.agents-reverse-engineer/` for `projectPlan` context (falls through on error). Maps `filesToAnalyze` to async tasks reading source, reading existing `.sum`, building prompt via `buildFilePrompt({ filePath, content, projectPlan, existingSum })`, calling AI service, writing `.sum` with hash. Runs identical post-analysis quality checks (code-vs-doc, code-vs-code) without stale-doc comparison. Builds `RunSummary` with `updateInconsistenciesCodeVsDoc`/`updateInconsistenciesCodeVsCode` from report summary.
+`ProgressReporter` maintains sliding windows `completionTimes` and `dirCompletionTimes` (max size 10). `formatETA()` computes `avg = sum(completionTimes) / completionTimes.length`, `remaining = totalFiles - completed - failed`, `etaMs = avg * remaining`. Displays after 2+ completions to avoid inaccurate early estimates. Formats as `~Ns remaining` (<60s) or `~Mm Ss remaining` (≥60s).
 
 ## Behavioral Contracts
 
-### Preamble Stripping Patterns
+### Preamble Detection Patterns (from runner.ts)
 
-`stripPreamble()` implements two regex-based detection patterns:
-1. YAML separator: `/\n---\n/` within first 500 chars, returns content after separator
-2. Bold uppercase start: `/^[\s\S]{0,500}?(\*\*[A-Z])/` matches conversational preamble preceding bold section header, strips if <300 chars and no `##` markdown headers present
+Full patterns preserved in [runner.ts.annex.md](./runner.ts.annex.md).
 
-### Purpose Extraction Filter
+**Separator pattern:** Detects `\n---\n` within first 500 chars.
 
-`extractPurpose()` skips lines matching `PREAMBLE_PREFIXES` array via `line.toLowerCase().startsWith()`:
-```javascript
-['now i', 'perfect', 'based on', 'let me', 'here is', "i'll", 'i will', 'great', 'okay', 'sure', 'certainly', 'alright']
-```
+**Bold header pattern:** Matches `/^[\s\S]{0,500}?(\*\*[A-Z])/`, strips preceding content if <300 chars, no `##` markers.
 
-Returns first non-preamble/non-header/non-separator line with bold markdown stripped (`/^\*\*(.+)\*\*$/`) and 120-char truncation.
+**Preamble prefixes (case-insensitive):** `'now i'`, `'perfect'`, `'based on'`, `'let me'`, `'here is'`, `'i\'ll'`, `'i will'`, `'great'`, `'okay'`, `'sure'`, `'certainly'`, `'alright'`.
 
-### Checkbox Markdown Format
+### Checkbox Update Pattern (from plan-tracker.ts)
 
-`PlanTracker.markDone()` requires exact backtick-wrapped path format:
-```markdown
-- [ ] `src/cli/init.ts`     → file task
-- [ ] `src/cli/AGENTS.md`   → directory task (caller appends /AGENTS.md)
-- [ ] `CLAUDE.md`           → root task
-```
+Replaces `` `- [ ] \`${itemPath}\`` `` → `` `- [x] \`${itemPath}\`` `` via string substitution. Item path conventions: files use relative paths (`src/cli/init.ts`), directories append `/AGENTS.md` suffix (`src/cli/AGENTS.md`), root documents use filename only (`CLAUDE.md`).
 
-String replacement via `` `- [ ] \`${itemPath}\`` → `- [x] \`${itemPath}\`` ``. Returns early if no match (no checkbox update queued).
+### ANSI Stripping Regex (from progress.ts)
 
-### Trace Filename Format
+`/\x1b\[[0-9;]*m/g` matches all SGR, cursor, and erase sequences before writing to `.agents-reverse-engineer/progress.log`.
 
-`trace-{timestamp}.ndjson` where timestamp converts ISO 8601 to filesystem-safe format via `new Date().toISOString().replace(/[:.]/g, '-')` (colons/periods → hyphens).
+### Trace Filename Format (from trace.ts)
 
-### Export Symbol Extraction Regex
+`trace-{timestamp}.ndjson` where timestamp from `new Date().toISOString().replace(/[:.]/g, '-')` (e.g., `trace-2026-02-09T12-34-56-789Z.ndjson`).
 
-Code-vs-doc validator uses pattern: `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` matching top-level exports with optional `default` keyword, capturing symbol name via `(\w+)` group.
+## File Relationships
 
-### Phantom Path Extraction Patterns
+`CommandRunner` orchestrates via dependencies: `runPool()` for worker execution, `PlanTracker` for checkbox updates, `ProgressReporter` for console output, `ProgressLog` for file mirroring, `TraceWriter` for NDJSON events, `AIService` for subprocess calls, `buildFilePrompt/buildDirectoryPrompt/buildRootPrompt` from generation module, `writeSumFile/readSumFile/writeAnnexFile/writeAgentsMd` from writers, `checkCodeVsDoc/checkCodeVsCode/checkPhantomPaths` from quality module, `computeContentHashFromString` from change-detection.
 
-Three regex patterns in `checkPhantomPaths()`:
-1. Markdown links: `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` captures relative paths in link targets
-2. Backtick-quoted paths: `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` captures backtick-wrapped paths starting with `src/` or `./` or `../` with file extensions
-3. Prose-embedded paths: `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` captures paths following prepositions in prose text
+`runPool()` invokes task factories, emits trace events via `tracer?.emit()`, invokes `onComplete` callback per task settlement, returns `TaskResult[]` array.
+
+`ProgressReporter` receives events via `onFileStart/Done/Error/DirectoryStart/Done/RootDone`, computes ETA via sliding windows, delegates to `ProgressLog.write()` for file mirroring, prints summary via `printSummary(RunSummary)`.
+
+`PlanTracker` initialized with `formatExecutionPlanAsMarkdown()` output, updated via `markDone(itemPath)` from pool workers, flushed via `flush()` before orchestrator return.
+
+`TraceWriter` emits events via `emit(partial)`, auto-populates base fields (`seq`, `ts`, `pid`, `elapsedMs`), serializes writes via promise chain, finalized via `finalize()` after all phases complete.

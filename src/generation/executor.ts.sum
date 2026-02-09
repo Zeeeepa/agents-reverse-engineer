@@ -1,88 +1,84 @@
 ---
-generated_at: 2026-02-09T16:10:33.258Z
+generated_at: 2026-02-09T17:45:21.026Z
 content_hash: ce2e011f7fef57965d65e9ef53021b1c55e08a731d46740a22fe9df388a8a907
-purpose: Transforms GenerationPlan into ExecutionPlan with dependency-ordered tasks for the three-phase documentation pipeline...
+purpose: executor.ts builds ExecutionPlan from GenerationPlan with dependency graph, post-order directory traversal sorting (d...
 ---
-**Transforms GenerationPlan into ExecutionPlan with dependency-ordered tasks for the three-phase documentation pipeline, enforcing post-order directory traversal via depth-based sorting.**
+**executor.ts builds ExecutionPlan from GenerationPlan with dependency graph, post-order directory traversal sorting (deepest-first), directory completion tracking via sumFileExists(), and markdown plan formatting for GENERATION-PLAN.md output.**
 
 ## Exported Types
 
-**ExecutionTask** — Individual work unit for AI processing with dependency tracking
-- `id: string` — Unique identifier (format: `file:<path>` | `dir:<path>` | `root:<filename>`)
-- `type: 'file' | 'directory' | 'root-doc'` — Task category determining pipeline phase
-- `path: string` — Relative path from project root
-- `absolutePath: string` — Resolved filesystem path
-- `systemPrompt: string` — AI system context (placeholder for dir/root, actual for file)
-- `userPrompt: string` — AI generation instructions (placeholder for dir/root, actual for file)
-- `dependencies: string[]` — Task IDs that must complete before this task can execute
-- `outputPath: string` — Target file for generated content (`.sum`, `AGENTS.md`, `CLAUDE.md`)
-- `metadata: { directoryFiles?: string[]; depth?: number; packageRoot?: string }` — Task-specific context
+**ExecutionTask** represents a single AI processing job with fields:
+- `id: string` — unique identifier with format `"file:{path}"`, `"dir:{path}"`, or `"root:{docname}"`
+- `type: 'file' | 'directory' | 'root-doc'` — discriminates task category
+- `path: string` — relative path to file or directory
+- `absolutePath: string` — resolved absolute path
+- `systemPrompt: string` — AI system prompt (placeholder for dir/root tasks, built at runtime)
+- `userPrompt: string` — AI user prompt (placeholder for dir/root tasks, built at runtime)
+- `dependencies: string[]` — array of task IDs that must complete first
+- `outputPath: string` — destination path for generated content (`.sum` for files, `AGENTS.md` for dirs, root doc name for root)
+- `metadata: { directoryFiles?: string[], depth?: number, packageRoot?: string }` — tracking metadata
 
-**ExecutionPlan** — Complete dependency graph for pipeline execution
-- `projectRoot: string` — Absolute project base path
-- `tasks: ExecutionTask[]` — All tasks in dependency-satisfying order
-- `fileTasks: ExecutionTask[]` — Phase 1 tasks (parallel-eligible)
-- `directoryTasks: ExecutionTask[]` — Phase 2 tasks (post-order sorted by depth descending)
-- `rootTasks: ExecutionTask[]` — Phase 3 tasks (sequential, depends on all directories)
-- `directoryFileMap: Record<string, string[]>` — Directory to file paths mapping for completion tracking
-- `projectStructure?: string` — Compact file tree for directory prompt context
+**ExecutionPlan** aggregates all tasks with dependency relationships:
+- `projectRoot: string` — absolute project root path
+- `tasks: ExecutionTask[]` — all tasks in execution order
+- `fileTasks: ExecutionTask[]` — Phase 1 file analysis tasks (parallel eligible)
+- `directoryTasks: ExecutionTask[]` — Phase 2 directory aggregation tasks (post-order sorted)
+- `rootTasks: ExecutionTask[]` — Phase 3 root document synthesis tasks (sequential)
+- `directoryFileMap: Record<string, string[]>` — maps directory path to relative file paths
+- `projectStructure?: string` — optional compact directory listing for prompt context
 
 ## Core Functions
 
-**buildExecutionPlan(plan: GenerationPlan, projectRoot: string): ExecutionPlan** — Constructs execution plan with post-order directory traversal
+**buildExecutionPlan(plan: GenerationPlan, projectRoot: string): ExecutionPlan** constructs dependency graph from GenerationPlan:
+1. Populates `directoryFileMap` by extracting `path.dirname()` from each `file.relativePath`
+2. Creates file tasks with `id: "file:{filePath}"`, `type: 'file'`, `dependencies: []`, `outputPath: "{absolutePath}.sum"`
+3. Sorts file tasks by directory depth descending via `getDirectoryDepth(path.dirname(a.path))` comparison (deepest first for post-order traversal)
+4. Sorts directories by depth descending via `Object.entries(directoryFileMap).sort(([dirA], [dirB]) => getDirectoryDepth(dirB) - getDirectoryDepth(dirA))`
+5. Creates directory tasks with `id: "dir:{dir}"`, `type: 'directory'`, `dependencies: fileTaskIds` (all file tasks in directory), `outputPath: "{dirAbsPath}/AGENTS.md"`, `metadata: { directoryFiles, depth }`
+6. Creates root tasks with `id: "root:CLAUDE.md"`, `type: 'root-doc'`, `dependencies: allDirTaskIds`, `outputPath: "{projectRoot}/CLAUDE.md"`
+7. Returns ExecutionPlan with fileTasks/directoryTasks/rootTasks arrays and directoryFileMap
 
-Creates three task categories:
-1. **fileTasks**: Maps `plan.tasks` with `type === 'file'` to ExecutionTask, generates IDs via `file:${task.filePath}`, outputs to `${absolutePath}.sum`, zero dependencies, sorts by directory depth descending via `getDirectoryDepth(path.dirname(a.path))` comparison
-2. **directoryTasks**: Builds from `directoryFileMap` entries sorted by `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)`, assigns `dependencies` as `files.map(f => 'file:${f}')`, placeholder prompts ("Built at execution time by buildDirectoryPrompt()"), outputs to `${dirAbsPath}/AGENTS.md`, stores `metadata.depth` and `metadata.directoryFiles`
-3. **rootTasks**: Single task `root:CLAUDE.md` depending on all directory task IDs, placeholder prompts ("Built at runtime by buildRootPrompt()"), outputs to `${projectRoot}/CLAUDE.md`
+**getDirectoryDepth(dir: string): number** calculates path segment count:
+- Returns `0` for root directory `"."`
+- Returns `dir.split(path.sep).length` for non-root directories
 
-**isDirectoryComplete(dirPath: string, expectedFiles: string[], projectRoot: string): Promise<{ complete: boolean; missing: string[] }>** — Verifies all files in directory have `.sum` artifacts via `sumFileExists()`
+**isDirectoryComplete(dirPath: string, expectedFiles: string[], projectRoot: string): Promise<{ complete: boolean; missing: string[] }>** checks if all files have `.sum` outputs:
+- Iterates `expectedFiles` array, resolves absolute path via `path.join(projectRoot, relativePath)`
+- Calls `sumFileExists(absolutePath)` for each file
+- Returns `{ complete: missing.length === 0, missing }` with array of paths lacking `.sum` files
 
-Iterates `expectedFiles`, resolves each via `path.join(projectRoot, relativePath)`, checks `sumFileExists(absolutePath)`, accumulates missing paths, returns completion status and missing array.
+**getReadyDirectories(executionPlan: ExecutionPlan): Promise<string[]>** identifies directories eligible for AGENTS.md generation:
+- Iterates `executionPlan.directoryFileMap` entries
+- Calls `isDirectoryComplete(dir, files, executionPlan.projectRoot)` for each directory
+- Returns array of directory paths where `complete === true`
 
-**getReadyDirectories(executionPlan: ExecutionPlan): Promise<string[]>** — Filters directories with all `.sum` files present
-
-Iterates `executionPlan.directoryFileMap` entries, calls `isDirectoryComplete(dir, files, executionPlan.projectRoot)`, collects directories where `complete === true`.
-
-**formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string** — Generates GENERATION-PLAN.md with post-order task breakdown
-
-Produces markdown with:
-- Header: `# Documentation Generation Plan` with ISO date from `new Date().toISOString().split('T')[0]` and `plan.projectRoot`
-- Summary: Task counts (`plan.tasks.length`, `plan.fileTasks.length`, `plan.directoryTasks.length`, `plan.rootTasks.length`) and traversal strategy ("Post-order (children before parents)")
-- Phase 1: Groups `plan.fileTasks` by directory via `task.path.lastIndexOf('/')`, outputs sections `### Depth ${depth}: ${dir}/ (${files.length} files)` using `plan.directoryTasks` order, checkbox items `- [ ] \`${file}\``
-- Phase 2: Groups `plan.directoryTasks` by `metadata.depth`, sorts depths descending, outputs `### Depth ${depth}` sections with `- [ ] \`${dir}/AGENTS.md\`` items
-- Phase 3: Hardcoded `- [ ] \`CLAUDE.md\`` entry
-
-## Dependency Relationships
-
-**Input:** GenerationPlan from `src/generation/orchestrator.ts` containing `tasks[]` with `type/filePath/systemPrompt/userPrompt`, `files[]` with `relativePath`
-
-**Output:** ExecutionPlan consumed by `src/orchestration/runner.ts` for phase execution
-
-**External dependencies:**
-- `sumFileExists()` from `src/generation/writers/sum.ts` — Checks `.sum` file existence for completion tracking
-- `path.join()`, `path.dirname()`, `path.sep` — Path manipulation for task ID generation and depth calculation
+**formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string** generates GENERATION-PLAN.md content:
+- Writes header with ISO date (`new Date().toISOString().split('T')[0]`) and `plan.projectRoot`
+- Writes summary section with task counts: `plan.tasks.length`, `plan.fileTasks.length`, `plan.directoryTasks.length`, `plan.rootTasks.length`
+- Writes Phase 1 section grouping files by directory, outputting in post-order using `plan.directoryTasks` traversal order
+- Writes Phase 2 section grouping directories by depth (descending), outputting `{dir}/AGENTS.md` with `(root)` suffix for `dir === "."`
+- Writes Phase 3 section listing `CLAUDE.md`
+- Returns markdown string with checkbox format: `- [ ] \`{path}\``
 
 ## Post-Order Traversal Strategy
 
-**getDirectoryDepth(dir: string): number** — Calculates directory nesting level
+buildExecutionPlan() enforces post-order traversal (children before parents) via two sorting operations:
+1. **File tasks**: sorted by `getDirectoryDepth(path.dirname(a.path))` descending so deepest files process first
+2. **Directory tasks**: sorted by `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)` descending so child directories generate AGENTS.md before parent directories
 
-Returns 0 for root `"."`, otherwise counts path segments via `dir.split(path.sep).length`. Examples: `"src"` → 1, `"src/cli"` → 2, `"src/generation/prompts"` → 3.
+This ensures child AGENTS.md files exist before parent directory aggregation prompts consume them (referenced in src/generation/prompts/builder.ts buildDirectoryPrompt() via collectAgentsDocs() recursive traversal).
 
-Sorting pattern: `(a, b) => getDirectoryDepth(dirB) - getDirectoryDepth(dirA)` ensures deepest directories process first, guaranteeing child `AGENTS.md` exist before parent synthesis (Phase 2 requirement documented in `src/generation/orchestrator.ts`).
+## Integration Points
 
-## Task ID Format
+- **GenerationPlan import** from `./orchestrator.js` consumed by buildExecutionPlan()
+- **sumFileExists()** from `./writers/sum.js` checks for `.sum` file presence in isDirectoryComplete()
+- **Dependency tracking** via `dependencies: string[]` enforces Phase 1 → Phase 2 → Phase 3 sequencing in src/orchestration/runner.ts
+- **Prompt placeholders** for directory/root tasks (`"Built at runtime by buildRootPrompt()"`) signal runtime prompt construction in runner.ts Phase 2/3
 
-**File tasks:** `file:<relativePath>` (e.g., `file:src/cli/index.ts`)
-**Directory tasks:** `dir:<relativePath>` (e.g., `dir:src/cli`)
-**Root tasks:** `root:<filename>` (e.g., `root:CLAUDE.md`)
+## Placeholder Prompt Pattern
 
-Dependency arrays reference these IDs exactly: `directoryTask.dependencies = files.map(f => 'file:${f}')`, `rootTask.dependencies = allDirTaskIds`.
+ExecutionTask includes `systemPrompt` and `userPrompt` fields populated with placeholders for directory/root tasks:
+- Directory tasks: `systemPrompt: "Built at execution time by buildDirectoryPrompt()"`, `userPrompt: "Directory \"{dir}\" — {files.length} files. Prompt populated from .sum files at runtime."`
+- Root tasks: `systemPrompt: "Built at runtime by buildRootPrompt()"`, `userPrompt: "Root document — prompt populated from AGENTS.md files at runtime."`
 
-## Placeholder Prompts
-
-Directory and root tasks store placeholder strings for `systemPrompt`/`userPrompt`:
-- Directory: `"Built at execution time by buildDirectoryPrompt()"` / `"Directory "${dir}" — ${files.length} files. Prompt populated from .sum files at runtime."`
-- Root: `"Built at runtime by buildRootPrompt()"` / `"Root document — prompt populated from AGENTS.md files at runtime."`
-
-Actual prompts constructed in `src/orchestration/runner.ts` Phase 2/3 via `buildDirectoryPrompt()` and `buildRootPrompt()` consuming `.sum` and `AGENTS.md` files. Placeholders exist only for plan display via `formatExecutionPlanAsMarkdown()` and dependency graph structure.
+These placeholders exist for plan display (formatExecutionPlanAsMarkdown()) and dependency tracking; actual prompts constructed at execution time in runner.ts via buildDirectoryPrompt() and buildRootPrompt() from src/generation/prompts/builder.ts.

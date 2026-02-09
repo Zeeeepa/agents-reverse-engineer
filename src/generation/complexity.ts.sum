@@ -1,34 +1,24 @@
 ---
-generated_at: 2026-02-09T16:10:09.693Z
+generated_at: 2026-02-09T17:45:00.404Z
 content_hash: 4a69c6ca8327582e8a6dc390f7ea2e7d38e67c9e93128163405cea5db79d3252
-purpose: complexity.ts computes codebase complexity metrics (file count, directory depth, unique directories) from discovered ...
+purpose: complexity.ts computes codebase structure metrics from discovered file paths: file count, maximum directory depth, un...
 ---
-**complexity.ts computes codebase complexity metrics (file count, directory depth, unique directories) from discovered file paths for documentation generation planning.**
+**complexity.ts computes codebase structure metrics from discovered file paths: file count, maximum directory depth, unique directory set, and file list for generation phase cost estimation and complexity-aware orchestration.**
 
 ## Exported Interface
 
-**ComplexityMetrics** - Aggregated complexity measurements
-- `fileCount: number` - Total source files discovered
-- `directoryDepth: number` - Maximum nested directory depth
-- `files: string[]` - Complete list of source file absolute paths
-- `directories: Set<string>` - Unique directory paths extracted from files
+`ComplexityMetrics` — structure containing `fileCount: number`, `directoryDepth: number`, `files: string[]`, and `directories: Set<string>` computed from discovered source files.
 
 ## Exported Function
 
-**analyzeComplexity(files: string[], projectRoot: string): ComplexityMetrics** - Orchestrates complexity computation by invoking `calculateDirectoryDepth()` and `extractDirectories()` on input file array, returns populated ComplexityMetrics object.
-
-## Internal Functions
-
-**calculateDirectoryDepth(files: string[], projectRoot: string): number** - Computes maximum depth by calling `path.relative(projectRoot, file)` for each file, splitting on `path.sep`, subtracting 1 (excludes filename from depth count), tracking `Math.max()` across all files.
-
-**extractDirectories(files: string[]): Set<string>** - Walks parent chain via `path.dirname()` loop for each file, terminating when `dir === '.'` or `parent === dir` (root reached), accumulates unique directories in Set to deduplicate shared ancestor paths.
-
-## Integration Points
-
-Used by `src/generation/orchestrator.ts` or `src/cli/discover.ts` to compute metrics for GENERATION-PLAN.md phase breakdown and concurrency decisions. The `directoryDepth` metric influences post-order directory aggregation sorting (Phase 2 processes deepest directories first). The `directories` Set drives `AGENTS.md` generation target list.
+`analyzeComplexity(files: string[], projectRoot: string): ComplexityMetrics` — orchestrates complexity analysis by invoking `calculateDirectoryDepth()` and `extractDirectories()`, returning aggregate metrics used by generation orchestrator to estimate Phase 2 directory aggregation workload and log complexity warnings.
 
 ## Algorithm Details
 
-**Depth calculation**: Relative path splitting produces array like `['src', 'generation', 'complexity.ts']`, length 3 minus 1 equals depth 2 for the `src/generation/` directory.
+`calculateDirectoryDepth(files: string[], projectRoot: string): number` — computes maximum directory nesting by calling `path.relative()` on each file path against `projectRoot`, splitting by `path.sep`, subtracting 1 (file itself not counted), and tracking max depth across all files via `Math.max()`.
 
-**Directory extraction**: For path `/home/pascal/wks/are/src/generation/complexity.ts`, extracts `/home/pascal/wks/are/src/generation`, `/home/pascal/wks/are/src`, `/home/pascal/wks/are`, stops before root `/home` when `parent === dir`.
+`extractDirectories(files: string[]): Set<string>` — extracts unique directory paths by iterating each file, calling `path.dirname()` on file path, then walking upward via repeated `path.dirname(parent)` until `parent === dir` (root reached) or `dir === '.'`, adding each intermediate directory to `Set<string>`.
+
+## Integration Points
+
+Called by `src/generation/orchestrator.ts` after discovery phase completes, metrics passed to `FileAnalysisOrchestrator` constructor for logging complexity warnings (e.g., "Large codebase detected: N files across M directories, depth D"). `directories` set used to validate Phase 2 post-order traversal completeness and detect orphaned `AGENTS.md` files during incremental updates.

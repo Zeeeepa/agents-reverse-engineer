@@ -2,27 +2,36 @@
 
 # src/types
 
-Shared TypeScript interface definitions for file discovery results, exclusion tracking, and statistics aggregation across ARE modules.
+Shared type definitions for file discovery results and statistics consumed across discovery, orchestration, and CLI modules.
 
 ## Contents
 
 ### [index.ts](./index.ts)
-Exports `ExcludedFile` (path + reason), `DiscoveryResult` (files + excluded arrays), `DiscoveryStats` (totalFiles, includedFiles, excludedFiles, exclusionReasons histogram).
+Exports `DiscoveryResult`, `DiscoveryStats`, `ExcludedFile` interfaces defining discovery phase output schema, exclusion metadata, and aggregate metrics.
 
-## Usage Pattern
+## Exported Interfaces
 
-`src/discovery/walker.ts` returns `DiscoveryResult` from traversal functions. `src/cli/discover.ts` consumes `DiscoveryResult` to format console output and write `GENERATION-PLAN.md`. `src/orchestration/runner.ts` logs `DiscoveryStats` to telemetry during discovery phase.
+### `ExcludedFile`
+Represents files filtered during discovery with `path: string` and `reason: string` (exclusion rationale: "gitignore pattern", "binary file", "vendor directory").
 
-## Data Model
+### `DiscoveryResult`
+Aggregates discovery output with `files: string[]` (paths for Phase 1 analysis) and `excluded: ExcludedFile[]` (filtered files with metadata).
 
-### ExcludedFile
-- `path: string` — Absolute/relative file path
-- `reason: string` — Exclusion rationale ("gitignore pattern", "binary file", "vendor directory")
+### `DiscoveryStats`
+Provides discovery metrics: `totalFiles`, `includedFiles`, `excludedFiles` (counts), `exclusionReasons: Record<string, number>` (histogram of `ExcludedFile.reason` values).
 
-### DiscoveryResult
-- `files: string[]` — Selected for analysis
-- `excluded: ExcludedFile[]` — Rejected with reasons
+## Data Flow
 
-### DiscoveryStats
-- `totalFiles: number`, `includedFiles: number`, `excludedFiles: number` — Counts
-- `exclusionReasons: Record<string, number>` — Reason → occurrence count map
+**Producer:** `runDiscovery()` in `src/discovery/run.ts` returns `DiscoveryResult` after filter chain execution (`src/discovery/walker.ts` + filters: `gitignore.ts`, `binary.ts`, `vendor.ts`, `custom.ts`).
+
+**Consumers:**
+- `src/cli/discover.ts` — Generates `GENERATION-PLAN.md` from `DiscoveryResult.files`
+- `src/cli/generate.ts` — Feeds `DiscoveryResult.files` to Phase 1 worker pool
+- `src/cli/update.ts` — Inputs `DiscoveryResult` to `detectChanges()` for delta computation
+- `src/output/logger.ts` — Computes `DiscoveryStats` from `DiscoveryResult` for terminal output
+
+**Exclusion Metadata:** `ExcludedFile.reason` populated by filter modules:
+- `src/discovery/filters/gitignore.ts` — "matched .gitignore pattern: `<pattern>`"
+- `src/discovery/filters/binary.ts` — "binary file"
+- `src/discovery/filters/vendor.ts` — "vendor directory"
+- `src/discovery/filters/custom.ts` — "matched exclude pattern: `<pattern>`"

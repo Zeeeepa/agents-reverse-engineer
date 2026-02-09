@@ -1,30 +1,52 @@
 ---
-generated_at: 2026-02-09T16:11:48.632Z
+generated_at: 2026-02-09T17:46:30.331Z
 content_hash: bebbac9539b1852caf8c0855f599a72527e4266076aba139231fb1c036ad4e37
-purpose: tsconfig.json configures TypeScript compilation to ES2022 with NodeNext module resolution, emitting source maps and d...
+purpose: tsconfig.json configures TypeScript compiler for ES2022/NodeNext module system with strict type-checking, declaration...
 ---
-**tsconfig.json configures TypeScript compilation to ES2022 with NodeNext module resolution, emitting source maps and declarations from `src/` to `dist/` with strict type checking.**
+**tsconfig.json configures TypeScript compiler for ES2022/NodeNext module system with strict type-checking, declaration map generation, and source map output to the dist/ directory.**
 
 ## Compiler Target and Module System
 
-`target: "ES2022"` emits JavaScript compatible with ES2022 runtime features (top-level await, class fields, private methods). `module: "NodeNext"` and `moduleResolution: "NodeNext"` enforce Node.js ESM conventions with explicit `.js` extensions in import statements and `package.json` `type: "module"` semantics. `lib: ["ES2022"]` provides ES2022 standard library type definitions.
+- `target: "ES2022"` compiles TypeScript to ECMAScript 2022 syntax
+- `module: "NodeNext"` enables Node.js native ES module support with package.json "type": "module"
+- `moduleResolution: "NodeNext"` resolves imports using Node.js ESM algorithm (requires .js extensions in imports)
+- `lib: ["ES2022"]` provides ES2022 standard library type definitions
 
 ## Output Configuration
 
-`outDir: "dist"` emits compiled JavaScript to `dist/` directory. `rootDir: "src"` preserves source tree structure during compilation. `declaration: true` generates `.d.ts` type definition files for package consumers. `declarationMap: true` creates `.d.ts.map` files mapping declarations back to source for IDE navigation. `sourceMap: true` emits `.js.map` files for runtime debugging.
+- `outDir: "dist"` emits compiled JavaScript to dist/ directory (mirrors src/ structure)
+- `rootDir: "src"` establishes src/ as compilation root (prevents ../node_modules pollution in dist/)
+- `declaration: true` generates .d.ts type declaration files alongside .js output
+- `declarationMap: true` creates .d.ts.map files for IDE "Go to Definition" navigation to source .ts files
+- `sourceMap: true` emits .js.map files for runtime debugging with original TypeScript line numbers
 
-## Type Checking Strictness
+## Type Safety Settings
 
-`strict: true` enables all strict type-checking options: `strictNullChecks`, `strictFunctionTypes`, `strictBindCallApply`, `strictPropertyInitialization`, `noImplicitAny`, `noImplicitThis`, `alwaysStrict`. `forceConsistentCasingInFileNames: true` prevents case-insensitive import mismatches across filesystems.
+- `strict: true` enables all strict type-checking options (noImplicitAny, strictNullChecks, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, noImplicitThis, alwaysStrict, useUnknownInCatchVariables)
+- `forceConsistentCasingInFileNames: true` enforces case-sensitive imports (prevents cross-platform file resolution issues)
+- `skipLibCheck: true` skips type-checking of .d.ts files in node_modules (improves compile speed)
+- `isolatedModules: true` ensures each file can be transpiled independently (required for build tools like esbuild, enforces no const enums or ambient module declarations)
 
 ## Module Interoperability
 
-`esModuleInterop: true` enables synthetic default imports from CommonJS modules via `import x from 'cjs'` instead of `import * as x from 'cjs'`. `resolveJsonModule: true` allows importing JSON files with type inference (used for `package.json` metadata parsing in `src/generation/prompts/builder.ts`). `isolatedModules: true` ensures each file can be transpiled independently (required for TypeScript-on-demand bundlers like tsx).
+- `esModuleInterop: true` enables default import syntax for CommonJS modules (import fs from 'fs' instead of import * as fs)
+- `resolveJsonModule: true` allows importing .json files with type inference (e.g., import pkg from './package.json')
 
 ## Compilation Scope
 
-`include: ["src/**/*"]` compiles all files under `src/` directory. `exclude: ["node_modules", "dist"]` prevents recursive compilation of dependencies and output artifacts. `skipLibCheck: true` skips type checking of `.d.ts` files in `node_modules/` to improve compilation performance.
+- `include: ["src/**/*"]` compiles all TypeScript files recursively under src/
+- `exclude: ["node_modules", "dist"]` prevents compilation of dependencies and previous build output
 
 ## Build Integration
 
-Referenced by `npm run build` script invoking `tsc` compiler. Emitted `dist/` output structure mirrors `src/` tree: `src/cli/index.ts` → `dist/cli/index.js` + `dist/cli/index.d.ts` + `dist/cli/index.js.map`. Binary entry points in `package.json` (`bin.are`, `bin.agents-reverse-engineer`) resolve to `dist/cli/index.js`. Pre-publish hook (`prepublishOnly`) executes `npm run build` ensuring fresh compilation before npm tarball creation.
+Referenced by npm scripts in package.json:
+- `npm run build` invokes `tsc` which reads this configuration
+- `npm run dev` runs `tsx watch src/cli/index.ts` (bypasses tsc, uses tsx runtime transpiler)
+- `prepublishOnly` hook executes `npm run build` before publishing to npm registry
+
+## ES Module Constraints
+
+NodeNext module resolution requires:
+- Explicit .js extensions in relative imports (import { foo } from './bar.js' even though source is bar.ts)
+- Package.json with `"type": "module"` at project root
+- File extensions must match: .ts → .js, .mts → .mjs, .cts → .cjs

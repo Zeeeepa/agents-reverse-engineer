@@ -1,105 +1,71 @@
 ---
-generated_at: 2026-02-09T16:10:12.931Z
+generated_at: 2026-02-09T17:44:57.770Z
 content_hash: 787eac676eca6402f9981c174edd6821e9ff2bae0ed51b3970dc7018800513b7
-purpose: generateCommand() orchestrates full three-phase documentation pipeline: discovers files via discoverFiles(), builds G...
+purpose: generateCommand orchestrates three-phase AI-driven documentation generation with concurrent file analysis, directory ...
 ---
-**generateCommand() orchestrates full three-phase documentation pipeline: discovers files via discoverFiles(), builds GenerationPlan via createOrchestrator().createPlan(), resolves AI backend via resolveBackend(), creates AIService and CommandRunner, executes concurrent file analysis → directory aggregation → root synthesis via runner.executeGenerate(), writes telemetry/traces, exits with status codes (0=success, 1=partial failure, 2=total failure).**
+**generateCommand orchestrates three-phase AI-driven documentation generation with concurrent file analysis, directory aggregation, and root document synthesis via CommandRunner execution of GenerationPlan tasks.**
 
 ## Exported Interface
 
-```typescript
-interface GenerateOptions {
-  dryRun?: boolean;        // Show plan without AI calls
-  concurrency?: number;    // Worker pool size override
-  failFast?: boolean;      // Abort on first failure
-  debug?: boolean;         // Log AI prompts/backend details
-  trace?: boolean;         // Emit NDJSON trace events
-}
+**generateCommand(targetPath: string, options: GenerateOptions): Promise<void>** — CLI entry point that discovers files, builds GenerationPlan via createOrchestrator, resolves AI backend, and executes three-phase pipeline through CommandRunner.executeGenerate.
 
-async function generateCommand(
-  targetPath: string,
-  options: GenerateOptions
-): Promise<void>
-```
+**GenerateOptions** — Configuration interface with fields:
+- `dryRun?: boolean` — Show execution plan without AI calls
+- `concurrency?: number` — Override worker pool size (1-10)
+- `failFast?: boolean` — Abort on first task failure
+- `debug?: boolean` — Enable subprocess logging with heap/RSS metrics
+- `trace?: boolean` — Emit NDJSON events to `.agents-reverse-engineer/traces/`
+
+**formatPlan(plan: GenerationPlan): string** — Formats GenerationPlan summary showing file count, task count, complexity metrics (fileCount, directoryDepth).
 
 ## Execution Flow
 
-generateCommand() executes seven sequential phases:
+**generateCommand** coordinates six sequential phases:
 
-1. **Path resolution**: `path.resolve(targetPath)` converts relative to absolute path
-2. **Trace initialization**: `createTraceWriter(absolutePath, options.trace ?? false)` creates NDJSON tracer before config/discovery
-3. **Config loading**: `loadConfig(absolutePath, { tracer, debug })` reads `.agents-reverse-engineer/config.yaml` with Zod validation
-4. **File discovery**: `discoverFiles(absolutePath, config, { tracer, debug })` applies filter chain (gitignore/binary/vendor/custom) producing `{ included, excluded }`
-5. **Plan creation**: `createOrchestrator(config, absolutePath, { tracer, debug }).createPlan(discoveryResult)` returns GenerationPlan with `files[]`, `tasks[]`, `complexity`
-6. **Backend resolution**: `resolveBackend(createBackendRegistry(), config.ai.backend)` auto-detects Claude/Gemini/OpenCode CLI availability, throws `AIServiceError` with `code: 'CLI_NOT_FOUND'` if none found, logs `getInstallInstructions(registry)` on stderr
-7. **Pipeline execution**: `buildExecutionPlan(plan, absolutePath)` splits tasks into `fileTasks`/`directoryTasks`/`rootTasks`, `new CommandRunner(aiService, { concurrency, failFast, debug, tracer, progressLog }).executeGenerate(executionPlan)` runs three-phase pool concurrency
+1. **Configuration Loading**: Calls loadConfig with tracer and debug options, returns Config with ai.backend, ai.concurrency, ai.timeoutMs, exclude patterns.
 
-## Dry-Run Mode
+2. **File Discovery**: Invokes discoverFiles with absolutePath and config, applies gitignore/binary/vendor filters, returns FilterResult with included/excluded arrays. Creates DiscoveryResult for orchestrator by mapping FilterResult.excluded to `{path, reason}` tuples.
 
-When `options.dryRun === true`, formatPlan() displays plan summary and buildExecutionPlan() shows task breakdown without calling AIService:
+3. **Plan Creation**: Instantiates createOrchestrator with config and absolutePath, calls orchestrator.createPlan(discoveryResult) returning GenerationPlan with files[], tasks[], complexity. Logs formatPlan output showing file count, task count, complexity.fileCount, complexity.directoryDepth.
 
-```
---- Dry Run Summary ---
-Files to analyze:     <fileTasks.length>
-Directories:          <directoryFileMap keys>
-Root documents:       <rootTasks.length>
-Estimated AI calls:   <total tasks.length>
-```
+4. **Dry-Run Bailout** (conditional): If options.dryRun, calls buildExecutionPlan(plan, absolutePath) returning ExecutionPlan with fileTasks[], directoryTasks[], rootTasks[], directoryFileMap. Logs summary: file count (executionPlan.fileTasks.length), directory count (Object.keys(executionPlan.directoryFileMap).length), root document count (executionPlan.rootTasks.length), estimated AI calls (executionPlan.tasks.length). Prints each fileTasks[].path via pc.dim, exits without AI calls.
 
-Exits without backend resolution or AIService instantiation.
+5. **Backend Resolution**: Calls createBackendRegistry() returning BackendRegistry, resolveBackend(registry, config.ai.backend) returning Backend. Catches AIServiceError with code 'CLI_NOT_FOUND', logs getInstallInstructions(registry), exits with code 2. If options.debug, logs backend.name, backend.cliCommand, config.ai.model.
 
-## AI Service Configuration
+6. **AI Service Execution**: Instantiates AIService(backend, {timeoutMs, maxRetries, model, telemetry.keepRuns}). Calls aiService.setDebug(true) if options.debug. If options.trace, calls aiService.setSubprocessLogDir with path `.agents-reverse-engineer/subprocess-logs/<timestamp>`. Builds executionPlan via buildExecutionPlan. Creates ProgressLog.create(absolutePath), writes header with ISO timestamp, project path, file/directory counts. Instantiates CommandRunner(aiService, {concurrency, failFast, debug, tracer, progressLog}). Calls runner.executeGenerate(executionPlan) returning RunSummary. Calls aiService.finalize(absolutePath) for telemetry, progressLog.finalize(), tracer.finalize(), cleanupOldTraces(absolutePath) if options.trace.
 
-AIService instantiated with backend-specific options merged from config and CLI:
+## Exit Code Strategy
 
-```typescript
-const aiService = new AIService(backend, {
-  timeoutMs: config.ai.timeoutMs,           // SIGTERM timeout (default 120000ms)
-  maxRetries: config.ai.maxRetries,         // Exponential backoff retries (default 3)
-  model: config.ai.model,                   // Override backend default
-  telemetry: { keepRuns: config.ai.telemetry.keepRuns }  // Retention limit (default 50)
-});
-```
+Derived from RunSummary fields (filesProcessed, filesFailed):
+- `process.exit(2)` — Total failure: filesProcessed === 0 && filesFailed > 0
+- `process.exit(1)` — Partial failure: filesFailed > 0 (but some files succeeded)
+- `process.exit(0)` — Success: filesFailed === 0 (implicit default)
 
-If `options.debug === true`, calls `aiService.setDebug(true)` enabling subprocess stdout/stderr logging.
+## Trace and Telemetry Integration
 
-If `options.trace === true`, calls `aiService.setSubprocessLogDir(logDir)` where `logDir = path.join(absolutePath, '.agents-reverse-engineer', 'subprocess-logs', <ISO timestamp>)` to capture per-call output files.
+**createTraceWriter** invoked with absolutePath and options.trace before loadConfig/discoverFiles to thread tracer through all subsystems. If options.trace && tracer.filePath, logs trace file path via pc.dim. Tracer passed to loadConfig, discoverFiles, createOrchestrator, CommandRunner constructor. cleanupOldTraces(absolutePath) called after tracer.finalize() to enforce retention limit (500 traces).
 
-## Progress Logging
+**ProgressLog.create** instantiated with absolutePath, writes human-readable log to `.agents-reverse-engineer/progress.log` with header showing ISO timestamp, project path, file count (executionPlan.fileTasks.length), directory count (executionPlan.directoryTasks.length). Passed to CommandRunner for streaming updates. Finalized after runner.executeGenerate completes.
 
-ProgressLog.create() writes human-readable streaming log to `.agents-reverse-engineer/progress.log`:
+**AIService.setSubprocessLogDir** called when options.trace enabled, writes per-subprocess stdout/stderr to `.agents-reverse-engineer/subprocess-logs/<timestamp>/<taskId>.log`. Logs directory path via pc.dim.
 
-```typescript
-const progressLog = ProgressLog.create(absolutePath);
-progressLog.write(`=== ARE Generate (${new Date().toISOString()}) ===`);
-progressLog.write(`Project: ${absolutePath}`);
-progressLog.write(`Files: ${fileTasks.length} | Directories: ${directoryTasks.length}`);
-```
+## Concurrency Configuration
 
-Passed to CommandRunner constructor, receives task pickup/completion events with ETA calculations. Finalized via `progressLog.finalize()` before exit.
-
-## Exit Codes
-
-Process exit status determined by RunSummary from runner.executeGenerate():
-
-- **0**: `summary.filesFailed === 0` (all files succeeded or no files to process)
-- **1**: `summary.filesFailed > 0 && summary.filesProcessed > 0` (partial failure)
-- **2**: `summary.filesProcessed === 0 && summary.filesFailed > 0` (total failure, no progress)
-- **2** (CLI not found): `AIServiceError.code === 'CLI_NOT_FOUND'` triggers stderr instructions via `getInstallInstructions(registry)`, calls `process.exit(2)` before pipeline execution
-
-## Trace Cleanup
-
-When `options.trace === true`, calls `cleanupOldTraces(absolutePath)` after `tracer.finalize()` to enforce retention limit (default 500 trace files) via mtime-based pruning.
+Determines worker pool size via `options.concurrency ?? config.ai.concurrency`. Config default: 2 for WSL environments (resource-constrained), 5 elsewhere. Passed to CommandRunner constructor as concurrency option.
 
 ## Dependencies
 
-- **loadConfig**: Zod-validated config loading from `.agents-reverse-engineer/config.yaml`
-- **discoverFiles**: Filter chain execution returning `{ included, excluded }` discovery result
-- **createOrchestrator**: Factory producing orchestrator with `createPlan()` method
-- **buildExecutionPlan**: Splits GenerationPlan into phase-specific task groups (`fileTasks`/`directoryTasks`/`rootTasks`)
-- **resolveBackend**: Auto-detects first available AI CLI (Claude/Gemini/OpenCode) via sequential `isAvailable()` checks
-- **AIService**: Subprocess manager with exponential backoff retry, telemetry logging, resource limits (`NODE_OPTIONS`, `UV_THREADPOOL_SIZE`)
-- **CommandRunner**: Worker pool executor with three-phase dispatch (`executeGenerate()`), progress reporting, trace emission
-- **ProgressLog**: Streaming append-only log writer for `tail -f` monitoring
-- **createTraceWriter**: NDJSON trace event emitter with promise-chain serialization
-- **cleanupOldTraces**: Mtime-based retention enforcement for `.agents-reverse-engineer/traces/` directory
+- `loadConfig` (src/config/loader.ts) — YAML config parsing with Zod validation
+- `discoverFiles` (src/discovery/run.ts) — Gitignore-aware file walking returning FilterResult
+- `createOrchestrator` (src/generation/orchestrator.ts) — Builds GenerationPlan with file/directory/root tasks
+- `buildExecutionPlan` (src/generation/executor.ts) — Transforms GenerationPlan into ExecutionPlan with phase breakdown
+- `AIService` (src/ai/service.ts) — Backend-agnostic AI service with subprocess management, retry logic, telemetry
+- `resolveBackend`, `createBackendRegistry`, `getInstallInstructions` (src/ai/index.ts) — Backend detection and CLI installation messaging
+- `CommandRunner` (src/orchestration/runner.ts) — Executes ExecutionPlan via worker pool with progress reporting
+- `createTraceWriter`, `cleanupOldTraces` (src/orchestration/trace.ts) — NDJSON trace emission and retention management
+- `ProgressLog` (src/orchestration/progress.ts) — Human-readable streaming log for tail -f monitoring
+- `createLogger` (src/output/logger.ts) — Picocolors-formatted console output
+
+## Error Handling
+
+AIServiceError with code 'CLI_NOT_FOUND' caught during resolveBackend: logs error message via pc.red, calls getInstallInstructions(registry) to show installation commands for Claude Code/Gemini/OpenCode, exits with code 2.

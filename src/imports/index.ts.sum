@@ -1,52 +1,21 @@
 ---
-generated_at: 2026-02-09T16:10:24.455Z
+generated_at: 2026-02-09T17:45:08.341Z
 content_hash: 92cb6f83a396d75b45e8243e85d7068562a116a565a2c74363b0943063d5b27a
-purpose: Exports type definitions and functions for static import analysis via `extractor.js`, exposing `extractImports()`, `e...
+purpose: Barrel export module re-exporting import extraction functionality from `extractor.ts` and type definitions from `type...
 ---
-**Exports type definitions and functions for static import analysis via `extractor.js`, exposing `extractImports()`, `extractDirectoryImports()`, `formatImportMap()`, plus `ImportEntry` and `FileImports` types used throughout the generation pipeline for dependency graph construction and import map rendering in AI prompts.**
+**Barrel export module re-exporting import extraction functionality from `extractor.ts` and type definitions from `types.ts`.**
 
-## Public Interface
+## Exported Functions
 
-```typescript
-function extractImports(filePath: string, content: string): FileImports
-```
-Extracts import statements from a single source file, returning `FileImports` object containing the file path and an array of `ImportEntry` objects.
+- `extractImports` — Extracts import statements from a single source file
+- `extractDirectoryImports` — Aggregates imports across all files within a directory
+- `formatImportMap` — Formats collected import data into human-readable map representation
 
-```typescript
-function extractDirectoryImports(directoryPath: string, discoveredFiles: string[]): Map<string, FileImports>
-```
-Aggregates imports across all files within a directory by filtering `discoveredFiles` to those starting with `directoryPath + path.sep`, invoking `extractImports()` on each file, returning `Map<filePath, FileImports>` for directory-level dependency analysis.
+## Exported Types
 
-```typescript
-function formatImportMap(importMap: Map<string, FileImports>): string
-```
-Serializes `Map<string, FileImports>` into human-readable Markdown format for injection into Phase 2 directory aggregation prompts, enabling AI context on intra-directory dependencies.
-
-```typescript
-interface ImportEntry {
-  source: string;          // Import specifier (relative path or package name)
-  isRelative: boolean;     // true if source starts with './' or '../'
-  importedNames: string[]; // Named imports/namespaces
-  lineNumber: number;      // Source line for debugging
-}
-```
-Discriminates relative file imports from package imports via `isRelative` boolean, stores extracted identifiers in `importedNames[]` for API surface tracking.
-
-```typescript
-interface FileImports {
-  file: string;            // Absolute or project-relative file path
-  imports: ImportEntry[];  // Extracted import statements
-}
-```
-Container type mapping file paths to their import dependency lists, consumed by `extractDirectoryImports()` aggregation and `formatImportMap()` serialization.
+- `ImportEntry` — Represents a single import statement with source module and imported identifiers
+- `FileImports` — Container type associating a file path with its array of ImportEntry records
 
 ## Integration Points
 
-- **Generation Phase 2**: `src/generation/prompts/builder.ts` calls `extractDirectoryImports()` during `buildDirectoryPrompt()` to construct import context for `AGENTS.md` synthesis
-- **Orchestration**: `src/generation/orchestrator.ts` passes `discoveredFiles` list to enable directory-level filtering without redundant filesystem scans
-- **Prompt Templates**: `src/generation/prompts/templates.ts` consumes formatted import maps via `formatImportMap()` output injected into `directoryPromptTemplate`
-- **Quality Validation**: `src/quality/inconsistency/code-vs-doc.ts` may leverage `ImportEntry.importedNames[]` for cross-file symbol resolution (currently unused)
-
-## Module Organization
-
-Barrel export pattern delegates implementation to `extractor.ts` and type definitions to `types.ts`, maintaining single public interface at `src/imports/index.ts` for external consumption. All three functions and both types exported without namespace wrapping for direct destructured imports.
+This module serves as the public API surface for the `src/imports/` subsystem, consumed by `src/generation/prompts/builder.ts` during Phase 2 directory aggregation to construct import maps included in directory-level AGENTS.md prompts via `extractDirectoryImports()`.

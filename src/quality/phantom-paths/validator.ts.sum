@@ -1,59 +1,47 @@
 ---
-generated_at: 2026-02-09T16:09:22.973Z
+generated_at: 2026-02-09T17:44:27.075Z
 content_hash: be5da3f84bcde292733c820cb325be1212baf0436f982f8fc9bf91c74db73382
-purpose: validator.ts detects unresolvable path references in AGENTS.md files by extracting path-like strings via regex patter...
+purpose: validator.ts detects phantom path references in AGENTS.md files by extracting path-like strings via regex patterns, r...
 ---
-**validator.ts detects unresolvable path references in AGENTS.md files by extracting path-like strings via regex patterns, resolving them against both the AGENTS.md directory and project root with .ts/.js fallback logic, and returning PhantomPathInconsistency objects for non-existent paths.**
+**validator.ts detects phantom path references in AGENTS.md files by extracting path-like strings via regex patterns, resolving them against filesystem locations, and reporting unresolved references as PhantomPathInconsistency objects.**
 
-## Exported Functions
+## Exported Function
 
-### checkPhantomPaths
-```typescript
-function checkPhantomPaths(
-  agentsMdPath: string,
-  content: string,
-  projectRoot: string,
-): PhantomPathInconsistency[]
-```
-
-Extracts path-like references from AGENTS.md content using `PATH_PATTERNS`, resolves each unique path against `agentsMdDir` (via `path.dirname(agentsMdPath)`) and `projectRoot`, verifies existence via `existsSync()`, and returns `PhantomPathInconsistency[]` for unresolved paths with `type: 'phantom-path'`, `severity: 'warning'`, relative `agentsMdPath`, `description`, and `details` object containing `referencedPath`, `resolvedTo` (relative to projectRoot), and `context` (first 120 chars of containing line).
+`checkPhantomPaths(agentsMdPath: string, content: string, projectRoot: string): PhantomPathInconsistency[]` extracts path references from AGENTS.md content using `PATH_PATTERNS`, resolves each path against multiple base directories, verifies existence via `existsSync()`, and returns array of inconsistency objects for non-existent paths.
 
 ## Path Extraction Patterns
 
-### PATH_PATTERNS
-```typescript
-const PATH_PATTERNS: RegExp[] = [
-  /\[(?:[^\]]*)\]\((\.[^)]+)\)/g,              // Markdown links: [text](./path)
-  /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g,  // Backtick paths: `src/foo/bar.ts`
-  /(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi, // Prose paths: "from src/foo/"
-]
-```
-
-Three regex patterns capture: (1) markdown link targets starting with `.`, (2) backtick-quoted paths beginning with `src/`, `./`, or `../` with 1-4 letter extensions, (3) prose-embedded `src/` paths following keywords "from", "in", "by", "via", or "see" (case-insensitive via `i` flag).
-
-### SKIP_PATTERNS
-```typescript
-const SKIP_PATTERNS: RegExp[] = [
-  /node_modules/,
-  /\.git\//,
-  /^https?:/,
-  /\{\{/,                  // template placeholders
-  /\$\{/,                  // template literals
-  /\*/,                    // glob patterns
-  /\{[^}]*,[^}]*\}/,      // brace expansion: {a,b,c}
-]
-```
-
-Excludes vendor directories (`node_modules`, `.git/`), URLs (`http://`, `https://`), template syntax (`{{`, `${`), glob wildcards (`*`), and brace expansions (`{a,b,c}`) from validation via `SKIP_PATTERNS.some((p) => p.test(rawPath))`.
+`PATH_PATTERNS` contains three regex patterns for detecting file references:
+- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` matches Markdown link targets like `[text](./path)` or `[text](path)`
+- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` matches backtick-quoted paths starting with `src/`, `./`, or `../` followed by 1-4 character file extension
+- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` matches prose-embedded paths following contextual keywords with optional backticks
 
 ## Path Resolution Strategy
 
-Attempts resolution in order: (1) `path.resolve(agentsMdDir, rawPath)`, (2) `path.resolve(projectRoot, rawPath)`, (3) `.js` → `.ts` substitution via `fromAgentsMd.replace(/\.js$/, '.ts')` and `fromRoot.replace(/\.js$/, '.ts')` for TypeScript import convention support. Uses `tryPaths.some((p) => existsSync(p))` to validate at least one candidate exists.
+For each extracted path, `checkPhantomPaths()` attempts resolution in priority order:
+1. `path.resolve(agentsMdDir, rawPath)` resolves relative to AGENTS.md directory
+2. `path.resolve(projectRoot, rawPath)` resolves relative to project root for `src/` paths
+3. If `rawPath.endsWith('.js')`, appends `.replace(/\.js$/, '.ts')` variants to `tryPaths[]` to handle TypeScript import convention where `.ts` source imports use `.js` extension
 
-## Deduplication and Context Extraction
+Calls `existsSync()` on all candidate paths; if none exist, creates `PhantomPathInconsistency` with `type: 'phantom-path'`, `severity: 'warning'`.
 
-Maintains `seen` Set tracking `rawPath` strings to skip duplicate pattern matches via `seen.has(rawPath)` check before processing. Extracts context line via `content.split('\n')` and `lines.find((l) => l.includes(rawPath))`, truncating to 120 characters via `contextLine.trim().slice(0, 120)` for inclusion in `PhantomPathInconsistency.details.context`.
+## Exclusion Patterns
 
-## Integration Points
+`SKIP_PATTERNS` array filters out non-file references before validation:
+- `/node_modules/`, `/\.git\//` exclude dependency/VCS paths
+- `/^https?:/` excludes URLs
+- `/\{\{/`, `/\$\{/` exclude template placeholders and template literals
+- `/\*/`, `/\{[^}]*,[^}]*\}/` exclude glob patterns and brace expansions
 
-Consumed by `src/quality/phantom-paths/index.ts` as part of quality validation pipeline. Returns `PhantomPathInconsistency` discriminated union member conforming to `src/quality/types.ts` schema with required fields: `type`, `severity`, `agentsMdPath`, `description`, `details`.
+## Inconsistency Reporting
+
+Each phantom path generates `PhantomPathInconsistency` object with:
+- `agentsMdPath` normalized via `path.relative(projectRoot, agentsMdPath)`
+- `description` formatted as `"Phantom path reference: \"${rawPath}\" does not exist"`
+- `details.referencedPath` contains original extracted path string
+- `details.resolvedTo` shows attempted resolution via `path.relative(projectRoot, fromAgentsMd)`
+- `details.context` includes containing line via `lines.find((l) => l.includes(rawPath))` truncated to 120 characters
+
+## Deduplication
+
+`seen` Set tracks `rawPath` strings to prevent duplicate validation of same reference appearing multiple times in content. Skips processing when `seen.has(rawPath)` returns true.

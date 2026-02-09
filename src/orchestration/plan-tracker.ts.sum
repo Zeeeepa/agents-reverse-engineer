@@ -1,33 +1,33 @@
 ---
-generated_at: 2026-02-09T16:10:54.063Z
+generated_at: 2026-02-09T17:45:29.143Z
 content_hash: e162684d4e68559017b2915d2aa98f8c025b3e699aa5d84b58e7848c17f69da9
-purpose: PlanTracker maintains in-memory markdown state for GENERATION-PLAN.md and serializes concurrent checkbox updates via ...
+purpose: PlanTracker maintains in-memory GENERATION-PLAN.md markdown content and serializes concurrent checkbox updates via pr...
 ---
-**PlanTracker maintains in-memory markdown state for GENERATION-PLAN.md and serializes concurrent checkbox updates via promise-chain writes during three-phase generation.**
+**PlanTracker maintains in-memory GENERATION-PLAN.md markdown content and serializes concurrent checkbox updates via promise-chain writes to prevent file corruption.**
 
-## Exported Interface
+## Exported Class
 
-**PlanTracker** class with constructor signature `constructor(projectRoot: string, initialMarkdown: string)` stores plan path as `path.join(projectRoot, CONFIG_DIR, 'GENERATION-PLAN.md')` and initializes `content: string` field with provided markdown. Imports `CONFIG_DIR` from `../config/loader.js` (constant value `.agents-reverse-engineer`).
+`PlanTracker` provides three public methods:
+- `constructor(projectRoot: string, initialMarkdown: string)` — stores markdown in `this.content`, computes `this.planPath` as `path.join(projectRoot, CONFIG_DIR, 'GENERATION-PLAN.md')`
+- `async initialize(): Promise<void>` — creates parent directory via `mkdir(..., { recursive: true })`, writes `this.content` to `this.planPath`, swallows errors (non-critical)
+- `markDone(itemPath: string): void` — replaces checkbox pattern `` `- [ ] \`${itemPath}\`` `` with `` `- [x] \`${itemPath}\`` `` in `this.content`, chains write to `this.writeQueue` promise with `.catch()` suppression
+- `async flush(): Promise<void>` — awaits `this.writeQueue` to ensure all serialized writes complete
 
-**initialize()** async method creates parent directory via `mkdir(path.dirname(this.planPath), { recursive: true })` and writes `this.content` to disk with `writeFile(this.planPath, this.content, 'utf8')`. Swallows exceptions (non-critical operation—generation continues without tracking).
+## Concurrency Strategy
 
-**markDone(itemPath: string)** synchronous method replaces checkbox via exact string match: `- [ ] \`${itemPath}\`` → `- [x] \`${itemPath}\``. Returns early if no replacement occurred (no match). Chains `writeFile(this.planPath, this.content, 'utf8')` onto `this.writeQueue` promise field, catching errors silently (non-critical).
+Maintains `private writeQueue: Promise<void> = Promise.resolve()` to serialize disk writes. Each `markDone()` call appends `writeFile()` to the promise chain via `this.writeQueue = this.writeQueue.then(...)`, preventing race conditions when concurrent Phase 1 workers complete tasks simultaneously.
 
-**flush()** async method awaits `this.writeQueue` to ensure all pending writes complete before exiting.
+## Usage Pattern
 
-## Serialization Pattern
+Instantiated once at start of `executeGenerate()` in `src/generation/orchestrator.ts`, passed to worker pool, invoked by `markDone(itemPath)` after each task completion, finalized by `flush()` before function return.
 
-**writeQueue** field (type `Promise<void>`, initialized as `Promise.resolve()`) forms promise chain preventing concurrent `markDone()` calls from corrupting disk file. Each `markDone()` invocation updates in-memory `content`, then chains: `this.writeQueue = this.writeQueue.then(() => writeFile(...)).catch(() => {})`. Subsequent calls wait for previous write to finish before starting next write.
+## Item Path Conventions
 
-## Path Format Requirements
+Caller must pass exact path as it appears in markdown:
+- File analysis: `src/cli/init.ts`
+- Directory aggregation: `src/cli/AGENTS.md` (caller appends `/AGENTS.md` suffix)
+- Root synthesis: `CLAUDE.md`
 
-Callers must pass `itemPath` matching exact markdown format used in GENERATION-PLAN.md:
-- File task: `src/cli/init.ts` (relative source path)
-- Directory task: `src/cli/AGENTS.md` (caller appends `/AGENTS.md` suffix)
-- Root document task: `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` (root-level filenames)
+## Dependencies
 
-Checkbox pattern uses backtick-wrapped paths: `` `${itemPath}` ``.
-
-## Integration Context
-
-Created once per `executeGenerate()` invocation in `src/generation/executor.ts`. Workers call `markDone()` from concurrent Phase 1 file analysis pool. Sequential Phase 2 directory aggregation and Phase 3 root synthesis also call `markDone()` but without concurrency concerns. Final `flush()` call before `executeGenerate()` returns ensures all queued writes complete.
+Imports `writeFile` and `mkdir` from `node:fs/promises`, `path` from `node:path`, `CONFIG_DIR` constant from `src/config/loader.ts`.

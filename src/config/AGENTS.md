@@ -2,144 +2,61 @@
 
 # src/config
 
-Configuration management layer providing YAML-based project configuration with Zod schema validation, adaptive concurrency computation based on system resources, and default exclusion rules for file discovery.
+Configuration loading, validation, and default value computation for `.agents-reverse-engineer/config.yaml`, including Zod schema enforcement, platform-adaptive concurrency calculation, and annotated YAML file generation with memory-bounded worker pool sizing.
 
 ## Contents
 
-### Core Modules
+### Schema Definition
 
-**[schema.ts](./schema.ts)** — Exports `ConfigSchema` (root Zod schema accepting empty object), `ExcludeSchema` (patterns/vendorDirs/binaryExtensions arrays), `OptionsSchema` (followSymlinks/maxFileSize), `OutputSchema` (colors boolean), `AISchema` (backend enum/model/timeoutMs/maxRetries/concurrency/telemetry with dynamic default via `getDefaultConcurrency()` invocation), and inferred TypeScript types `Config`, `ExcludeConfig`, `OptionsConfig`, `OutputConfig`, `AIConfig`.
+**[schema.ts](./schema.ts)** — `ConfigSchema` root validator composed of `ExcludeSchema` (patterns/vendorDirs/binaryExtensions arrays), `OptionsSchema` (followSymlinks/maxFileSize), `OutputSchema` (colors), `AISchema` (backend/model/timeoutMs/maxRetries/concurrency/telemetry). Exports inferred types: `Config`, `ExcludeConfig`, `OptionsConfig`, `OutputConfig`, `AIConfig`. All schemas chain `.default()` enabling partial parse with full default population.
 
-**[loader.ts](./loader.ts)** — Exports `loadConfig(root, options)` reading `.agents-reverse-engineer/config.yaml` via YAML parsing and `ConfigSchema.parse()` validation (returns defaults on ENOENT, emits `config:loaded` trace event, throws `ConfigError` on ZodError/parse failures), `configExists(root)` checking file presence via `fs.access()`, `writeDefaultConfig(root)` generating commented YAML template with inline defaults, `ConfigError` class extending Error with `filePath` and `cause` properties, and constants `CONFIG_DIR` ('.agents-reverse-engineer'), `CONFIG_FILE` ('config.yaml').
+**[defaults.ts](./defaults.ts)** — Exports `DEFAULT_VENDOR_DIRS` (18 directories: node_modules, .git, dist, build, target, .next, __pycache__, venv, .cargo, .gradle, .agents-reverse-engineer, .agents, .planning, .claude, .opencode, .gemini), `DEFAULT_EXCLUDE_PATTERNS` (lock files, dotfiles, logs, AI-generated docs, *.sum files), `DEFAULT_BINARY_EXTENSIONS` (26 extensions: images, archives, executables, media, documents, fonts, bytecode), `DEFAULT_MAX_FILE_SIZE` (1048576 bytes). `getDefaultConcurrency()` computes `clamp(cores × 5, MIN=2, min(memCap, MAX=20))` where `memCap = floor((totalMemGB × 0.5) / 0.512)` enforces memory constraint allocating 50% RAM divided by 512MB subprocess heap limit.
 
-**[defaults.ts](./defaults.ts)** — Exports `getDefaultConcurrency()` computing worker pool size via formula `clamp(cores * 5, 2, min(memCap, 20))` where `memCap = floor((totalMemGB * 0.5) / 0.512)` caps memory usage at 50% of RAM divided by 512MB subprocess heap budget, constants `DEFAULT_VENDOR_DIRS` (18 directories: node_modules/.git/dist/build/__pycache__/.next/venv/.venv/target/.cargo/.gradle/.agents-reverse-engineer/.agents/.planning/.claude/.opencode/.gemini/vendor), `DEFAULT_EXCLUDE_PATTERNS` (26 globs: AI docs/lock files/dotfiles), `DEFAULT_BINARY_EXTENSIONS` (26 extensions: images/archives/executables/media/documents/fonts/compiled), `DEFAULT_MAX_FILE_SIZE` (1MB threshold), and `DEFAULT_CONFIG` object spreading all default arrays.
+**[loader.ts](./loader.ts)** — `loadConfig(root, options?)` reads `config.yaml` from `.agents-reverse-engineer/`, parses via `yaml.parse()`, validates with `ConfigSchema`, returns defaults on `ENOENT`, throws `ConfigError` wrapping `ZodError` with formatted issue paths. Emits `config:loaded` trace events with configPath/model/concurrency fields. `writeDefaultConfig(root)` creates annotated YAML with five comment-delimited sections (exclusions, discovery options, output formatting, AI service), interpolates defaults via spread operators, quotes patterns containing YAML metacharacters `[*{}\[\]?,:#&!|>'"%@\`]` via `yamlScalar()`, comments out concurrency line showing override syntax.
 
-## Configuration Schema Hierarchy
+## Configuration Structure
 
-ConfigSchema composes four nested schemas via Zod object merging:
+The config file divides into four sections:
 
-1. **exclude** (ExcludeSchema) — File/directory filtering rules
-   - `patterns: string[]` — Gitignore-style globs (default: 26 patterns excluding AGENTS.md/CLAUDE.md/lock files/*.sum/*.log)
-   - `vendorDirs: string[]` — Third-party directories to skip (default: 18 directories)
-   - `binaryExtensions: string[]` — Non-text file extensions (default: 26 extensions)
+- **exclude**: File/directory exclusion rules with glob patterns, vendor directory names, binary extension list
+- **options**: Discovery behavior toggles (followSymlinks) and thresholds (maxFileSize in bytes)
+- **output**: Terminal formatting preferences (ANSI colors)
+- **ai**: AI service configuration (backend selection, model override, subprocess timeout, retry limits, worker pool concurrency, telemetry retention)
 
-2. **options** (OptionsSchema) — Discovery traversal behavior
-   - `followSymlinks: boolean` — Enable symlink following (default: false)
-   - `maxFileSize: number` — Binary detection threshold in bytes (default: 1048576 = 1MB)
+## Memory-Aware Concurrency
 
-3. **output** (OutputSchema) — CLI rendering preferences
-   - `colors: boolean` — Enable ANSI color codes (default: true)
+`getDefaultConcurrency()` implements memory-bounded worker pool sizing preventing RAM exhaustion where `cores × 5` spawns too many 512MB subprocesses. Computes `memCap = floor((totalMemGB × 0.5) / 0.512)` limiting concurrent subprocesses to fit within 50% memory budget, applies `Math.min(computed, memCap, MAX_CONCURRENCY)` respecting memory constraint alongside schema maximum. Fallback uses `Infinity` memCap when `totalMemGB ≤ 1` to avoid division-by-zero on resource-constrained systems.
 
-4. **ai** (AISchema) — AI service orchestration parameters
-   - `backend: 'claude' | 'gemini' | 'opencode' | 'auto'` — CLI backend selection (default: 'auto')
-   - `model: string` — Backend-specific model identifier (default: 'sonnet')
-   - `timeoutMs: number` — Subprocess timeout milliseconds (default: 300000 = 5 minutes)
-   - `maxRetries: number` — Exponential backoff retry attempts (default: 3, min: 0)
-   - `concurrency: number` — Worker pool size (default: dynamic via `getDefaultConcurrency()`, min: 1, max: 20)
-   - `telemetry.keepRuns: number` — Run log retention count (default: 50, min: 0)
+## Behavioral Contracts
 
-## Adaptive Concurrency Algorithm
+### Schema Validation Constraints
 
-`getDefaultConcurrency()` implements memory-aware concurrency calculation:
+- AISchema concurrency: `z.number().min(1).max(20)` enforces 1-20 worker pool range
+- OptionsSchema maxFileSize: `z.number().positive()` rejects zero/negative thresholds
+- AISchema backend: `z.enum(['claude', 'gemini', 'opencode', 'auto'])` limits backend values
+- AISchema telemetry.keepRuns: `z.number().min(0)` allows zero for unlimited retention
 
-1. **CPU-based baseline**: `cores * 5` where `cores = os.availableParallelism() || os.cpus().length`
-2. **Memory capacity ceiling**: `memCap = floor((totalMemGB * 0.5) / 0.512)` allocating 50% of system RAM with 512MB per subprocess
-3. **Clamping**: `max(2, min(baseline, memCap, 20))` enforcing [2, 20] interval
-4. **Edge case handling**: Returns Infinity when `totalMemGB <= 1` to bypass memory constraint on low-RAM systems
+### YAML Metacharacter Pattern
 
-Constants:
-- `CONCURRENCY_MULTIPLIER = 5` (CPU core scaling factor)
-- `MIN_CONCURRENCY = 2` (floor matching WSL default)
-- `MAX_CONCURRENCY = 20` (ceiling matching Zod `.max(20)` constraint)
-- `SUBPROCESS_HEAP_GB = 0.512` (512MB heap budget from `NODE_OPTIONS='--max-old-space-size=512'` in subprocess.ts)
-- `MEMORY_FRACTION = 0.5` (allocate 50% of total RAM to pool)
+`yamlScalar()` tests input against `/[*{}\[\]?,:#&!|>'"%@\`]/` pattern, double-quotes and backslash-escapes `\` → `\\`, `"` → `\"` when matched.
 
-## Configuration Loading Workflow
+### Default Formulas
 
-`loadConfig(root, options)` executes sequence:
+- Concurrency: `clamp(cores × 5, 2, min(floor((totalMemGB × 0.5) / 0.512), 20))`
+- Memory cap: `floor((os.totalmem() / 1024³ × 0.5) / 0.512)` concurrent processes
+- Timeout default: `300_000` milliseconds (5 minutes)
 
-1. **Path resolution**: Constructs `${root}/.agents-reverse-engineer/config.yaml`
-2. **File read**: `readFile(configPath, 'utf-8')` with ENOENT catch returning `ConfigSchema.parse({})`
-3. **YAML parsing**: `parse(rawYaml)` with Error catch wrapped in ConfigError
-4. **Schema validation**: `ConfigSchema.parse(raw)` with ZodError catch formatted as `${path}: ${message}`
-5. **Trace emission**: `tracer?.emit({ type: 'config:loaded', configPath, model, concurrency })`
-6. **Debug output**: `console.error(pc.dim(JSON.stringify(config, null, 2)))` when `options.debug` enabled
+### Error Message Format
 
-Error paths throw ConfigError with:
-- `message`: Formatted validation errors or YAML parse message
-- `filePath`: Absolute config file path
-- `cause`: Underlying ZodError or Error instance
+ConfigError validation failures: `"ai.concurrency: Expected number"` (field path colon-separated from Zod issue message, joined by newlines for multiple issues).
 
-## Default Configuration Template
+### Trace Event Schema
 
-`writeDefaultConfig(root)` generates YAML with four comment-delimited sections:
+`config:loaded` payload: `{ type: 'config:loaded', configPath: string, model: string | null, concurrency: number }` emitted twice per `loadConfig()` call (once for file path via `path.relative(root, configPath)`, once for defaults with literal `'(defaults)'`).
 
-```yaml
-# FILE & DIRECTORY EXCLUSIONS
-exclude:
-  patterns: [...26 quoted globs...]
-  vendorDirs: [...18 directory names...]
-  binaryExtensions: [...26 extensions...]
+## File Relationships
 
-# DISCOVERY OPTIONS
-options:
-  followSymlinks: false
-  maxFileSize: 1048576
-
-# OUTPUT FORMATTING
-output:
-  colors: true
-
-# AI SERVICE CONFIGURATION
-ai:
-  backend: auto
-  model: sonnet
-  timeoutMs: 300000
-  maxRetries: 3
-  # concurrency: <current machine default>
-  telemetry:
-    keepRuns: 50
-```
-
-`yamlScalar(value)` helper quotes strings containing YAML metacharacters (`[*{}\[\]?,:#&!|>'"%@` ]`) via regex `/[*{}\[\]?,:#&!|>'"%@`]/` test, escapes backslashes (`\\` → `\\\\`) and quotes (`"` → `\\"`) before wrapping in double quotes.
-
-## Integration with Codebase
-
-**Consumed by**:
-- `src/cli/init.ts` — Calls `writeDefaultConfig()` for initialization command
-- `src/cli/generate.ts`, `src/cli/update.ts`, `src/cli/discover.ts` — Call `loadConfig()` to retrieve runtime configuration
-- `src/orchestration/pool.ts` — Uses `config.ai.concurrency` for worker count
-- `src/ai/service.ts` — Uses `config.ai.backend`, `config.ai.model`, `config.ai.timeoutMs`, `config.ai.maxRetries`
-- `src/discovery/walker.ts` — Uses `config.exclude.*` and `config.options.*` for file filtering
-- `src/output/logger.ts` — Uses `config.output.colors` for picocolors enablement
-- `src/ai/telemetry/cleanup.ts` — Uses `config.ai.telemetry.keepRuns` for log retention
-
-**Provides types to**:
-- All CLI entry points requiring type-safe configuration access
-- Orchestration modules needing concurrency/timeout parameters
-- Discovery filters requiring exclusion rule arrays
-
-## Default Exclusion Patterns
-
-**DEFAULT_EXCLUDE_PATTERNS** (26 globs):
-- AI docs: `AGENTS.md`, `CLAUDE.md`, `OPENCODE.md`, `GEMINI.md` (root + recursive `**/*`)
-- Lock files: `*.lock`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `bun.lockb`, `Gemfile.lock`, `Cargo.lock`, `poetry.lock`, `composer.lock`, `go.sum`
-- Dotfiles: `.gitignore`, `.gitattributes`, `.gitkeep`, `.env` (root + recursive `**/.env*`)
-- Artifacts: `*.log`, `*.sum` (root + recursive), `**/SKILL.md`
-
-**DEFAULT_VENDOR_DIRS** (18 directories):
-- Package managers: `node_modules`, `vendor`
-- Build outputs: `dist`, `build`, `target`, `.next`, `__pycache__`
-- Version control: `.git`
-- Python venvs: `venv`, `.venv`
-- Cargo/Gradle caches: `.cargo`, `.gradle`
-- AI assistant directories: `.agents-reverse-engineer`, `.agents`, `.planning`, `.claude`, `.opencode`, `.gemini`
-
-**DEFAULT_BINARY_EXTENSIONS** (26 extensions):
-- Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`
-- Archives: `.zip`, `.tar`, `.gz`, `.rar`, `.7z`
-- Executables: `.exe`, `.dll`, `.so`, `.dylib`
-- Media: `.mp3`, `.mp4`, `.wav`
-- Documents: `.pdf`
-- Fonts: `.woff`, `.woff2`, `.ttf`, `.eot`
-- Compiled: `.class`, `.pyc`
+- **schema.ts** → **defaults.ts**: Imports `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, `DEFAULT_EXCLUDE_PATTERNS`, `getDefaultConcurrency` for `.default()` chaining
+- **loader.ts** → **schema.ts**: Imports `ConfigSchema` for parse, `Config` type for return annotation
+- **loader.ts** → **defaults.ts**: Imports all defaults for YAML interpolation in `writeDefaultConfig()`
+- **loader.ts** → **../orchestration/trace.ts**: Imports `ITraceWriter` for `config:loaded` event emission

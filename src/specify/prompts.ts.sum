@@ -1,46 +1,34 @@
 ---
-generated_at: 2026-02-09T16:11:26.237Z
-content_hash: 99af1321550c42c8b2df2aaee50035468303a3acfa809939c22df0bca806a21a
-purpose: prompts.ts constructs system and user prompts for AI-driven project specification synthesis from AGENTS.md corpus, en...
+generated_at: 2026-02-09T17:45:55.949Z
+content_hash: a005cc2ce7f0f41e1068ba757a6e3b22a2dd3f6c695e3f5bd3e46cb0782fe913
+purpose: Defines prompt engineering templates for AI-driven project specification synthesis via `buildSpecPrompt()` function a...
 ---
-**prompts.ts constructs system and user prompts for AI-driven project specification synthesis from AGENTS.md corpus, enforcing concern-based organization and behavioral contract preservation.**
+**Defines prompt engineering templates for AI-driven project specification synthesis via `buildSpecPrompt()` function and `SPEC_SYSTEM_PROMPT` constant.**
 
 ## Exported Types
 
-`SpecPrompt` interface contains `system: string` and `user: string` properties representing the prompt pair for AI specification generation.
+`SpecPrompt` interface contains `system: string` and `user: string` properties representing the system instructions and user content for AI spec generation.
 
 ## Exported Constants
 
-`SPEC_SYSTEM_PROMPT` defines the system instruction string for specification synthesis, containing 2,850+ characters of constraints and formatting rules.
+`SPEC_SYSTEM_PROMPT` defines the system prompt enforcing 11-section conceptual organization: (1) Project Overview, (2) Architecture, (3) Public API Surface, (4) Data Structures & State, (5) Configuration, (6) Dependencies, (7) Behavioral Contracts (split into Runtime Behavior and Implementation Contracts), (8) Test Contracts, (9) Build Plan, (10) Prompt Templates & System Instructions, (11) IDE Integration & Installer. Prohibits folder-mirroring and exact file path prescription. Mandates verbatim reproduction of reproduction-critical content from annex files: regex patterns, format strings, magic constants, prompt templates, IDE templates, environment variable names.
 
 ## Exported Functions
 
-`buildSpecPrompt(docs: AgentsDocs): SpecPrompt` assembles the prompt pair by injecting all AGENTS.md documents from `docs` array into user prompt with section delimiters formatted as `### ${doc.relativePath}`, appending output requirements list, and returning object with `system: SPEC_SYSTEM_PROMPT` and `user: userSections.join('\n')`.
+`buildSpecPrompt(docs: AgentsDocs, annexFiles?: AgentsDocs): SpecPrompt` constructs the prompt pair by concatenating all AGENTS.md content with section delimiters (`### ${doc.relativePath}\n\n${doc.content}`), appending optional annex file content (reproduction-critical source files), and injecting output requirements listing the mandatory 11-section structure. Returns `SpecPrompt` with `system` set to `SPEC_SYSTEM_PROMPT` and `user` containing structured markdown with section headers for AGENTS.md files, annex files (if provided), and explicit output requirements.
 
-## Prompt Architecture
+## Integration Context
 
-`SPEC_SYSTEM_PROMPT` enforces nine mandatory sections in sequence: (1) Project Overview with technology stack versions, (2) Architecture with module boundaries and design rationale, (3) Public API Surface with full type signatures, (4) Data Structures & State including serialization formats, (5) Configuration with types/defaults/validation, (6) Dependencies with exact versions and rationale, (7) Behavioral Contracts split into Runtime Behavior (error types/codes, retry formulas, concurrency model, lifecycle hooks) and Implementation Contracts (verbatim regex patterns, format strings, magic constants, environment variables, file format specs), (8) Test Contracts with per-module scenarios and edge cases, (9) Build Plan with phased implementation sequence and dependency ordering.
+Consumed by `src/specify/index.ts` which calls `buildSpecPrompt()` with output from `collectAgentsDocs()` (recursive AGENTS.md traversal) and optionally `collectAnnexFiles()` (reproduction-critical source extraction). The resulting `SpecPrompt` is passed to `AIService.call()` for synthesis into `specs/SPEC.md` or split multi-file specs.
 
-## Organization Constraints
+## Behavioral Contracts
 
-System prompt prohibits folder-mirroring via rules: "Describe MODULE BOUNDARIES and their interfaces — not file paths or directory layouts", "Do NOT prescribe exact filenames or file paths", "Do NOT mirror the project's folder structure", "Do NOT use directory names as section headings". Mandates conceptual grouping by concern rather than directory structure.
+Section 7 of `SPEC_SYSTEM_PROMPT` mandates two subsections: (a) Runtime Behavior — error types/codes, retry formulas/delays, concurrency model, lifecycle hooks; (b) Implementation Contracts — verbatim regex patterns in backticks, format strings with examples, magic constants with meanings, environment variable names with expected values, file format specifications (YAML schemas, NDJSON structures). Explicitly forbids paraphrasing regex patterns into prose descriptions.
 
-## Behavioral Contract Requirements
+Section 10 (Prompt Templates & System Instructions) requires FULL verbatim text reproduction from annex files or AGENTS.md content, organized by pipeline phase or functional area, preserving placeholder syntax (e.g., `{{FILE_PATH}}`).
 
-System prompt mandates "MUST include verbatim regex patterns, format strings, and magic constants from the source documents — do NOT paraphrase regex patterns into prose descriptions". Specifies consolidation of duplicated constants across modules into single definition with cross-references. Implementation Contracts subsection must capture reproduction-critical details: regex patterns in backticks, format string exact structures with examples, magic constant meanings, environment variable expected values, YAML schemas, NDJSON structures.
+Section 11 (IDE Integration & Installer) requires verbatim reproduction of command templates per platform, platform configuration objects (path prefixes, filename conventions, frontmatter formats), installer permission lists, hook definitions.
 
-## User Prompt Construction
+## Output Format Rules
 
-`buildSpecPrompt` creates `userSections` array starting with task description "Generate a comprehensive project specification from the following documentation", followed by `## AGENTS.md Files (${docs.length} directories)` header, then maps `docs` array to section strings via `doc => '### ${doc.relativePath}\n\n${doc.content}'`, appends `## Output Requirements` section repeating the nine mandatory sections list with "(error handling, concurrency, lifecycle, PLUS verbatim regex patterns, format specs, magic constants, templates)" for Behavioral Contracts, and terminates with "Output ONLY the markdown content. No preamble." instruction.
-
-## Output Format Enforcement
-
-Both prompts enforce no-preamble output via terminal instructions: system prompt ends with "OUTPUT: Raw markdown. No preamble. No meta-commentary. No 'Here is...' or 'I've generated...' prefix.", user prompt ends with "Output ONLY the markdown content. No preamble." This prevents conversational wrapper text in AI responses.
-
-## Integration Points
-
-Consumes `AgentsDocs` type from `../generation/collector.js` representing array of objects with `relativePath: string` and `content: string` properties. Called by `src/specify/index.ts` orchestrator which invokes `collectAgentsDocs()` to gather all AGENTS.md files, passes result to `buildSpecPrompt()`, then feeds resulting prompts to `AIService.call()`.
-
-## Audience Targeting
-
-System prompt specifies "AUDIENCE: AI agents (LLMs) — use structured, precise, instruction-oriented language. Every statement should be actionable." This contrasts with human-targeted documentation by requiring all content to be formulated as executable instructions for code generation rather than explanatory prose.
+`SPEC_SYSTEM_PROMPT` enforces "Raw markdown. No preamble. No meta-commentary. No 'Here is...' or 'I've generated...' prefix." `buildSpecPrompt()` user prompt concludes with "Output ONLY the markdown content. No preamble." and "Sections 10 and 11 MUST reproduce annex content verbatim. Do NOT summarize prompt templates or IDE templates into prose descriptions."

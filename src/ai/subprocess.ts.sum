@@ -1,49 +1,44 @@
 ---
-generated_at: 2026-02-09T16:09:38.920Z
+generated_at: 2026-02-09T17:44:40.456Z
 content_hash: 2d0c4834799e406b4745aa058f264e3e30d85b9f9c1d84d8d8612ad0bd169e14
-purpose: subprocess.ts spawns AI CLI child processes with timeout enforcement, SIGKILL escalation, stdin piping, and concurren...
+purpose: subprocess.ts spawns and manages AI CLI child processes with timeout enforcement, SIGKILL escalation, stdin piping, a...
 ---
-**subprocess.ts spawns AI CLI child processes with timeout enforcement, SIGKILL escalation, stdin piping, and concurrent subprocess tracking.**
+**subprocess.ts spawns and manages AI CLI child processes with timeout enforcement, SIGKILL escalation, stdin piping, and active subprocess tracking.**
 
 ## Exported Functions
 
-`runSubprocess(command: string, args: string[], options: SubprocessOptions): Promise<SubprocessResult>` spawns AI CLI subprocess via `execFile()` with timeout enforcement. Always resolves (never rejects). Returns `SubprocessResult` containing `stdout`, `stderr`, `exitCode`, `signal`, `durationMs`, `timedOut`, `childPid`. Sends SIGTERM at `options.timeoutMs`, escalates to SIGKILL after 5s grace period if process doesn't exit. Writes `options.input` to stdin if provided, then closes stream via `child.stdin.end()`. Invokes `options.onSpawn(pid)` callback synchronously after spawn for trace emission. Kills process group via `process.kill(-child.pid, 'SIGKILL')` on exit to terminate subprocess trees. Clears SIGKILL timer via `clearTimeout(sigkillTimer)` after callback fires. Detects timeout via `error.killed === true`. Extracts exit code from `error.code` (if number), else `child.exitCode`, else defaults to 1 for errors or 0 for success.
+**runSubprocess(command: string, args: string[], options: SubprocessOptions): Promise<SubprocessResult>** — Spawns AI CLI subprocess via `execFile()`, pipes optional `input` to stdin, enforces timeout via SIGTERM at `options.timeoutMs`, escalates to SIGKILL after 5s grace period if process doesn't exit, tracks active subprocesses in module-scoped Map, invokes `options.onSpawn(pid)` callback synchronously after spawn, always resolves (never rejects) with `SubprocessResult` containing `stdout`, `stderr`, `exitCode`, `signal`, `durationMs`, `timedOut` boolean, and `childPid`.
 
-`getActiveSubprocessCount(): number` returns size of `activeSubprocesses` Map for concurrency debugging.
+**getActiveSubprocessCount(): number** — Returns current count of active subprocesses from module-scoped `activeSubprocesses` Map.
 
-`getActiveSubprocesses(): Array<{ pid: number; command: string; spawnedAt: number; runningMs: number }>` returns array of active subprocess details computed from `activeSubprocesses` Map entries. Calculates `runningMs` as `Date.now() - info.spawnedAt`.
+**getActiveSubprocesses(): Array<{ pid: number; command: string; spawnedAt: number; runningMs: number }>** — Returns array of all active subprocess details with computed `runningMs` elapsed time.
 
 ## Exported Types
 
-`SubprocessOptions` interface with fields:
-- `timeoutMs: number` — subprocess timeout in milliseconds
-- `input?: string` — stdin content to pipe
-- `onSpawn?: (pid: number | undefined) => void` — callback fired synchronously after spawn
+**SubprocessOptions** interface with required `timeoutMs: number`, optional `input?: string` for stdin piping, optional `onSpawn?: (pid: number | undefined) => void` callback fired synchronously when child process spawns.
 
-## Resource Management
+## Process Lifecycle Management
 
-Tracks active subprocesses in `Map<number, { command: string; spawnedAt: number }>` keyed by PID. Registers subprocess via `activeSubprocesses.set(child.pid, { command, spawnedAt })` after spawn. Removes via `activeSubprocesses.delete(child.pid)` in execFile callback. Map enables concurrency monitoring via exported count/detail getters.
+**Timeout enforcement** sends SIGTERM at `timeoutMs` via `execFile` timeout option with `killSignal: 'SIGTERM'`, then schedules unref'd SIGKILL timer at `timeoutMs + SIGKILL_GRACE_MS` (5000ms constant) to force-kill hung processes that ignore SIGTERM.
 
-## Timeout Enforcement Strategy
+**Process group killing** attempts `process.kill(-child.pid, 'SIGKILL')` with negative PID to target entire process tree, falls back to single-process `process.kill(child.pid, 'SIGKILL')` if process group signal fails, wraps in try-catch since process may already be dead.
 
-SIGTERM sent at `options.timeoutMs` via `execFile` timeout option with `killSignal: 'SIGTERM'`. SIGKILL escalation timer set for `timeoutMs + SIGKILL_GRACE_MS` (5000ms). Timer unreffed via `sigkillTimer.unref()` to prevent blocking event loop. Cleared via `clearTimeout()` in callback if process exits before escalation. Process group killing via negative PID (`process.kill(-child.pid, 'SIGKILL')`) terminates entire subprocess tree. Falls back to single-process kill if process group signal fails.
+**Active subprocess tracking** maintains module-scoped `activeSubprocesses` Map storing `{ command: string, spawnedAt: number }` keyed by PID, adds entry after spawn, removes in `execFile` callback, enables concurrency debugging via `getActiveSubprocessCount()` and `getActiveSubprocesses()`.
 
-## Exit Code Extraction Logic
+**Stdin handling** writes `options.input` to `child.stdin` via `.write()` then calls `.end()` to send EOF, preventing child process from blocking indefinitely waiting for stdin closure (see comment: "RESEARCH.md Pitfall 1").
 
-Checks `error === null` → exit code 0. Checks `typeof error.code === 'number'` → use `error.code`. Checks `child.exitCode !== null` → use `child.exitCode`. Else defaults to 1. Required because `error.code` can be string like `'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'` instead of numeric exit code.
+## Exit Code Extraction
 
-## Stdin Handling
+**Exit code precedence** checks `error === null` (returns 0), then `typeof error.code === 'number'` (returns `error.code`), then `child.exitCode !== null` (returns `child.exitCode`), else defaults to 1. Handles `execFile` placing numeric exit codes in `error.code` while also using string error codes like `'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'`.
 
-Writes `options.input` to `child.stdin` if provided and `child.stdin !== null`. Computes byte length via `Buffer.byteLength(options.input, 'utf-8')` for logging. Always calls `child.stdin.end()` to send EOF, preventing child process deadlock waiting for stdin closure.
+**Timeout detection** sets `timedOut = true` when `error !== null && 'killed' in error && error.killed === true`, which `execFile` sets when process exceeds timeout option and is terminated.
 
-## Process Environment
+## Configuration
 
-Passes `maxBuffer: 10 * 1024 * 1024` (10MB) for large AI responses. Sets `encoding: 'utf-8'` and spreads `...process.env` into child environment. Used by `src/ai/service.ts` to inject resource limit variables: `NODE_OPTIONS='--max-old-space-size=512'`, `UV_THREADPOOL_SIZE='4'`, `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS='1'`.
+**maxBuffer** set to `10 * 1024 * 1024` (10MB) to accommodate large AI responses without triggering `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`.
 
-## Constants
-
-`SIGKILL_GRACE_MS = 5_000` — milliseconds between SIGTERM and SIGKILL escalation.
+**SIGKILL_GRACE_MS** constant defines 5000ms grace period between SIGTERM and SIGKILL escalation.
 
 ## Integration Points
 
-Consumed by `AIService.call()` in `src/ai/service.ts` which populates `SubprocessOptions.onSpawn` for trace event emission. Result `SubprocessResult` type defined in `src/ai/types.ts`. Centralizes all AI CLI subprocess spawning for Claude Code, Gemini CLI, OpenCode backends defined in `src/ai/backends/`.
+Imported by `src/ai/service.ts` as sole subprocess spawning mechanism for AI CLI backends (Claude Code, Gemini CLI, OpenCode). Returns `SubprocessResult` consumed by `AIService.call()` for retry logic, telemetry logging, and trace emission.

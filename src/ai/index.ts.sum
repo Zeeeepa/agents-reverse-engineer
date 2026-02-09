@@ -1,54 +1,53 @@
 ---
-generated_at: 2026-02-09T16:09:25.839Z
+generated_at: 2026-02-09T17:44:29.075Z
 content_hash: 8b123030a9ae9b650e3148fccfc8bcfe2bc0e1b2bb0bfa9db2d6a0d7901c3178
-purpose: Barrel export consolidating AI service layer into single public interface: AIService, BackendRegistry, createBackendR...
+purpose: Barrel export aggregating AI service layer public API: exports AIService orchestrator, BackendRegistry with resolveBa...
 ---
-**Barrel export consolidating AI service layer into single public interface: AIService, BackendRegistry, createBackendRegistry, resolveBackend, detectBackend, getInstallInstructions, withRetry, runSubprocess, isCommandOnPath, plus type exports (AIBackend, AIResponse, AICallOptions, SubprocessResult, RetryOptions, TelemetryEntry, RunLog, FileRead) and AIServiceError.**
+**Barrel export aggregating AI service layer public API: exports AIService orchestrator, BackendRegistry with resolveBackend/detectBackend/createBackendRegistry, withRetry retry utility, runSubprocess wrapper, isCommandOnPath utility, and all types from ./types.js (AIBackend, AIResponse, AICallOptions, SubprocessResult, RetryOptions, TelemetryEntry, RunLog, FileRead, AIServiceError) with AIServiceOptions from ./service.js.**
 
-## Public API Surface
+## Exported Symbols
 
-All imports from `src/ai/` must go through this barrel export. Direct imports from `src/ai/backends/` or `src/ai/telemetry/` violate encapsulation.
+**Types:**
+- `AIBackend` — Backend interface with `name`, `isAvailable()`, `call()` methods
+- `AIResponse` — Response shape with `content: string`, `tokensUsed`, `costUsd` metrics
+- `AICallOptions` — Call parameters with `prompt: string`, `fileContext`, `model`, `taskType`, `filePath`
+- `SubprocessResult` — Subprocess execution result with `stdout`, `stderr`, `exitCode`, `signal`, `error`
+- `RetryOptions` — Retry configuration with `maxAttempts: number`, `baseDelayMs: number`, `maxDelayMs: number`, `shouldRetry: (error) => boolean`
+- `TelemetryEntry` — Per-call telemetry with `timestamp`, `backend`, `model`, `tokensUsed`, `costUsd`, `durationMs`, `error`, `filesRead`
+- `RunLog` — Aggregated run metadata with `runId`, `startTime`, `endTime`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheWriteTokens`, `totalCostUsd`, `totalDurationMs`, `errorCount`, `uniqueFilesRead`, `entries: TelemetryEntry[]`
+- `FileRead` — File read metadata with `path: string`, `sizeBytes: number`, `linesRead: number`
+- `AIServiceOptions` — Service constructor options from `./service.js`
 
-### Service Orchestration
+**Error Class:**
+- `AIServiceError` — Custom error class for AI service failures
 
-- **AIService** (class) — Main orchestrator for AI backend calls with telemetry, retries, timeout enforcement
-- **AIServiceOptions** (type) — Configuration interface: `timeoutMs`, `maxRetries`, `telemetry: { keepRuns }`, optional tracer
+**Service Orchestrator:**
+- `AIService` — Main service class coordinating backend calls, retry logic, telemetry logging
 
-### Backend Registry
+**Backend Registry:**
+- `BackendRegistry` — Registry class managing available backends
+- `createBackendRegistry()` — Factory creating registry with Claude/Gemini/OpenCode backends registered
+- `resolveBackend(registry: BackendRegistry, backendName: string): Promise<AIBackend>` — Resolves backend by name ('claude' | 'gemini' | 'opencode' | 'auto'), auto-detection tries backends in order until `isAvailable()` succeeds
+- `detectBackend(registry: BackendRegistry): Promise<AIBackend | null>` — Auto-detects first available backend
+- `getInstallInstructions(backendName: string): string` — Returns installation instructions for specified backend
 
-- **BackendRegistry** (class) — Container for backend implementations with registration and lookup
-- **createBackendRegistry(): BackendRegistry** — Factory initializing registry with Claude, Gemini, OpenCode backends
-- **resolveBackend(registry: BackendRegistry, name: string | 'auto'): Promise<AIBackend>** — Returns backend by name or auto-detects first available
-- **detectBackend(registry: BackendRegistry): Promise<AIBackend | null>** — Iterates registry to find first backend with available command
-- **getInstallInstructions(backendName: string): string** — Returns installation instructions for specified backend
+**Retry Utility:**
+- `withRetry<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>` — Exponential backoff retry wrapper
+- `DEFAULT_RETRY_OPTIONS` — Default retry configuration constant
 
-### Retry Logic
+**Subprocess Wrapper:**
+- `runSubprocess(options: {...}): Promise<SubprocessResult>` — Spawns subprocess with resource limits, timeout enforcement, process group killing
 
-- **withRetry<T>(fn: () => Promise<T>, options?: RetryOptions): Promise<T>** — Exponential backoff retry wrapper
-- **DEFAULT_RETRY_OPTIONS** (const) — Default retry configuration
+**Backend Utilities:**
+- `isCommandOnPath(command: string): Promise<boolean>` — Checks if command exists in PATH via `which` (Unix) or `where` (Windows)
 
-### Subprocess Management
+## Architecture Role
 
-- **runSubprocess(options: SubprocessOptions): Promise<SubprocessResult>** — Spawns AI CLI child process with timeout, resource limits, process group killing
+Serves as the single entry point for AI service layer consumption by CLI commands and orchestration modules. Prevents direct imports from `src/ai/backends/` or `src/ai/telemetry/` by re-exporting all necessary symbols. Consumers import from `./ai/index.js` exclusively.
 
-### Backend Utilities
+## Module Isolation Boundary
 
-- **isCommandOnPath(command: string): Promise<boolean>** — Checks command availability via `which` (exported from `backends/claude.ts`)
-
-## Type Exports
-
-- **AIBackend** — Interface with `name`, `command`, `buildArgs()`, `parseResponse()`, `isAvailable()`
-- **AIResponse** — Standardized response: `content: string`, `finishReason: string`, `usage?: TokenUsage`
-- **AICallOptions** — Call parameters: `prompt: string`, `temperature?: number`, `maxTokens?: number`, `systemPrompt?: string`
-- **SubprocessResult** — Execution result: `stdout: string`, `stderr: string`, `exitCode: number | null`, `signal: string | null`, `pid?: number`, `durationMs: number`
-- **RetryOptions** — Retry config: `maxRetries: number`, `initialDelayMs: number`, `maxDelayMs: number`, `backoffFactor: number`
-- **TelemetryEntry** — Per-call telemetry: `timestamp`, `backend`, `model`, `durationMs`, `tokens`, `cost`, `error?`, `filesRead[]`
-- **RunLog** — Aggregated run log: `startTime`, `endTime`, `calls[]`, `summary: { totalCost, errorCount, uniqueFilesRead }`
-- **FileRead** — File metadata: `path: string`, `sizeBytes: number`, `linesRead: number`
-
-## Error Types
-
-- **AIServiceError** (class extends Error) — Discriminated error with `code` property values: `'BACKEND_NOT_FOUND'`, `'SUBPROCESS_ERROR'`, `'TIMEOUT'`, `'RATE_LIMIT'`, `'PARSE_ERROR'`, `'CONFIG_ERROR'`
+Enforces encapsulation of backend implementations (Claude/Gemini/OpenCode adapters in `./backends/`) and telemetry subsystem (`./telemetry/`) by exposing only high-level abstractions. Internal implementation details remain hidden behind `AIBackend` interface and `AIService` orchestrator.
 
 ## Usage Pattern
 
@@ -65,7 +64,3 @@ const service = new AIService(backend, {
 
 const response = await service.call({ prompt: 'Hello' });
 ```
-
-## Module Constraints
-
-This barrel export enforces layering: consumers import from `ai/index.js`, never reaching into `ai/backends/` or `ai/telemetry/` directly. Internal modules remain encapsulated.

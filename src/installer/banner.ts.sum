@@ -1,39 +1,42 @@
 ---
-generated_at: 2026-02-09T16:10:25.409Z
+generated_at: 2026-02-09T17:45:11.691Z
 content_hash: ea6b907fefb4319b3b96d48d308dbd8c9da81250dad6d2588908838c214d9a81
-purpose: banner.ts provides styled terminal output functions for the ARE installer with ASCII art display, help text formattin...
+purpose: banner.ts provides styled terminal output for the installer including ASCII art, help text, and status messages using...
 ---
-**banner.ts provides styled terminal output functions for the ARE installer with ASCII art display, help text formatting, and colorized message helpers using picocolors.**
-
-## Exported Constants
-
-- `VERSION: string` — Package version string obtained via `getVersion()` from `../version.js`
+**banner.ts provides styled terminal output for the installer including ASCII art, help text, and status messages using picocolors.**
 
 ## Exported Functions
 
-### Display Functions
+**displayBanner()** renders the "ARE" ASCII art logo in green via `pc.green()` with version string from `getVersion()` and tagline "AI-friendly codebase documentation".
 
-- `displayBanner(): void` — Renders ASCII art "ARE" logo in green via `pc.green()` with version number and tagline "AI-friendly codebase documentation" in dimmed text via `pc.dim()`
+**showHelp()** prints usage syntax, option flags (`--runtime`, `-g`/`--global`, `-l`/`--local`, `-u`/`--uninstall`, `--force`, `-q`/`--quiet`, `-h`/`--help`), and example commands for interactive mode, global/local installation, and uninstallation workflows.
 
-- `showHelp(): void` — Prints usage instructions with `pc.bold()` section headers covering CLI options (`--runtime`, `-g`/`--global`, `-l`/`--local`, `-u`/`--uninstall`, `--force`, `-q`/`--quiet`, `-h`/`--help`), example invocations with runtime selectors, and installation mode combinations
+**showSuccess(msg: string)** outputs message prefixed with green checkmark `pc.green('✓')`.
 
-- `showNextSteps(runtime: string, filesCreated: number): void` — Displays post-installation instructions with bold "Installation complete!" header, file count summary via `pc.dim()`, numbered steps referencing ARE commands (`/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`) in cyan via `pc.cyan()`, and GitHub documentation URL
+**showError(msg: string)** outputs message prefixed with red X `pc.red('✗')`.
 
-### Message Helpers
+**showWarning(msg: string)** outputs message prefixed with yellow exclamation `pc.yellow('!')`.
 
-- `showSuccess(msg: string): void` — Prints message prefixed with green checkmark `pc.green('✓')`
+**showInfo(msg: string)** outputs message prefixed with cyan arrow `pc.cyan('>')`.
 
-- `showError(msg: string): void` — Prints message prefixed with red X `pc.red('✗')`
+**showNextSteps(runtime: string, filesCreated: number)** displays post-installation instructions listing commands `/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean` with documentation link to GitHub repository.
 
-- `showWarning(msg: string): void` — Prints message prefixed with yellow exclamation `pc.yellow('!')`
+## Exported Constants
 
-- `showInfo(msg: string): void` — Prints message prefixed with cyan arrow `pc.cyan('>')`
+**VERSION** holds package version string obtained from `getVersion()` imported from `../version.js`.
 
 ## Dependencies
 
-- `picocolors` (imported as `pc`) — Terminal color library for ANSI escape sequences
-- `../version.js` — Provides `getVersion()` function returning package version from package.json
+Imports `pc` from `picocolors` for terminal color formatting (`green()`, `red()`, `yellow()`, `cyan()`, `dim()`, `bold()`). Imports `getVersion()` from `../version.js` for package version retrieval.
 
-## ASCII Art Format
+## ASCII Art Pattern
 
-The ASCII banner uses Unicode box-drawing characters (U+2550–U+255D range) to render block letters "ARE" across 6 lines with 25–27 characters per line, followed by version/tagline footer lines.
+Banner uses Unicode box-drawing characters (U+2588 full block, U+2550-U+2557 box drawing) to render:
+```
+ █████╗ ██████╗ ███████╗
+██╔══██╗██╔══██╗██╔════╝
+███████║██████╔╝█████╗  
+██╔══██║██╔══██╗██╔══╝  
+██║  ██║██║  ██║███████╗
+╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
+```

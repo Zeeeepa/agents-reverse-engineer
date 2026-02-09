@@ -1,64 +1,35 @@
 ---
-generated_at: 2026-02-09T16:09:42.706Z
+generated_at: 2026-02-09T17:44:35.731Z
 content_hash: e060bb0cea93ea372937e4dc63e9d5c260e578633be16094c928f681af348f70
-purpose: detector.ts implements Git-based change detection via simple-git and SHA-256 content hashing via Node.js crypto for i...
+purpose: detector.ts provides git-based change detection via simple-git and SHA-256 content hashing for incremental documentat...
 ---
-**detector.ts implements Git-based change detection via simple-git and SHA-256 content hashing via Node.js crypto for incremental documentation updates.**
+**detector.ts provides git-based change detection via simple-git and SHA-256 content hashing for incremental documentation updates.**
 
 ## Exported Functions
 
-### isGitRepo
-```typescript
-async function isGitRepo(projectRoot: string): Promise<boolean>
-```
-Checks if `projectRoot` contains a Git repository by calling `simpleGit(projectRoot).checkIsRepo()`.
+**isGitRepo(projectRoot: string): Promise<boolean>**  
+Calls `simpleGit(projectRoot).checkIsRepo()` to verify git repository presence.
 
-### getCurrentCommit
-```typescript
-async function getCurrentCommit(projectRoot: string): Promise<string>
-```
-Returns HEAD commit hash via `git.revparse(['HEAD'])`, trimmed to remove trailing whitespace.
+**getCurrentCommit(projectRoot: string): Promise<string>**  
+Executes `git.revparse(['HEAD'])` returning trimmed HEAD commit hash.
 
-### getChangedFiles
-```typescript
-async function getChangedFiles(
-  projectRoot: string,
-  baseCommit: string,
-  options: ChangeDetectionOptions = {}
-): Promise<ChangeDetectionResult>
-```
-Detects files changed between `baseCommit` and HEAD using `git diff --name-status -M` (rename detection with 50% similarity threshold). Parses diff output line-by-line with tab-separated status codes: `'A'` (added), `'M'` (modified), `'D'` (deleted), `'R'` prefix (renamed). For renames, extracts `oldPath` from `parts[1]` and new path from `parts[parts.length - 1]`. When `options.includeUncommitted` is true, merges uncommitted changes from `git.status()` arrays: `modified`, `deleted`, `not_added` (untracked), `staged`. Returns `ChangeDetectionResult` with `currentCommit`, `baseCommit`, `changes[]` array of `FileChange`, and `includesUncommitted` boolean.
+**getChangedFiles(projectRoot: string, baseCommit: string, options?: ChangeDetectionOptions): Promise<ChangeDetectionResult>**  
+Detects file changes between `baseCommit` and `HEAD` via `git diff --name-status -M`, parsing status codes `A` (added), `M` (modified), `D` (deleted), `R` (renamed with 50% similarity threshold). When `options.includeUncommitted` is true, merges uncommitted changes via `git.status()` reading `status.modified`, `status.deleted`, `status.not_added`, `status.staged` arrays. Returns `ChangeDetectionResult` containing `currentCommit`, `baseCommit`, `changes: FileChange[]`, `includesUncommitted: boolean`.
 
-### computeContentHash
-```typescript
-async function computeContentHash(filePath: string): Promise<string>
-```
-Reads file content via `readFile(filePath)`, computes SHA-256 hash via `createHash('sha256').update(content).digest('hex')`, returns hex-encoded digest. Used for comparing `.sum` frontmatter `content_hash` against current file state.
+**computeContentHash(filePath: string): Promise<string>**  
+Reads file via `readFile()`, computes SHA-256 hash via `createHash('sha256').update(content).digest('hex')`, returns hex-encoded hash string matching `.sum` YAML frontmatter `content_hash` field.
 
-### computeContentHashFromString
-```typescript
-function computeContentHashFromString(content: string): string
-```
-Synchronous variant accepting in-memory string content, returns hex-encoded SHA-256 digest. Avoids redundant disk read when file content already loaded.
+**computeContentHashFromString(content: string): string**  
+Synchronous variant computing SHA-256 from in-memory string content, avoiding redundant disk reads when file content already loaded.
 
-## Git Diff Parsing
+## Change Detection Algorithm
 
-Parses `git diff --name-status -M` output with format `STATUS\tFILE` or `STATUS\tOLD\tNEW` for renames. Status codes:
-- `'A'` → `status: 'added'`
-- `'M'` → `status: 'modified'`
-- `'D'` → `status: 'deleted'`
-- `'R'` prefix (e.g., `'R100'`) → `status: 'renamed'` with `oldPath` extracted from second tab-delimited part
+Parses `git diff` output with format `STATUS\tFILE` or `STATUS\tOLD\tNEW` for renames. Status codes map to `FileChange.status`: `'A'` → `'added'`, `'M'` → `'modified'`, `'D'` → `'deleted'`, `'R*'` → `'renamed'` with `oldPath` extracted from second tab-delimited field. Rename detection uses `-M` flag with implicit 50% similarity threshold.
 
-## Uncommitted Changes Merge
+## Uncommitted Change Merge Strategy
 
-When `options.includeUncommitted` is true, calls `git.status()` and merges:
-- `status.modified[]` → `status: 'modified'`
-- `status.deleted[]` → `status: 'deleted'`
-- `status.not_added[]` → `status: 'added'` (untracked files)
-- `status.staged[]` → `status: 'added'` (staged additions)
+When `includeUncommitted` enabled, calls `git.status()` and deduplicates against committed changes via `changes.some(c => c.path === file)` predicate. Adds `status.modified` as `'modified'`, `status.deleted` as `'deleted'`, `status.not_added` as `'added'`, `status.staged` as `'added'`. Prevents duplicate `FileChange` entries for files appearing in both committed diff and working tree status.
 
-Deduplicates via `changes.some(c => c.path === file)` check before pushing to `changes[]` array.
+## Integration Points
 
-## Integration with Update Workflow
-
-Used by `src/update/orchestrator.ts` to compute `ChangeDetectionResult`, which drives incremental update decisions: hash mismatches trigger `.sum` regeneration, renamed `oldPath` values enable orphan cleanup, uncommitted changes support `--uncommitted` flag behavior.
+Consumed by `src/update/orchestrator.ts` to compute `filesToAnalyze` by comparing `computeContentHash()` results against `.sum` frontmatter `content_hash` values. Supports non-git workflows via `computeContentHash()` fallback when `isGitRepo()` returns false.

@@ -1,29 +1,42 @@
 ---
-generated_at: 2026-02-09T16:11:10.968Z
+generated_at: 2026-02-09T17:45:58.690Z
 content_hash: 38568303038b8592202e7cb3a10296983279d31d0297e87048561aa7d45cc41e
-purpose: index.ts defines shared TypeScript interfaces for file discovery results, exclusion tracking, and statistics aggregat...
+purpose: Defines shared type interfaces for file discovery results used across discovery, orchestration, and CLI modules.
 ---
-**index.ts defines shared TypeScript interfaces for file discovery results, exclusion tracking, and statistics aggregation used across ARE modules.**
+**Defines shared type interfaces for file discovery results used across discovery, orchestration, and CLI modules.**
 
-## Exported Interfaces
+## Exported Types
 
 ### ExcludedFile
-Represents a file excluded during discovery with metadata:
-- `path: string` — Absolute or relative path to excluded file
-- `reason: string` — Exclusion rationale (e.g., "gitignore pattern", "binary file", "vendor directory")
+Interface representing files filtered out during discovery.
+
+**Properties:**
+- `path: string` — Absolute or relative path to the excluded file
+- `reason: string` — Exclusion rationale (examples: "gitignore pattern", "binary file", "vendor directory")
 
 ### DiscoveryResult
-Output contract for file discovery process:
-- `files: string[]` — Paths of files selected for analysis
-- `excluded: ExcludedFile[]` — Files rejected with explanatory reasons
+Interface aggregating discovery phase output.
+
+**Properties:**
+- `files: string[]` — File paths eligible for analysis (passed to Phase 1 worker pool)
+- `excluded: ExcludedFile[]` — Files filtered out with exclusion metadata
 
 ### DiscoveryStats
-Aggregated metrics from discovery execution:
-- `totalFiles: number` — Count of all files encountered
-- `includedFiles: number` — Count selected for analysis
-- `excludedFiles: number` — Count rejected by filters
-- `exclusionReasons: Record<string, number>` — Histogram mapping reason strings to occurrence counts
+Interface providing discovery metrics for CLI reporting.
 
-## Integration Points
+**Properties:**
+- `totalFiles: number` — Count of all files encountered during traversal
+- `includedFiles: number` — Count of files passing filters (equivalent to `DiscoveryResult.files.length`)
+- `excludedFiles: number` — Count of filtered files (equivalent to `DiscoveryResult.excluded.length`)
+- `exclusionReasons: Record<string, number>` — Histogram mapping exclusion reasons to occurrence counts (aggregated from `ExcludedFile.reason` values)
 
-Consumed by `src/discovery/walker.ts` as return types for directory traversal functions. Used by `src/cli/discover.ts` to format console output and write `GENERATION-PLAN.md`. Referenced in `src/orchestration/runner.ts` for telemetry logging of discovery phase metrics.
+## Usage Context
+
+`DiscoveryResult` is returned by `runDiscovery()` in `src/discovery/run.ts` and consumed by:
+- `discover` command (`src/cli/discover.ts`) for plan generation
+- `generate` command (`src/cli/generate.ts`) for Phase 1 file analysis
+- `update` command (`src/cli/update.ts`) for change detection input
+
+`DiscoveryStats` is computed from `DiscoveryResult` for terminal output in CLI commands via `src/output/logger.ts`.
+
+`ExcludedFile` is populated by filter chain in `src/discovery/walker.ts` using filter modules (`src/discovery/filters/`): `gitignore.ts`, `binary.ts`, `vendor.ts`, `custom.ts`.

@@ -1,58 +1,66 @@
 ---
-generated_at: 2026-02-09T16:10:55.424Z
+generated_at: 2026-02-09T17:46:15.433Z
 content_hash: c54b67ea5f368404974a24012da22317186b49543249ead73a5cec227f874c98
-purpose: Barrel export module exposing the complete orchestration API: runPool, ProgressReporter, ProgressLog, PlanTracker, Co...
+purpose: Barrel export consolidating orchestration module: `runPool`, `ProgressReporter`, `ProgressLog`, `PlanTracker`, `creat...
 ---
-**Barrel export module exposing the complete orchestration API: runPool, ProgressReporter, ProgressLog, PlanTracker, CommandRunner, ITraceWriter, TraceEvent, TraceEventPayload, createTraceWriter, cleanupOldTraces, and shared types (FileTaskResult, RunSummary, ProgressEvent, CommandRunOptions, PoolOptions, TaskResult).**
+**Barrel export consolidating orchestration module: `runPool`, `ProgressReporter`, `ProgressLog`, `PlanTracker`, `createTraceWriter`, `cleanupOldTraces`, `CommandRunner`, and shared types (`FileTaskResult`, `RunSummary`, `ProgressEvent`, `CommandRunOptions`, `PoolOptions`, `TaskResult`, `ITraceWriter`, `TraceEvent`, `TraceEventPayload`).**
 
 ## Exported Types
 
-**FileTaskResult** — Outcome of a single file analysis task (success/failure with error details).
+**FileTaskResult** — result of single file AI analysis with `path`, `success`, `tokensIn`, `tokensOut`, `cacheReadTokens`, `cacheCreationTokens`, `durationMs`, `model`, `error?`.
 
-**RunSummary** — Aggregated metrics from CommandRunner execution (total files, errors, duration, token counts).
+**RunSummary** — aggregated run summary with `version`, `filesProcessed`, `filesFailed`, `filesSkipped`, `totalCalls`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `retryCount`, `totalFilesRead`, `uniqueFilesRead`, `inconsistenciesCodeVsDoc?`, `inconsistenciesCodeVsCode?`, `phantomPaths?`, `inconsistencyReport?`.
 
-**ProgressEvent** — Event payload emitted during pool execution for progress tracking.
+**ProgressEvent** — event emitted to `ProgressReporter` with discriminated `type` (`start` | `done` | `error` | `dir-done` | `root-done`), `filePath`, `index`, `total`, `durationMs?`, `tokensIn?`, `tokensOut?`, `model?`, `error?`.
 
-**CommandRunOptions** — Configuration object passed to CommandRunner methods (includes concurrency, timeout, tracer, failFast flags).
+**CommandRunOptions** — execution options with `concurrency`, `failFast?`, `debug?`, `dryRun?`, `tracer?: ITraceWriter`, `progressLog?: ProgressLog`.
 
-**PoolOptions** — Configuration for runPool including concurrency limit and optional tracer.
+**PoolOptions** — pool configuration with `concurrency`, `failFast?`, `tracer?: ITraceWriter`, `phaseLabel?`, `taskLabels?: string[]`.
 
-**TaskResult** — Generic result type from runPool execution (success/failure discriminated union).
+**TaskResult<T>** — pool task result with `index`, `success`, `value?: T`, `error?: Error`.
 
-**ITraceWriter** — Interface defining emit() method for NDJSON trace event emission.
+**ITraceWriter** — interface for trace event emission with `emit(event: TraceEventPayload): void`, `finalize(): Promise<void>`, `readonly filePath: string`.
 
-**TraceEvent** — Union type of all trace event payloads (phase:start/end, worker:start/end, task:pickup/done, subprocess:spawn/exit, retry).
+**TraceEvent** — discriminated union of 14 event types: `PhaseStartEvent`, `PhaseEndEvent`, `WorkerStartEvent`, `WorkerEndEvent`, `TaskPickupEvent`, `TaskDoneEvent`, `TaskStartEvent`, `SubprocessSpawnEvent`, `SubprocessExitEvent`, `RetryEvent`, `DiscoveryStartEvent`, `DiscoveryEndEvent`, `FilterAppliedEvent`, `PlanCreatedEvent`, `ConfigLoadedEvent`.
 
-**TraceEventPayload** — Base payload structure for all trace events (seq, ts, pid, elapsedMs).
+**TraceEventPayload** — `DistributiveOmit<TraceEvent, 'seq' | 'ts' | 'pid' | 'elapsedMs'>` for event payload without auto-populated base fields.
 
 ## Exported Functions
 
-**runPool** — Iterator-based worker pool executing async tasks with shared iterator across N workers, returns aggregated results with error handling.
+**runPool<T>(tasks: Array<() => Promise<T>>, options: PoolOptions, onComplete?: (result: TaskResult<T>) => void): Promise<TaskResult<T>[]>** — iterator-based concurrency pool executing tasks via shared iterator pattern with N workers, optional `onComplete` callback per task settlement, failFast abort on first error, trace event emission for `worker:start/end`, `task:pickup/done`.
 
-**createTraceWriter** — Factory function returning TraceWriter instance (writes NDJSON to `.agents-reverse-engineer/traces/`) or NullTraceWriter if tracing disabled.
+**createTraceWriter(projectRoot: string, enabled: boolean): ITraceWriter** — factory returning `NullTraceWriter` when disabled (zero overhead) or `TraceWriter` appending NDJSON to `.agents-reverse-engineer/traces/trace-{timestamp}.ndjson` with promise-chain serialization for concurrent-safe writes.
 
-**cleanupOldTraces** — Deletes old trace files from `.agents-reverse-engineer/traces/` directory, retaining only the most recent keepCount files (default 500).
+**cleanupOldTraces(projectRoot: string, keepCount?: number): Promise<number>** — removes old trace files from `.agents-reverse-engineer/traces/`, keeps most recent `keepCount` (default 500), returns deletion count.
 
 ## Exported Classes
 
-**ProgressReporter** — Streaming progress reporter with ETA calculation via moving average of last 10 task durations, emits ProgressEvent objects, supports spinner UI via ora integration.
+**ProgressReporter** — streaming build-log reporter with `onFileStart(filePath)`, `onFileDone(filePath, durationMs, tokensIn, tokensOut, model, cacheReadTokens?, cacheCreationTokens?)`, `onFileError(filePath, error)`, `onDirectoryStart(dirPath)`, `onDirectoryDone(dirPath, durationMs, tokensIn, tokensOut, model, cacheReadTokens?, cacheCreationTokens?)`, `onRootDone(docPath)`, `printSummary(summary: RunSummary)`. Computes ETA via moving average of last 10 completion times (window size 10), displays after 2+ completions. Constructor: `new ProgressReporter(totalFiles: number, totalDirectories?: number, progressLog?: ProgressLog)`.
 
-**ProgressLog** — File-based progress logger writing human-readable output to `.agents-reverse-engineer/progress.log`, mirrors console output for real-time monitoring.
+**ProgressLog** — file-based progress log mirroring console output to `.agents-reverse-engineer/progress.log` with ANSI stripping via regex `/\x1b\[[0-9;]*m/g`, promise-chain serialized writes, `write(line: string): void`, `finalize(): Promise<void>`. Static factory: `ProgressLog.create(projectRoot: string): ProgressLog`.
 
-**PlanTracker** — Serialized writer for `GENERATION-PLAN.md` using promise-chain pattern to prevent corruption from concurrent workers, tracks phase breakdown with file counts.
+**PlanTracker** — updates `GENERATION-PLAN.md` checkboxes during generation via `markDone(itemPath: string): void`, replaces `- [ ] \`itemPath\`` → `- [x] \`itemPath\``, serializes writes via promise chain, `flush(): Promise<void>`. Constructor: `new PlanTracker(projectRoot: string, initialMarkdown: string)`. Methods: `initialize(): Promise<void>` creates parent directory and writes initial content.
 
-**CommandRunner** — High-level orchestrator executing three-phase pipeline (file analysis, directory aggregation, root synthesis) with configurable concurrency, timeout, and tracing.
+**CommandRunner** — three-phase orchestrator with `executeGenerate(plan: ExecutionPlan): Promise<RunSummary>` (concurrent file analysis, post-order directory AGENTS.md, sequential root docs) and `executeUpdate(filesToAnalyze: FileChange[], projectRoot: string, config: Config): Promise<RunSummary>` (Phase 1 only, no directory/root generation). Constructor: `new CommandRunner(aiService: AIService, options: CommandRunOptions)`. Wires `tracer` into `AIService.setTracer()` for subprocess/retry events.
 
-## Module Organization
+## Integration Pattern
 
-Re-exports from five submodules:
-- `./types.js` — Shared interfaces for task results and run configuration
-- `./pool.js` — Concurrency pool implementation with shared iterator pattern
-- `./progress.js` — Progress reporting with console and file logging
-- `./plan-tracker.js` — Serialized plan file writer
-- `./trace.js` — NDJSON trace event emission with cleanup utilities
-- `./runner.js` — Three-phase pipeline orchestration
+`CommandRunner` orchestrates three-phase pipeline by invoking `runPool` for Phase 1 file tasks and Phase 2 directory tasks (grouped by depth), emitting trace events via `tracer?.emit()`, reporting progress via `ProgressReporter`, tracking GENERATION-PLAN.md checkboxes via `PlanTracker`, caching old `.sum` content for stale doc detection in Pre-Phase 1 (concurrency 20), running inconsistency checks post-Phase 1 via throttled directory groups (concurrency 10), validating phantom paths post-Phase 2, and sequentially executing Phase 3 root tasks with explicit `task:start/done` trace events.
 
-## Usage Pattern
+## Concurrency Control
 
-Primary entry point for orchestration layer. Import CommandRunner for high-level three-phase execution, or runPool for custom concurrent task processing. ProgressReporter provides real-time feedback with ETA calculation. TraceWriter enables detailed execution telemetry when `--trace` flag passed via CommandRunOptions.
+Phase 1 file analysis uses `this.options.concurrency` (user-configured). Phase 2 directory tasks group by depth and execute depth levels sequentially (descending order, deepest first) with `Math.min(concurrency, dirsAtDepth.length)` parallelism per depth level. Phase 3 root tasks execute sequentially (concurrency 1).
+
+## Trace Event Flow
+
+`CommandRunner.executeGenerate()` emits: `phase:start` (pre-phase-1-cache, phase-1-files, post-phase-1-quality, phase-2-dirs-depth-N, post-phase-2-quality, phase-3-root), `phase:end` with `tasksCompleted`/`tasksFailed`/`durationMs`. Phase 3 emits `task:start`/`task:done` per root document. `runPool` emits `worker:start`/`end`, `task:pickup`/`done`. `AIService` emits `subprocess:spawn`/`exit`, `retry`.
+
+## Quality Validation Timing
+
+Pre-Phase 1: reads existing `.sum` files via `readSumFile()` into `oldSumCache`. Post-Phase 1: groups files by directory, throttles inconsistency checks at concurrency 10, compares old `.sum` (stale) and new `.sum` (LLM omissions) via `checkCodeVsDoc()`, runs `checkCodeVsCode()` per directory group, emits `formatReportForCli()` to stderr. Post-Phase 2: validates phantom paths in AGENTS.md via `checkPhantomPaths()`.
+
+## Preamble Stripping
+
+**stripPreamble(responseText: string): string** — removes LLM preamble via two patterns: (1) content after `\n---\n` separator within first 500 chars, (2) content starting with bold purpose line (`**[A-Z]`) preceded by <300 chars preamble without `##` headers.
+
+**extractPurpose(responseText: string): string** — skips lines matching preamble prefixes (`now i`, `perfect`, `based on`, `let me`, `here is`, `i'll`, `i will`, `great`, `okay`, `sure`, `certainly`, `alright`) or headers/separators, strips bold markdown wrapper `**...**`, truncates to 120 chars with `...` suffix.

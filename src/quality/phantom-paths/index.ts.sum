@@ -1,27 +1,14 @@
 ---
-generated_at: 2026-02-09T16:09:12.557Z
+generated_at: 2026-02-09T17:44:14.052Z
 content_hash: 9035c23a19fe33c400b3ebf272ce357a54458443d60020d4cecf68adbd478548
-purpose: Re-exports `checkPhantomPaths` validator for phantom path detection in generated documentation.
+purpose: Barrel module re-exporting `checkPhantomPaths` validator function for phantom path resolution in generated AGENTS.md ...
 ---
-**Re-exports `checkPhantomPaths` validator for phantom path detection in generated documentation.**
+**Barrel module re-exporting `checkPhantomPaths` validator function for phantom path resolution in generated AGENTS.md documentation.**
 
 ## Exported Interface
 
-- `checkPhantomPaths` — Re-exported from `./validator.js`, function implementing phantom path validation for `AGENTS.md` files
+- `checkPhantomPaths` — Validates path references in AGENTS.md files by resolving them against the filesystem and reporting unresolved paths as `PhantomPathInconsistency` issues.
 
-## Module Purpose
+## Module Role
 
-Barrel export consolidating phantom path validation functionality. Provides single import point for consumers needing to detect unresolvable file path references embedded in generated documentation.
-
-## Integration Context
-
-Part of quality validation subsystem (`src/quality/`) alongside code-vs-doc consistency checking (`src/quality/inconsistency/code-vs-doc.ts`) and code-vs-code duplicate detection (`src/quality/inconsistency/code-vs-code.ts`). Invoked during post-generation validation phase to identify broken path references that may mislead AI coding assistants.
-
-## Implementation Location
-
-Core validation logic resides in `./validator.ts` which extracts path-like strings from `AGENTS.md` using three regex patterns:
-- Markdown link targets: `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g`
-- Backtick-quoted paths: `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g ``
-- Prose-embedded paths: `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi`
-
-Resolves paths against AGENTS.md directory and project root with `.ts`/`.js` extension fallback, reporting `PhantomPathInconsistency` for unresolved references.
+Single export statement serving as public API surface for the `src/quality/phantom-paths/` subsystem. Implementation resides in `./validator.js` which extracts path-like strings from AGENTS.md via three regex patterns (markdown link targets, backtick-quoted paths, prose-embedded paths), resolves against AGENTS.md directory and project root with `.ts`/`.js` fallback, and reports unresolved references in `InconsistencyReport` format.

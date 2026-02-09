@@ -1,32 +1,51 @@
 ---
-generated_at: 2026-02-09T16:11:28.224Z
+generated_at: 2026-02-09T17:46:15.593Z
 content_hash: 34836e7b21ee372f71361b50aaa9e8e19948e339aef640a828b1d1257beac09a
-purpose: are-session-end.js spawns detached background `npx agents-reverse-engineer@latest update --quiet` subprocess when ses...
+purpose: are-session-end.js executes background `are update` when Claude Code/Gemini sessions terminate, conditioned on git wo...
 ---
-**are-session-end.js spawns detached background `npx agents-reverse-engineer@latest update --quiet` subprocess when session ends if uncommitted git changes detected, with disable mechanisms via `ARE_DISABLE_HOOK=1` environment variable or `hook_enabled: false` config substring match.**
+**are-session-end.js executes background `are update` when Claude Code/Gemini sessions terminate, conditioned on git working tree changes and disable flags.**
 
-## Hook Lifecycle Integration
+## Execution Context
 
-Executes during SessionEnd event in Claude Code/Gemini CLI runtime. Designed to terminate quickly without blocking session close via detached subprocess pattern.
+Runs as SessionEnd lifecycle hook registered in `~/.claude/hooks/` or `~/.gemini/hooks/`. Invoked automatically by IDE runtime when user closes session. Uses Node.js shebang `#!/usr/bin/env node` for direct execution without explicit interpreter invocation.
 
 ## Disable Mechanisms
 
-Exits silently (status 0) if `process.env.ARE_DISABLE_HOOK === '1'` before performing any filesystem or git operations.
+Exits with code 0 (silent success) when either condition is true:
 
-Reads `.agents-reverse-engineer.yaml` via `existsSync()` and `readFileSync(configPath, 'utf-8')`, performs substring search for `'hook_enabled: false'` (no YAML parser) and exits if match found.
+- Environment variable `ARE_DISABLE_HOOK` equals `'1'`
+- Config file `.agents-reverse-engineer.yaml` exists and contains substring `'hook_enabled: false'` (no YAML parser used, raw string search via `readFileSync()` + `String.includes()`)
 
-## Change Detection Strategy
+## Git Status Check
 
-Invokes `execSync('git status --porcelain', { encoding: 'utf-8' })` to obtain working tree status. Exits silently if output is empty string after `trim()` (no changes since last commit) or if command throws (non-git repo, git unavailable).
+Invokes `execSync('git status --porcelain', { encoding: 'utf-8' })` to detect uncommitted changes. Exits silently (code 0) if:
 
-## Background Update Spawn
+- Output is empty after `String.trim()` (no changes since last commit)
+- `execSync()` throws (not a git repository or git command unavailable)
 
-Calls `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })` to execute incremental update workflow. Child process detached from parent via `detached: true` and unreferenced via `child.unref()` to allow parent exit without waiting for completion.
+## Background Update Invocation
 
-Uses `stdio: 'ignore'` to suppress all output streams, preventing stdio inheritance that could block session close.
+Spawns detached background process when changes detected:
 
-## Execution Environment
+```javascript
+spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], {
+  stdio: 'ignore',
+  detached: true,
+})
+child.unref()
+```
 
-Shebang `#!/usr/bin/env node` enables direct execution as script. Imports `execSync`, `spawn` from `'child_process'` module and `existsSync`, `readFileSync` from `'fs'` module using ES module syntax.
+Process characteristics:
 
-No error handling for spawn failure—detached process errors are silently lost due to `stdio: 'ignore'`.
+- `stdio: 'ignore'` — discards stdout/stderr/stdin (no TTY attachment)
+- `detached: true` — runs in separate process group, survives parent termination
+- `child.unref()` — allows Node.js event loop to exit without waiting for child completion
+- `npx agents-reverse-engineer@latest` — always fetches latest published version from npm registry
+- `--quiet` flag — suppresses progress output (writes to `.agents-reverse-engineer/progress.log` only)
+
+## Integration Points
+
+- **Installer**: Copied to hook directories via `src/installer/operations.ts` → `installCommands()` → hook file copying
+- **Build**: Duplicated to `hooks/dist/` via `scripts/build-hooks.js` for npm tarball inclusion
+- **Companion Hook**: `are-check-update.js` (SessionStart) notifies users of available updates, this hook (SessionEnd) performs automatic documentation refresh
+- **OpenCode Equivalent**: `opencode-are-session-end.js` wraps identical logic in plugin factory returning `event['session.deleted']` handler

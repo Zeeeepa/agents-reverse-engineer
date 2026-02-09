@@ -1,33 +1,39 @@
 ---
-generated_at: 2026-02-09T16:08:40.934Z
+generated_at: 2026-02-09T17:43:57.168Z
 content_hash: 8334930ab77a89aadf421359a55e0a69194517b120a26ca30f7e986838eabec0
-purpose: createVendorFilter() constructs a FileFilter that excludes files within third-party dependency directories and build ...
+purpose: createVendorFilter() constructs a FileFilter that excludes files within third-party dependency directories using both...
 ---
-**createVendorFilter() constructs a FileFilter that excludes files within third-party dependency directories and build output paths using path segment matching and path pattern substring matching.**
+**createVendorFilter() constructs a FileFilter that excludes files within third-party dependency directories using both single-segment matching and path pattern matching.**
 
-## Exported Symbols
+## Exports
 
-### DEFAULT_VENDOR_DIRS
+- **`DEFAULT_VENDOR_DIRS`**: `readonly string[]` — Constant array of 10 common vendor directory names: `'node_modules'`, `'vendor'`, `'.git'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`.
+
+- **`createVendorFilter(vendorDirs: string[]): FileFilter`** — Factory function that returns a `FileFilter` object with `name: 'vendor'` and `shouldExclude()` method.
+
+## Matching Strategy
+
+createVendorFilter() implements two-tier pattern matching:
+
+1. **Single-segment matching**: Directory names without path separators (e.g., `'node_modules'`) are stored in a `Set<string>` and matched against any segment in the absolute path via `absolutePath.split(path.sep)`.
+
+2. **Path pattern matching**: Patterns containing path separators (e.g., `'apps/vendor'`, `'.agents/skills'`) are normalized to the OS-specific separator via `dir.replace(/[\\/]/g, path.sep)` and matched via `absolutePath.includes(pattern)`.
+
+## FileFilter Interface
+
+The returned object conforms to `FileFilter` from `../types.js`:
+
 ```typescript
-const DEFAULT_VENDOR_DIRS: readonly [
-  'node_modules', 'vendor', '.git', 'dist', 'build',
-  '__pycache__', '.next', 'venv', '.venv', 'target'
-]
+{
+  name: string;
+  shouldExclude(absolutePath: string): boolean;
+}
 ```
-Array of common vendor directory names: `node_modules`, `vendor`, `.git`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`. Used as default exclusion list for third-party code, build artifacts, Python cache, Next.js build output, Python virtual environments, and Rust/Java build directories.
 
-### createVendorFilter
-```typescript
-function createVendorFilter(vendorDirs: string[]): FileFilter
-```
-Returns a `FileFilter` instance that excludes paths containing any directory from `vendorDirs`. Implements two matching strategies: (1) single-segment matching where directory names like `'node_modules'` match any path segment (e.g., `/project/node_modules/lodash/index.js`), (2) path-pattern matching where patterns like `'.agents/skills'` or `'apps/vendor'` match via substring search after normalizing separators to `path.sep`. The returned filter has `name: 'vendor'` and `shouldExclude(absolutePath: string): boolean` method.
+shouldExclude() returns `true` if the absolute path contains any configured vendor directory as a path segment or substring pattern, `false` otherwise.
 
-## Pattern Matching Algorithm
+## Integration Points
 
-The `shouldExclude()` method splits `absolutePath` by `path.sep`, iterates segments checking membership in `singleSegments` Set (O(1) lookup), then iterates `pathPatterns` array checking `absolutePath.includes(pattern)` for substring match. Returns `true` on first match, `false` if no matches found.
-
-Path patterns undergo normalization via `dir.replace(/[\\/]/g, path.sep)` to convert both forward and backslashes to OS-specific separator before classification. Classification uses `normalized.includes(path.sep)` to distinguish path patterns (containing separators) from single segments (no separators).
-
-## Integration with Discovery Pipeline
-
-Implements `FileFilter` interface from `../types.js` with `name: string` and `shouldExclude(absolutePath: string): boolean` signature. Composed with other filters (gitignore, binary, custom) in discovery filter chain orchestrated by `src/discovery/walker.ts`.
+- Consumed by filter chain in `src/discovery/filters/index.ts` as part of composable file exclusion logic.
+- DEFAULT_VENDOR_DIRS referenced in `src/config/defaults.ts` for default configuration schema.
+- Used during file discovery phase (`src/discovery/walker.ts`) to skip third-party code directories before binary detection and gitignore filtering.
