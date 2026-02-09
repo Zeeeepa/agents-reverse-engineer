@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v2.0 complete -- all 9 phases executed
+**Current focus:** v3.0 Specification Generation -- Phase 10 added
 
 ## Current Position
 
-Phase: 9 of 9 (Quality Improvements) -- COMPLETE
-Plan: 3/3 executed
-Status: Phase complete
-Last activity: 2026-02-07 -- Completed 09-03-PLAN.md (cross-file detection, reporter, pipeline integration)
+Phase: 10 (Specify Command) -- NOT PLANNED
+Plan: 0/0
+Status: Awaiting planning
+Last activity: 2026-02-09 -- Phase 10 added to roadmap
 
-Progress: [████████████████████████] 100% (v2.0 -- 12/12 plans)
+Progress: [░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v3.0 -- 0 plans)
 
 ## Performance Metrics
 
@@ -101,12 +101,16 @@ v2.0 decisions:
 - **OpenCode plugin development**: Create `.opencode/plugin/` based hook for SessionEnd (deferred from v1.0, not in v2.0 scope)
 - **Thinking content support**: Raise issue in AI assistant repository requesting thinking/reasoning content in `--output-format json` output. Infrastructure is ready in telemetry layer (TelemetryEntry.thinking field); just needs backend wiring when CLI adds support.
 
+### Roadmap Evolution
+
+- Phase 10 added (2026-02-09): Specify Command -- produce specification artifacts from AGENTS.md for project reconstruction
+
 ### Blockers/Concerns
 
 None.
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Completed 09-03-PLAN.md (cross-file detection, reporter, pipeline integration) -- v2.0 complete
+Last session: 2026-02-09
+Stopped at: Added Phase 10 (Specify Command) to roadmap
 Resume file: None
