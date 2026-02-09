@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-09
+
+### Added
+- **`ProgressLog` class** for real-time `tail -f` monitoring — mirrors all console progress output to `.agents-reverse-engineer/progress.log` as ANSI-stripped plain text, enabling live monitoring in buffered environments (e.g. Claude Code's Bash tool)
+- ProgressLog integrated into `generate`, `specify`, and `update` commands with run header (timestamp, project path, task counts) and full summary output
+- `/are-specify` and `/are-clean` commands added to post-install next steps banner
+
+### Changed
+- README updated with `/are-specify` command documentation — added to workflow steps, CLI command table, and AI assistant commands table
+
 ## [0.6.0] - 2026-02-09
 
 ### Added
@@ -444,7 +454,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.3...v0.5.4
