@@ -1,42 +1,63 @@
 ---
-generated_at: 2026-02-09T14:10:02.035Z
+generated_at: 2026-02-09T15:08:28.774Z
 content_hash: 44cb7417cb816bca726cea3efc185fddb34ac17f60bc8f7326c1cc3281349a1b
-purpose: are-check-update.js spawns a detached background process that queries npm for the latest agents-reverse-engineer vers...
+purpose: are-check-update.js spawns detached background processes to check npm registry for `agents-reverse-engineer` version ...
 ---
-**are-check-update.js spawns a detached background process that queries npm for the latest agents-reverse-engineer version, compares it against the installed version from ARE-VERSION files, and caches the result to ~/.claude/cache/are-update-check.json.**
+**are-check-update.js spawns detached background processes to check npm registry for `agents-reverse-engineer` version updates, compares against local/global `ARE-VERSION` files, and caches results to `~/.claude/cache/are-update-check.json` for SessionStart hooks.**
 
-## Execution Context
+## Execution Model
 
-Invoked by SessionStart hook in Claude Code IDE. Runs once per session with immediate detachment to avoid blocking session initialization.
+Invoked by Claude Code SessionStart hook. Main process spawns detached child via `spawn(process.execPath, ['-e', scriptString], { stdio: 'ignore', detached: true, windowsHide: true })` then calls `child.unref()` to allow parent exit without blocking. Background child executes inline script string performing network fetch and file I/O.
 
-## Version File Resolution Strategy
+## Version File Resolution
 
-Checks `projectVersionFile` (`<cwd>/.claude/ARE-VERSION`) before `globalVersionFile` (`~/.claude/ARE-VERSION`). Prioritizes project-local installations over global installations. Falls back to `'0.0.0'` if neither file exists.
+Checks `ARE-VERSION` in priority order:
+1. Project-local: `${cwd}/.claude/ARE-VERSION`
+2. Global: `${homedir()}/.claude/ARE-VERSION`
 
-## Background Process Pattern
+Falls back to `'0.0.0'` if neither exists. Uses `fs.existsSync()` + `fs.readFileSync()` with `.trim()` to extract version string.
 
-Calls `spawn(process.execPath, ['-e', scriptString], { stdio: 'ignore', detached: true, windowsHide: true })` followed by `child.unref()`. The spawned process runs independently of parent lifecycle with no stdio pipes.
+## npm Registry Query
 
-## Version Comparison Logic
+Executes `npm view agents-reverse-engineer version` via `execSync()` with options:
+- `encoding: 'utf8'` for string output
+- `timeout: 10000` (10s limit)
+- `windowsHide: true` to suppress console windows on Windows
 
-Executes `npm view agents-reverse-engineer version` with 10-second timeout via `execSync()` in spawned process. Compares trimmed npm output against installed version string from ARE-VERSION file. Sets `update_available: true` when versions differ and npm query succeeds.
+Returns `'unknown'` on failure (network timeout, command not found, rate limit).
 
 ## Cache Output Schema
 
-Writes JSON object with fields: `update_available` (boolean), `installed` (string), `latest` (string or `'unknown'`), `checked` (Unix timestamp). Cache path: `~/.claude/cache/are-update-check.json`.
+Writes JSON to `~/.claude/cache/are-update-check.json`:
+```javascript
+{
+  update_available: boolean,  // installed !== latest
+  installed: string,          // Version from ARE-VERSION or '0.0.0'
+  latest: string,             // npm registry version or 'unknown'
+  checked: number             // Unix timestamp (seconds)
+}
+```
 
-## Directory Initialization
+Creates `~/.claude/cache/` directory via `mkdirSync({ recursive: true })` if missing.
 
-Creates `cacheDir` (`~/.claude/cache/`) via `mkdirSync(cacheDir, { recursive: true })` if missing. Executes synchronously before spawning background process.
+## Node.js APIs
+
+- `fs.existsSync()`, `fs.readFileSync()`, `fs.writeFileSync()`, `fs.mkdirSync()`
+- `os.homedir()` for `~` expansion
+- `path.join()` for cross-platform path construction
+- `child_process.spawn()` for detached process creation
+- `child_process.execSync()` for synchronous npm command execution within spawned child
+- `process.execPath` (Node.js binary path), `process.cwd()` (working directory)
 
 ## Error Handling
 
-Spawned process wraps `fs.readFileSync()` and `execSync()` in try-catch blocks with silent failure (empty catch blocks). Assigns fallback values: `'0.0.0'` for installed version, `null` for latest version on npm query failure.
+All operations in background child wrapped in `try/catch` with silent failure:
+- Missing `ARE-VERSION` files → defaults to `'0.0.0'`
+- `npm view` timeout/error → `latest: 'unknown'`, `update_available: false`
+- No explicit error logging (background process runs detached)
 
-## Constants and Paths
+## Cross-Platform Compatibility
 
-Defines `homeDir` (via `homedir()`), `cwd` (via `process.cwd()`), `cacheDir`, `cacheFile`, `projectVersionFile`, `globalVersionFile`. All path construction uses `join()` from `path` module.
-
-## Dependencies
-
-Imports `existsSync`, `mkdirSync`, `readFileSync`, `writeFileSync` from `fs`; `homedir` from `os`; `join` from `path`; `spawn`, `execSync` from `child_process`. Child process script injects serialized JSON constants via template literals.
+- `windowsHide: true` prevents console flash on Windows
+- `path.join()` handles platform-specific separators
+- `homedir()` resolves `~` on Unix and `%USERPROFILE%` on Windows

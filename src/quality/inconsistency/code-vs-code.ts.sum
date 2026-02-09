@@ -1,29 +1,29 @@
 ---
-generated_at: 2026-02-09T14:08:14.114Z
+generated_at: 2026-02-09T15:06:07.914Z
 content_hash: 48a2ef2363302abe6f4b31022b7afa304960c3631294ddbed6bbe3e4b3251a9a
-purpose: code-vs-code.ts detects duplicate exports across multiple source files within a scoped group, flagging symbols export...
+purpose: checkCodeVsCode detects duplicate exported symbols across a group of source files within a per-directory scope, build...
 ---
-**code-vs-code.ts detects duplicate exports across multiple source files within a scoped group, flagging symbols exported from more than one file as code-vs-code inconsistencies.**
+**checkCodeVsCode detects duplicate exported symbols across a group of source files within a per-directory scope, building a symbol-to-paths map via extractExports and flagging names appearing in multiple files as CodeCodeInconsistency warnings.**
 
-## Exported Functions
+## Exported Interface
 
 **checkCodeVsCode(files: Array<{ path: string; content: string }>): CodeCodeInconsistency[]**
-Detects duplicate exports across a group of files by building an export map via `extractExports()` from each file's content, then identifying symbols appearing in multiple file paths. Returns array of `CodeCodeInconsistency` objects with `type: 'code-vs-code'`, `severity: 'warning'`, `pattern: 'duplicate-export'`, `files` array of paths exporting the symbol, and description string with symbol name and file count.
-
-## Dependencies
-
-**extractExports** imported from `./code-vs-doc.js` performs regex-based extraction of exported symbol names from file content using pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`.
-
-**CodeCodeInconsistency** type imported from `../types.js` represents discriminated union member with required fields: `type`, `severity`, `files`, `description`, `pattern`.
+- Accepts array of file objects with `path` and `content` properties
+- Returns array of CodeCodeInconsistency objects with `type: 'code-vs-code'`, `severity: 'warning'`, `files: string[]`, `description: string`, `pattern: 'duplicate-export'`
+- Caller responsible for scoping input to per-directory file groups to avoid false positives across unrelated modules
 
 ## Algorithm
 
-Builds `Map<string, string[]>` where keys are export names and values are arrays of file paths exporting that name. Iterates files, extracts exports via `extractExports()`, populates map by appending file paths to existing arrays or initializing new entries. Filters map entries where `paths.length > 1` to produce inconsistency reports.
+Builds `Map<string, string[]>` mapping export name to file paths via two-pass traversal:
+1. For each file, calls extractExports (imported from `./code-vs-doc.js`) to extract symbol names
+2. Accumulates file paths for each symbol name in exportMap
+3. Iterates exportMap entries, creates CodeCodeInconsistency for symbols with `paths.length > 1`
+
+## Dependencies
+
+**extractExports** (from `./code-vs-doc.js`): Regex-based export extraction returning symbol name array  
+**CodeCodeInconsistency** (from `../types.js`): Discriminated union member of inconsistency report schema
 
 ## Design Constraints
 
-Operates as heuristic-only check without AI calls. Caller responsible for scoping input to per-directory file groups to avoid false positives across unrelated modules (e.g., intentional duplicate exports in separate packages). Regex-based extraction misses complex export patterns (destructured, namespace, dynamic exports) per quality validator limitations documented in CLAUDE.md.
-
-## Integration Points
-
-Called by inconsistency reporter (`src/quality/inconsistency/reporter.ts`) as part of post-generation quality validation workflow alongside code-vs-doc and phantom-paths validators. Operates on file groups typically organized by directory via `src/generation/orchestrator.ts` Phase 2 post-order traversal.
+Heuristic-only check with no AI calls, operates on symbol names without AST analysis to distinguish intentional duplication (e.g., facade pattern, barrel exports). Per-directory scoping required to reduce false positives from legitimate cross-module symbol reuse.

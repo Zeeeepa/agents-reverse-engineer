@@ -1,34 +1,32 @@
 ---
-generated_at: 2026-02-09T14:08:28.076Z
+generated_at: 2026-02-09T15:06:32.356Z
 content_hash: 78cff2ed3b8efd6a7641dbc57fffa5d8b41fc24da285f3d31326bfc74d582b82
-purpose: Defines TypeScript interfaces and type aliases for git-based change detection representing file modifications, additi...
+purpose: Defines TypeScript types for git-based change detection in the ARE incremental update system.
 ---
-**Defines TypeScript interfaces and type aliases for git-based change detection representing file modifications, additions, deletions, and renames with associated metadata.**
+**Defines TypeScript types for git-based change detection in the ARE incremental update system.**
 
 ## Exported Types
 
-### ChangeType
-Type alias for discriminating file change status: `'added' | 'modified' | 'deleted' | 'renamed'`.
+**ChangeType**: Union type `'added' | 'modified' | 'deleted' | 'renamed'` representing the four possible file change states detected by git diff operations.
 
-### FileChange
-Interface representing a single detected file change:
-- `path: string` — Relative file path (new path for renames)
-- `status: ChangeType` — Discriminant field for change type
-- `oldPath?: string` — Original path for renamed files (present only when `status === 'renamed'`)
+**FileChange**: Interface representing a single file change with properties:
+- `path: string` — Relative path to the file (new path for renamed files)
+- `status: ChangeType` — Type of change detected
+- `oldPath?: string` — Original path for renamed files (only present when `status === 'renamed'`)
 
-### ChangeDetectionResult
-Interface returned by change detection operations:
-- `currentCommit: string` — HEAD commit SHA
-- `baseCommit: string` — Comparison baseline commit SHA
+**ChangeDetectionResult**: Interface encapsulating the output of change detection operations with properties:
+- `currentCommit: string` — Current commit hash (typically HEAD)
+- `baseCommit: string` — Commit hash used as comparison baseline
 - `changes: FileChange[]` — Array of detected file changes
-- `includesUncommitted: boolean` — Flag indicating whether working tree changes were merged
+- `includesUncommitted: boolean` — Flag indicating whether working tree/staged changes were merged into results
 
-### ChangeDetectionOptions
-Configuration interface for change detection behavior:
-- `includeUncommitted?: boolean` — When true, merges staged and working directory changes with committed diff
+**ChangeDetectionOptions**: Interface for configuring change detection behavior with properties:
+- `includeUncommitted?: boolean` — When true, merges uncommitted changes (staged and working directory) with committed changes via `git status --porcelain` parsing
 
-## Usage Context
+## Integration Context
 
-Consumed by `src/change-detection/detector.ts` for git diff parsing (`git diff --name-status -M`) with rename detection and `src/update/orchestrator.ts` for incremental update workflows that compute `filesToAnalyze` and `filesToSkip` arrays via SHA-256 content hash comparison against `.sum` file frontmatter.
+These types are consumed by `src/change-detection/detector.ts` which executes git diff parsing with rename detection (`git diff -M`) and SHA-256 content hashing for non-git workflows. The `FileChange.oldPath` field enables orphan cleanup in `src/update/orphan-cleaner.ts` by tracking renames to delete stale `.sum` files at the original path. The `ChangeDetectionResult.includesUncommitted` flag controls whether `src/update/orchestrator.ts` should warn users about uncommitted changes affecting the update scope.
 
-The `oldPath` field in `FileChange` enables orphan cleanup logic in `src/update/orphan-cleaner.ts` to delete stale `.sum` files for renamed source files.
+## Design Pattern
+
+Uses discriminated union pattern where `ChangeType` serves as the discriminant for `FileChange.status`, allowing type guards to narrow `FileChange` to specific change categories. The `oldPath` field is conditionally present only when `status === 'renamed'`, enforcing the constraint that renames require both old and new paths while other change types have a single path.

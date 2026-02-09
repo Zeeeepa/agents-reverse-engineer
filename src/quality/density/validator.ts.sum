@@ -1,29 +1,39 @@
 ---
-generated_at: 2026-02-09T14:08:11.628Z
+generated_at: 2026-02-09T15:06:09.121Z
 content_hash: d949dd52d9e6602ba7336320be9efcdf5d23285444b295078fc01dc915d1c3c9
-purpose: validator.ts implements findability validation checking that exported symbols from .sum files appear in parent AGENTS...
+purpose: Density validator module providing findability heuristics for AGENTS.md content by verifying exported symbol presence...
 ---
-**validator.ts implements findability validation checking that exported symbols from .sum files appear in parent AGENTS.md content, currently disabled pending structured metadata extraction re-implementation.**
+**Density validator module providing findability heuristics for AGENTS.md content by verifying exported symbol presence from .sum files (currently disabled due to publicInterface metadata removal).**
 
 ## Current Status
 
-validateFindability returns empty array since SumFileContent no longer includes `metadata.publicInterface` field removed in prior refactor. Function signature preserved for future post-processing pass implementation using structured symbol extraction.
+`validateFindability()` returns empty array since structured `publicInterface` extraction was removed from `SumFileContent` schema. Function signature preserved for future re-implementation via post-processing passes. No LLM calls—purely string-based symbol matching design.
 
-## Exported Interface
+## Exported Interfaces
 
-**FindabilityResult** interface describes validation outcome per .sum file:
-- `filePath: string` — Path to validated .sum file
-- `symbolsTested: string[]` — Symbol names checked for presence
-- `symbolsFound: string[]` — Symbols appearing in AGENTS.md
-- `symbolsMissing: string[]` — Symbols absent from AGENTS.md
-- `score: number` — Ratio of found/tested ranging 0 (no symbols found) to 1 (all symbols found)
+**FindabilityResult** represents validation outcome for single .sum file:
+- `filePath: string` - Path to checked .sum file
+- `symbolsTested: string[]` - Symbol names tested for presence
+- `symbolsFound: string[]` - Symbol names found in AGENTS.md
+- `symbolsMissing: string[]` - Symbol names absent from AGENTS.md
+- `score: number` - Ratio of found/tested symbols (0-1 range)
 
-**validateFindability** function signature takes `_agentsMdContent: string` (full AGENTS.md text) and `_sumFiles: Map<string, SumFileContent>` (parsed sum file mapping), returns `FindabilityResult[]` (currently empty array). Parameters prefixed with underscore indicating unused status until re-implementation.
+## Exported Functions
 
-## Design Intent
+**validateFindability(\_agentsMdContent: string, \_sumFiles: Map<string, SumFileContent>): FindabilityResult[]** checks key symbols from .sum files appear in AGENTS.md content. Parameters prefixed with underscore indicate unused status. Returns empty array until structured metadata extraction restored.
 
-No LLM calls — purely string-based symbol matching heuristic. Original design verified key exported symbols from child .sum files appear in synthesized parent AGENTS.md content to detect documentation omissions. Relied on structured `publicInterface` metadata extraction during .sum file generation phase.
+## Integration Points
 
-## Integration Context
+Imports `SumFileContent` from `../../generation/writers/sum.js` for type constraints on .sum file parsing. Called by quality validation orchestration in `src/quality/index.ts` alongside code-vs-doc and phantom-path validators.
 
-Module retained in `src/quality/density/` alongside `src/quality/inconsistency/` validators (code-vs-doc, code-vs-code) and `src/quality/phantom-paths/` validators. Quality validation pipeline invoked post-generation via `src/quality/index.ts` orchestrator producing `InconsistencyReport` with metadata/issues/summary sections.
+## Design Pattern
+
+Heuristic validation without AI inference—symbol presence determined via substring search in AGENTS.md text. Contrasts with `src/quality/inconsistency/code-vs-doc.ts` which performs regex-based export extraction from source files.
+
+## Relation to Other Validators
+
+Part of three-validator suite:
+- **code-vs-doc** (`src/quality/inconsistency/code-vs-doc.ts`): regex extraction of exports from source, substring search in .sum summaries
+- **code-vs-code** (`src/quality/inconsistency/code-vs-code.ts`): duplicate symbol detection across directory file groups
+- **phantom-paths** (`src/quality/phantom-paths/validator.ts`): path resolution for references in AGENTS.md
+- **density** (this file): symbol findability in AGENTS.md from .sum metadata (disabled)

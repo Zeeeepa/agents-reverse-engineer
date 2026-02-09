@@ -1,31 +1,39 @@
 ---
-generated_at: 2026-02-09T14:07:51.705Z
+generated_at: 2026-02-09T15:05:52.191Z
 content_hash: fb529e7928634e7d905de0768cd5e34fecc4318031610a43f56fc4f0e3fb38e9
-purpose: createCustomFilter() implements gitignore-style pattern matching for user-defined file exclusion patterns via the `ig...
+purpose: createCustomFilter() implements user-configurable gitignore-style pattern exclusion for file discovery via the `ignor...
 ---
-**createCustomFilter() implements gitignore-style pattern matching for user-defined file exclusion patterns via the `ignore` library.**
+**createCustomFilter() implements user-configurable gitignore-style pattern exclusion for file discovery via the `ignore` library.**
 
-## Exported Interface
+## Exported Function
 
-```typescript
-function createCustomFilter(patterns: string[], root: string): FileFilter
-```
+**createCustomFilter(patterns: string[], root: string): FileFilter**
 
-createCustomFilter() returns a FileFilter object with `name: 'custom'` and shouldExclude() method that evaluates absolute paths against gitignore-syntax patterns relative to the project root.
+Constructs a FileFilter that excludes files matching gitignore-syntax patterns. Returns filter with `name: 'custom'` and `shouldExclude(absolutePath: string): boolean` method. Empty pattern array results in pass-through filter (returns false for all paths).
 
-## Implementation Details
+## Pattern Matching Algorithm
 
-The ignore instance (`ig: Ignore`) is created once per filter and populated with all patterns via `ig.add(patterns)`. shouldExclude() converts absolute paths to relative paths using `path.relative(normalizedRoot, absolutePath)` before testing with `ig.ignores(relativePath)`.
-
-**Early return conditions in shouldExclude():**
-- Returns `false` if `patterns.length === 0` (no exclusions configured)
-- Returns `false` if relativePath is empty or starts with `..` (path outside root boundary)
-- Otherwise returns `ig.ignores(relativePath)` boolean result
+createCustomFilter() normalizes root via `path.resolve()`, initializes `Ignore` instance from `ignore` library, adds all patterns via `ig.add(patterns)`. shouldExclude() converts absolute paths to relative via `path.relative(normalizedRoot, absolutePath)`, returns false for empty paths or paths starting with `..` (outside root), delegates to `ig.ignores(relativePath)` for pattern matching.
 
 ## Integration Points
 
-Implements FileFilter interface from `../types.js` with required `name` string and `shouldExclude(absolutePath: string): boolean` method. Used alongside gitignoreFilter, vendorFilter, and binaryFilter in the filter chain orchestrated by `src/discovery/walker.ts`.
+Implements FileFilter interface from `../types.js` with required `name` property and `shouldExclude()` method. Used by file discovery walker (`src/discovery/walker.ts`) alongside gitignore, binary, and vendor filters to compose exclusion chain. Patterns populated from user configuration (`config.exclude.patterns` from `.agents-reverse-engineer/config.yaml`).
 
-## Configuration Source
+## Dependencies
 
-Patterns array originates from `config.exclude.patterns` in `.agents-reverse-engineer/config.yaml` (validated by Zod schema in `src/config/schema.ts`). Root directory comes from `discoverFiles()` invocation in `src/discovery/run.ts`.
+- `ignore` library (Ignore type): gitignore-style pattern matching engine
+- `node:path`: path normalization and relative path computation
+- `../types.js`: FileFilter interface definition
+
+## Path Handling
+
+Requires relative paths for `ignore` library compatibility. Absolute paths from walker converted via `path.relative()`. Guards against external paths (starting with `..`) by returning false to prevent exclusion of out-of-tree files. Empty relative path (when absolutePath equals root) also bypasses exclusion.
+
+## Example Usage Pattern
+
+```typescript
+const filter = createCustomFilter(['*.log', 'tmp/**'], '/project');
+filter.shouldExclude('/project/debug.log');    // true
+filter.shouldExclude('/project/src/app.ts');   // false
+filter.shouldExclude('/external/file.ts');     // false (outside root)
+```

@@ -2,65 +2,52 @@
 
 # src/discovery
 
-File discovery orchestration composing gitignore, vendor, binary, and custom exclusion filters via fast-glob directory traversal and bounded-concurrency filter chain with telemetry emission.
+Gitignore-aware file walker with composable four-stage filter chain (gitignore, vendor, binary, custom) producing FilterResult aggregates of included/excluded files with attribution metadata for discovery phase initialization.
 
 ## Contents
 
-**[run.ts](./run.ts)** — discoverFiles() orchestrates discovery pipeline: composes four filters (createGitignoreFilter, createVendorFilter, createBinaryFilter, createCustomFilter), invokes walkDirectory() with symlink/follow options, applies filter chain via applyFilters(), returns FilterResult with included/excluded file lists and rejection metadata.
+**[walker.ts](./walker.ts)** — `walkDirectory(options: WalkerOptions)` returns absolute paths for all files under `options.cwd` via `fast-glob('**/*')` with `onlyFiles: true`, `dot: true` (includes dotfiles), `followSymbolicLinks: options.followSymlinks ?? false`, hardcoded `.git/**` exclusion, `suppressErrors: true` (continues on permission errors).
 
-**[walker.ts](./walker.ts)** — walkDirectory() delegates to fast-glob with `**/*` pattern, hardcoded `.git/**` exclusion, absolute path output, permission error suppression via `suppressErrors: true`, configurable dot file inclusion and symlink following via WalkerOptions.
+**[run.ts](./run.ts)** — `discoverFiles(root: string, config: DiscoveryConfig, options?: DiscoverFilesOptions)` orchestrates filter pipeline: invokes `walkDirectory()`, constructs four filters via `createGitignoreFilter(root)`, `createVendorFilter(config.exclude.vendorDirs)`, `createBinaryFilter({ maxFileSize: config.options.maxFileSize, additionalExtensions: config.exclude.binaryExtensions })`, `createCustomFilter(config.exclude.patterns, root)`, executes via `applyFilters(files, filters, { tracer, debug })`, returns `FilterResult` with `included`/`excluded` arrays.
 
-**[types.ts](./types.ts)** — Defines FileFilter interface (name, shouldExclude predicate supporting sync/async), FilterResult (included/excluded arrays), ExcludedFile (path/reason/filter tracking), WalkerOptions (cwd/followSymlinks/dot configuration).
+**[types.ts](./types.ts)** — Exports `FileFilter` interface (`{ name: string, shouldExclude(path: string, stats?: Stats): boolean | Promise<boolean> }`), `FilterResult` interface (`{ included: string[], excluded: ExcludedFile[] }`), `ExcludedFile` record (`{ path, reason, filter }`), `WalkerOptions` config (`{ cwd: string, followSymlinks?: boolean, dot?: boolean }`). No runtime dependencies—pure type definitions.
 
-## Architecture
+## Filter Pipeline Architecture
 
-### Two-Phase Discovery Pipeline
+`discoverFiles()` executes filters in fixed order: gitignore → vendor → binary → custom. Short-circuit evaluation: file rejected on first filter match, remaining filters skipped. `applyFilters()` from `filters/index.ts` uses concurrency-bounded execution (30 worker pool) with trace emission via `filter:applied` events containing `{ type: 'filter:applied', filterName, filesMatched, filesRejected }`.
 
-**Phase 1: Directory Walk** — walkDirectory() produces unfiltered file list via fast-glob, returns absolute paths for downstream filter consumption. Excludes `.git/**` hardcoded for performance optimization.
+## Configuration Surface
 
-**Phase 2: Filter Chain** — applyFilters() from `filters/index.ts` applies composed filter array with short-circuit evaluation (stops at first exclusion), 30-worker concurrency pool, per-filter statistics aggregation, ITraceWriter emission of `filter:applied` events.
+`DiscoveryConfig` subset from `src/config/schema.ts`:
+- `exclude.vendorDirs: string[]` — directories matched anywhere in path (e.g., `node_modules`, `.git`, `dist`)
+- `exclude.binaryExtensions: string[]` — file extensions for fast-path exclusion (e.g., `.png`, `.zip`, `.exe`)
+- `exclude.patterns: string[]` — gitignore-style globs matched via `ignore` library
+- `options.maxFileSize: number` — binary detection threshold (default 1MB)
+- `options.followSymlinks: boolean` — symlink traversal (default false per security constraints)
 
-### Filter Composition Pattern
+`DiscoverFilesOptions` extends runtime config:
+- `tracer?: ITraceWriter` — NDJSON trace event emitter from `orchestration/trace.ts`
+- `debug?: boolean` — verbose filter logging to stderr
 
-discoverFiles() creates filter instances in fixed order:
+## Data Flow
 
-1. **GitignoreFilter** — Async initialization parses root `.gitignore`, converts absolute→relative paths for `ig.ignores()` predicate
-2. **VendorFilter** — Synchronous third-party directory matching (node_modules, .git, dist, etc.)
-3. **BinaryFilter** — Two-phase detection: extension fast path (91 types), content analysis fallback via isbinaryfile
-4. **CustomFilter** — User-defined glob patterns via ignore library
+```
+walkDirectory(cwd, followSymlinks) → string[]
+  ↓
+applyFilters(files, [gitignore, vendor, binary, custom], { tracer, debug }) → FilterResult
+  ↓
+{ included: string[], excluded: ExcludedFile[] }
+```
 
-Filter chain execution preserves order, tags excluded files with responsible filter name for telemetry and debugging.
-
-### Configuration Surface
-
-discoverFiles() consumes DiscoveryConfig subset of full Config schema:
-
-- `exclude.vendorDirs[]` → VendorFilter
-- `exclude.binaryExtensions[]` → BinaryFilter (merged with 91-entry default set)
-- `exclude.patterns[]` → CustomFilter
-- `options.maxFileSize` → BinaryFilter size threshold (default 1MB)
-- `options.followSymlinks` → walkDirectory() symlink behavior (default false)
-
-DiscoverFilesOptions threads `tracer?: ITraceWriter` and `debug?: boolean` through to applyFilters() for telemetry emission.
+Walker performs no filtering except `.git/**` exclusion—all semantic filtering delegated to filter chain. Result structure supports diagnostics via `excluded` metadata and plan generation via full file enumeration.
 
 ## Integration Points
 
-**CLI Commands:**
-- `src/cli/discover.ts` — Writes GENERATION-PLAN.md with phase breakdown from FilterResult
-- `src/cli/generate.ts` — Feeds three-phase pipeline via orchestrateGeneration(FilterResult.included)
-- `src/cli/update.ts` — Computes affected directories from FilterResult.included array
+- **cli/discover.ts**: calls `discoverFiles()`, writes `GENERATION-PLAN.md` with included/excluded breakdown
+- **cli/generate.ts**: uses `included` array for Phase 1 file analysis task queue
+- **cli/update.ts**: invokes `discoverFiles()` to detect new files not in existing `.sum` frontmatter hashes
+- **filters/**: subdirectory containing `createGitignoreFilter`, `createVendorFilter`, `createBinaryFilter`, `createCustomFilter` factories implementing `FileFilter` interface
 
-**Orchestration Layer:**
-- `src/orchestration/trace.ts` — ITraceWriter receives filter:applied events with per-filter statistics (matched/rejected counts)
+## Design Rationale
 
-**Filter Implementations:**
-- `filters/index.ts` — applyFilters() orchestrates 30-worker pool with short-circuit evaluation
-- `filters/gitignore.ts`, `filters/vendor.ts`, `filters/binary.ts`, `filters/custom.ts` — FileFilter implementations
-
-## File Relationships
-
-run.ts depends on walker.ts (walkDirectory), filters/index.ts (filter factories, applyFilters), types.ts (FilterResult/DiscoveryConfig interfaces), ../orchestration/trace.ts (ITraceWriter). walker.ts has no internal dependencies (delegates to fast-glob). types.ts imports Stats from node:fs, defines interfaces consumed across discovery module. filters/ subdirectory operates independently with shared FileFilter contract from types.ts.
-
-## Subdirectories
-
-**[filters/](./filters/)** — FileFilter implementations: binary.ts (extension+content detection), custom.ts (user glob patterns), gitignore.ts (.gitignore parsing), vendor.ts (third-party directories), index.ts (applyFilters orchestration with 30-worker pool, short-circuit evaluation, statistics tracking).
+Separation of concerns: `walkDirectory()` handles traversal, filter chain handles exclusion logic. Composable filters enable independent testing and configurable ordering. `FilterResult` structure preserves exclusion metadata for debugging unlike simple string arrays. Async `FileFilter.shouldExclude()` supports I/O-bound filters (gitignore file reads, binary content analysis) without blocking synchronous filters (vendor directory lookups).

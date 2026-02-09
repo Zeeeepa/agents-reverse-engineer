@@ -2,37 +2,40 @@
 
 # src/types
 
-Central type definition directory exporting shared TypeScript interfaces for file discovery results (`DiscoveryResult`), exclusion metadata (`ExcludedFile`), and discovery statistics (`DiscoveryStats`). These interfaces form the contract between the discovery pipeline (`src/discovery/`) and downstream consumers (CLI commands, generation orchestrator, quality validators, plan tracker).
+Shared type definitions for file discovery results, exclusion metadata, and discovery statistics consumed by the discovery pipeline, orchestration runners, and CLI commands.
 
 ## Contents
 
 ### [index.ts](./index.ts)
-Exports three core interfaces: `ExcludedFile` (path + exclusion reason), `DiscoveryResult` (approved files array + excluded files array), `DiscoveryStats` (count aggregates + exclusion reason histogram). Consumed by `src/cli/discover.ts` for reporting, `src/generation/orchestrator.ts` for Phase 1 task queue construction, `src/orchestration/plan-tracker.ts` for GENERATION-PLAN.md serialization, and `src/quality/` validators for documentation coverage checks. Produced by `src/discovery/walker.ts` and `src/discovery/filters/` chain.
+Exports `ExcludedFile` (path + exclusion reason), `DiscoveryResult` (included files array + excluded file metadata), and `DiscoveryStats` (metrics with `totalFiles`, `includedFiles`, `excludedFiles`, `exclusionReasons` histogram).
 
-## Data Flow
+## Exported Types
+
+**ExcludedFile**
+- `path: string` — Absolute or relative file path
+- `reason: string` — Exclusion cause (gitignore pattern, binary file, vendor directory)
+
+**DiscoveryResult**
+- `files: string[]` — Files approved for analysis (passed filter chain)
+- `excluded: ExcludedFile[]` — Rejected files with exclusion metadata
+
+**DiscoveryStats**
+- `totalFiles: number` — Sum of included + excluded files
+- `includedFiles: number` — Count passing all filters
+- `excludedFiles: number` — Count rejected by any filter
+- `exclusionReasons: Record<string, number>` — Aggregated reason histogram mapping exclusion causes to counts
+
+## Usage Across Modules
 
 **Producers:**
-- `walker.ts` aggregates filter results into `DiscoveryResult` with `files[]` and `excluded[]`
-- `filters/` modules (gitignore, binary, vendor, custom) append `ExcludedFile` entries with filter-specific reasons
+- `src/discovery/run.ts` → `discoverFiles()` populates `DiscoveryResult` from `DirectoryWalker` output
 
 **Consumers:**
-- `cli/discover.ts` formats `DiscoveryStats` for terminal output (included/excluded counts, exclusion histogram)
-- `generation/orchestrator.ts` reads `DiscoveryResult.files` to populate Phase 1 worker pool task queue
-- `orchestration/plan-tracker.ts` serializes `DiscoveryResult` into GENERATION-PLAN.md file/directory counts
-- `quality/` validators check `DiscoveryResult.files` against generated `.sum`/`AGENTS.md` for coverage gaps
+- `src/orchestration/runner.ts` → `runGenerationPhase()` converts `DiscoveryResult.files` to task queue for Phase 1 worker pool
+- `src/cli/discover.ts` → Computes `DiscoveryStats` from `DiscoveryResult.excluded` for GENERATION-PLAN.md output
+- `src/generation/orchestrator.ts` → Ingests `files[]` for concurrent `.sum` file generation
 
-## Interface Contracts
-
-**ExcludedFile:**
-- `path: string` — Absolute or relative file path excluded from analysis
-- `reason: string` — Human-readable exclusion cause (e.g., "gitignore pattern", "binary file", "vendor directory")
-
-**DiscoveryResult:**
-- `files: string[]` — File paths approved for analysis (passed all filters)
-- `excluded: ExcludedFile[]` — Files rejected with reasons
-
-**DiscoveryStats:**
-- `totalFiles: number` — Count of all files found during traversal
-- `includedFiles: number` — Count approved for analysis
-- `excludedFiles: number` — Count rejected by filters
-- `exclusionReasons: Record<string, number>` — Histogram of exclusion reasons (reason string keys, frequency values)
+**Related types:**
+- `src/discovery/types.ts` — `DirectoryWalker`, `FileFilter` interfaces
+- `src/orchestration/types.ts` — `Task`, `WorkerPoolOptions` abstractions
+- `src/config/schema.ts` — `ConfigSchema` defining filter behavior (vendor directories, binary extensions, exclude patterns)

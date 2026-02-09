@@ -2,18 +2,23 @@
 
 **AI-driven codebase documentation generator executing Recursive Language Model (RLM) algorithm: concurrent per-file `.sum` analysis via subprocess pools, post-order directory `AGENTS.md` aggregation, and platform-specific root synthesis (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`) with gitignore-aware discovery, SHA-256 incremental updates, and session lifecycle hooks.**
 
-## Overview
+## Project Overview
 
 agents-reverse-engineer (ARE) automates brownfield documentation for AI coding assistants by executing a three-phase pipeline that discovers source files, analyzes them concurrently via AI CLI subprocesses (Claude Code, Gemini, OpenCode), generates file summaries with YAML frontmatter containing SHA-256 content hashes, synthesizes directory-level documentation from bottom-up via post-order traversal, and produces root integration documents tailored to each AI platform.
 
-**Core Capabilities:**
-- Parallel file analysis with configurable concurrency pools (default 2 workers for WSL, 5 elsewhere)
-- Incremental updates via content hash comparison (skip unchanged files)
-- Multi-platform AI backend support (Claude Code, Gemini CLI, OpenCode) with automatic detection
-- Gitignore-aware file discovery with binary detection and vendor directory exclusion
-- Quality validation detecting code-documentation inconsistencies and phantom path references
-- Session lifecycle hooks for automatic documentation refresh on IDE session end
-- NDJSON telemetry logging with token cost tracking and run retention management
+**Version**: 0.6.4  
+**License**: MIT (GeoloeG-IsT, 2026)  
+**Runtime**: Node.js ≥18.0.0 (ES modules)
+
+### Core Capabilities
+
+- **Parallel file analysis** with configurable concurrency pools (default 2 workers for WSL, 5 elsewhere)
+- **Incremental updates** via SHA-256 content hash comparison (skip unchanged files)
+- **Multi-platform AI backend support** (Claude Code, Gemini CLI, OpenCode) with automatic detection
+- **Gitignore-aware file discovery** with binary detection and vendor directory exclusion
+- **Quality validation** detecting code-documentation inconsistencies and phantom path references
+- **Session lifecycle hooks** for automatic documentation refresh on IDE session end
+- **NDJSON telemetry logging** with token cost tracking and run retention management
 
 ## Architecture
 
@@ -22,6 +27,7 @@ agents-reverse-engineer (ARE) automates brownfield documentation for AI coding a
 **Phase 1: Concurrent File Analysis**
 
 Iterator-based worker pool (`src/orchestration/pool.ts`) shares single task iterator across N workers to prevent over-allocation. Each worker invokes `AIService.call()` → `runSubprocess()` → `execFile()` spawning AI CLI subprocesses with resource limits:
+
 - `NODE_OPTIONS='--max-old-space-size=512'` limits heap to 512MB per subprocess
 - `UV_THREADPOOL_SIZE='4'` constrains libuv thread pool to 4 threads
 - `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS='1'` prevents background task spawning
@@ -30,6 +36,7 @@ Iterator-based worker pool (`src/orchestration/pool.ts`) shares single task iter
 Process group killing (`kill(-pid)`) terminates subprocess trees on timeout. SIGTERM sent at `timeoutMs`, SIGKILL escalation after 5s grace period. Exponential backoff retry on rate limits (stderr patterns: "rate limit", "429", "too many requests", "overloaded").
 
 Writes `.sum` files with YAML frontmatter:
+
 ```yaml
 ---
 generated_at: 2026-02-09T12:34:56.789Z
@@ -48,6 +55,7 @@ Markdown summary content...
 Sorts directories by depth descending via `path.relative().split(path.sep).length` (deepest first). Waits for all child `.sum` files to exist via `isDirectoryComplete()` predicate before processing directory.
 
 Prompts include:
+
 - Aggregated child `.sum` content via `readSumFile()`
 - Subdirectory `AGENTS.md` files via recursive traversal
 - Import maps via `extractDirectoryImports()` with verified path constraints
@@ -333,9 +341,9 @@ ai:
 
 **Report format:** `InconsistencyReport` with `metadata` (timestamp, projectRoot, filesChecked, durationMs), `issues[]` (discriminated union), `summary` (counts by type/severity).
 
-## Update Strategy
+## Incremental Update Strategy
 
-**Incremental workflow:**
+**Workflow:**
 1. Read `content_hash` from each `.sum` file's YAML frontmatter via `readSumFile()`
 2. Compute current file content hash via `computeContentHash()` (SHA-256)
 3. Hash mismatch → add to `filesToAnalyze` as `FileChange` with `status: 'modified'` or `'added'`
@@ -448,19 +456,21 @@ spawn(process.execPath, ['-e', scriptString], {
 - Detection only via `.aider.conf.yml` or `.aider/` directory
 - No template generation (manual integration required)
 
-## Related Tools
+## CI/CD
 
-**SpecKit:** Project specification format used by GSD workflow for milestone planning and phase decomposition.
-
-**BMAD:** Brownfield Minimum Automated Documentation methodology providing lightweight documentation patterns for legacy codebases.
-
-**GSD (Get Shit Done):** Milestone-driven development workflow with atomic commits, phase-based roadmaps, and context handoff protocols. ARE provides documentation foundation for GSD's planning and execution phases.
+**GitHub Actions workflow:** `.github/workflows/publish.yml`
+- Triggers on `release[published]` events or manual `workflow_dispatch`
+- Executes `ubuntu-latest` job with `id-token: write` permission enabling Sigstore-signed provenance
+- Runs `actions/checkout@v4`, `actions/setup-node@v4` with registry-url `https://registry.npmjs.org`
+- Executes `npm ci`, `npm run build` (invokes `tsc` + `build:hooks` from `prepublishOnly`)
+- Publishes with `npm publish --provenance --access public` using `NPM_TOKEN` secret
+- Cryptographic attestation links published artifact to source commit SHA
 
 ## Roadmap & Known Limitations
 
 **Stub Backends:**
-- Gemini CLI adapter throws `SUBPROCESS_ERROR` until JSON output format stabilizes (see `src/ai/backends/gemini.ts`)
-- OpenCode CLI adapter throws `SUBPROCESS_ERROR` until JSONL parsing implemented (see `src/ai/backends/opencode.ts`)
+- Gemini CLI adapter throws `SUBPROCESS_ERROR` until JSON output format stabilizes
+- OpenCode CLI adapter throws `SUBPROCESS_ERROR` until JSONL parsing implemented
 
 **Quality Validator Limitations:**
 - Regex-based export extraction misses complex patterns (destructured, namespace, dynamic exports)
@@ -468,8 +478,4 @@ spawn(process.execPath, ['-e', scriptString], {
 - Code-vs-code operates on symbol names only without AST analysis to distinguish intentional duplication
 
 **Disabled Features:**
-- Density validator (`validateFindability`) disabled after structured `publicInterface` removal from `SumFileContent` schema (see `src/quality/density/validator.ts`)
-
-## License
-
-MIT License. Copyright holder: GeoloeG-IsT (2026).
+- Density validator (`validateFindability`) disabled after structured `publicInterface` removal from `SumFileContent` schema

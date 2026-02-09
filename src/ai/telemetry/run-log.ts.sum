@@ -1,26 +1,26 @@
 ---
-generated_at: 2026-02-09T14:07:54.669Z
+generated_at: 2026-02-09T15:05:48.440Z
 content_hash: 885090812a3be24de9212805ef4c0d2b922fe78af57830769f591dd57f88ba4b
-purpose: `run-log.ts` serializes completed `RunLog` telemetry data to disk as pretty-printed JSON files in `.agents-reverse-en...
+purpose: writeRunLog() serializes completed RunLog objects to timestamped JSON files in `.agents-reverse-engineer/logs/` for t...
 ---
-**`run-log.ts` serializes completed `RunLog` telemetry data to disk as pretty-printed JSON files in `.agents-reverse-engineer/logs/` with ISO-timestamp-derived filenames.**
+**writeRunLog() serializes completed RunLog objects to timestamped JSON files in `.agents-reverse-engineer/logs/` for telemetry persistence.**
 
-## Exported Functions
+## Exports
 
-**`writeRunLog(projectRoot: string, runLog: RunLog): Promise<string>`** — Creates logs directory via `fs.mkdir()` with `recursive: true`, sanitizes `runLog.startTime` by replacing `:` and `.` with `-` to form valid cross-platform filename `run-${safeTimestamp}.json`, writes JSON via `fs.writeFile()` with 2-space indentation, returns absolute path to written file.
+- `writeRunLog(projectRoot: string, runLog: RunLog): Promise<string>` — Creates logs directory via `fs.mkdir()` with `recursive: true`, derives filename from `runLog.startTime` by replacing `:` and `.` with `-` (pattern: `run-${safeTimestamp}.json`), writes pretty-printed JSON via `JSON.stringify(runLog, null, 2)`, returns absolute path to written file.
+
+## Constants
+
+- `LOGS_DIR = '.agents-reverse-engineer/logs'` — Relative path segment for telemetry log storage.
+
+## Filename Sanitization
+
+Replaces `:` and `.` characters in ISO 8601 timestamps via `/[:.]/g` regex to produce valid cross-platform filenames (e.g., `2026-02-07T12:00:00.000Z` → `run-2026-02-07T12-00-00-000Z.json`).
 
 ## Integration Points
 
-**Dependency on `RunLog` type** — Imports `RunLog` from `../types.js`, expects structured telemetry data with `startTime` field (ISO 8601 string) and arbitrary payload fields for token counts, costs, errors, file metadata.
+Consumes `RunLog` type from `../types.js` (sibling telemetry module). Used by telemetry logger (`src/ai/telemetry/logger.ts`) to persist aggregated run metadata after command completion. Works with cleanup module (`src/ai/telemetry/cleanup.ts`) which enforces retention limits on written log files.
 
-**Consumed by telemetry system** — Called after AI generation run completes to persist aggregated metrics. Pairs with cleanup logic in `src/ai/telemetry/cleanup.ts` which enforces retention limits via `cleanupOldLogs(keepCount)`.
+## File I/O Pattern
 
-## File Path Construction
-
-**Constants** — `LOGS_DIR` hardcoded as `.agents-reverse-engineer/logs` relative to project root.
-
-**Filename sanitization** — Uses `String.prototype.replace(/[:.]/g, '-')` on ISO timestamp to convert `2026-02-07T12:00:00.000Z` → `2026-02-07T12-00-00-000Z`, ensuring Windows/POSIX compatibility by removing filesystem-unsafe characters.
-
-## Error Handling
-
-**No explicit error handling** — Allows `fs.mkdir()` and `fs.writeFile()` exceptions to propagate to caller. Parent orchestration layers handle I/O failures.
+Single atomic write operation per run log with no locking or serialization required (unlike trace writer's promise-chain pattern) because each run produces unique timestamped filename with no concurrent write conflicts.

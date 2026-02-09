@@ -1,66 +1,80 @@
 ---
-generated_at: 2026-02-09T14:10:19.983Z
-content_hash: 9f5d4a8463fb231ccf46b4e1443e106b9665d40dd560b81aa5f17e9235eb14b1
-purpose: package.json defines the npm package manifest for agents-reverse-engineer v0.6.3, a CLI tool providing reverse-engine...
+generated_at: 2026-02-09T15:08:45.158Z
+content_hash: 8894f4521da64d6fda03043c49408a42ca850a6e8b55baee222f01ac10bd4f1a
+purpose: package.json defines npm package metadata, build scripts, runtime dependencies, and distribution configuration for th...
 ---
-**package.json defines the npm package manifest for agents-reverse-engineer v0.6.3, a CLI tool providing reverse-engineered codebase documentation generation for AI agents through TypeScript compilation and dual binary entry points.**
+**package.json defines npm package metadata, build scripts, runtime dependencies, and distribution configuration for the agents-reverse-engineer CLI tool.**
 
 ## Package Identity
 
 - `name`: "agents-reverse-engineer"
-- `version`: "0.6.3"
+- `version`: "0.6.4" (semantic versioning)
 - `description`: "CLI tool for reverse-engineering codebase documentation for AI agents"
-- `type`: "module" (ES modules)
-- `license`: "MIT"
+- `type`: "module" (ES module package)
 - `author`: "GeoloeG-IsT"
+- `license`: "MIT"
 
 ## Binary Entry Points
 
-Exports two CLI commands via `bin` field, both resolving to `dist/cli/index.js`:
-- `agents-reverse-engineer` — Full command name
-- `are` — Short alias
+- `bin.agents-reverse-engineer`: "dist/cli/index.js" (full command name)
+- `bin.are`: "dist/cli/index.js" (shorthand alias)
+
+Both binaries resolve to compiled TypeScript output at `dist/cli/index.js`.
 
 ## Build Scripts
 
-- `build` — Compiles TypeScript via `tsc` (emits to `dist/` per tsconfig.json)
-- `build:hooks` — Copies hooks via `node scripts/build-hooks.js` (hooks/ → hooks/dist/)
-- `prepublishOnly` — Sequential execution: `npm run build && npm run build:hooks`
-- `dev` — Hot-reload development mode via `tsx watch src/cli/index.ts`
+- `build`: "tsc" (TypeScript compilation from src/ to dist/)
+- `build:hooks`: "node scripts/build-hooks.js" (copies hooks/ to hooks/dist/ for npm distribution)
+- `prepublishOnly`: "npm run build && npm run build:hooks" (pre-publish pipeline ensuring compiled artifacts exist)
+- `dev`: "tsx watch src/cli/index.ts" (hot-reload development mode via tsx watcher)
 
 ## Runtime Dependencies
 
-Production dependencies (8 packages):
-- `fast-glob@^3.3.3` — File discovery with glob patterns
-- `ignore@^7.0.3` — Gitignore parsing
-- `isbinaryfile@^5.0.4` — Binary file detection
-- `ora@^8.1.1` — Spinner UI
-- `picocolors@^1.1.1` — Terminal color formatting
-- `simple-git@^3.27.0` — Git diff-based change detection
-- `yaml@^2.7.0` — Config file parsing
-- `zod@^3.24.1` — Schema validation
+- `fast-glob@^3.3.3`: File discovery with glob pattern matching
+- `ignore@^7.0.3`: Gitignore parsing for file filtering
+- `isbinaryfile@^5.0.4`: Binary file detection during discovery
+- `ora@^8.1.1`: Spinner UI for progress indication
+- `picocolors@^1.1.1`: ANSI color formatting for terminal output
+- `simple-git@^3.27.0`: Git integration for change detection (diff parsing, rename tracking)
+- `yaml@^2.7.0`: YAML parsing for config.yaml and .sum frontmatter
+- `zod@^3.24.1`: Schema validation for configuration and structured data
 
 ## Development Dependencies
 
-- `@types/node@^22.10.7` — Node.js type definitions
-- `tsx@^4.19.2` — TypeScript execution with watch mode
-- `typescript@^5.7.3` — TypeScript compiler
+- `@types/node@^22.10.7`: Node.js type definitions for TypeScript
+- `tsx@^4.19.2`: TypeScript execution and watch mode for development
+- `typescript@^5.7.3`: TypeScript compiler (targets ES2022, NodeNext module resolution)
 
-## Distribution Configuration
+## Engine Requirements
 
-- `main`: "dist/cli/index.js" — CommonJS entry point fallback
-- `files`: ["dist", "hooks/dist", "README.md", "LICENSE"] — npm tarball inclusion list
-- `engines`: `node` ≥18.0.0
+- `node`: ">=18.0.0" (minimum Node.js version for ES module support and API compatibility)
+
+## Distribution Files
+
+`files` array specifies npm package contents:
+- `dist`: Compiled TypeScript output (CLI entry point, all modules)
+- `hooks/dist`: Compiled session lifecycle hooks for IDE integration
+- `README.md`: User documentation
+- `LICENSE`: MIT license text
+
+Excludes source TypeScript (`src/`), development scripts (`scripts/`), configuration (`tsconfig.json`), and documentation (`docs/`).
 
 ## Repository Metadata
 
+- `repository.type`: "git"
 - `repository.url`: "git+https://github.com/GeoloeG-IsT/agents-reverse-engineer.git"
 - `bugs.url`: "https://github.com/GeoloeG-IsT/agents-reverse-engineer/issues"
 - `homepage`: "https://github.com/GeoloeG-IsT/agents-reverse-engineer#readme"
 
-## NPM Keywords
+## Keywords
 
-Search tags: "documentation", "codebase", "ai", "agents", "reverse-engineering"
+`keywords` array for npm search discoverability:
+- "documentation"
+- "codebase"
+- "ai"
+- "agents"
+- "reverse-engineering"
 
-## Build Workflow Integration
+## Main Entry Point
 
-The `prepublishOnly` lifecycle hook ensures TypeScript compilation (`build`) and hook file preparation (`build:hooks`) execute before npm publish. The `files` array excludes source TypeScript (`src/` not listed), shipping only compiled `dist/` output and prepared `hooks/dist/` artifacts.
+- `main`: "dist/cli/index.js" (package entry for programmatic imports, though primarily consumed as CLI tool)

@@ -2,27 +2,12 @@
 
 # docs
 
-Foundational specification document defining the original product vision, RLM algorithm, and feature requirements that guided the implementation of agents-reverse-engineer's three-phase documentation generation pipeline.
+Contains the original vision document (INPUT.md) defining the Recursive Language Model (RLM) algorithm, brownfield documentation methodology, and core feature requirements that guide agents-reverse-engineer development.
 
 ## Contents
 
-**[INPUT.md](./INPUT.md)** — Original product specification defining RLM (Recursive Language Model) algorithm for brownfield documentation: bottom-up directory traversal generating `{filename}.sum` summaries at leaves, recursive aggregation into `AGENTS.md` per directory, optional supplementary files (`ARCHITECTURE.md`, `STRUCTURE.md`, `STACK.md`, `INTEGRATIONS.md`, `INFRASTRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `PATTERNS.md`, `CONCERNS.md`), multi-platform command interface requirements (`/are-generate`, `/are-update`), session-end hook specifications, and research directives for GSD/BMAD methodology integration.
+**[INPUT.md](./INPUT.md)** — Original project specification defining RLM bottom-up recursive execution pattern (leaf-to-root file analysis → directory aggregation → root synthesis), intended integration partners (SpecKit, BMAD, Get Shit Done), session hook requirements, and CLI command surface (`/are-generate`, `/are-update`).
 
-## Relationship to Implementation
+## Role in Project
 
-INPUT.md precedes and informs the concrete implementation residing in `src/`:
-
-- **RLM algorithm** → `src/generation/orchestrator.ts` three-phase pipeline: concurrent file analysis (`runPhase1()`), post-order directory aggregation (`runPhase2()` with depth-based sorting via `getAffectedDirectories()`), sequential root synthesis (`runPhase3()`)
-- **File summaries** → `src/generation/writers/sum.ts` (`writeSumFile()`) with YAML frontmatter containing `content_hash`, `purpose`, `critical_todos`, `related_files`
-- **Directory aggregation** → `src/generation/writers/agents-md.ts` (`writeAgentsMd()`) consuming child `.sum` files and subdirectory `AGENTS.md` via `collectAgentsDocs()`
-- **Root documents** → `src/integration/generate.ts` producing `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` with platform-specific command templates
-- **Incremental updates** → `src/update/orchestrator.ts` using SHA-256 hash comparison from `.sum` frontmatter
-- **Session hooks** → `hooks/are-session-end.js`, `hooks/opencode-are-session-end.js` implementing post-session update triggers
-
-## Vision Continuity
-
-The document's emphasis on brownfield project support manifests in:
-- Gitignore-aware discovery (`src/discovery/filters/gitignore.ts`)
-- Vendor directory exclusion defaults (`src/config/defaults.ts`: 18 entries including `node_modules`, `.git`, `dist`)
-- Change detection via `simple-git` (`src/change-detection/detector.ts`)
-- Quality validation detecting code-documentation drift (`src/quality/inconsistency/`)
+INPUT.md serves as the canonical requirements document referenced during feature development and architectural decisions. The RLM algorithm described therein drives the three-phase generation pipeline implemented in `src/generation/orchestrator.ts` and `src/orchestration/runner.ts`. Integration partner analysis (GSD, BMAD methodologies) informed the directory-level documentation patterns (`AGENTS.md`, optional architecture sections) and command execution via Claude Code/OpenCode/Gemini backends defined in `src/ai/backends/`.

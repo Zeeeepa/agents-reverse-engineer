@@ -2,26 +2,39 @@
 
 # src/output
 
-Terminal output abstraction providing colored console logging with conditional ANSI formatting for CLI operations.
+Terminal output formatting layer providing colored CLI feedback via `Logger` interface with factory functions for production (colored/uncolored) and testing (silent) modes.
 
 ## Contents
 
-### Core Logger
+**[logger.ts](./logger.ts)** — exports `Logger` interface defining six output methods (`info`, `file`, `excluded`, `summary`, `warn`, `error`), `LoggerOptions` interface for color configuration, `createLogger()` factory using picocolors for ANSI formatting, and `createSilentLogger()` factory returning no-op stubs for testing.
 
-**[logger.ts](./logger.ts)** — Exports `Logger` interface with six methods (`info`, `file`, `excluded`, `summary`, `warn`, `error`), factory function `createLogger(options: LoggerOptions)` returning picocolors-backed or no-color implementation based on `colors` boolean flag, and `createSilentLogger()` returning no-op implementation for testing. Uses `ColorFunctions` internal interface wrapping five picocolors methods (`green`, `dim`, `red`, `bold`, `yellow`), conditionally assigned to identity functions when colors disabled. All output delegates to `console.log`, `console.warn`, or `console.error` with prefixed markers ("  +", "  -") following CONTEXT.md format specification.
+## Architecture
 
-## Design Pattern
+**Conditional Color Formatting**  
+`createLogger()` accepts `LoggerOptions.colors` boolean to toggle between picocolors functions (`green`, `dim`, `red`, `bold`, `yellow`) and identity function passthrough via `noColor` constant. Color functions wrap output strings before passing to `console.log`/`console.warn`/`console.error`.
 
-**Conditional Color Injection** — Logger implementation receives `ColorFunctions` object at construction time, either picocolors methods or identity function wrappers (`(s: string): string => s`), enabling zero-overhead color stripping via functional composition rather than runtime conditionals per log call.
+**Output Method Contracts**  
+- `file(path)` — green "+" prefix for discovered files (used by `src/discovery/run.ts`)
+- `excluded(path, reason, filter)` — dim "-" prefix with parenthetical reason/filter (used by `src/discovery/filters/`)
+- `summary(included, excluded)` — bold included count + dim excluded count (used by `src/cli/discover.ts`)
+- `warn(message)` — yellow "Warning:" prefix (used by `src/ai/telemetry/logger.ts` for cost threshold alerts)
+- `error(message)` — red "Error:" prefix (used by `src/cli/` error handlers)
+- `info(message)` — uncolored informational output
 
-## Dependencies
+**Testing Isolation**  
+`createSilentLogger()` returns `Logger` with all methods mapped to `noop` arrow function, preventing console pollution during test execution. Used by vitest suites in `src/` subdirectories.
 
-- `picocolors` (imported as `pc`) — Zero-dependency ANSI escape code generator for terminal color formatting
+## Integration Points
 
-## Usage Context
+**Consumed By:**
+- `src/cli/index.ts` — instantiates logger via `createLogger({ colors: config.output.colors })`, threads through command handlers
+- `src/discovery/run.ts` — calls `logger.file()` and `logger.excluded()` during file walking
+- `src/ai/telemetry/logger.ts` — calls `logger.warn()` when cumulative cost exceeds `config.ai.telemetry.costThresholdUsd`
+- `src/orchestration/progress.ts` — logs phase start/end, worker pool status, ETA calculations
+- `src/quality/inconsistency/reporter.ts` — emits validation warnings via `logger.warn()`
 
-Consumed by:
-- `src/cli/discover.ts` — Logs file discovery results with `file()` and `excluded()` methods, prints summary via `summary()`
-- `src/cli/generate.ts` — Logs phase transitions and completion messages via `info()`
-- `src/orchestration/progress.ts` — Streaming progress reporter delegates to Logger methods for console output
-- `src/config/loader.ts` — Determines color flag from `output.colors` config field, passes to `createLogger()`
+**Color Configuration Source:**  
+`config.output.colors` (from `.agents-reverse-engineer/config.yaml`, Zod schema in `src/config/schema.ts`)
+
+**Picocolors Dependency:**  
+`ColorFunctions` interface wraps five picocolors exports. Identity function fallback avoids ANSI escape sequences when `colors: false` or terminal lacks color support.

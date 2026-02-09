@@ -1,21 +1,21 @@
 ---
-generated_at: 2026-02-09T14:09:03.111Z
+generated_at: 2026-02-09T15:07:15.889Z
 content_hash: 92cb6f83a396d75b45e8243e85d7068562a116a565a2c74363b0943063d5b27a
-purpose: src/imports/index.ts re-exports import extraction functions and types from the imports analysis module.
+purpose: Re-exports import analysis functionality from extractor.ts and types.ts modules.
 ---
-**src/imports/index.ts re-exports import extraction functions and types from the imports analysis module.**
+**Re-exports import analysis functionality from extractor.ts and types.ts modules.**
 
 ## Exported Functions
 
-- `extractImports(filePath: string, fileContent: string): FileImports` — Extracts import statements from a single file, returning parsed import metadata
-- `extractDirectoryImports(directoryPath: string, filePaths: string[]): Map<string, FileImports>` — Aggregates import statements across multiple files in a directory
-- `formatImportMap(importMap: Map<string, FileImports>): string` — Converts import metadata map into human-readable string format for inclusion in directory-level prompts
+- `extractImports(filePath: string): FileImports` — Extracts import statements from a single source file, returning ImportEntry arrays for relative and package imports
+- `extractDirectoryImports(dirPath: string, discoveredFiles: string[]): Map<string, FileImports>` — Analyzes all files in a directory to build file-to-imports mapping, used during Phase 1 file analysis prompt construction with import maps
+- `formatImportMap(imports: Map<string, FileImports>): string` — Serializes import map to human-readable markdown format for AI prompt injection
 
 ## Exported Types
 
-- `ImportEntry` — Represents a single import statement with source module and imported symbols
-- `FileImports` — Container for all import statements extracted from a file
+- `ImportEntry` — Represents a single import statement with `source` (module specifier) and `symbols` (imported identifiers)
+- `FileImports` — Container for a file's imports with `relativeImports: ImportEntry[]` (local project files) and `packageImports: ImportEntry[]` (node_modules dependencies)
 
-## Module Role
+## Module Purpose
 
-This barrel export consolidates the import analysis subsystem used in Phase 2 (directory aggregation) of the three-phase documentation pipeline. The `extractDirectoryImports()` function is called by directory prompt builders to generate import maps that appear in AGENTS.md synthesis prompts, providing dependency context for AI analysis. Implementation logic resides in `extractor.ts` and type definitions in `types.ts`.
+Serves as public API surface for static import analysis subsystem consumed by `src/generation/prompts/builder.ts` during Phase 1 prompt construction. Provides dependency graph data to AI backend for context-aware file summarization. Import maps appear in `.sum` generation prompts to help AI understand file coupling and integration points.

@@ -2,16 +2,24 @@
 
 # src/quality/density
 
-Validates symbol presence in aggregated documentation through string-based findability heuristics — currently disabled pending structured metadata extraction re-implementation after `SumFileContent.metadata.publicInterface` field removal.
+Disabled findability validator that would verify AGENTS.md coverage of exported symbols from `.sum` file metadata (awaiting structured `publicInterface` extraction restoration).
 
 ## Contents
 
-**[validator.ts](./validator.ts)** — Exports `validateFindability()` returning empty array until post-processing pass restores structured symbol extraction; defines `FindabilityResult` interface tracking per-file `symbolsTested`, `symbolsFound`, `symbolsMissing`, and `score` (found/tested ratio 0-1).
+**[validator.ts](./validator.ts)** — `validateFindability()` returns empty array since `SumFileContent.publicInterface` removal in schema. Signature preserved: accepts `agentsMdContent` string and `sumFiles` map, would return `FindabilityResult[]` with per-file symbol presence analysis (tested/found/missing arrays, coverage score 0-1). Design: substring search for symbols in AGENTS.md text without LLM inference, contrasts with code-vs-doc's regex-based export extraction from source files.
 
-## Status
+## Architecture
 
-Validator placeholder retained in quality pipeline alongside `src/quality/inconsistency/` (code-vs-doc, code-vs-code) and `src/quality/phantom-paths/` modules. Function signature preserved with underscore-prefixed parameters (`_agentsMdContent`, `_sumFiles`) indicating unused status. Original design verified exported symbols from child `.sum` files appear in synthesized parent `AGENTS.md` via string matching — no LLM calls required.
+Non-AI heuristic validator using string matching to compute symbol findability scores. Imports `SumFileContent` from `../../generation/writers/sum.js` for type constraints. Called by `src/quality/index.ts` quality orchestration alongside `code-vs-doc`, `code-vs-code`, `phantom-paths` validators. Disabled state prevents execution until post-processing pass restores structured metadata extraction to `.sum` file frontmatter.
 
-## Integration
+## Exported Interface
 
-Quality orchestrator at `src/quality/index.ts` invokes density validator post-generation as part of `InconsistencyReport` assembly. `FindabilityResult` structure aligns with inconsistency reporter patterns: per-file arrays of tested/found/missing symbols plus normalized score metric.
+**FindabilityResult** — Validation outcome with `filePath`, `symbolsTested`, `symbolsFound`, `symbolsMissing` string arrays, `score` ratio (found/tested).
+
+## Relation to Quality Suite
+
+Fourth validator in suite:
+- `code-vs-doc` (regex export extraction vs substring search in summaries)
+- `code-vs-code` (duplicate symbol detection via `Map<symbol, string[]>` aggregation)
+- `phantom-paths` (path resolution via three regex patterns + `existsSync()`)
+- `density` (this module: symbol findability in AGENTS.md from .sum metadata, disabled)

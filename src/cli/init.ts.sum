@@ -1,26 +1,30 @@
 ---
-generated_at: 2026-02-09T14:08:37.151Z
+generated_at: 2026-02-09T15:06:35.645Z
 content_hash: 7cd6a59c01b8ceab118bdfa490d0f4c10459672c0146d922cdc9923c8265ccef
-purpose: initCommand creates the default configuration YAML file for agents-reverse-engineer in the `.agents-reverse-engineer/...
+purpose: `src/cli/init.ts` implements the `are init` command that creates `.agents-reverse-engineer/config.yaml` with default ...
 ---
-**initCommand creates the default configuration YAML file for agents-reverse-engineer in the `.agents-reverse-engineer/` directory.**
+**`src/cli/init.ts` implements the `are init` command that creates `.agents-reverse-engineer/config.yaml` with default settings, warning if configuration already exists unless `--force` flag is provided.**
 
-## Exported Interface
+## Exported Function
 
-```typescript
-async function initCommand(root: string, options?: { force?: boolean }): Promise<void>
-```
-
-`initCommand` accepts `root` (project directory path) and optional `options.force` flag to overwrite existing configuration. Resolves `root` via `path.resolve()`, constructs `configPath` by joining `resolvedRoot`, `CONFIG_DIR`, and `CONFIG_FILE`. Creates a `Logger` instance via `createLogger({ colors: true })`.
-
-## Execution Flow
-
-Calls `configExists(resolvedRoot)` to check for existing configuration. If configuration exists and `force` is false, logs warning via `logger.warn()` showing `configPath` location and suggests manual editing via `logger.info()`. If configuration does not exist or `force` is true, invokes `writeDefaultConfig(resolvedRoot)` to create YAML file, then logs success message with customization guidance covering `exclude.patterns`, `ai.concurrency`, `ai.timeoutMs`, `ai.backend`.
-
-## Error Handling
-
-Catches errors as `NodeJS.ErrnoException`. For permission errors (error codes `EACCES` or `EPERM`), logs permission denial message via `logger.error()` with `configPath`, provides remediation hint via `logger.info()`, exits with status code 1. For other errors, logs generic failure message via `logger.error()` with `error.message`, exits with status code 1.
+**`initCommand(root: string, options?: { force?: boolean }): Promise<void>`** — Main entry point for `are init` command. Resolves `root` to absolute path, computes `configPath` as `<root>/.agents-reverse-engineer/config.yaml`, calls `configExists()` from `src/config/loader.ts` to check for existing config, and invokes `writeDefaultConfig()` if not present or if `force: true`. Logs instructional messages about customization options: `exclude.patterns`, `ai.concurrency`, `ai.timeoutMs`, `ai.backend`.
 
 ## Dependencies
 
-Imports `configExists`, `writeDefaultConfig`, `CONFIG_DIR`, `CONFIG_FILE` from `../config/loader.js`. Imports `createLogger` from `../output/logger.js`. Uses Node.js `path` module for path resolution and joining.
+- **`src/config/loader.ts`**: Imports `configExists()`, `writeDefaultConfig()`, `CONFIG_DIR` constant (`'.agents-reverse-engineer'`), and `CONFIG_FILE` constant (`'config.yaml'`)
+- **`src/output/logger.ts`**: Imports `createLogger()` factory that returns logger with `warn()`, `info()`, `error()` methods supporting ANSI color codes when `colors: true` option passed
+
+## Error Handling
+
+Catches `NodeJS.ErrnoException` errors with two distinct code paths:
+- **Permission errors** (`EACCES`, `EPERM`): Logs "Permission denied" message with `configPath`, suggests checking write permissions, exits with code 1
+- **Other errors**: Logs generic failure message with `error.message`, exits with code 1
+
+## CLI Output Pattern
+
+Provides progressive disclosure of configuration options after successful initialization:
+1. Confirms creation at `configPath`
+2. Lists customization points with syntax: `- key: Description`
+3. References README.md for full documentation
+
+**Force flag behavior**: When `options.force` is `true`, skips `configExists()` check and unconditionally calls `writeDefaultConfig()`, allowing users to reset configuration to defaults.

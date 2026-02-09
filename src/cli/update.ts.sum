@@ -1,80 +1,80 @@
 ---
-generated_at: 2026-02-09T14:08:55.803Z
-content_hash: b5b20a83f1fe73aea8e05063d8242f06c7f80b130820584ddee3aac3c07959d9
-purpose: updateCommand orchestrates incremental documentation regeneration by detecting file changes via content-hash comparis...
+generated_at: 2026-02-09T15:07:26.839Z
+content_hash: 51393074cfc44dc242f45c53188fb0f3513f9e01643ea37b0548f4c31f4691f3
+purpose: `src/cli/update.ts` executes ARE's incremental update workflow by detecting git changes, invoking concurrent AI subpr...
 ---
-**updateCommand orchestrates incremental documentation regeneration by detecting file changes via content-hash comparison, analyzing modified files through CommandRunner, regenerating AGENTS.md for affected directories, and managing telemetry/trace output.**
+**`src/cli/update.ts` executes ARE's incremental update workflow by detecting git changes, invoking concurrent AI subprocess analysis for modified files via `CommandRunner.executeUpdate()`, regenerating `AGENTS.md` for affected directories, and emitting NDJSON trace events with exit code semantics (0=success, 1=partial failure, 2=total failure).**
 
-## Exported Interface
+## Exported Symbols
 
-```typescript
-export interface UpdateCommandOptions {
-  uncommitted?: boolean;    // Include staged + working directory changes
-  dryRun?: boolean;         // Show plan without writing files
-  concurrency?: number;     // Override worker pool size
-  failFast?: boolean;       // Abort on first analysis failure
-  debug?: boolean;          // Enable verbose AI service logging
-  trace?: boolean;          // Enable NDJSON trace emission
-}
+**`UpdateCommandOptions`** interface defines CLI flags: `uncommitted?: boolean` includes working tree changes, `dryRun?: boolean` previews plan without writes, `concurrency?: number` overrides pool size, `failFast?: boolean` aborts on first error, `debug?: boolean` logs backend/prompt details, `trace?: boolean` enables NDJSON trace emission.
 
-export async function updateCommand(
-  targetPath: string,
-  options: UpdateCommandOptions
-): Promise<void>
-```
+**`updateCommand(targetPath: string, options: UpdateCommandOptions): Promise<void>`** async function orchestrates two-phase update: Phase 1 runs `CommandRunner.executeUpdate()` with concurrent AI calls for changed files, Phase 2 loops through `plan.affectedDirs` sequentially generating `AGENTS.md` via `buildDirectoryPrompt()` + `aiService.call()` + `writeAgentsMd()`, then finalizes telemetry and emits trace events.
 
-## Execution Flow
+## Update Workflow Pipeline
 
-updateCommand performs six sequential phases:
+**Stage 1: Initialization and Plan Preparation** calls `createUpdateOrchestrator()` from `src/update/orchestrator.ts`, then `orchestrator.preparePlan()` returns `UpdatePlan` with `filesToAnalyze: FileChange[]`, `filesToSkip: string[]`, `affectedDirs: string[]`, `cleanup: { deletedSumFiles, deletedAgentsMd }`, `currentCommit: string`, `isFirstRun: boolean`.
 
-1. **Configuration Loading**: Loads config via loadConfig with tracer passed through for early trace event emission
-2. **Plan Preparation**: Calls createUpdateOrchestrator().preparePlan() to detect file changes, compute affected directories, and identify orphaned .sum files
-3. **Backend Resolution**: Uses resolveBackend() from createBackendRegistry() to detect available AI CLI (claude/gemini/opencode), exits with code 2 and getInstallInstructions() message if none found
-4. **File Analysis**: Instantiates AIService, CommandRunner with progressLog parameter, executes runner.executeUpdate() for concurrent .sum generation
-5. **Directory Regeneration**: Sequentially regenerates AGENTS.md for plan.affectedDirs by calling buildDirectoryPrompt() and writeAgentsMd() with manual task:start/task:done trace emission
-6. **Finalization**: Calls aiService.finalize(), progressLog.finalize(), tracer.finalize(), cleanupOldTraces(), orchestrator.recordRun()
+**Stage 2: Backend Resolution and Service Setup** mirrors `generate.ts` pattern: invokes `createBackendRegistry()` + `resolveBackend()`, exits with code 2 if `AIServiceError` code is `CLI_NOT_FOUND`, constructs `AIService` with config timeouts/retries/telemetry, enables subprocess logging to `.agents-reverse-engineer/subprocess-logs/<timestamp>/` when `options.trace` is true.
 
-## Change Detection Strategy
+**Stage 3: Progress Tracking Infrastructure** creates `ProgressLog.create(absolutePath)` for tail-able `progress.log`, writes session header with ISO timestamp, creates `CommandRunner` with `concurrency`, `failFast`, `tracer`, `progressLog` options.
 
-UpdatePlan (from createUpdateOrchestrator) contains:
-- `filesToAnalyze: FileChange[]` with status: 'added' | 'modified' | 'renamed'
-- `filesToSkip: string[]` for hash-matched files
-- `affectedDirs: string[]` computed via getAffectedDirectories() walking parent paths
-- `cleanup.deletedSumFiles: string[]` and `cleanup.deletedAgentsMd: string[]` for orphan removal
-- `isFirstRun: boolean` detecting missing baseline state
-- `currentCommit: string` tracking git HEAD or synthetic hash
+**Stage 4: Phase 1 File Analysis** calls `runner.executeUpdate(plan.filesToAnalyze, absolutePath, config)` which internally uses `runPool()` with Phase 1 tasks reading source content, computing SHA-256 `contentHash`, reading existing `.sum` via `readSumFile()`, building prompts with `buildFilePrompt()` passing `existingSumContent?.summary` for incremental context, invoking `aiService.call()`, writing `.sum` via `writeSumFile()`, emitting `phase:start` + `task:pickup/done` + `phase:end` trace events.
 
-## Progress Monitoring
+**Stage 5: Phase 2 Directory Regeneration** loops `plan.affectedDirs` sequentially (concurrency=1), reads existing `AGENTS.md` via `readFile()` checking for `GENERATED_MARKER` to extract `existingAgentsMd`, calls `buildDirectoryPrompt(dirPath, absolutePath, options.debug, knownDirs, undefined, existingAgentsMd)` with incremental update context, invokes `aiService.call()` with user/system prompts, writes via `writeAgentsMd()`, emits `phase:start` event with label `update-phase-dir-regen`, emits per-directory `task:start/done` events with `workerId: 0` (sequential), emits `phase:end` event with `tasksCompleted/tasksFailed` counts.
 
-ProgressLog.create() writes to `.agents-reverse-engineer/progress.log` for tail -f monitoring. Writes header with timestamp, file counts, and directory counts before runner.executeUpdate(). ProgressReporter handles directory-level updates with onDirectoryStart()/onDirectoryDone() emitting token counts and durations.
+**Stage 6: Finalization** calls `aiService.finalize(absolutePath)` to write telemetry run log, `progressLog.finalize()` to flush buffered writes, `tracer.finalize()` to close NDJSON stream, `cleanupOldTraces(absolutePath)` when `options.trace` is true, `orchestrator.recordRun()` as no-op (API compatibility), `orchestrator.close()` in finally block.
 
-## Trace Event Emission
+## Exit Code Strategy
 
-Phase 2 (directory regeneration) manually emits trace events since it bypasses CommandRunner:
-- `phase:start` with taskCount = plan.affectedDirs.length, concurrency = 1
-- `task:start` per directory with taskLabel = dir || '.'
-- `task:done` with success boolean, durationMs, optional error message
-- `phase:end` with tasksCompleted/tasksFailed counters
+**Exit 0** when `summary.filesFailed === 0` (all files succeeded or no files to process).
 
-## Exit Code Semantics
+**Exit 1** when `summary.filesFailed > 0` and `summary.filesProcessed > 0` (partial failure).
 
-- **0**: All files succeeded or no files to process
-- **1**: Partial failure (some files processed, some failed)
-- **2**: Total failure (no files processed and failures occurred) or CLI_NOT_FOUND error from resolveBackend
+**Exit 2** when `summary.filesProcessed === 0` and `summary.filesFailed > 0` (total failure) or `AIServiceError.code === 'CLI_NOT_FOUND'` (no backend available).
 
-## Subprocess Logging Integration
+## Display Formatting Helpers
 
-When options.trace is true, calls aiService.setSubprocessLogDir() with timestamped path under `.agents-reverse-engineer/subprocess-logs/` to capture stdout/stderr from execFile() spawns. Logs directory path via pc.dim() before execution.
+**`formatCleanup(plan: UpdatePlan): string[]`** internal function renders `plan.cleanup.deletedSumFiles` and `plan.cleanup.deletedAgentsMd` arrays as picocolors-formatted lines with red minus prefix.
 
-## Dependencies
+**`formatPlan(plan: UpdatePlan): string`** internal function renders update plan summary with sections: header with commit hash (7-char prefix), counters for analyze/skip/cleanup, file list with status markers (`+` green for added, `R` blue for renamed, `M` yellow for modified), skipped files in dim gray, cleanup actions, affected directories for AGENTS.md regeneration. Returns early with green "No changes detected" when all counts are zero. Shows yellow "First run detected" hint when `plan.isFirstRun` is true.
 
-Imports createUpdateOrchestrator from '../update/index.js', writeAgentsMd and buildDirectoryPrompt from '../generation/', AIService/AIServiceError/createBackendRegistry/resolveBackend/getInstallInstructions from '../ai/', CommandRunner/ProgressReporter/ProgressLog/createTraceWriter/cleanupOldTraces from '../orchestration/'.
+## Integration Points
 
-## Plan Formatting
+**Depends on `src/update/orchestrator.ts`** for `createUpdateOrchestrator()` factory and `UpdatePlan` type with `preparePlan()` method performing git diff parsing, SHA-256 hash comparison, orphan cleanup, affected directory computation.
 
-formatPlan() displays:
-- Current commit hash (first 7 chars via .slice(0, 7))
-- File counts with pc.cyan() for analyze count, pc.dim() for skip count
-- Status markers: pc.green('+') for added, pc.blue('R') for renamed, pc.yellow('M') for modified
-- Rename annotations: `(was: ${file.oldPath})` in pc.dim()
-- formatCleanup() helper lists deletedSumFiles and deletedAgentsMd with pc.red('-') markers
+**Depends on `src/orchestration/runner.ts`** for `CommandRunner` class exposing `executeUpdate()` method that runs Phase 1 file analysis concurrently via `runPool()` with `FileChange[]` input, returns `RunSummary` with `filesProcessed/filesFailed` counts.
+
+**Depends on `src/generation/writers/agents-md.ts`** for `writeAgentsMd()` function preserving user-authored `AGENTS.local.md`, prepending user content above generated content, injecting `GENERATED_MARKER` comment.
+
+**Depends on `src/generation/prompts/index.ts`** for `buildDirectoryPrompt()` accepting `existingAgentsMd?: string` parameter providing incremental update context (6th argument), aggregating child `.sum` files, subdirectory `AGENTS.md`, import maps, manifest detection.
+
+**Depends on `src/ai/service.ts`** for `AIService` class with `call()` method spawning subprocess, `setDebug()` enabling heap/RSS metrics, `setSubprocessLogDir()` writing stdout/stderr to timestamped directory, `finalize()` writing telemetry run log.
+
+**Depends on `src/orchestration/trace.ts`** for `createTraceWriter()` factory returning `ITraceWriter` with `emit()` method writing NDJSON events, `finalize()` closing stream, `filePath` property for user notification.
+
+**Depends on `src/orchestration/progress.ts`** for `ProgressReporter` tracking file/directory task metrics, `ProgressLog.create()` factory for append-only `progress.log` stream mirroring console output.
+
+## Trace Event Lifecycle
+
+**Pre-execution** emits `phase:start` event with `phaseLabel: 'update-phase-1-files'` or `'update-phase-dir-regen'`, `taskCount`, `concurrency` fields.
+
+**Per-task events** emitted by `CommandRunner.executeUpdate()` for Phase 1 via `runPool()` callback: `task:pickup` when worker claims task, `task:done` with `success/error/durationMs/activeTasks` when task completes.
+
+**Per-directory events** emitted manually in Phase 2 loop: `task:start` with `taskLabel: dir || '.'` before AI call, `task:done` with `workerId: 0`, `taskIndex`, `success`, optional `error`, `activeTasks: 0` after call completes or throws.
+
+**Post-execution** emits `phase:end` event with `durationMs`, `tasksCompleted`, `tasksFailed` counts after each phase.
+
+## Error Handling Patterns
+
+**First-run detection** checks `plan.isFirstRun` boolean, prints yellow hint to run `are generate` first, returns early without processing.
+
+**No-changes detection** checks `plan.filesToAnalyze.length === 0` and both cleanup arrays empty, prints green "All files are up to date", returns early.
+
+**Dry-run short-circuit** checks `options.dryRun` after plan display, logs "Dry run complete" and returns before backend resolution.
+
+**Backend resolution failure** catches `AIServiceError` with `code === 'CLI_NOT_FOUND'`, prints red error + `getInstallInstructions()` formatted text, calls `process.exit(2)` directly.
+
+**Phase 2 directory errors** caught per-directory in try/catch, increments `dirsFailed` counter, logs yellow warning with `pc.dim('[dir]')` prefix, emits `task:done` event with `success: false`, continues loop (non-fatal).
+
+**Finally-block cleanup** wraps entire execution in try/finally calling `orchestrator.close()` to release git repository handle and temp file resources.

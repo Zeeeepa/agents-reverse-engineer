@@ -1,21 +1,27 @@
 ---
-generated_at: 2026-02-09T14:09:41.054Z
+generated_at: 2026-02-09T15:08:03.681Z
 content_hash: 29c55f8542e839d5bdbe19864b5affe5f68bc685b1fa6f594dd7aa25018ed8b9
-purpose: Barrel module exporting specification generation utilities: `buildSpecPrompt` (function), `SpecPrompt` (type), `write...
+purpose: Barrel export module re-exporting project specification synthesis capabilities: `buildSpecPrompt()` prompt constructo...
 ---
-**Barrel module exporting specification generation utilities: `buildSpecPrompt` (function), `SpecPrompt` (type), `writeSpec` (function), `SpecExistsError` (class), and `WriteSpecOptions` (type) from `./prompts.js` and `./writer.js`.**
+**Barrel export module re-exporting project specification synthesis capabilities: `buildSpecPrompt()` prompt constructor, `SpecPrompt` type, `writeSpec()` file writer, `SpecExistsError` exception, and `WriteSpecOptions` configuration.**
 
 ## Exported Symbols
 
-### From `./prompts.js`
-- **`buildSpecPrompt`**: Function that constructs prompts for AI-driven project specification synthesis from `AGENTS.md` corpus
-- **`SpecPrompt`**: Type describing the structure of specification generation prompts
+**Functions:**
+- `buildSpecPrompt()` — Imported from `./prompts.js`, constructs AI prompt for synthesizing project specification from AGENTS.md corpus
+- `writeSpec()` — Imported from `./writer.js`, writes generated specification to filesystem with overwrite protection
 
-### From `./writer.js`
-- **`writeSpec`**: Function that writes synthesized specification content to output files (single `specs/SPEC.md` or multi-file `specs/<dirname>.md` based on `WriteSpecOptions`)
-- **`SpecExistsError`**: Error class thrown when attempting to overwrite existing specification files without `--force` flag
-- **`WriteSpecOptions`**: Type defining configuration for specification output (likely includes `force`, `multiFile`, and output directory options)
+**Types:**
+- `SpecPrompt` — Imported from `./prompts.js`, defines structure of specification generation prompt
+- `WriteSpecOptions` — Imported from `./writer.js`, configuration options for specification file writing (likely includes force overwrite flag, output path, multi-file mode)
 
-## Module Role
+**Errors:**
+- `SpecExistsError` — Imported from `./writer.js`, thrown when attempting to write specification to existing file without force flag
 
-This index file serves as the public API surface for the `src/specify/` directory, which implements the `/are-specify` command functionality. The command synthesizes all `AGENTS.md` files into project specification documents consumable by GSD workflow for milestone planning. The barrel pattern centralizes exports for prompt construction and file writing operations while exposing the `SpecExistsError` for error handling in `src/cli/specify.ts`.
+## Module Purpose
+
+Re-exports specification generation functionality consumed by `src/cli/specify.ts` command. Provides two-module separation: prompt engineering (`./prompts.js`) vs. file I/O (`./writer.js`). Based on CLI usage patterns (`are specify --force --multi-file`), `writeSpec()` likely accepts `WriteSpecOptions` controlling single-file (`specs/SPEC.md`) vs. multi-file (`specs/<dirname>.md`) output modes and overwrite behavior.
+
+## Integration Points
+
+Consumed by `src/cli/specify.ts` to implement `/are-specify` command workflow: collect all `AGENTS.md` files via `collectAgentsDocs()`, invoke `buildSpecPrompt()` to construct synthesis prompt, call AI service, pass result to `writeSpec()` with user-supplied options.

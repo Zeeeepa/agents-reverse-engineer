@@ -1,25 +1,33 @@
 ---
-generated_at: 2026-02-09T14:08:58.481Z
+generated_at: 2026-02-09T15:07:10.006Z
 content_hash: 170a8dbec49b601e218709256527ba0dbfa43f1f69e0aac7a6e7e3f9370fcb86
-purpose: Defines TypeScript interfaces for the three-phase documentation generation pipeline: `AnalysisResult` for Phase 1 fil...
+purpose: Defines TypeScript interfaces for AI-generated analysis results, metadata extraction, and summary generation options ...
 ---
-**Defines TypeScript interfaces for the three-phase documentation generation pipeline: `AnalysisResult` for Phase 1 file analysis output, `SummaryMetadata` for extracted file metadata, and `SummaryOptions` for controlling summary generation behavior.**
+**Defines TypeScript interfaces for AI-generated analysis results, metadata extraction, and summary generation options used throughout the three-phase documentation pipeline.**
 
 ## Exported Types
 
-**`AnalysisResult`** — Represents the output of Phase 1 file analysis, populated by LLM subprocess calls via `AIService.call()`. Contains two properties:
-- `summary: string` — Generated summary text written to `.sum` files
-- `metadata: SummaryMetadata` — Structured metadata extracted during analysis
+**`AnalysisResult`** — Result of Phase 1 file analysis populated by LLM via `AIService.call()`. Contains:
+- `summary: string` — Generated markdown summary text written to `.sum` files
+- `metadata: SummaryMetadata` — Extracted structured metadata for YAML frontmatter
 
-**`SummaryMetadata`** — Structured metadata extracted from source files during analysis, written to `.sum` file YAML frontmatter alongside `generated_at` and `content_hash`. Contains:
-- `purpose: string` — Primary purpose statement for the file (mandatory)
-- `criticalTodos?: string[]` — Optional array of security/breaking issues only (not general TODOs)
-- `relatedFiles?: string[]` — Optional array of tightly coupled sibling file paths
+**`SummaryMetadata`** — Structured metadata extracted during file analysis and serialized to `.sum` YAML frontmatter. Contains:
+- `purpose: string` — One-line purpose statement (mandatory)
+- `criticalTodos?: string[]` — Security/breaking issues only (optional)
+- `relatedFiles?: string[]` — Tightly coupled sibling file paths (optional)
 
-**`SummaryOptions`** — Configuration for controlling summary generation output format. Contains:
-- `targetLength: 'short' | 'standard' | 'detailed'` — Target verbosity level for generated summaries
-- `includeCodeSnippets: boolean` — Whether to embed code examples in output
+**`SummaryOptions`** — Configuration for summary generation behavior. Contains:
+- `targetLength: 'short' | 'standard' | 'detailed'` — Controls output verbosity
+- `includeCodeSnippets: boolean` — Whether to embed code examples in summaries
 
 ## Integration Points
 
-Referenced by `src/generation/executor.ts` for Phase 1 concurrent file analysis tasks, consumed by `src/generation/writers/sum.ts` for `.sum` file serialization with YAML frontmatter, and used by prompt builders in `src/generation/prompts/builder.ts` for configuring LLM analysis requests.
+Used by `src/generation/executor.ts` to type-check AI service responses during Phase 1 concurrent file analysis. The `AnalysisResult.metadata` structure maps directly to YAML frontmatter fields written by `writeSumFile()` in `src/generation/writers/sum.ts`. The `content_hash` field (SHA-256) added during write is not part of this schema — it's injected by the writer layer.
+
+Referenced by `src/generation/prompts/builder.ts` when constructing prompts that specify expected LLM output format. The `SummaryOptions` type flows through `CommandRunOptions` in `src/orchestration/types.ts` to control prompt template selection.
+
+## Related Files
+
+- `src/generation/writers/sum.ts` — Consumes `AnalysisResult` to write `.sum` files with YAML frontmatter
+- `src/generation/prompts/types.ts` — Defines `PromptContext` that carries `SummaryOptions`
+- `src/orchestration/types.ts` — Defines `Task` discriminated union where `AnalyzeFileTask` produces `AnalysisResult`

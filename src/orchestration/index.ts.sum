@@ -1,41 +1,34 @@
 ---
-generated_at: 2026-02-09T14:09:25.451Z
+generated_at: 2026-02-09T15:08:13.206Z
 content_hash: c54b67ea5f368404974a24012da22317186b49543249ead73a5cec227f874c98
-purpose: `src/orchestration/index.ts` re-exports the orchestration module's public API: concurrency pool, progress reporter, p...
+purpose: Barrel export aggregating orchestration module public API: runPool, ProgressReporter, ProgressLog, PlanTracker, creat...
 ---
-**`src/orchestration/index.ts` re-exports the orchestration module's public API: concurrency pool, progress reporter, plan tracker, trace writer, command runner, and shared types.**
+**Barrel export aggregating orchestration module public API: runPool, ProgressReporter, ProgressLog, PlanTracker, createTraceWriter, cleanupOldTraces, CommandRunner, and shared types.**
 
 ## Exported Types
 
-- `FileTaskResult` — Result type for individual file processing tasks
-- `RunSummary` — Aggregate summary of command execution (counts, durations, errors)
-- `ProgressEvent` — Event payload for progress updates during execution
-- `CommandRunOptions` — Configuration options threaded through command runners (includes `tracer?: ITraceWriter`)
-- `PoolOptions` — Configuration for worker pool (concurrency, fail-fast, callbacks)
-- `TaskResult` — Generic result type from pool execution
+Exports `FileTaskResult` interface with `path`, `success`, `tokensIn`, `tokensOut`, `cacheReadTokens`, `cacheCreationTokens`, `durationMs`, `model`, `error?` fields. Exports `RunSummary` interface containing `version`, `filesProcessed`, `filesFailed`, `filesSkipped`, `totalCalls`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `retryCount`, `totalFilesRead`, `uniqueFilesRead`, `inconsistenciesCodeVsDoc?`, `inconsistenciesCodeVsCode?`, `phantomPaths?`, `inconsistencyReport?` fields. Exports `ProgressEvent` interface with discriminated `type: 'start' | 'done' | 'error' | 'dir-done' | 'root-done'` and conditional fields `filePath`, `index`, `total`, `durationMs?`, `tokensIn?`, `tokensOut?`, `model?`, `error?`. Exports `CommandRunOptions` interface with `concurrency`, `failFast?`, `debug?`, `dryRun?`, `tracer?: ITraceWriter`, `progressLog?: ProgressLog`.
 
-## Exported Functions
+## Exported Concurrency Pool
 
-- `runPool()` — Iterator-based worker pool executing tasks with shared iterator across N workers
-- `cleanupOldTraces()` — Retention management for NDJSON trace files
+Exports `runPool<T>(tasks, options, onComplete?)` function from `pool.ts`. Exports `PoolOptions` interface with `concurrency`, `failFast?`, `tracer?: ITraceWriter`, `phaseLabel?`, `taskLabels?: string[]`. Exports `TaskResult<T>` interface with `index`, `success`, `value?`, `error?`.
 
-## Exported Classes
+## Exported Progress Reporting
 
-- `CommandRunner` — High-level orchestrator with `executeGenerate()`, `executeUpdate()`, `executeDiscover()` methods
-- `ProgressReporter` — Streaming progress updates with ETA calculation via moving average
-- `ProgressLog` — File-backed progress logging to `.agents-reverse-engineer/progress.log`
-- `PlanTracker` — Serialized writer for `GENERATION-PLAN.md` with promise-chain pattern preventing concurrent write corruption
+Exports `ProgressReporter` class providing `onFileStart(filePath)`, `onFileDone(filePath, durationMs, tokensIn, tokensOut, model, cacheReadTokens?, cacheCreationTokens?)`, `onFileError(filePath, error)`, `onDirectoryStart(dirPath)`, `onDirectoryDone(dirPath, durationMs, tokensIn, tokensOut, model, cacheReadTokens?, cacheCreationTokens?)`, `onRootDone(docPath)`, `printSummary(summary: RunSummary)` methods. Exports `ProgressLog` class with `static create(projectRoot): ProgressLog`, `write(line)`, `finalize(): Promise<void>` methods for file-based progress mirroring.
 
-## Exported Factories
+## Exported Plan Tracking
 
-- `createTraceWriter()` — Returns `ITraceWriter` implementation (NullTraceWriter or TraceWriter based on flag)
+Exports `PlanTracker` class with `constructor(projectRoot, initialMarkdown)`, `initialize(): Promise<void>`, `markDone(itemPath)`, `flush(): Promise<void>` methods for `GENERATION-PLAN.md` checkbox updates via promise-chain serialization.
 
-## Exported Interfaces
+## Exported Tracing
 
-- `ITraceWriter` — Contract for trace event emission with `emit()`, `end()`, `createChild()` methods
-- `TraceEvent` — Discriminated union of trace event types (phase:start/end, worker:start/end, task:pickup/done, subprocess:spawn/exit, retry)
-- `TraceEventPayload` — Raw event data before auto-populated fields (`seq`, `ts`, `pid`, `elapsedMs`)
+Exports `ITraceWriter` interface with `emit(event: TraceEventPayload)`, `finalize(): Promise<void>`, `readonly filePath: string`. Exports `TraceEvent` discriminated union covering `phase:start/end`, `worker:start/end`, `task:pickup/done/start`, `subprocess:spawn/exit`, `retry`, `discovery:start/end`, `filter:applied`, `plan:created`, `config:loaded` event types. Exports `TraceEventPayload` as `DistributiveOmit<TraceEvent, 'seq' | 'ts' | 'pid' | 'elapsedMs'>` to exclude auto-populated base fields. Exports `createTraceWriter(projectRoot, enabled): ITraceWriter` factory returning `NullTraceWriter` when `enabled=false` or `TraceWriter` for NDJSON append-only `.agents-reverse-engineer/traces/trace-{timestamp}.ndjson` output. Exports `cleanupOldTraces(projectRoot, keepCount=500): Promise<number>` for retention management.
 
-## Module Role
+## Exported Command Execution
 
-Barrel export aggregating orchestration subsystems: pool-based concurrency (`pool.ts`), progress monitoring (`progress.ts`), plan tracking (`plan-tracker.ts`), telemetry tracing (`trace.ts`), and command execution (`runner.ts`). Provides single import point for three-phase pipeline orchestration with NDJSON trace emission, serialized file writes, and ETA-aware progress streaming.
+Exports `CommandRunner` class with `constructor(aiService: AIService, options: CommandRunOptions)`, `executeGenerate(plan: ExecutionPlan): Promise<RunSummary>`, `executeUpdate(filesToAnalyze: FileChange[], projectRoot, config): Promise<RunSummary>` methods. `executeGenerate` orchestrates three-phase pipeline: pre-phase-1-cache (concurrency=20, reads old `.sum` files), phase-1-files (concurrent file analysis via `runPool`), post-phase-1-quality (concurrency=10, runs `checkCodeVsDoc`/`checkCodeVsCode` grouped by directory), phase-2-dirs-depth-{N} (concurrent per depth level, post-order `AGENTS.md` generation), post-phase-2-phantom (validates path references via `checkPhantomPaths`), phase-3-root (sequential root document synthesis). `executeUpdate` runs update-phase-1-files followed by update-post-phase-1-quality inconsistency checks.
+
+## Module Consolidation
+
+Single import point for orchestration engine subsystems. Re-exports from `types.ts`, `pool.ts`, `progress.ts`, `plan-tracker.ts`, `trace.ts`, `runner.ts`. Consumers import via `import { CommandRunner, runPool, ProgressReporter, createTraceWriter } from './orchestration/index.js'` to access concurrency pool, progress reporting, plan tracking, NDJSON tracing, and three-phase command execution.

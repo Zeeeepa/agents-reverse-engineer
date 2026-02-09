@@ -1,54 +1,48 @@
 ---
-generated_at: 2026-02-09T14:07:54.978Z
-content_hash: 1a738e5c2c022071d21cc5f162a3dbbae98ae485bf46586ce68d97a0bcfcbfc1
-purpose: Defines TypeScript interfaces and constants for prompt construction in the file analysis phase of ARE's documentation...
+generated_at: 2026-02-09T15:05:55.597Z
+content_hash: b788fee0e8af0e398f3e56732a54e985202941b900817fbec3a9f2a4c00d82ce
+purpose: types.ts defines TypeScript interfaces and constants for prompt construction in the three-phase documentation generat...
 ---
-**Defines TypeScript interfaces and constants for prompt construction in the file analysis phase of ARE's documentation generation pipeline.**
+**types.ts defines TypeScript interfaces and constants for prompt construction in the three-phase documentation generation pipeline.**
 
 ## Exported Types
 
-### PromptContext
+**PromptContext** interface structures the data bundle passed to prompt builders across all three generation phases:
+- `filePath: string` — absolute path to target file for Phase 1 analysis or directory for Phase 2 aggregation
+- `content: string` — file content (Phase 1) or aggregated child `.sum` content (Phase 2)
+- `contextFiles?: Array<{ path: string; content: string }>` — optional sibling files for import relationship context
+- `projectPlan?: string` — optional GENERATION-PLAN.md content providing bird's-eye view of codebase structure
+- `existingSum?: string` — previous `.sum` content for incremental updates (enables diff-based regeneration)
 
-Interface providing context data for prompt construction during file analysis:
+## Summary Guidelines
+
+**SUMMARY_GUIDELINES** constant exports frozen object with validation constraints for `.sum` file quality:
 
 ```typescript
-interface PromptContext {
-  filePath: string;              // Absolute path to file being analyzed
-  content: string;               // File content to analyze
-  contextFiles?: Array<{         // Optional related files for context
-    path: string;
-    content: string;
-  }>;
-  projectPlan?: string;          // Optional project structure listing
+{
+  targetLength: { min: 200, max: 300 },
+  include: [...],
+  exclude: [...]
 }
 ```
 
-Used by `buildPrompt()` in `src/generation/prompts/builder.ts` to assemble analysis prompts for AI subprocess calls.
+**`targetLength`** defines word count range (200-300) enforced by density validators in `src/quality/density/validator.ts`.
 
-## Exported Constants
+**`include`** array specifies required content elements:
+- `'Purpose and responsibility'` — one-line purpose statement
+- `'Public interface (exports, key functions)'` — exported symbols extracted by code-vs-doc validator (`src/quality/inconsistency/code-vs-doc.ts`)
+- `'Key patterns and notable algorithms'` — design pattern identification (Strategy, Builder, etc.)
+- `'Dependencies with usage context'` — import statements with usage rationale
+- `'Key function signatures as code snippets'` — TypeScript/JavaScript signatures with parameter types
+- `'Tightly coupled sibling files'` — related files detected via `extractDirectoryImports()` in `src/imports/extractor.ts`
 
-### SUMMARY_GUIDELINES
-
-Frozen object defining `.sum` file generation rules derived from CONTEXT.md:
-
-- **targetLength**: `{ min: 200, max: 300 }` word count range for summaries
-- **include**: Array of 6 required elements:
-  - `'Purpose and responsibility'`
-  - `'Public interface (exports, key functions)'`
-  - `'Key patterns and notable algorithms'`
-  - `'Dependencies with usage context'`
-  - `'Key function signatures as code snippets'`
-  - `'Tightly coupled sibling files'`
-- **exclude**: Array of 3 items to omit:
-  - `'Internal implementation details'`
-  - `'Generic TODOs/FIXMEs (keep only security/breaking)'`
-  - `'Broad architectural relationships (handled by AGENTS.md)'`
-
-Marked with `as const` for compile-time immutability. Referenced by prompt templates in `src/generation/prompts/templates.ts` to enforce consistent summary structure across AI backends.
+**`exclude`** array defines content to omit:
+- `'Internal implementation details'` — private functions, loop mechanics, variable names
+- `'Generic TODOs/FIXMEs (keep only security/breaking)'` — filters low-priority comments
+- `'Broad architectural relationships (handled by AGENTS.md)'` — defers system-level patterns to Phase 2 directory aggregation
 
 ## Integration Points
 
-- Consumed by `buildPrompt()` which constructs AI prompts for Phase 1 file analysis
-- `PromptContext.contextFiles` populated by import extraction logic in `src/imports/extractor.ts`
-- `PromptContext.projectPlan` sourced from `GENERATION-PLAN.md` written by `src/orchestration/plan-tracker.ts`
-- `SUMMARY_GUIDELINES` embedded in template strings that instruct Claude/Gemini/OpenCode subprocesses
+Consumed by `buildFileAnalysisPrompt()` and `buildDirectoryPrompt()` in `src/generation/prompts/builder.ts` to construct AI subprocess prompts. The `PromptContext` interface threads through `executePhase1()`, `executePhase2()`, `executePhase3()` in `src/generation/executor.ts` as input to `AIService.call()`.
+
+Guidelines enforced during quality validation via `validateCodeDocConsistency()` and `validateCodeCodeConsistency()` in `src/quality/inconsistency/` modules, checking that all `include` items appear in generated summaries and no `exclude` items dominate the content.

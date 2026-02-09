@@ -1,42 +1,37 @@
 ---
-generated_at: 2026-02-09T14:07:57.891Z
+generated_at: 2026-02-09T15:05:53.329Z
 content_hash: 8334930ab77a89aadf421359a55e0a69194517b120a26ca30f7e986838eabec0
-purpose: createVendorFilter() implements a two-pattern directory exclusion filter for file discovery, matching both single dir...
+purpose: createVendorFilter() implements directory exclusion filtering for third-party code paths via dual pattern matching (s...
 ---
-**createVendorFilter() implements a two-pattern directory exclusion filter for file discovery, matching both single directory names (anywhere in path) and multi-segment path patterns (substring match).**
+**createVendorFilter() implements directory exclusion filtering for third-party code paths via dual pattern matching (single segment lookup, multi-segment substring search).**
 
 ## Exported Functions
 
-**createVendorFilter(vendorDirs: string[]): FileFilter** — Returns FileFilter with `name: 'vendor'` and `shouldExclude()` predicate that checks if `absolutePath` contains any single-segment directory name from `singleSegments` Set (split path into segments via `path.sep`, test each) or substring-matches any multi-segment pattern from `pathPatterns` array (normalized to OS-specific separators).
+### createVendorFilter(vendorDirs: string[]): FileFilter
+Returns FileFilter implementing vendor directory exclusion via two-phase path analysis:
+1. Splits vendorDirs into singleSegments (Set<string>) for directories like 'node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target'
+2. Normalizes multi-segment patterns (containing path.sep) into pathPatterns array for nested exclusions like 'apps/vendor' or '.agents/skills'
+
+Returned FileFilter.shouldExclude() first checks if any path segment exists in singleSegments Set (O(1) lookup per segment), then performs substring search for each pathPattern via includes().
+
+Pattern normalization replaces both forward/backslash with platform-specific path.sep via regex `/[\\/]/g`.
 
 ## Exported Constants
 
-**DEFAULT_VENDOR_DIRS: readonly string[]** — Contains 10 third-party directory names: `'node_modules'`, `'vendor'`, `'.git'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`.
+### DEFAULT_VENDOR_DIRS
+Readonly tuple of 10 vendor directory names: 'node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target'. Used as default exclusion list in config schema (src/config/defaults.ts references this constant).
 
-## Pattern Classification Algorithm
+## Type Dependencies
 
-**Pattern separation logic:**
-1. Normalize input `dir` via `.replace(/[\\/]/g, path.sep)` to convert both forward/backslashes to current OS separator
-2. If normalized pattern contains `path.sep`, add to `pathPatterns` array (multi-segment patterns like `'apps/vendor'` or `'.agents/skills'`)
-3. Otherwise add to `singleSegments` Set (single directory names like `'node_modules'`)
+### FileFilter
+Interface from '../types.js' requiring:
+- name: string property (set to 'vendor' in returned object)
+- shouldExclude(absolutePath: string): boolean method
 
-## shouldExclude() Matching Strategy
+## Path Matching Strategy
 
-**Single-segment matching:**
-- Splits `absolutePath` via `path.sep` into array of path components
-- Iterates each segment, returns `true` if `singleSegments.has(segment)` succeeds
+Single segments match any occurrence in path (e.g., singleSegments.has('node_modules') matches '/project/node_modules/pkg/index.js' and '/apps/client/node_modules/lib.js').
 
-**Path-pattern matching:**
-- Iterates `pathPatterns` array
-- Returns `true` if `absolutePath.includes(pattern)` succeeds (substring search)
-- Example: pattern `'.agents/skills'` matches `/project/apps/foo/.agents/skills/bar.md`
+Multi-segment patterns require ordered substring match (e.g., '.agents/skills' matches '/project/apps/foo/.agents/skills/bar.md' but not '/project/.agents/data/skills.md' or '/project/skills/.agents/foo.md').
 
-**Default return:** `false` if neither match succeeds
-
-## Integration Points
-
-**FileFilter interface** (from `../types.js`) — Requires `name: string` property and `shouldExclude(absolutePath: string): boolean` method. Used by filter chain in `src/discovery/walker.ts` composing gitignore, binary, vendor, and custom filters.
-
-## Design Pattern
-
-**Strategy pattern** — Implements FileFilter interface as pluggable exclusion rule. Discovery walker applies vendor filter alongside gitignore filter (from `ignore` library), binary filter (extension + content analysis), and custom glob patterns (from config YAML).
+Normalization handles cross-platform paths before pattern split decision via path.sep boundary detection.

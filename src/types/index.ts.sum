@@ -1,35 +1,38 @@
 ---
-generated_at: 2026-02-09T14:09:46.353Z
+generated_at: 2026-02-09T15:08:12.170Z
 content_hash: 38568303038b8592202e7cb3a10296983279d31d0297e87048561aa7d45cc41e
-purpose: Defines shared TypeScript interfaces for file discovery results, exclusion metadata, and discovery statistics used ac...
+purpose: Core type definitions for file discovery results, exclusion metadata, and discovery statistics shared across the ARE ...
 ---
-**Defines shared TypeScript interfaces for file discovery results, exclusion metadata, and discovery statistics used across ARE modules.**
+**Core type definitions for file discovery results, exclusion metadata, and discovery statistics shared across the ARE discovery and orchestration modules.**
 
-## Exported Interfaces
+## Exported Types
 
-**ExcludedFile** — Metadata for files excluded from analysis:
+### ExcludedFile
+Interface describing files filtered out during discovery:
 - `path: string` — Absolute or relative path to excluded file
-- `reason: string` — Exclusion cause (e.g., "gitignore pattern", "binary file", "vendor directory")
+- `reason: string` — Exclusion cause (gitignore pattern, binary file, vendor directory)
 
-**DiscoveryResult** — Output of file discovery process consumed by generation pipeline:
-- `files: string[]` — File paths approved for analysis (passes all filters)
-- `excluded: ExcludedFile[]` — Files rejected with reasons
+### DiscoveryResult
+Interface returned by `discoverFiles()` workflow:
+- `files: string[]` — Paths approved for analysis (passed all filters)
+- `excluded: ExcludedFile[]` — Rejected files with exclusion metadata
 
-**DiscoveryStats** — Aggregated metrics for discovery reporting and logging:
-- `totalFiles: number` — Count of all files found during traversal
-- `includedFiles: number` — Count of files approved for analysis
-- `excludedFiles: number` — Count of files rejected by filters
-- `exclusionReasons: Record<string, number>` — Histogram of exclusion reasons (keyed by `reason` string, valued by frequency)
+### DiscoveryStats
+Interface for discovery metrics computation:
+- `totalFiles: number` — Sum of included + excluded files
+- `includedFiles: number` — Count passing filter chain
+- `excludedFiles: number` — Count rejected by any filter
+- `exclusionReasons: Record<string, number>` — Aggregated reason histogram (e.g., `{"binary file": 42, "gitignore pattern": 108}`)
 
-## Integration Points
+## Module Coupling
 
 Consumed by:
-- `src/discovery/run.ts` — Populates `DiscoveryResult` and `DiscoveryStats` from walker output
-- `src/cli/discover.ts` — Formats `DiscoveryStats` for CLI reporting
-- `src/generation/orchestrator.ts` — Reads `DiscoveryResult.files` for Phase 1 task queue
-- `src/orchestration/plan-tracker.ts` — Uses `DiscoveryResult` for GENERATION-PLAN.md serialization
-- `src/quality/` — Validates `DiscoveryResult.files` against generated documentation
+- `src/discovery/run.ts` — Populates `DiscoveryResult` from walker output
+- `src/orchestration/runner.ts` — Converts `DiscoveryResult.files` to task queue
+- `src/cli/discover.ts` — Computes `DiscoveryStats` for GENERATION-PLAN.md output
+- `src/generation/orchestrator.ts` — Ingests `files[]` for Phase 1 pool execution
 
-Produced by:
-- `src/discovery/walker.ts` — Aggregates filter chain results into `DiscoveryResult`
-- `src/discovery/filters/` — Each filter (gitignore, binary, vendor, custom) appends to `ExcludedFile[]` with filter-specific reasons
+Paired with:
+- `src/discovery/types.ts` — Walker and filter interfaces
+- `src/config/schema.ts` — Configuration driving filter behavior
+- `src/orchestration/types.ts` — Task and worker pool abstractions

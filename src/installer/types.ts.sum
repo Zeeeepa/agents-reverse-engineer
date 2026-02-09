@@ -1,48 +1,40 @@
 ---
-generated_at: 2026-02-09T14:09:19.924Z
+generated_at: 2026-02-09T15:07:30.011Z
 content_hash: c9618acf7084121a419590d18820c6e7d77a9bae7c6e79d26cc1b558928b4584
-purpose: Defines TypeScript types for the npx installation workflow that copies ARE command files and hooks to runtime-specifi...
+purpose: types.ts defines TypeScript interfaces and type aliases for the installer module's npx-based command and hook install...
 ---
-**Defines TypeScript types for the npx installation workflow that copies ARE command files and hooks to runtime-specific directories (Claude Code, OpenCode, Gemini) in either global (~/.claude) or local (.claude) locations.**
+**types.ts defines TypeScript interfaces and type aliases for the installer module's npx-based command and hook installation workflow targeting Claude Code, OpenCode, and Gemini runtimes.**
 
 ## Exported Types
 
-**`Runtime`** — Union literal type `'claude' | 'opencode' | 'gemini' | 'all'` representing supported AI coding assistant runtimes for installation. Maps to directory paths: `claude` → `~/.claude`, `opencode` → `~/.config/opencode`, `gemini` → `~/.gemini`, `all` → installs to all three runtimes.
+**Runtime** — Union type `'claude' | 'opencode' | 'gemini' | 'all'` specifying supported AI coding assistant runtimes for installation, maps to platform-specific directories: `~/.claude`, `~/.config/opencode`, `~/.gemini`, or all three when `'all'` selected.
 
-**`Location`** — Union literal type `'global' | 'local'` specifying installation target. `global` installs to user-level directories (e.g., `~/.claude`), `local` installs to project-level directories (e.g., `.claude`).
+**Location** — Union type `'global' | 'local'` distinguishing user-level installation (home directory `~/`) from project-level installation (current working directory `./<runtime>/`).
 
-**`InstallerArgs`** — Command-line argument interface with fields:
-- `runtime?: Runtime` — Target runtime or `all`
-- `global: boolean` — Install to user-level location
-- `local: boolean` — Install to project-level location
-- `uninstall: boolean` — Remove instead of install
-- `force: boolean` — Overwrite existing files without prompting
-- `help: boolean` — Display help and exit
-- `quiet: boolean` — Suppress banner and info messages
+**InstallerArgs** — Interface capturing parsed CLI arguments for installer command:
+- `runtime?: Runtime` — Optional target runtime, prompts interactively if omitted
+- `global: boolean` — Flag for `~/.claude` style installation
+- `local: boolean` — Flag for `.claude` style installation
+- `uninstall: boolean` — Triggers removal instead of installation
+- `force: boolean` — Enables overwrite of existing files without prompt
+- `help: boolean` — Shows usage information and exits
+- `quiet: boolean` — Suppresses banner and informational output
 
-Supports both interactive (prompts for missing values) and non-interactive (all flags provided) modes.
-
-**`InstallerResult`** — Operation outcome interface with fields:
-- `success: boolean` — Overall operation success
-- `runtime: Exclude<Runtime, 'all'>` — Actual runtime installed (never `'all'`)
-- `location: Location` — Target location used
+**InstallerResult** — Interface representing outcome of single runtime/location installation operation:
+- `success: boolean` — Overall operation success indicator
+- `runtime: Exclude<Runtime, 'all'>` — Concrete runtime installed (excludes synthetic `'all'` value)
+- `location: Location` — Target location (global or local)
 - `filesCreated: string[]` — Absolute paths of successfully written files
-- `filesSkipped: string[]` — Paths skipped due to existing files without `--force`
-- `errors: string[]` — Error messages from failed operations
-- `hookRegistered?: boolean` — Claude-only field indicating `settings.json` hook registration status
-- `versionWritten?: boolean` — Whether `ARE-VERSION` file was written
+- `filesSkipped: string[]` — Paths skipped due to existing files without `--force` flag
+- `errors: string[]` — Error messages encountered during operation
+- `hookRegistered?: boolean` — Claude-specific flag indicating SessionEnd hook registration in `settings.json`
+- `versionWritten?: boolean` — Flag indicating ARE version file creation (e.g., `~/.claude/ARE-VERSION`)
 
-Returned by single-runtime installation operations for aggregation in multi-runtime `all` installs.
+**RuntimePaths** — Interface mapping runtime to resolved filesystem paths:
+- `global: string` — Absolute path to global installation directory (e.g., `/home/user/.claude`)
+- `local: string` — Relative or absolute path to project-level directory (e.g., `./.claude`)
+- `settingsFile: string` — Absolute path to runtime's settings file for hook registration (e.g., `~/.claude/settings.json`)
 
-**`RuntimePaths`** — Path configuration interface with fields:
-- `global: string` — Resolved global installation path (e.g., `~/.claude`, respects `CLAUDE_CONFIG_DIR` override)
-- `local: string` — Resolved local installation path (e.g., `.claude` relative to cwd)
-- `settingsFile: string` — Absolute path to `settings.json` for hook registration (Claude only)
+## Integration Points
 
-Used by `src/installer/paths.ts` path resolution logic with environment variable overrides (`CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`).
-
-## Domain Context
-
-Part of the installer module orchestrating npx-based installation workflow. Types consumed by `src/installer/operations.ts` (file copy operations), `src/installer/prompts.ts` (interactive CLI prompts), `src/installer/paths.ts` (path resolution with env overrides), and `src/installer/index.ts` (main orchestrator).
-
-The `Exclude<Runtime, 'all'>` pattern in `InstallerResult.runtime` enforces that individual results represent concrete runtimes (`claude`, `opencode`, `gemini`) while `InstallerArgs.runtime` accepts `'all'` for batch operations.
+Used by `src/installer/operations.ts` for file copying and hook registration logic, `src/installer/paths.ts` for directory resolution with environment variable overrides (`CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`), and `src/installer/prompts.ts` for interactive CLI argument collection via `enquirer` library.

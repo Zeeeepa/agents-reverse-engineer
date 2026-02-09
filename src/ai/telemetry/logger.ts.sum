@@ -1,46 +1,44 @@
 ---
-generated_at: 2026-02-09T14:07:57.873Z
+generated_at: 2026-02-09T15:05:54.955Z
 content_hash: 27e3cf98055a02fd64a520570aee7849984b5a99f647427b1d6cedcecf8d88a3
-purpose: TelemetryLogger accumulates per-call AI service metrics in memory and computes aggregate statistics for run logs.
+purpose: TelemetryLogger accumulates per-call AI service telemetry in memory during a CLI run, computes aggregate statistics, ...
 ---
-**TelemetryLogger accumulates per-call AI service metrics in memory and computes aggregate statistics for run logs.**
+**TelemetryLogger accumulates per-call AI service telemetry in memory during a CLI run, computes aggregate statistics, and produces RunLog objects for persistence.**
 
 ## Exported Class
 
-`TelemetryLogger` — In-memory accumulator for `TelemetryEntry` instances with summary aggregation and `RunLog` serialization.
+`TelemetryLogger` — in-memory accumulator for `TelemetryEntry` instances with summary computation and `RunLog` generation.
 
 **Constructor:**
 ```typescript
 constructor(runId: string)
 ```
-- `runId` — Unique run identifier (ISO timestamp-based)
-- Sets `this.startTime` to current ISO 8601 timestamp
-- Initializes empty `entries: TelemetryEntry[]` array
+Initializes logger with `runId` (typically ISO timestamp) and sets `startTime` to current ISO 8601 timestamp.
 
-**Public Fields:**
-```typescript
-readonly runId: string
-readonly startTime: string
-```
+**Public Properties:**
+- `runId: string` — unique identifier for this run (readonly)
+- `startTime: string` — ISO 8601 timestamp when run started (readonly)
 
-**Methods:**
+**Public Methods:**
 
-`addEntry(entry: TelemetryEntry): void` — Appends telemetry entry to internal array for completed AI call
+`addEntry(entry: TelemetryEntry): void` — appends telemetry entry to internal `entries` array. Called by AI service after each subprocess completion.
 
-`getEntries(): readonly TelemetryEntry[]` — Returns immutable view of accumulated entries
+`getEntries(): readonly TelemetryEntry[]` — returns immutable view of accumulated entries array.
 
-`setFilesReadOnLastEntry(filesRead: FileRead[]): void` — Mutates most recent entry's `filesRead` array after AI service attaches file metadata post-execution (no-op if entries array empty)
+`setFilesReadOnLastEntry(filesRead: FileRead[]): void` — updates `filesRead` array on most recent entry. Called by AI service after command runner attaches file metadata. No-op if `entries` array empty.
 
-`getSummary(): RunLog['summary']` — Computes aggregate statistics across all entries without caching:
-- Totals: `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`
-- Counts: `totalCalls` (entries length), `errorCount` (entries with defined `error` field), `totalFilesRead`, `uniqueFilesRead` (distinct `FileRead.path` via `Set<string>`)
+`getSummary(): RunLog['summary']` — computes aggregate statistics from all entries without caching. Returns object with `totalCalls`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `totalFilesRead`, `uniqueFilesRead`. Iterates entries array on every call.
 
-`toRunLog(): RunLog` — Assembles complete `RunLog` with `endTime` set to current ISO 8601 timestamp, shallow-copied entries array, and computed summary (call once at run completion)
-
-## Integration Points
-
-Consumed by `AIService` in `src/ai/service.ts` for per-invocation telemetry accumulation. Logger instance created once per CLI command execution (runId from timestamp), entries recorded via `addEntry()` after each AI subprocess call, `setFilesReadOnLastEntry()` invoked after command runner attaches file metadata, `toRunLog()` called at CLI termination to produce serializable log for `writeRunLog()` in `src/ai/telemetry/run-log.ts`.
+`toRunLog(): RunLog` — assembles complete `RunLog` object with `runId`, `startTime`, `endTime` (current timestamp), `entries` (shallow copy), and `summary` (via `getSummary()`). Call once when run finishes.
 
 ## Type Dependencies
 
-Imports `TelemetryEntry`, `RunLog`, `FileRead` from `../types.js`. `TelemetryEntry` contains per-call metrics (tokens, latency, optional error, filesRead array). `RunLog` contains runId, start/end timestamps, entries array, summary object with nine aggregate fields. `FileRead` contains path, sizeBytes, linesRead for file access tracking.
+Imports `TelemetryEntry`, `RunLog`, `FileRead` from `../types.js`. `TelemetryEntry` contains per-call metadata: `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`, `latencyMs`, optional `error`, `filesRead` array. `RunLog` schema includes `runId`, `startTime`, `endTime`, `entries[]`, `summary` with token totals and error counts. `FileRead` records `path`, `sizeBytes`, `linesRead` per file accessed during AI call.
+
+## Integration Points
+
+Created once per CLI invocation by command runners (`src/cli/generate.ts`, `src/cli/update.ts`) with `runId` derived from timestamp. Threaded through `AIService` which calls `addEntry()` after each subprocess execution and `setFilesReadOnLastEntry()` after file metadata attachment. Finalized via `toRunLog()` before serialization to `.agents-reverse-engineer/logs/run-<timestamp>.json` via `writeRunLog()` in `src/ai/telemetry/run-log.ts`.
+
+## Summary Computation Strategy
+
+`getSummary()` aggregates across all entries without caching to reflect current state. Accumulates token counters (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`), `latencyMs`, error count (increments when `entry.error !== undefined`), total files read (`filesRead.length`), and unique file paths via `Set<string>`. Returns computed totals immediately.

@@ -1,39 +1,57 @@
 ---
-generated_at: 2026-02-09T14:09:07.661Z
+generated_at: 2026-02-09T15:07:33.469Z
 content_hash: f2c9479d7a3584696151222359bc71431ab5cc330dfebf20efd1f361f7b4b07c
-purpose: extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files, filtering relative im...
+purpose: extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files via regex-based parsin...
 ---
-**extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files, filtering relative imports into internal (same-directory) and external (parent-directory) categories, then formats them as structured text blocks for LLM prompts.**
+**extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files via regex-based parsing, filters relative imports into internal (`./`) and external (`../`) categories, and formats import maps for LLM prompt injection.**
 
 ## Exported Functions
 
-**`extractImports(sourceContent: string): ImportEntry[]`**  
-Parses import statements from source code using `IMPORT_REGEX` (captures type-only imports, named symbols, namespace imports, default imports, and module specifiers). Returns array of `ImportEntry` objects with `specifier`, `symbols[]`, and `typeOnly` boolean. Processes only lines matching `^import` pattern to avoid dynamic imports and comments.
+**`extractImports(sourceContent: string): ImportEntry[]`**
+Parses source content with `IMPORT_REGEX` to extract import statements. Returns array of `ImportEntry` objects containing `specifier` (module path), `symbols` (imported names), and `typeOnly` (boolean flag for type-only imports). Regex captures five groups: type keyword, named symbols between braces, namespace imports (`* as name`), default imports, and module specifier. Processes named imports by splitting on comma, trimming whitespace, stripping `as` aliases, filtering empty strings. Handles namespace imports by extracting identifier after `* as`. Handles default imports as single-element symbol arrays.
 
-**`extractDirectoryImports(dirPath: string, fileNames: string[]): Promise<FileImports[]>`**  
-Reads first 100 lines from each file in `fileNames` array (import region optimization), calls `extractImports()` on content, filters out bare specifiers (npm packages) and `node:` built-ins, classifies relative imports as `internalImports` (starting with `./`) or `externalImports` (starting with `../`). Returns `FileImports[]` with non-empty import sets only. Silently skips unreadable files.
+**`extractDirectoryImports(dirPath: string, fileNames: string[]): Promise<FileImports[]>`**
+Reads first 100 lines from each file in `fileNames` array (imports typically appear at top), calls `extractImports()` on sliced content, filters out bare specifiers (npm packages) and `node:` built-ins by checking `specifier.startsWith('.')` or `specifier.startsWith('..')`. Classifies relative imports: `internal` array contains `./` prefixed imports (same-directory), `external` array contains `../` prefixed imports (parent-directory). Returns `FileImports[]` array excluding files with zero relative imports. Skips unreadable files via try-catch with empty catch block.
 
-**`formatImportMap(fileImports: FileImports[]): string`**  
-Converts `FileImports[]` into multi-line text format for LLM consumption. Output pattern: `fileName:` header followed by indented `  specifier → symbol1, symbol2 (type)` lines. Groups external imports only per file, appends `(type)` tag when `typeOnly` is true. Used by `src/generation/prompts/builder.ts` to embed dependency context in file analysis prompts.
+**`formatImportMap(fileImports: FileImports[]): string`**
+Transforms `FileImports[]` into human-readable text block for LLM consumption. Output format: filename followed by colon, indented lines showing `specifier → symbols` with optional `(type)` suffix for type-only imports. Only includes files with `externalImports.length > 0`. Joins sections with double newlines. Used by directory aggregation prompts to provide import context (see `src/generation/prompts/builder.ts`).
 
-## Core Regex Pattern
+## Regular Expression Pattern
 
-**`IMPORT_REGEX`**  
-Multiline regex matching ES module import statements with five capture groups:
-1. `type` keyword for type-only imports (`import type`)
-2. Named symbols between braces (`{ Foo, Bar }`)
-3. Namespace imports (`* as name`)
-4. Default imports (bare identifier)
-5. Module specifier (quoted string after `from`)
+**`IMPORT_REGEX`**
+Multiline regex with global flag (`/gm`) matching TypeScript/JavaScript import syntax. Pattern: `/^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm`. Requires line start anchor (`^`) to avoid matching dynamic imports or imports inside comments/strings. Capture groups:
+- Group 1: `type` keyword for type-only imports
+- Group 2: Named symbols between braces (`{Foo, Bar}`)
+- Group 3: Namespace import (`* as name`)
+- Group 4: Default import (bare identifier)
+- Group 5: Module specifier (quoted string after `from`)
 
-Strips ` as alias` syntax from named imports to extract canonical symbol names.
+Reset `lastIndex` to 0 before each `exec()` loop to ensure clean state for global regex.
 
 ## Integration Points
 
-Consumed by `src/generation/prompts/builder.ts` via `extractDirectoryImports()` → `formatImportMap()` chain to inject dependency metadata into file analysis prompts. Enables AI backend to understand cross-file relationships and parent directory dependencies during Phase 1 concurrent file analysis.
+**Consumed by `src/generation/prompts/builder.ts`:**
+`buildDirectoryAggregationPrompt()` calls `extractDirectoryImports()` to generate import maps for directory-level `AGENTS.md` synthesis. Import data provides dependency context showing which files import from parent directories (coupling boundaries).
 
-Filters applied: excludes `node:` built-ins, bare package specifiers (npm dependencies), and processes only relative imports (`.` or `..` prefixed) to focus on intra-project relationships.
+**Type definitions from `src/imports/types.ts`:**
+- `ImportEntry`: `{ specifier: string; symbols: string[]; typeOnly: boolean }`
+- `FileImports`: `{ fileName: string; externalImports: ImportEntry[]; internalImports: ImportEntry[] }`
 
 ## Performance Optimizations
 
-Limits file reads to first 100 lines via `content.split('\n').slice(0, 100)` since imports appear at top of modules. Avoids full-file parsing for large source files during directory-wide import map construction.
+**Line slicing strategy:**
+Reads only first 100 lines via `content.split('\n').slice(0, 100).join('\n')` before regex processing. Assumption: import statements appear at top of files (ES module hoisting). Avoids parsing large file bodies containing thousands of lines of implementation code.
+
+**Bare specifier filtering:**
+Excludes npm packages (`react`, `lodash`) and Node.js built-ins (`node:fs`, `node:path`) by requiring `specifier.startsWith('.')` or `specifier.startsWith('..')`. Reduces noise in import maps since external dependencies are irrelevant for codebase navigation context.
+
+## Edge Cases
+
+**Alias handling:**
+Named imports with aliases (`import { Foo as Bar }`) are normalized by regex replacement `/\s+as\s+\w+/` to extract original symbol name (`Foo`). Namespace imports preserve alias (`* as name` → `name`).
+
+**Empty symbol arrays:**
+After splitting/trimming named imports, filters with `.filter(Boolean)` to remove empty strings from trailing commas or malformed syntax.
+
+**File read errors:**
+Silent failure via empty catch block in `extractDirectoryImports()`. Unreadable files (permissions, encoding issues) are skipped without error propagation.

@@ -1,29 +1,28 @@
 ---
-generated_at: 2026-02-09T14:10:07.265Z
+generated_at: 2026-02-09T15:08:35.119Z
 content_hash: 6887e78721df5fe39e42f0d4515ab296cc48e536089ec8ca4b5916f7eddebed8
-purpose: LANGUAGES-MANIFEST.md documents package manager manifest files across programming languages with support status flags...
+purpose: LANGUAGES-MANIFEST.md catalogs package manifest file patterns across 25 programming languages with support status fla...
 ---
-**LANGUAGES-MANIFEST.md documents package manager manifest files across programming languages with support status flags for ARE's manifest detection logic.**
+**LANGUAGES-MANIFEST.md catalogs package manifest file patterns across 25 programming languages with support status flags for ARE's manifest detection system.**
 
-## Manifest Detection Matrix
+## Manifest Detection Support
 
-References 24 programming language ecosystems with their manifest files used by `src/generation/prompts/builder.ts` during directory aggregation prompts. Columns define `Language`, `Manifest File(s)` (comma-separated multiple files for ecosystems with variants), `Package Manager` (toolchain names), and `Supported` (checkmark indicates ARE actively detects these manifests).
+**Supported languages** (9 total): JavaScript/TypeScript (`package.json`), Python (`requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`), Ruby (`Gemfile`), Go (`go.mod`), Rust (`Cargo.toml`), Java (`pom.xml`, `build.gradle`), PHP (`composer.json`), C/C++ (`CMakeLists.txt`, `conanfile.txt`, `vcpkg.json`).
 
-## Supported Manifests
-
-ARE's `buildDirectoryPrompt()` in `src/generation/prompts/builder.ts` calls `detectManifests()` which checks for these marked-supported files:
-
-- **JavaScript/TypeScript**: `package.json` (npm/yarn/pnpm)
-- **Python**: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` (pip/poetry/pipenv)
-- **Go**: `go.mod` (go modules)
-- **Rust**: `Cargo.toml` (cargo)
-
-## Unsupported Manifests
-
-Languages without checkmarks have detection stubs or are pending implementation:
-
-- Ruby `Gemfile`, Java `pom.xml`/`build.gradle`, Kotlin `build.gradle.kts`, C# `*.csproj`, PHP `composer.json`, Swift `Package.swift`, Elixir `mix.exs`, Erlang `rebar.config`, Scala `build.sbt`, Clojure `deps.edn`/`project.clj`, Haskell `package.yaml`/`*.cabal`, Dart `pubspec.yaml`, Lua `*.rockspec`, R `DESCRIPTION`, Julia `Project.toml`, Zig `build.zig.zon`, Nim `*.nimble`, OCaml `dune-project`/`*.opam`, C/C++ `CMakeLists.txt`/`conanfile.txt`/`vcpkg.json`
+**Unsupported languages** (16 total): Kotlin, C#/.NET, Swift, Elixir, Erlang, Scala, Clojure, Haskell, Dart/Flutter, Lua, R, Julia, Zig, Nim, OCaml, and others without support flags.
 
 ## Integration Points
 
-`src/generation/prompts/builder.ts` injects detected manifest metadata into directory aggregation prompts via `detectedManifests` array, enabling AI backends to infer dependency structure and entry points. Extension of manifest detection requires updating both this reference document and `detectManifests()` glob patterns.
+References `src/generation/prompts/builder.ts` function `buildDirectoryPrompt()` which includes manifest detection logic scanning for 9 manifest types. Column structure matches internal manifest filename arrays used during Phase 2 directory aggregation.
+
+## Manifest Categories
+
+**Single-file manifests**: `package.json` (npm/yarn/pnpm), `go.mod` (Go modules), `Cargo.toml` (Cargo), `Gemfile` (Bundler), `composer.json` (Composer), `pubspec.yaml` (Dart pub), `mix.exs` (Elixir Mix).
+
+**Multi-file manifests**: Python supports 4 alternatives (`requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`), Java supports Maven (`pom.xml`) and Gradle (`build.gradle`), Haskell supports 3 formats (`package.yaml`, `*.cabal`, `stack.yaml`), C/C++ supports CMake/Conan/vcpkg variants.
+
+**Glob-based patterns**: Haskell `*.cabal`, C# `*.csproj`/`*.fsproj`, Lua `*.rockspec`, Nim `*.nimble`, OCaml `*.opam` require wildcard matching beyond exact filename checks.
+
+## Coverage Gaps
+
+ARE currently implements exact filename matching for 9 manifest types. Unsupported languages with ✓ flags (Ruby, Java) indicate planned but unimplemented detection. Languages without flags represent documentation-only coverage without corresponding code paths in `buildDirectoryPrompt()`.

@@ -1,30 +1,26 @@
 ---
-generated_at: 2026-02-09T14:08:54.544Z
+generated_at: 2026-02-09T15:06:55.193Z
 content_hash: c8a71b15b244882eea6f7ba9fd399016256f2ad569eda3f9c4474c8ddcf7f8ca
-purpose: `collector.ts` recursively discovers and aggregates all `AGENTS.md` files across the project tree, skipping vendor/bu...
+purpose: collector.ts recursively discovers and aggregates all AGENTS.md files under projectRoot, returning AgentsDocs sorted ...
 ---
-**`collector.ts` recursively discovers and aggregates all `AGENTS.md` files across the project tree, skipping vendor/build directories, returning sorted file paths with content for root document synthesis.**
-
-## Exported Functions
-
-**`collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>`** — Recursively walks directory tree from `projectRoot`, collects all `AGENTS.md` files, returns array of `{ relativePath: string, content: string }` sorted alphabetically by `relativePath` via `localeCompare()`.
+**collector.ts recursively discovers and aggregates all AGENTS.md files under projectRoot, returning AgentsDocs sorted by relativePath while skipping vendor directories.**
 
 ## Exported Types
 
-**`AgentsDocs`** — Type alias for `Array<{ relativePath: string; content: string }>` representing collected AGENTS.md documents with project-relative paths.
+`AgentsDocs` — Type alias for `Array<{ relativePath: string; content: string }>` representing collected AGENTS.md documents with project-relative paths and UTF-8 content.
 
-## Directory Exclusion Strategy
+## Exported Functions
 
-**`SKIP_DIRS`** — Set containing 13 directory names excluded from traversal: `'node_modules'`, `'.git'`, `'.agents-reverse-engineer'`, `'vendor'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`, `'.cargo'`, `'.gradle'`.
+`collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>` — Recursively traverses directories starting at projectRoot, reads all AGENTS.md files via `readFile()`, computes relative paths via `path.relative()`, sorts results alphabetically by relativePath using `localeCompare()`, and gracefully skips unreadable directories/files via try-catch. Internal `walk()` closure performs depth-first traversal using `readdir()` with `withFileTypes: true` for efficient directory detection.
 
-## Traversal Algorithm
+## Directory Filtering
 
-**`walk(currentDir: string)`** — Nested async function implementing depth-first traversal via `readdir()` with `{ withFileTypes: true }` for `Dirent` metadata, recursively descends into directories not in `SKIP_DIRS`, pushes `AGENTS.md` file content to `results` array when encountered. Catches and silently ignores permission errors on `readdir()` and `readFile()` calls (pattern: empty catch blocks).
-
-## Integration Points
-
-Consumed by root document synthesis phase (`src/generation/prompts/builder.ts`) to aggregate all directory-level documentation into context for `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` generation. Works with `path.relative()` to compute project-relative paths and `path.join()` for absolute path construction during traversal.
+`SKIP_DIRS` constant — Set containing 13 excluded directory names: `node_modules`, `.git`, `.agents-reverse-engineer`, `vendor`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`, `.cargo`, `.gradle`. Applied during traversal via `SKIP_DIRS.has(entry.name)` predicate to prevent descending into build artifacts, package managers, version control, and project metadata directories.
 
 ## Error Handling
 
-Gracefully handles filesystem access errors via try-catch with no-op catch blocks: returns early from `walk()` on `readdir()` failure (unreadable directories), continues traversal on `readFile()` failure (skips unreadable `AGENTS.md` files). No error reporting or logging — silent failure pattern ensures partial results even in permission-restricted environments.
+Catches and silently ignores permission-denied errors from `readdir()` and `readFile()` via empty catch blocks, ensuring partial collection succeeds even when encountering inaccessible paths. No error logging or user notification occurs for skipped files.
+
+## Integration Context
+
+Used by Phase 3 root synthesis in `src/generation/orchestrator.ts` to consume all directory-level AGENTS.md documents for CLAUDE.md/GEMINI.md/OPENCODE.md generation. Also consumed by `src/specify/index.ts` for project specification synthesis aggregating documentation corpus.

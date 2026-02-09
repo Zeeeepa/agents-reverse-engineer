@@ -1,22 +1,24 @@
 ---
-generated_at: 2026-02-09T14:25:18.727Z
+generated_at: 2026-02-09T15:08:28.859Z
 content_hash: d9caa33615b771069b778e0f5f27babaff43c440b86055ccf94e42c0751b0632
-purpose: getVersion() reads package.json from parent directory and returns semantic version string or "unknown" fallback on er...
+purpose: version.ts exports getVersion() to retrieve the package version from package.json at runtime.
 ---
-**getVersion() reads package.json from parent directory and returns semantic version string or "unknown" fallback on error.**
+**version.ts exports getVersion() to retrieve the package version from package.json at runtime.**
 
-## Public Interface
+## Exported Function
 
-```typescript
-export function getVersion(): string
-```
+`getVersion(): string` — Returns the version string from package.json or `'unknown'` if loading fails.
 
-Returns semantic version string (e.g., "0.4.8") from `package.json` in parent directory relative to compiled output location, or `"unknown"` if file read/parse fails.
+## Implementation Strategy
 
-## Implementation Details
+Uses ES module path resolution via `import.meta.url` converted to file path with `fileURLToPath()`, then constructs absolute path to package.json by traversing one directory up from `__dirname` (`join(__dirname, '..', 'package.json')`). Reads file synchronously via `readFileSync()`, parses JSON, extracts `version` field with fallback to `'unknown'` if field is missing or falsy. Try-catch wrapper returns `'unknown'` on any filesystem or parse errors.
 
-Uses `import.meta.url` → `fileURLToPath()` → `dirname()` to compute `__dirname` equivalent in ES module context. Resolves `packagePath` via `join(__dirname, '..', 'package.json')` assuming compilation output in `dist/` directory with `package.json` at project root. Reads file synchronously via `readFileSync()`, parses JSON, extracts `.version` field with `|| 'unknown'` fallback for missing field. Catches all errors (ENOENT, JSON parse failures) and returns `"unknown"`.
+## Dependencies
 
-## Integration Points
+- `node:fs` — `readFileSync()` for synchronous file read
+- `node:path` — `dirname()` and `join()` for path construction
+- `node:url` — `fileURLToPath()` for ES module path resolution
 
-Consumed by `src/cli/index.ts` for `--version` flag output and installer version tracking. Used by `hooks/are-check-update.js` for comparing local installation version against npm registry response.
+## Usage Context
+
+Called by CLI commands to display version information (e.g., `--version` flag, version check hooks). Package version used by session hooks (`are-check-update.js`) for npm registry comparison and by installer operations for reporting installed version. Supports both compiled distribution (`dist/` output) and source execution since path resolution is relative to current module location.

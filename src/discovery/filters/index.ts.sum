@@ -1,37 +1,37 @@
 ---
-generated_at: 2026-02-09T14:07:56.758Z
+generated_at: 2026-02-09T15:05:58.968Z
 content_hash: f3124a988e86b4fd955b0436cc2b3fc12e5bc5433442c4f37fcbc1d813dea324
-purpose: Filter chain orchestrator that sequences file exclusion predicates with short-circuit evaluation, bounded-concurrency...
+purpose: Filter chain orchestrator exporting all filter creators (`createGitignoreFilter`, `createVendorFilter`, `createBinary...
 ---
-**Filter chain orchestrator that sequences file exclusion predicates with short-circuit evaluation, bounded-concurrency processing for I/O-intensive binary detection, per-filter statistics tracking, and trace event emission.**
+**Filter chain orchestrator exporting all filter creators (`createGitignoreFilter`, `createVendorFilter`, `createBinaryFilter`, `createCustomFilter`) and providing `applyFilters()` function that processes file arrays through sequential filter predicates with short-circuit evaluation, bounded concurrency, and trace emission.**
 
-## Exported Functions
+## Exports
 
-**applyFilters(files: string[], filters: FileFilter[], options?: { tracer?: ITraceWriter; debug?: boolean }): Promise<FilterResult>** — Runs files through filter chain with 30-worker concurrency pool (prevents file descriptor exhaustion during binary content detection), stops at first exclusion per file (short-circuit), returns FilterResult with `included: string[]` and `excluded: ExcludedFile[]` arrays, emits `filter:applied` trace events with `filesMatched`/`filesRejected` counts.
+**Re-exported filter creators:**
+- `createGitignoreFilter` from `./gitignore.js` — builds gitignore parser-based file exclusion predicate
+- `createVendorFilter` from `./vendor.js` — creates directory name matcher against vendor list, exports `DEFAULT_VENDOR_DIRS` constant
+- `createBinaryFilter` from `./binary.js` — constructs extension + content-based binary detector accepting `BinaryFilterOptions`, exports `BINARY_EXTENSIONS` constant and `BinaryFilterOptions` type
+- `createCustomFilter` from `./custom.js` — generates user-defined glob pattern matcher
 
-## Re-exported Filter Creators
+**Primary orchestration function:**
+- `applyFilters(files: string[], filters: FileFilter[], options?: { tracer?: ITraceWriter; debug?: boolean }): Promise<FilterResult>` — executes filter chain with concurrency control, returns `FilterResult` containing `included` and `excluded` arrays
 
-- **createGitignoreFilter** from `./gitignore.js`
-- **createVendorFilter**, **DEFAULT_VENDOR_DIRS** from `./vendor.js`
-- **createBinaryFilter**, **BINARY_EXTENSIONS**, **BinaryFilterOptions** type from `./binary.js`
-- **createCustomFilter** from `./custom.js`
+## Filter Chain Execution Pattern
 
-## Filter Chain Execution
+`applyFilters()` processes files through filter array with short-circuit logic: each file runs through `filter.shouldExclude()` predicates in order until first rejection. Worker pool with `CONCURRENCY=30` bound prevents file descriptor exhaustion during binary content detection I/O (called by `isBinaryFile()` in binary filter). Uses iterator-based task distribution pattern matching `src/orchestration/pool.ts` architecture: single shared iterator across N concurrent workers.
 
-**Worker function** iterates shared `files.entries()` iterator, tests each file against `filters` array in order via `filter.shouldExclude(file)`, breaks on first `true` (short-circuit), returns `{ index, file, excluded? }` results preserving insertion order.
+## Result Construction
 
-**Concurrency control** spawns `Math.min(30, files.length)` workers sharing single iterator (bounded concurrency pattern from `src/orchestration/pool.ts`), flattens results via `Promise.all().flat()`, sorts by `index` to maintain input order.
+Returns `FilterResult` with:
+- `included: string[]` — files passing all filters
+- `excluded: ExcludedFile[]` — rejected files with `{ path, reason, filter }` metadata indicating which filter excluded them
 
-**Statistics aggregation** initializes `filterStats: Map<string, { matched, rejected }>` for all filters, increments `rejected` when filter excludes file, increments `matched` for all filters when file passes (counts files that "survived" each filter).
+Collects exclusions via worker results with `{ index, file, excluded?: ExcludedFile }` tuples, sorts by original index to preserve input order, aggregates per-filter statistics into `Map<string, { matched, rejected }>`.
 
-## Integration Points
+## Trace Emission
 
-**ITraceWriter** interface from `src/orchestration/trace.ts` receives `filter:applied` events with `filterName`, `filesMatched`, `filesRejected` fields.
+Emits `filter:applied` events via `options.tracer` with `{ type, filterName, filesMatched, filesRejected }` payloads. Updates `filterStats` map during result aggregation: rejected files increment `stats.rejected`, included files increment `stats.matched` for all filters they passed. Debug mode outputs rejection counts via `console.error()` with `pc.dim()` formatting when `options.debug && stats.rejected > 0`.
 
-**FileFilter** interface from `../types.js` provides `name: string` and `shouldExclude(file: string): Promise<boolean>` contract.
+## Concurrency Control
 
-**FilterResult** type from `../types.js` contains `included: string[]` and `excluded: ExcludedFile[]` where `ExcludedFile` has `path`, `reason`, `filter` properties.
-
-## Debug Output
-
-**picocolors** (`pc.dim()`) formats debug messages as `[debug] Filter [${filter.name}]: ${stats.rejected} files rejected` when `options.debug=true` and `stats.rejected > 0`.
+Spawns `Math.min(CONCURRENCY, files.length)` workers sharing single `files.entries()` iterator. Each worker pulls `[index, file]` entries synchronously from shared iterator, executes filter chain sequentially per file, accumulates local results array, returns after iterator exhaustion. Pattern prevents over-allocation of file handles during binary detection phase.

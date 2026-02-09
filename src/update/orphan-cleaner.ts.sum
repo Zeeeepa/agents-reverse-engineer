@@ -1,32 +1,38 @@
 ---
-generated_at: 2026-02-09T14:10:02.552Z
+generated_at: 2026-02-09T15:08:27.016Z
 content_hash: c0b2afdea7b5cf019d45bff398962317566ac087fde3ddfa890cd2f97b14adb5
-purpose: orphan-cleaner.ts removes stale `.sum` files and empty `AGENTS.md` directories after source file deletions or renames...
+purpose: orphan-cleaner.ts manages deletion of stale `.sum` files and `AGENTS.md` directories when source files are removed or...
 ---
-**orphan-cleaner.ts removes stale `.sum` files and empty `AGENTS.md` directories after source file deletions or renames during incremental updates.**
+**orphan-cleaner.ts manages deletion of stale `.sum` files and `AGENTS.md` directories when source files are removed or renamed during incremental updates.**
 
 ## Exported Functions
 
-**`cleanupOrphans(projectRoot: string, changes: FileChange[], dryRun?: boolean): Promise<CleanupResult>`** — Orchestrates orphan cleanup by processing `FileChange[]` array to identify deletion/rename candidates, deletes `.sum` files for removed sources (via `deleteIfExists()`), collects affected directories via `path.dirname()` + `Set<string>`, and calls `cleanupEmptyDirectoryDocs()` for each directory. Returns `CleanupResult` with `deletedSumFiles: string[]` and `deletedAgentsMd: string[]`. Handles two scenarios: `change.status === 'deleted'` processes current path, `change.status === 'renamed'` processes `change.oldPath` to remove `.sum` at previous location.
+**cleanupOrphans(projectRoot: string, changes: FileChange[], dryRun: boolean): Promise\<CleanupResult\>** — Orchestrates orphan cleanup by processing `FileChange[]` array to identify deleted/renamed files, deletes corresponding `.sum` files via `deleteIfExists()`, collects affected directories via `path.dirname()`, calls `cleanupEmptyDirectoryDocs()` for each affected directory, returns `CleanupResult` with `deletedSumFiles[]` and `deletedAgentsMd[]` arrays.
 
-**`cleanupEmptyDirectoryDocs(dirPath: string, dryRun?: boolean): Promise<boolean>`** — Reads directory entries via `readdir()`, applies predicate filtering to detect source files (excludes hidden files starting with `.`, `.sum` extensions, and `GENERATED_FILES` set containing `'AGENTS.md'` and `'CLAUDE.md'`), and deletes `AGENTS.md` via `deleteIfExists()` when no source files remain. Returns `true` if deletion occurred.
+**cleanupEmptyDirectoryDocs(dirPath: string, dryRun: boolean): Promise\<boolean\>** — Reads directory entries via `readdir()`, filters out hidden files (`.` prefix), `.sum` files (`.endsWith('.sum')`), and entries in `GENERATED_FILES` Set, deletes `AGENTS.md` via `deleteIfExists()` if no source files remain, returns true if deletion occurred.
 
-**`getAffectedDirectories(changes: FileChange[]): Set<string>`** — Computes parent directory paths requiring `AGENTS.md` regeneration by iterating `changes`, skipping `status === 'deleted'`, extracting `path.dirname()` recursively until reaching root (`.` or absolute path boundary), and accumulating results in `Set<string>`. Always includes `'.'` for root directory.
+**getAffectedDirectories(changes: FileChange[]): Set\<string\>** — Walks parent directory tree for each non-deleted `FileChange` via `path.dirname()` iteration until reaching project root (`.` or absolute path), collects all parent paths including root directory, returns `Set<string>` of relative directory paths requiring `AGENTS.md` regeneration.
 
-## Internal Implementation
+## Deletion Strategy
 
-**`deleteIfExists(filePath: string, dryRun: boolean): Promise<boolean>`** — Wrapper combining `stat()` existence check with `unlink()` deletion, returning `true` on successful deletion or dry-run match, `false` on ENOENT catch. Enables safe deletion without pre-existence checks.
+**Orphan .sum cleanup** handles two scenarios: `FileChange` with `status === 'deleted'` triggers `.sum` deletion at original path, `status === 'renamed'` with `oldPath` defined triggers `.sum` deletion at `oldPath` location while preserving new path `.sum`.
 
-**`GENERATED_FILES: Set<string>`** — Constant set `['AGENTS.md', 'CLAUDE.md']` used by `cleanupEmptyDirectoryDocs()` predicate to distinguish documentation artifacts from source files when evaluating directory emptiness.
+**Empty directory cleanup** invokes `cleanupEmptyDirectoryDocs()` for unique parent directories (`Set<string>`) of deleted/renamed paths, scans `readdir()` entries with three exclusion filters (hidden files, `.sum` suffixes, `GENERATED_FILES` Set membership), deletes `AGENTS.md` when no source files remain.
 
-## Integration with Update Workflow
+## Constants and Types
 
-Called by `src/update/orchestrator.ts` after Phase 1 file analysis and before Phase 2 directory regeneration. Consumes `FileChange[]` from `src/change-detection/detector.ts` containing `status: 'deleted' | 'renamed'` entries. The `CleanupResult.deletedSumFiles` array is logged via `src/output/logger.ts` to show progress. Dry-run mode supports preview operations without filesystem mutations.
+**GENERATED_FILES** — `Set<string>` containing `'AGENTS.md'` and `'CLAUDE.md'` to exclude from source file detection during empty directory checks.
 
-## Directory Traversal Strategy
+**deleteIfExists(filePath: string, dryRun: boolean): Promise\<boolean\>** — Internal helper calling `stat()` to verify existence, invokes `unlink()` unless `dryRun` true, returns true on successful deletion or dry-run simulation, returns false on `stat()` error (non-existent file).
 
-Uses `path.dirname()` recursion without filesystem I/O during `getAffectedDirectories()` for performance. Stops at relative path boundaries (`'.'` or `path.isAbsolute()` check) to avoid escaping project root. Collects all ancestors to handle nested directory structures where parent `AGENTS.md` files reference child summaries.
+## Integration Points
 
-## Rename Handling
+Consumed by `src/update/orchestrator.ts` during incremental update workflow: calls `cleanupOrphans()` after change detection to remove stale `.sum` files, calls `getAffectedDirectories()` to compute directory regeneration scope, passes `CleanupResult` to progress reporting and telemetry logging.
 
-For `status === 'renamed'` entries, processes `change.oldPath` to delete orphaned `.sum` at previous location while `change.path` (new location) triggers regeneration via main update orchestrator. This prevents duplicate `.sum` files when git detects moves via `-M` similarity threshold.
+Depends on `FileChange` from `src/change-detection/types.ts` with discriminated union `status` field (`'added'|'modified'|'deleted'|'renamed'`) and optional `oldPath` for rename detection.
+
+Returns `CleanupResult` from `src/update/types.ts` containing `deletedSumFiles: string[]` and `deletedAgentsMd: string[]` for audit trails and progress tracking.
+
+## Dry-Run Support
+
+All deletion functions accept `dryRun: boolean` parameter: when true, `deleteIfExists()` calls `stat()` for existence check but skips `unlink()`, allows preview of orphan cleanup without filesystem modification, returns same `CleanupResult` structure with file paths that would be deleted.

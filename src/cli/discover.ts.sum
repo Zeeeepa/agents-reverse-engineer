@@ -1,104 +1,59 @@
 ---
-generated_at: 2026-02-09T14:08:55.996Z
+generated_at: 2026-02-09T15:06:49.110Z
 content_hash: 79c56b266e6a9cedc43be6fe15516e276874c36636d49eae53f0a6b6db41a2ca
-purpose: discover.ts implements the `are discover` command, scanning directories with filter chains (gitignore, vendor, binary...
+purpose: discoverCommand executes `are discover` CLI command by walking directory tree with gitignore/vendor/binary/custom fil...
 ---
-**discover.ts implements the `are discover` command, scanning directories with filter chains (gitignore, vendor, binary, custom) to identify analyzable files and generating GENERATION-PLAN.md with post-order directory traversal execution strategy.**
+**discoverCommand executes `are discover` CLI command by walking directory tree with gitignore/vendor/binary/custom filters, writing GENERATION-PLAN.md with post-order directory traversal, and emitting discovery trace events.**
 
 ## Exported Interface
 
-**discoverCommand(targetPath: string, options: DiscoverOptions): Promise<void>**
-- Resolves targetPath to absolute path via `path.resolve()` defaulting to `process.cwd()`
-- Loads configuration via `loadConfig(resolvedPath)` applying defaults if absent
-- Verifies directory accessibility with `fs.access(resolvedPath, constants.R_OK)`, exits on ENOENT/EACCES/EPERM
-- Creates `ProgressLog` instance via `ProgressLog.create(resolvedPath)` for real-time monitoring
-- Emits `discovery:start` trace event with targetPath before scanning
-- Executes `discoverFiles(resolvedPath, config, {tracer, debug})` applying filter pipeline
-- Emits `discovery:end` trace event with filesIncluded/filesExcluded counts and durationMs (nanosecond hrtime converted to milliseconds)
-- Logs included files via `logger.file(relativePath)` and excluded files via `logger.excluded(relativePath, reason, filter)`
-- Creates `DiscoveryResult` object mapping included/excluded arrays for orchestrator consumption
-- Invokes `createOrchestrator(config, resolvedPath).createPlan(discoveryResult)` returning GenerationPlan
-- Calls `buildExecutionPlan(generationPlan, resolvedPath)` to compute post-order directory traversal
-- Formats plan via `formatExecutionPlanAsMarkdown(executionPlan)` and writes to `.agents-reverse-engineer/GENERATION-PLAN.md`
-- Exits with code 1 on plan write failure after finalizing progress log
+`discoverCommand(targetPath: string, options: DiscoverOptions): Promise<void>` - Main entry point for `are discover` command. Resolves `targetPath` to absolute path (defaults to `process.cwd()`), validates directory accessibility via `fs.access()`, runs `discoverFiles()` pipeline, logs included/excluded files, generates `buildExecutionPlan()` with post-order traversal, writes formatted markdown to `.agents-reverse-engineer/GENERATION-PLAN.md`.
 
-**DiscoverOptions**
-- `tracer?: ITraceWriter` — Optional trace event emitter for discovery lifecycle
-- `debug?: boolean` — Enables verbose stderr output with picocolors dim formatting (default false)
+`DiscoverOptions` - Configuration interface with optional `tracer?: ITraceWriter` for event emission and `debug?: boolean` for verbose output.
 
 ## Dependencies
 
-**Core Node.js APIs:**
-- `node:path` — Absolute path resolution, relative path formatting for cleaner output
-- `node:fs/promises` — `access()` for read permission verification, `mkdir({recursive:true})` for config directory creation, `writeFile()` for plan output
-- `node:fs` — `constants.R_OK` flag for access check
+- `loadConfig()` from `src/config/loader.ts` - Loads YAML config with Zod validation
+- `discoverFiles()` from `src/discovery/run.ts` - Shared discovery pipeline returning `{ included: string[], excluded: ExcludedFile[] }`
+- `createOrchestrator()` from `src/generation/orchestrator.ts` - Creates generation planner from config
+- `buildExecutionPlan()` from `src/generation/executor.ts` - Sorts directories by depth descending for post-order traversal
+- `formatExecutionPlanAsMarkdown()` from `src/generation/executor.ts` - Converts `ExecutionPlan` to markdown string
+- `ProgressLog.create()` from `src/orchestration/index.ts` - Creates `.agents-reverse-engineer/progress.log` writer for tail -f monitoring
+- `createLogger()` from `src/output/logger.ts` - Picocolors-based terminal logger with methods: `file()`, `excluded()`, `summary()`
 
-**External Libraries:**
-- `picocolors` — Terminal color formatting for debug messages via `pc.dim()`
+## Execution Flow
 
-**Internal Modules:**
-- `../config/loader.js` — `loadConfig()` returns validated Config schema with defaults merged
-- `../discovery/run.js` — `discoverFiles()` orchestrates walker + filter chain
-- `../output/logger.js` — `createLogger()` returns ILogger with file/excluded/summary/info/error methods
-- `../generation/orchestrator.js` — `createOrchestrator()` returns IOrchestrator with createPlan method
-- `../generation/executor.js` — `buildExecutionPlan()` computes post-order directory traversal, `formatExecutionPlanAsMarkdown()` renders phase breakdown
-- `../orchestration/index.js` — `ProgressLog` class with create/write/finalize methods for `.agents-reverse-engineer/progress.log` streaming
-- `../types/index.js` — `DiscoveryResult` interface with `files: string[]` and `excluded: {path, reason}[]`
-- `../orchestration/trace.js` — `ITraceWriter` interface for event emission
-
-## Trace Events
-
-**discovery:start**
-- Fields: `type: 'discovery:start'`, `targetPath: string`
-- Emitted before `discoverFiles()` invocation with `process.hrtime.bigint()` timestamp capture
-
-**discovery:end**
-- Fields: `type: 'discovery:end'`, `filesIncluded: number`, `filesExcluded: number`, `durationMs: number`
-- Emitted after `discoverFiles()` completion with duration computed via bigint subtraction divided by 1_000_000
+1. Resolve `targetPath` to absolute path via `path.resolve()` (defaults to `process.cwd()`)
+2. Load config via `loadConfig(resolvedPath)` (uses defaults if no config file)
+3. Verify directory exists via `fs.access(resolvedPath, constants.R_OK)`, exit with code 1 on `ENOENT`/`EACCES`/`EPERM`
+4. Create `ProgressLog` instance and write discovery header with ISO 8601 timestamp
+5. Emit `discovery:start` trace event via `options.tracer?.emit()` with `targetPath`, capture `hrtime.bigint()` for duration
+6. Run `discoverFiles(resolvedPath, config, { tracer, debug })` to get `{ included, excluded }` arrays
+7. Emit `discovery:end` trace event with `filesIncluded`, `filesExcluded`, `durationMs` computed from nanosecond delta
+8. Log included files via `logger.file(relativePath)` and excluded files via `logger.excluded(relativePath, reason, filter)`
+9. Create `DiscoveryResult` object with `files` and `excluded` arrays
+10. Call `createOrchestrator(config, resolvedPath).createPlan(discoveryResult)` to get `GenerationPlan`
+11. Call `buildExecutionPlan(generationPlan, resolvedPath)` for post-order directory sorting
+12. Format plan via `formatExecutionPlanAsMarkdown(executionPlan)`
+13. Write markdown to `.agents-reverse-engineer/GENERATION-PLAN.md` via `mkdir(configDir, { recursive: true })` then `writeFile()`
+14. Call `progressLog.finalize()` to flush buffered writes
 
 ## Error Handling
 
-**Directory Access:**
-- ENOENT → logs `Directory not found: ${resolvedPath}` and exits with code 1
-- EACCES/EPERM → logs `Permission denied: ${resolvedPath}` and exits with code 1
-- Other errors → re-thrown to caller
+- Directory access errors: Checks `error.code === 'ENOENT'` for missing directory, `'EACCES'`/`'EPERM'` for permission denied, calls `logger.error()` and `process.exit(1)`
+- Plan write failures: Catches `writeFile()` errors, logs via `logger.error()`, writes to progress log, calls `progressLog.finalize()`, exits with code 1
+- Trace events: All `tracer?.emit()` calls use optional chaining to handle null tracer
 
-**Plan Write Failure:**
-- Catches writeFile errors, logs `Failed to write plan: ${message}`, writes to progress log, finalizes log, exits with code 1
+## Trace Event Schema
 
-## Output Destinations
+- `discovery:start` - Emitted before `discoverFiles()` with fields: `type`, `targetPath`
+- `discovery:end` - Emitted after `discoverFiles()` with fields: `type`, `filesIncluded`, `filesExcluded`, `durationMs` (computed from `hrtime.bigint()` delta divided by 1,000,000)
 
-**Console (via logger):**
-- `logger.info()` — Discovery start message, plan generation message
-- `logger.file()` — Each included file relative path
-- `logger.excluded()` — Each excluded file with reason and filter name
-- `logger.summary()` — Aggregated counts for included/excluded files
-- `logger.error()` — Access failures and plan write errors
+## Output Artifacts
 
-**Progress Log (`.agents-reverse-engineer/progress.log`):**
-- Session header with ISO 8601 timestamp and project path
-- Real-time included/excluded file listing with +/- prefixes
-- Summary line with total counts
-- Plan creation confirmation or error message
-- Finalized via `progressLog.finalize()` before command exit
+- `.agents-reverse-engineer/progress.log` - Human-readable streaming log with discovery header, file list (prefixed `+` for included, `-` for excluded), summary line, plan creation message
+- `.agents-reverse-engineer/GENERATION-PLAN.md` - Markdown-formatted execution plan with phase breakdown, post-order directory traversal order, file counts per phase
 
-**GENERATION-PLAN.md (`.agents-reverse-engineer/GENERATION-PLAN.md`):**
-- Created via `mkdir(configDir, {recursive:true})` ensuring parent directory exists
-- Contains markdown-formatted execution plan with phase breakdown (Phase 1: file analysis, Phase 2: directory aggregation, Phase 3: root synthesis)
-- Written with UTF-8 encoding via `writeFile(planPath, markdown, 'utf8')`
+## Debug Mode
 
-## Orchestration Integration
-
-**GenerationPlan Creation:**
-- `createOrchestrator(config, resolvedPath)` returns orchestrator instance with backend selection and concurrency configuration
-- `orchestrator.createPlan(discoveryResult)` analyzes file tree, identifies directories, assigns tasks to phases
-- Returns GenerationPlan with sourceFiles[], agentsMdDirs[], rootDocs[] arrays
-
-**ExecutionPlan Computation:**
-- `buildExecutionPlan(generationPlan, resolvedPath)` sorts directories by depth descending via `path.relative().split(path.sep).length`
-- Implements post-order traversal ensuring child directories processed before parents
-- Returns ExecutionPlan with phase1Tasks[], phase2Tasks[], phase3Tasks[] arrays containing file paths and directory metadata
-
-**Markdown Formatting:**
-- `formatExecutionPlanAsMarkdown(executionPlan)` generates three-section document with task counts, file listings, directory hierarchy
-- Includes project statistics: total files to analyze, directories to document, root synthesis targets
+When `options.debug === true`, writes `pc.dim()` colored messages to `console.error()` with `[debug]` prefix for: resolved path, discovery completion summary (included/excluded counts).

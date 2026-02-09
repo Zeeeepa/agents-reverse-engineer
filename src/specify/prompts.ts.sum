@@ -1,38 +1,41 @@
 ---
-generated_at: 2026-02-09T14:09:50.465Z
+generated_at: 2026-02-09T15:08:09.558Z
 content_hash: 4271916e75010aa5b51ca125d4bfb2e89ea3ce4d8acabfa0cfc9f647a8837e96
-purpose: Exports `buildSpecPrompt()` to construct system and user prompts for AI-driven specification synthesis from aggregate...
+purpose: prompts.ts defines the AI prompt infrastructure for project specification synthesis, providing `buildSpecPrompt()` to...
 ---
-**Exports `buildSpecPrompt()` to construct system and user prompts for AI-driven specification synthesis from aggregated AGENTS.md documentation.**
+**prompts.ts defines the AI prompt infrastructure for project specification synthesis, providing `buildSpecPrompt()` to generate system and user prompts from collected AGENTS.md files with mandatory concern-based organization rules.**
 
-## Exported Interface
+## Exported Types
 
-**`SpecPrompt`** — Prompt pair structure:
-```typescript
-interface SpecPrompt {
-  system: string;  // System instructions for AI backend
-  user: string;    // User content with AGENTS.md aggregation
-}
-```
+`SpecPrompt` interface defines prompt pair structure with `system: string` and `user: string` properties for AI-driven specification generation.
 
 ## Exported Constants
 
-**`SPEC_SYSTEM_PROMPT`** — System prompt enforcing conceptual organization over directory mirroring. Mandates nine-section structure: Project Overview, Architecture, Public API Surface, Data Structures & State, Configuration, Dependencies, Behavioral Contracts, Test Contracts, Build Plan. Prohibits exact file path prescription and folder-based section headings. Requires full type signatures, explicit dependency versions, phased implementation ordering with dependency chains, and exact error type specifications in behavioral contracts.
+`SPEC_SYSTEM_PROMPT` constant contains system-level instructions enforcing conceptual grouping by concern (not directory structure), prohibiting folder-mirroring and exact file path prescription, targeting AI agent consumption with nine mandatory sections:
+1. Project Overview (purpose, tech stack with versions)
+2. Architecture (module boundaries, data flow, design decisions)
+3. Public API Surface (exported interfaces, full type signatures)
+4. Data Structures & State (types, schemas, state management)
+5. Configuration (options, types, defaults, validation, env vars)
+6. Dependencies (each with exact version and rationale)
+7. Behavioral Contracts (error handling, retry logic, concurrency, lifecycle hooks)
+8. Test Contracts (per-module scenarios, edge cases, expected behaviors)
+9. Build Plan (phased implementation with dependency ordering)
 
 ## Exported Functions
 
-**`buildSpecPrompt(docs: AgentsDocs): SpecPrompt`** — Constructs system/user prompt pair for specification generation. Maps `docs` array to section-delimited blocks with `### ${relativePath}` headers. Assembles user prompt with boilerplate header (`## AGENTS.md Files (${docs.length} directories)`), injected sections, and nine-item output requirements checklist. Returns `SpecPrompt` with `SPEC_SYSTEM_PROMPT` as system field and assembled markdown as user field.
+`buildSpecPrompt(docs: AgentsDocs): SpecPrompt` constructs prompt pair by:
+- Mapping `docs` array to markdown sections via `### ${doc.relativePath}\n\n${doc.content}` template
+- Building `userSections` array with header `Generate a comprehensive project specification from the following documentation.`
+- Injecting `## AGENTS.md Files (${docs.length} directories)` section with all `agentsSections`
+- Appending `## Output Requirements` section reiterating nine mandatory specification sections
+- Enforcing raw markdown output constraint: `Output ONLY the markdown content. No preamble.`
+- Returning `{ system: SPEC_SYSTEM_PROMPT, user: userSections.join('\n') }`
 
-## Integration Points
+## Dependencies
 
-Consumes `AgentsDocs` type from `../generation/collector.js` (array of `{relativePath, content}` objects produced by `collectAgentsDocs()` post-order traversal). Output consumed by `generateSpecification()` in `src/specify/index.ts` which passes `SpecPrompt` to `AIService.call()` for LLM invocation.
+Imports `AgentsDocs` type from `../generation/collector.js` for typed AGENTS.md document array consumed by `buildSpecPrompt()`.
 
-## Prompt Architecture
+## Design Constraints
 
-User prompt structure:
-1. Task preamble: "Generate a comprehensive project specification from the following documentation."
-2. Aggregated AGENTS.md sections with `###` headers showing directory paths
-3. Nine-item output requirements list matching `SPEC_SYSTEM_PROMPT` section order
-4. Constraint: "Output ONLY the markdown content. No preamble."
-
-System prompt enforces conceptual grouping (concern-based) over structural grouping (directory-based). Targets AI agent consumption with actionable, instruction-oriented language. Build Plan section requires phased implementation sequence with explicit "depends on" and "enables" relationships per phase.
+Prompt engineering rules enforce MODULE BOUNDARY descriptions over file path prescriptions, exact function/type/constant name preservation from documentation, FULL type signature inclusion (parameters, return types, generics), prohibition of directory name section headings, version number requirements for ALL external dependencies, explicit dependency ordering in Build Plan phases, and exact error type/code specification in Behavioral Contracts.

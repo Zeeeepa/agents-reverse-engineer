@@ -1,166 +1,130 @@
 ---
-generated_at: 2026-02-09T14:10:30.200Z
+generated_at: 2026-02-09T15:09:06.641Z
 content_hash: 545491467bb5d383a886feb1e27b719f964a0b36ecf254adf09c0f47afb4e191
-purpose: README.md serves as npm package landing page and user onboarding guide for agents-reverse-engineer CLI tool, document...
+purpose: README.md serves as the primary user-facing documentation for agents-reverse-engineer, explaining installation, workf...
 ---
-**README.md serves as npm package landing page and user onboarding guide for agents-reverse-engineer CLI tool, documenting installation workflows, command reference, configuration schema, and AI assistant integration patterns.**
+**README.md serves as the primary user-facing documentation for agents-reverse-engineer, explaining installation, workflow, commands, and generated documentation formats with marketing-oriented positioning for AI assistant users.**
 
-## Package Identity
+## Installation Methods
 
-Repository name: `agents-reverse-engineer` (ARE)
+Describes three installation approaches via `npx agents-reverse-engineer@latest`:
+- Interactive installer with runtime selection prompts (Claude Code, OpenCode, Gemini CLI, or all)
+- Non-interactive with `--runtime <rt>` flag and `-g` (global `~/.claude/`) or `-l` (local `./.claude/`) location flags
+- Uninstall via `npx agents-reverse-engineer@latest uninstall` removing command files, session hooks, ARE permissions from settings.json, and `.agents-reverse-engineer` folder (local only)
 
-npm package: `agents-reverse-engineer`
+## Core Workflow Steps
 
-Supported AI runtimes: Claude Code, OpenCode, Gemini CLI, any tool supporting `AGENTS.md` format
+Documents six-step user workflow executed within AI assistant:
+1. `/are-init` — Creates `.agents-reverse-engineer/config.yaml` with exclusion patterns
+2. `/are-discover` — Scans codebase respecting `.gitignore`, generates `GENERATION-PLAN.md` via post-order traversal (deepest directories first)
+3. `/are-generate` — Three-phase execution: file analysis (`.sum` files) → directory docs (`AGENTS.md`) → root docs (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`)
+4. `/are-update` — Incremental regeneration for changed files only via hash-based change detection
+5. `/are-specify` — Synthesizes all `AGENTS.md` into `specs/SPEC.md` (supports `--multi-file` split and `--dry-run` preview)
+6. `/are-clean` — Removes all generated documentation artifacts
 
-Installation entry point: `npx agents-reverse-engineer@latest` (interactive installer)
+## CLI Commands
 
-Binary commands: `are` (primary), `agents-reverse-engineer` (alias)
+Lists terminal commands with flags:
+- `are` or `are install` — Interactive installer (default)
+- `are install --runtime <rt> -g/-l` — Install to runtime globally/locally
+- `are install -u` — Uninstall (remove files/hooks)
+- `are init` — Create configuration file
+- `are discover` — List files for analysis (supports `--plan` for GENERATION-PLAN.md, `--show-excluded` for exclusion reasons)
+- `are generate` — Generate all documentation
+- `are update` — Update changed files only
+- `are specify` — Generate project specification
+- `are clean` — Remove all generated docs
 
-License: MIT
+Runtime values: `claude`, `opencode`, `gemini`, `all`
 
-Node.js requirement: ≥18.0.0
+## AI Assistant Commands
 
-## Installation Workflows
+Documents six slash commands available within IDE:
+- `/are-init` — Initialize config and commands
+- `/are-discover` — Rediscover and regenerate plan
+- `/are-generate` — Generate all documentation
+- `/are-update` — Update changed files only
+- `/are-specify` — Generate project specification
+- `/are-clean` — Remove all generated docs
 
-Interactive mode: `npx agents-reverse-engineer@latest` prompts for runtime selection (claude/opencode/gemini/all) and location (-g global vs -l local)
-
-Non-interactive install: `npx agents-reverse-engineer@latest --runtime <rt> {-g|-l}` with explicit runtime and scope
-
-Uninstall: `npx agents-reverse-engineer@latest uninstall` removes command files, session hooks, ARE permissions from settings.json, and `.agents-reverse-engineer` folder (local installs only)
-
-Version check: `npx agents-reverse-engineer@latest --version`
-
-Global install paths: `~/.claude/`, `~/.config/opencode/`, `~/.gemini/`
-
-Local install paths: `./.claude/`, `./.opencode/`, `./.gemini/`
-
-## CLI Command Reference
-
-`are install` — Interactive installer with runtime/location prompts
-
-`are install --runtime <rt> -g` — Install to specified runtime globally
-
-`are install --runtime <rt> -l` — Install to specified runtime locally
-
-`are install -u` — Uninstall (remove files/hooks)
-
-`are init` — Create `.agents-reverse-engineer/config.yaml` with defaults
-
-`are discover` — List files for analysis respecting `.gitignore`
-
-`are discover --plan` — Generate `GENERATION-PLAN.md` with post-order directory traversal
-
-`are discover --show-excluded` — Display excluded files with exclusion reasons
-
-`are generate` — Three-phase pipeline: `.sum` files → `AGENTS.md` → root docs (CLAUDE.md/GEMINI.md/OPENCODE.md)
-
-`are update` — Incremental regeneration for changed files only
-
-`are specify` — Synthesize all `AGENTS.md` into `specs/SPEC.md` (use `--multi-file` for split output, `--dry-run` for preview)
-
-`are clean` — Remove all generated documentation artifacts
-
-## AI Assistant Slash Commands
-
-`/are-init` — Initialize configuration (supported: Claude, OpenCode, Gemini)
-
-`/are-discover` — Rediscover and regenerate plan (supported: Claude, OpenCode, Gemini)
-
-`/are-generate` — Generate all documentation (supported: Claude, OpenCode, Gemini)
-
-`/are-update` — Update changed files only (supported: Claude, OpenCode, Gemini)
-
-`/are-specify` — Generate project specification (supported: Claude, OpenCode, Gemini)
-
-`/are-clean` — Remove all generated docs (supported: Claude, OpenCode, Gemini)
-
-Command locations: `.claude/skills/are-*/SKILL.md` (Claude), `.opencode/commands/are-*.md` (OpenCode), `.gemini/commands/are-*.toml` (Gemini)
-
-## Configuration Schema
-
-Config file: `.agents-reverse-engineer/config.yaml`
-
-`exclude.patterns` — Custom glob patterns (e.g., `["*.log", "temp/**"]`)
-
-`exclude.vendorDirs` — Directories to skip (default includes node_modules, dist, .git)
-
-`exclude.binaryExtensions` — File types to skip (default includes .png, .jpg, .pdf)
-
-`options.followSymlinks` — Boolean, default `false`
-
-`options.maxFileSize` — Bytes, default `1048576` (1MB)
-
-`output.colors` — Boolean, terminal ANSI color codes
-
-`output.verbose` — Boolean, show each file during processing
-
-`ai.backend` — Backend selector: `'claude'` | `'gemini'` | `'opencode'` | `'auto'`
-
-`ai.model` — Model identifier (backend-specific, e.g., `'sonnet'`)
-
-`ai.timeoutMs` — Subprocess timeout, default `300000` (5 minutes)
-
-`ai.maxRetries` — Max retry attempts, default `3`
-
-`ai.concurrency` — Parallel AI calls, range `1-10`, default `5` (reduced to `2` in WSL environments)
-
-`ai.telemetry.keepRuns` — Retention count for run logs, default `50`
-
-`ai.telemetry.costThresholdUsd` — Warning threshold for cumulative costs, default `10.0`
-
-`ai.pricing` — Custom model pricing overrides with keys `inputCostPerMTok`, `outputCostPerMTok` (USD per 1M tokens)
+All commands supported across Claude, OpenCode, Gemini runtimes.
 
 ## Generated Documentation Formats
 
-`.sum` files: YAML frontmatter (`file_type`, `generated_at`) followed by markdown sections (Purpose, Public Interface, Dependencies, Implementation Notes)
+Describes three output artifact types:
 
-`AGENTS.md`: Directory overview with role description, files grouped by purpose (Types/Services/Utils), subdirectories with descriptions
+**`.sum` files** — Per-file summaries with YAML frontmatter containing `file_type`, `generated_at` timestamp, followed by Purpose, Public Interface, Dependencies, Implementation Notes sections. Example shows authentication service with `authenticate(token: string): User` and `generateToken(user: User): string` exports.
 
-`CLAUDE.md`: Claude Code project entry point (auto-loaded)
+**`AGENTS.md`** — Per-directory overviews containing directory role description, files grouped by purpose (Types, Services, Utils), subdirectory brief descriptions.
 
-`GEMINI.md`: Gemini CLI project entry point
+**Root documents** — Platform-specific entry points:
+- `CLAUDE.md` — Auto-loaded by Claude Code
+- `GEMINI.md` — Entry point for Gemini CLI
+- `OPENCODE.md` — Entry point for OpenCode
+- `AGENTS.md` — Root directory overview (universal format)
 
-`OPENCODE.md`: OpenCode project entry point
+## Configuration Schema
 
-Root `AGENTS.md`: Universal format directory overview for root directory
+Documents `.agents-reverse-engineer/config.yaml` structure with sections:
 
-## Three-Phase Generation Pipeline
+**`exclude`** — File/directory exclusions:
+- `patterns: []` — Custom glob patterns (e.g., `["*.log", "temp/**"]`)
+- `vendorDirs` — Directories to skip (node_modules, dist, .git)
+- `binaryExtensions` — File types to skip (.png, .jpg, .pdf)
 
-Phase 1 — File Analysis: Creates `.sum` file for each source file (concurrent execution)
+**`options`** — Discovery behavior:
+- `followSymlinks: false` — Follow symbolic links during traversal
+- `maxFileSize: 1048576` — Max file size in bytes (1MB default)
 
-Phase 2 — Directory Docs: Creates `AGENTS.md` for each directory (post-order traversal, deepest first)
+**`output`** — Formatting:
+- `colors: true` — Use colors in terminal output
+- `verbose: true` — Show each file as processed
 
-Phase 3 — Root Docs: Creates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` (sequential execution)
+**`ai`** — Service configuration:
+- `backend: auto` — Backend selection ('claude', 'gemini', 'opencode', 'auto')
+- `model: sonnet` — Model identifier (backend-specific)
+- `timeoutMs: 300000` — Subprocess timeout in ms (5 minutes)
+- `maxRetries: 3` — Max retries for transient errors
+- `concurrency: 5` — Parallel AI calls (1-10, lower for WSL/constrained environments)
+- `telemetry.keepRuns: 50` — Number of run logs to keep
+- `telemetry.costThresholdUsd: 10.0` — Optional warning threshold (USD)
+- `pricing` — Custom model pricing with `inputCostPerMTok` and `outputCostPerMTok` fields (USD per 1M tokens)
 
-Post-order traversal ensures child documentation exists before parent directories are documented
+## Key Configuration Options
 
-## Incremental Update Strategy
+**Concurrency** (`ai.concurrency`):
+- Default: 5 (changed to 2 in WSL environments)
+- Range: 1-10
+- Lower values recommended for resource-constrained environments
+- Higher values speed up generation but increase memory usage
 
-`/are-update` command compares SHA-256 content hashes from `.sum` YAML frontmatter against current file content
+**Timeout** (`ai.timeoutMs`):
+- Default: 300000 (5 minutes)
+- AI subprocess timeout for each file analysis
+- Increase for very large files or slow connections
 
-Only regenerates documentation for files with hash mismatches (status: `'modified'` or `'added'`)
+## Requirements
 
-Detects orphans: `.sum` files for deleted source files or renamed oldPaths
+Lists runtime dependencies:
+- Node.js 18+
+- AI Coding Assistant supporting one of:
+  - Claude Code (full support + session hooks)
+  - Gemini CLI (full support + session hooks)
+  - OpenCode (AGENTS.md supported)
+  - Any assistant supporting `AGENTS.md` format
 
-Cleanup operations: `cleanupOrphans()` deletes stale `.sum` files, `cleanupEmptyDirectoryDocs()` removes `AGENTS.md` from directories with no remaining sources
+## Positioning Strategy
 
-Computes `affectedDirs` via `getAffectedDirectories()` by walking parent directories of changed files
+Uses problem-solution narrative structure:
+- **Problem**: AI assistants don't persist codebase knowledge between sessions, requiring repeated architecture explanations
+- **Solution**: agents-reverse-engineer generates documentation formats AI assistants read (`.sum`, `AGENTS.md`, root docs)
+- **Target audience**: Developers using Claude Code, OpenCode, Gemini CLI, or tools supporting `AGENTS.md` format
+- **Value proposition**: "Your AI assistant understands your codebase from the first message"
 
-## Session Hooks
+## Badge Display
 
-Claude/Gemini session lifecycle integration: Auto-updates docs when session ends if changes detected
+Shows npm version badge linking to `https://www.npmjs.com/package/agents-reverse-engineer` and MIT license badge with for-the-badge styling.
 
-Hook detection for installation: Session hook installed during `npx agents-reverse-engineer@latest` workflow for Claude and Gemini runtimes
+## License
 
-OpenCode plugin system: Hooks not mentioned for OpenCode (command-based integration only)
-
-## Resource Constraints
-
-Concurrency default changed from `5` to `2` in WSL environments for memory management
-
-Lower concurrency recommended for resource-constrained environments
-
-Higher concurrency values speed up generation but increase memory usage
-
-Timeout increased from default 120s (documented elsewhere) to 300s (5 minutes) in config reference
+Specifies MIT license.

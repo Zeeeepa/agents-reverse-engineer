@@ -1,22 +1,51 @@
 ---
-generated_at: 2026-02-09T14:08:15.168Z
+generated_at: 2026-02-09T15:06:15.033Z
 content_hash: 48d4aecccbb0b9df690e33716b28c299a767ac99176e78200e16ec0b7e28a91f
-purpose: reporter.ts aggregates inconsistency issues into typed reports with summary counts and formats them as plain-text CLI...
+purpose: reporter.ts builds structured inconsistency reports from validation issues and formats them as plain-text CLI output.
 ---
-**reporter.ts aggregates inconsistency issues into typed reports with summary counts and formats them as plain-text CLI output without color dependencies.**
+**reporter.ts builds structured inconsistency reports from validation issues and formats them as plain-text CLI output.**
 
 ## Exported Functions
 
-**buildInconsistencyReport(issues: Inconsistency[], metadata: { projectRoot: string; filesChecked: number; durationMs: number }): InconsistencyReport**
-Aggregates `Inconsistency[]` into structured `InconsistencyReport` with summary counts by type (`codeVsDoc`, `codeVsCode`, `phantomPaths`) and severity (`errors`, `warnings`, `info`). Attaches run metadata including ISO 8601 timestamp via `new Date().toISOString()`, `projectRoot`, `filesChecked`, and `durationMs`. Computes `summary.total` as `issues.length` and increments counters by iterating over `issue.type` and `issue.severity` discriminants.
+### buildInconsistencyReport
+```typescript
+function buildInconsistencyReport(
+  issues: Inconsistency[],
+  metadata: { projectRoot: string; filesChecked: number; durationMs: number }
+): InconsistencyReport
+```
 
-**formatReportForCli(report: InconsistencyReport): string**
-Renders `InconsistencyReport` as human-readable plain text with severity tags (`[ERROR]`, `[WARN]`, `[INFO]`) and type-specific detail formatting. For `code-vs-doc` issues displays `filePath`, for `phantom-path` issues displays `agentsMdPath` and `details.referencedPath`, for `code-vs-code` issues displays `files.join(', ')`. Header includes `metadata.filesChecked`, `metadata.durationMs`, and `summary.total`. Returns newline-delimited string with blank lines between issues. No color formatting applied (deferred to CLI layer).
+Aggregates `Inconsistency[]` into `InconsistencyReport` with typed summary counts. Iterates through `issues` array to compute:
+- Type counts: `codeVsDoc`, `codeVsCode`, `phantomPaths` via discriminated union type guard (`issue.type`)
+- Severity counts: `errors`, `warnings`, `info` via severity enum check (`issue.severity`)
+- Attaches `metadata` object with `timestamp` (ISO 8601), `projectRoot`, `filesChecked`, `durationMs`
+- Returns report with `summary.total` equal to `issues.length`
 
-## Type Dependencies
+### formatReportForCli
+```typescript
+function formatReportForCli(report: InconsistencyReport): string
+```
 
-Imports `Inconsistency` and `InconsistencyReport` from `../types.js`. `Inconsistency` is discriminated union with `type` field ('code-vs-doc' | 'code-vs-code' | 'phantom-path') and `severity` field ('error' | 'warning' | 'info'). Each union variant provides type-specific fields: `CodeDocInconsistency` has `filePath` and `missingFromDoc`, `CodeCodeInconsistency` has `symbol`, `files[]`, and `pattern`, `PhantomPathInconsistency` has `agentsMdPath` and `details.referencedPath`.
+Converts `InconsistencyReport` to human-readable plain-text string for stderr output. Produces multi-line format:
+- Header: `=== Inconsistency Report ===`
+- Metadata line: `Checked ${filesChecked} files in ${durationMs}ms`
+- Total count: `Found ${total} issue(s)`
+- Per-issue blocks with severity tags (`[ERROR]`, `[WARN]`, `[INFO]`)
+- Type-specific details:
+  - `code-vs-doc`: prints `File: ${filePath}`
+  - `phantom-path`: prints `Doc: ${agentsMdPath}` and `Path: ${details.referencedPath}`
+  - `code-vs-code`: prints `Files: ${files.join(', ')}`
+
+Returns concatenated `lines.join('\n')` with blank line separators between issues.
 
 ## Design Constraints
 
-Pure functions with no side effects or external dependencies beyond type imports. No `picocolors` or terminal formatting libraries to enable test isolation and composition with CLI-layer formatting. Stateless aggregation via local counter variables (`codeVsDoc`, `errors`, etc.) avoids mutation of input `issues[]` array.
+**Color-free output**: No `picocolors` dependency. Returns plain text strings allowing CLI layer (`src/output/logger.ts`) to apply ANSI formatting via `pc.red()`, `pc.yellow()`, `pc.cyan()` wrappers.
+
+**Pure functions**: Both exports are deterministic transformations with no I/O, enabling unit testing without mocks.
+
+## Integration Points
+
+**Consumed by**: `src/quality/index.ts` validators (`validateCodeDocConsistency`, `validateCodeCodeConsistency`, `validatePhantomPaths`) which collect `Inconsistency[]` arrays and call `buildInconsistencyReport()` before returning results to `src/cli/generate.ts` or `src/cli/update.ts`.
+
+**Type dependencies**: Imports `Inconsistency` (discriminated union: `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency`) and `InconsistencyReport` from `../types.js`.

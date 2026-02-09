@@ -1,26 +1,34 @@
 ---
-generated_at: 2026-02-09T14:25:20.813Z
+generated_at: 2026-02-09T15:07:22.893Z
 content_hash: ea6b907fefb4319b3b96d48d308dbd8c9da81250dad6d2588908838c214d9a81
-purpose: Provides ASCII banner display, styled terminal output helpers, and post-install guidance messages for the installer u...
+purpose: banner.ts provides styled terminal output primitives for the ARE installer including ASCII art banner, help text, pro...
 ---
-**Provides ASCII banner display, styled terminal output helpers, and post-install guidance messages for the installer using picocolors.**
+**banner.ts provides styled terminal output primitives for the ARE installer including ASCII art banner, help text, progress messages, and post-installation guidance using picocolors.**
 
-## Exports
+## Exported Functions
 
-- `VERSION: string` — Package version read from package.json via `getVersion()`
-- `displayBanner(): void` — Prints green ASCII art "ARE" logo with version and tagline
-- `showHelp(): void` — Displays usage text, CLI flags (`--runtime`, `-g`, `-l`, `-u`, `--force`, `-q`, `-h`), and example commands
-- `showSuccess(msg: string): void` — Prints message with green checkmark prefix
-- `showError(msg: string): void` — Prints message with red X prefix
-- `showWarning(msg: string): void` — Prints message with yellow exclamation prefix
-- `showInfo(msg: string): void` — Prints message with cyan arrow prefix
-- `showNextSteps(runtime: string, filesCreated: number): void` — Displays post-install workflow steps (7 commands: `/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`) with GitHub docs link
+**displayBanner(): void** — Renders ASCII art "ARE" logo in green with version number from `getVersion()` and tagline "AI-friendly codebase documentation" using `pc.green` and `pc.dim` colorizers.
+
+**showHelp(): void** — Prints usage syntax, option flags (`--runtime`, `-g/-l`, `-u`, `--force`, `-q`, `-h`), and example invocations for interactive mode, single-runtime installation, all-runtime installation, and uninstallation workflows.
+
+**showSuccess(msg: string): void** — Outputs message with green checkmark prefix (`pc.green('✓')`).
+
+**showError(msg: string): void** — Outputs message with red X prefix (`pc.red('✗')`).
+
+**showWarning(msg: string): void** — Outputs message with yellow exclamation prefix (`pc.yellow('!')`).
+
+**showInfo(msg: string): void** — Outputs message with cyan arrow prefix (`pc.cyan('>')`).
+
+**showNextSteps(runtime: string, filesCreated: number): void** — Displays post-installation workflow guide with numbered steps invoking ARE skills (`/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`) and GitHub documentation URL.
+
+## Exported Constants
+
+**VERSION: string** — Package version string obtained via `getVersion()` from `src/version.ts`, displayed in banner and used for version reporting.
 
 ## Dependencies
 
-- `picocolors` — Terminal color formatting via `pc.green()`, `pc.red()`, `pc.yellow()`, `pc.cyan()`, `pc.dim()`, `pc.bold()`
-- `../version.js` — `getVersion()` reads package.json version field
+Imports `picocolors` as `pc` for ANSI terminal color codes (green, red, yellow, cyan, dim, bold). Imports `getVersion` from `../version.js` for package.json version extraction.
 
-## Design Pattern
+## Integration Points
 
-Stateless helper module exporting pure functions for installer UI. All functions write directly to `console.log()` without return values. Banner uses 7-line ASCII art block with Unicode box-drawing characters. Help text follows standard CLI pattern: Usage → Options → Examples. Message helpers prefix with colored symbols (✓ ✗ ! >) for visual consistency.
+Used by `src/installer/index.ts` orchestrator to provide visual feedback during interactive installation prompts, file operation confirmations, error reporting, and completion messaging. Message functions follow semantic naming pattern matching installer operation outcomes (success for file writes, error for permission failures, warning for overwrite prompts, info for progress updates).

@@ -2,42 +2,30 @@
 
 # src/imports
 
-**Static import statement extraction and classification for TypeScript/JavaScript modules, supporting Phase 2 directory aggregation by parsing relative imports, filtering package dependencies, and formatting dependency maps for LLM prompt injection.**
+**Static import analysis subsystem extracting TypeScript/JavaScript import statements via regex-based parsing, filtering relative imports into internal (`./`) and external (`../`) categories, and formatting import maps for directory aggregation prompts consumed during Phase 2 documentation synthesis.**
 
 ## Contents
 
-**[extractor.ts](./extractor.ts)** — Core extraction engine with `IMPORT_REGEX` pattern matching ES module syntax (type-only imports, named symbols, namespace imports, default imports). Parses first 100 lines per file, classifies relative imports as `internalImports` (`./`-prefixed) or `externalImports` (`../`-prefixed), filters out bare specifiers (`node:` built-ins, npm packages). Exports `extractImports()` (single-file regex parsing), `extractDirectoryImports()` (batch processing with error tolerance), `formatImportMap()` (multi-line text serialization for prompt builders).
+### [extractor.ts](./extractor.ts)
+Core import extraction engine exposing `extractImports()` (regex-based parser matching `IMPORT_REGEX` pattern with five capture groups for type keyword, named symbols, namespace imports, default imports, and module specifiers), `extractDirectoryImports()` (reads first 100 lines from each file, filters bare specifiers and `node:` built-ins, classifies relative imports into `internal` and `external` arrays based on `./` vs `../` prefix), and `formatImportMap()` (serializes `FileImports[]` to human-readable text block with `specifier → symbols` lines and optional `(type)` suffix for type-only imports).
 
-**[types.ts](./types.ts)** — Interface definitions for import metadata: `ImportEntry` (specifier/symbols/typeOnly triple), `FileImports` (fileName with internal/external import arrays). Type-only flag enables distinction between runtime dependencies and interface contracts. Internal/external split surfaces directory cohesion metrics for architectural analysis.
+### [types.ts](./types.ts)
+Type definitions for import analysis: `ImportEntry` interface with `specifier`, `symbols`, and `typeOnly` properties representing single import statements; `FileImports` interface aggregating `fileName`, `externalImports`, and `internalImports` arrays for per-file import classification.
 
-**[index.ts](./index.ts)** — Barrel re-export consolidating extraction functions and types into single import surface: `extractImports`, `extractDirectoryImports`, `formatImportMap`, `ImportEntry`, `FileImports`.
+### [index.ts](./index.ts)
+Barrel re-export providing public API surface: `extractImports()`, `extractDirectoryImports()`, `formatImportMap()`, `ImportEntry`, `FileImports`.
 
-## Architecture
+## Integration Points
 
-**Import Classification Pipeline:**
-1. Regex extraction (`IMPORT_REGEX`) captures five capture groups: `type` keyword, named symbols, namespace imports, default imports, module specifiers
-2. Classification via specifier prefix: `./` → internal (same-directory), `../` → external (cross-directory), no prefix → filtered out
-3. Aggregation into `FileImports` objects with separate arrays for internal/external coupling
-4. Serialization via `formatImportMap()` into indented text blocks: `fileName:` header + `  specifier → symbol1, symbol2 (type)` lines
+**Consumed by `src/generation/prompts/builder.ts`:**
+`buildDirectoryAggregationPrompt()` calls `extractDirectoryImports()` to inject import context into directory-level `AGENTS.md` synthesis prompts during Phase 2. Import maps show which files import from parent directories, revealing coupling boundaries and dependency graphs without requiring AST traversal.
 
-**Integration with Phase 2:** Called by `src/generation/prompts/builder.ts` during directory aggregation to inject dependency context into AGENTS.md synthesis prompts. Enables AI backend to understand cross-file relationships and parent directory dependencies when analyzing directory structure.
+## Performance Optimizations
 
-**Performance Optimization:** Reads only first 100 lines per file (import region heuristic) to avoid full-file parsing during batch directory analysis. Silently skips unreadable files to maintain batch processing throughput.
+**Line slicing strategy:** Reads only first 100 lines via `content.split('\n').slice(0, 100)` before regex processing (assumption: ES module hoisting places imports at file top). Avoids parsing thousands of implementation lines in large files.
 
-## File Relationships
+**Bare specifier filtering:** Excludes npm packages (`react`, `lodash`) and Node.js built-ins (`node:fs`) by requiring `specifier.startsWith('.')` or `specifier.startsWith('..')`, reducing import map noise for codebase navigation context.
 
-- **Consumed by:** `src/generation/prompts/builder.ts` (directory prompt construction)
-- **Uses:** Node.js `fs/promises` (file reading), string manipulation primitives
-- **Exports to:** `src/generation/` (via barrel export in `src/imports/index.ts`)
+## Regex Pattern
 
-## Key Design Decisions
-
-**Internal/External Split:** Distinguishes intra-directory coupling (implementation details) from cross-directory dependencies (architectural boundaries). High internal import ratios indicate cohesive modules; high external ratios signal cross-cutting concerns.
-
-**Type-Only Discrimination:** `typeOnly` flag prevents false positives in runtime dependency graphs. Type imports don't affect bundle size or execution, critical for unused code detection and tree-shaking analysis.
-
-**Bare Specifier Filtering:** Excludes `node:` built-ins and npm packages to focus on intra-project relationships. Package dependencies documented separately in manifest detection (`package.json` parsing in `src/generation/prompts/builder.ts`).
-
-**Symbol Array Collection:** Supports both named imports (`{ a, b }`) and namespace imports (`* as ns`) by capturing all bound identifiers. Enables export-import graph construction for unused symbol detection.
-
-**Regex vs. AST Trade-off:** Uses regex instead of TypeScript compiler API for speed during batch processing. Misses edge cases (dynamic imports, comments containing `import` keyword) but handles 95%+ of real-world module syntax.
+`IMPORT_REGEX`: `/^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm` with line start anchor preventing dynamic import matches. Capture groups: (1) `type` keyword, (2) named symbols in braces, (3) namespace import `* as name`, (4) default import, (5) module specifier. Resets `lastIndex` to 0 before each `exec()` loop for global regex state hygiene.

@@ -1,53 +1,85 @@
 ---
-generated_at: 2026-02-09T14:08:41.941Z
+generated_at: 2026-02-09T15:07:02.386Z
 content_hash: ddcb35a58fc7c96be861daff467611b0b3f9fa7cb760da90af97960452c887c8
-purpose: Zod validation schema defining the structure of `.agents-reverse-engineer/config.yaml` with type inference exports an...
+purpose: Defines Zod validation schema for `.agents-reverse-engineer/config.yaml` with five nested configuration sections (`Ex...
 ---
-**Zod validation schema defining the structure of `.agents-reverse-engineer/config.yaml` with type inference exports and sensible defaults for all configuration fields.**
+**Defines Zod validation schema for `.agents-reverse-engineer/config.yaml` with five nested configuration sections (`ExcludeSchema`, `OptionsSchema`, `OutputSchema`, `AISchema`, `ConfigSchema`) and exports corresponding TypeScript types (`ExcludeConfig`, `OptionsConfig`, `OutputConfig`, `AIConfig`, `Config`).**
 
 ## Exported Schemas
 
-**ConfigSchema** — Root Zod schema (`z.object`) with four nested sections: `exclude` (ExcludeSchema), `options` (OptionsSchema), `output` (OutputSchema), `ai` (AISchema). All fields default via `.default({})` allowing empty object `{}` as valid input. Parse via `ConfigSchema.parse(rawYaml)` to produce validated Config instance.
+**`ExcludeSchema`** — `z.object` with three array fields:
+- `patterns: z.array(z.string()).default([...DEFAULT_EXCLUDE_PATTERNS])` — Custom glob patterns for file exclusion
+- `vendorDirs: z.array(z.string()).default([...DEFAULT_VENDOR_DIRS])` — Third-party directory paths to skip during discovery
+- `binaryExtensions: z.array(z.string()).default([...DEFAULT_BINARY_EXTENSIONS])` — File extensions treated as binary content
 
-**ExcludeSchema** — Defines file/directory exclusion rules with three arrays: `patterns` (glob strings from DEFAULT_EXCLUDE_PATTERNS), `vendorDirs` (from DEFAULT_VENDOR_DIRS), `binaryExtensions` (from DEFAULT_BINARY_EXTENSIONS). Each array initialized via spread operator `[...DEFAULT_*]` to prevent mutation of shared defaults.
+**`OptionsSchema`** — `z.object` with two fields:
+- `followSymlinks: z.boolean().default(false)` — Symbolic link traversal behavior during file walking
+- `maxFileSize: z.number().positive().default(DEFAULT_MAX_FILE_SIZE)` — Byte threshold for skipping large files
 
-**OptionsSchema** — Discovery behavior controls with `followSymlinks` (boolean, default false) and `maxFileSize` (positive number from DEFAULT_MAX_FILE_SIZE, enforced via `.positive()` constraint).
+**`OutputSchema`** — `z.object` with single field:
+- `colors: z.boolean().default(true)` — ANSI color code emission control for terminal output
 
-**OutputSchema** — Terminal formatting settings with single field `colors` (boolean, default true) controlling ANSI color code emission in CLI output.
+**`AISchema`** — `z.object` with six fields:
+- `backend: z.enum(['claude', 'gemini', 'opencode', 'auto']).default('auto')` — AI CLI backend selection with auto-detection
+- `model: z.string().default('sonnet')` — Backend-specific model identifier (e.g., "sonnet", "opus")
+- `timeoutMs: z.number().positive().default(300_000)` — Subprocess execution timeout (5 minutes)
+- `maxRetries: z.number().min(0).default(3)` — Exponential backoff retry attempts for transient errors
+- `concurrency: z.number().min(1).max(20).default(getDefaultConcurrency)` — Worker pool size with dynamic default based on CPU/memory via `getDefaultConcurrency` function
+- `telemetry: z.object({ keepRuns: z.number().min(0).default(50) }).default({})` — Run log retention limit in `.agents-reverse-engineer/logs/`
 
-**AISchema** — AI service configuration with six fields:
-- `backend`: Enum `'claude' | 'gemini' | 'opencode' | 'auto'` (default 'auto' triggers runtime detection)
-- `model`: String identifier (default 'sonnet', backend-specific values like "opus")
-- `timeoutMs`: Positive number (default 300,000 = 5 minutes)
-- `maxRetries`: Non-negative number (default 3, enforced via `.min(0)`)
-- `concurrency`: Number 1-20 (default from `getDefaultConcurrency()` function, auto-detects CPU/memory)
-- `telemetry`: Nested object with `keepRuns` (non-negative number, default 50) controlling log retention
+**`ConfigSchema`** — Root `z.object` aggregating four sections:
+- `exclude: ExcludeSchema` — File/directory exclusion rules
+- `options: OptionsSchema` — Discovery behavior configuration
+- `output: OutputSchema` — Terminal formatting options
+- `ai: AISchema` — AI service orchestration parameters
+
+All schemas have `.default({})` ensuring empty object `{}` parses to fully populated configuration with sensible defaults.
 
 ## Exported TypeScript Types
 
-**Config** — Inferred via `z.infer<typeof ConfigSchema>`, represents validated configuration object with all defaults applied. Use for function parameters accepting parsed config.
+**`ExcludeConfig`** — `z.infer<typeof ExcludeSchema>` with `patterns`, `vendorDirs`, `binaryExtensions` string arrays
 
-**ExcludeConfig** — Inferred from ExcludeSchema, type for `config.exclude` section with `patterns`, `vendorDirs`, `binaryExtensions` arrays.
+**`OptionsConfig`** — `z.infer<typeof OptionsSchema>` with `followSymlinks` boolean and `maxFileSize` number
 
-**OptionsConfig** — Inferred from OptionsSchema, type for `config.options` section with `followSymlinks` and `maxFileSize` fields.
+**`OutputConfig`** — `z.infer<typeof OutputSchema>` with `colors` boolean
 
-**OutputConfig** — Inferred from OutputSchema, type for `config.output` section with `colors` field.
+**`AIConfig`** — `z.infer<typeof AISchema>` with `backend` enum literal, `model` string, `timeoutMs`/`maxRetries`/`concurrency` numbers, `telemetry` object containing `keepRuns` number
 
-**AIConfig** — Inferred from AISchema, type for `config.ai` section with `backend`, `model`, `timeoutMs`, `maxRetries`, `concurrency`, `telemetry` fields.
+**`Config`** — `z.infer<typeof ConfigSchema>` aggregating `ExcludeConfig`, `OptionsConfig`, `OutputConfig`, `AIConfig` as nested properties
 
-## Dependencies
+## Integration with Defaults Module
 
-Imports `z` from `zod` for schema construction. Imports constants and functions from `./defaults.js`: `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, `DEFAULT_EXCLUDE_PATTERNS`, `getDefaultConcurrency`. Separation allows defaults module to compute dynamic values (CPU cores, memory constraints) without circular dependencies.
-
-## Default Value Strategy
-
-All schemas apply `.default()` at both field and object levels. Numeric constraints (`positive()`, `min()`, `max()`) enforce invariants before default assignment. Arrays spread default constants to prevent shared reference mutations. Functions like `getDefaultConcurrency()` enable runtime computation of defaults based on system resources (CPU cores via `os.cpus().length`, memory via `os.freemem()`).
+Imports six constants from `./defaults.js`:
+- `DEFAULT_VENDOR_DIRS` — Spread into `ExcludeSchema.vendorDirs` default (18 entries: node_modules, .git, dist, etc.)
+- `DEFAULT_BINARY_EXTENSIONS` — Spread into `ExcludeSchema.binaryExtensions` default (26 types: .png, .jpg, .zip, etc.)
+- `DEFAULT_MAX_FILE_SIZE` — Used in `OptionsSchema.maxFileSize` default (1MB threshold)
+- `DEFAULT_EXCLUDE_PATTERNS` — Spread into `ExcludeSchema.patterns` default (gitignore-style globs)
+- `getDefaultConcurrency` — Function reference passed to `AISchema.concurrency.default()` for dynamic CPU/memory-based pool sizing
 
 ## Validation Constraints
 
-- `backend`: Restricted to literal union via `z.enum()`
-- `timeoutMs`: Must be positive integer via `.positive()`
-- `maxRetries`: Non-negative via `.min(0)`
-- `concurrency`: Bounded 1-20 via `.min(1).max(20)`
-- `maxFileSize`: Must be positive via `.positive()`
-- `keepRuns`: Non-negative via `.min(0)`
+**Numeric ranges:**
+- `OptionsSchema.maxFileSize` requires `.positive()` (must be > 0)
+- `AISchema.timeoutMs` requires `.positive()` (must be > 0)
+- `AISchema.maxRetries` requires `.min(0)` (allows 0 retries)
+- `AISchema.concurrency` requires `.min(1).max(20)` (1-20 workers)
+- `AISchema.telemetry.keepRuns` requires `.min(0)` (allows 0 for no retention)
+
+**Enum validation:**
+- `AISchema.backend` restricts to `'claude' | 'gemini' | 'opencode' | 'auto'` via `z.enum()`
+
+**Array validation:**
+- `ExcludeSchema.patterns/vendorDirs/binaryExtensions` require `z.array(z.string())` (homogeneous string arrays)
+
+## Usage Pattern
+
+Schema consumed by `src/config/loader.ts` for parsing `.agents-reverse-engineer/config.yaml`:
+```typescript
+const config = ConfigSchema.parse(yamlObject);
+```
+
+Partial overrides merge with defaults via Zod's default chain:
+```typescript
+ConfigSchema.parse({ exclude: { patterns: ['*.log'] } })
+// Results in: { exclude: { patterns: ['*.log'], vendorDirs: [...defaults], binaryExtensions: [...defaults] }, options: {...defaults}, output: {...defaults}, ai: {...defaults} }
+```

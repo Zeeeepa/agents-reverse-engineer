@@ -1,61 +1,61 @@
 ---
-generated_at: 2026-02-09T14:08:18.194Z
-content_hash: 443955a0ece4db51d38ab0ef848bb889304e6e0bcb3989ddad46f26676f882e7
-purpose: builder.ts constructs AI prompts for the three-phase documentation pipeline: file analysis (buildFilePrompt), directo...
+generated_at: 2026-02-09T15:06:15.009Z
+content_hash: c3913119ba0947387369ae3e2d5aaee61cfc29e80a47bf9cc041a8318c537ac8
+purpose: builder.ts constructs AI prompts for the three-phase documentation pipeline: `buildFilePrompt` generates per-file ana...
 ---
-**builder.ts constructs AI prompts for the three-phase documentation pipeline: file analysis (buildFilePrompt), directory aggregation (buildDirectoryPrompt), and root synthesis (buildRootPrompt).**
+**builder.ts constructs AI prompts for the three-phase documentation pipeline: `buildFilePrompt` generates per-file analysis prompts with optional import context and incremental update support, `buildDirectoryPrompt` aggregates .sum files and child AGENTS.md into directory-level synthesis prompts with manifest detection and import maps, `buildRootPrompt` collects all AGENTS.md files and package.json metadata for project-wide overview generation.**
 
 ## Exported Functions
 
-### buildFilePrompt(context: PromptContext, debug?: boolean): { system: string; user: string }
-Assembles file analysis prompts by combining FILE_SYSTEM_PROMPT with FILE_USER_PROMPT template, substituting `{{FILE_PATH}}`, `{{CONTENT}}`, `{{LANG}}`, and `{{PROJECT_PLAN_SECTION}}` placeholders. Appends related files section if `context.contextFiles` populated. Calls detectLanguage() for syntax highlighting hint. Returns object with `system` and `user` prompt strings.
+### buildFilePrompt
+```typescript
+function buildFilePrompt(context: PromptContext, debug = false): {
+  system: string;
+  user: string;
+}
+```
+Constructs prompt pair (system + user messages) for Phase 1 file analysis. Reads `context.filePath`, `context.content`, `context.projectPlan` (optional), `context.contextFiles[]` (optional), `context.existingSum` (optional). Calls `detectLanguage()` for syntax highlighting hint. Replaces placeholders in `FILE_USER_PROMPT`: `{{FILE_PATH}}`, `{{CONTENT}}`, `{{LANG}}`, `{{PROJECT_PLAN_SECTION}}`. Appends "Related Files" section when `context.contextFiles` is populated. For incremental updates (when `context.existingSum` present), appends existing summary section and returns `FILE_UPDATE_SYSTEM_PROMPT` instead of `FILE_SYSTEM_PROMPT`. Logs via `logTemplate()` when `debug=true`.
 
-### buildDirectoryPrompt(dirPath: string, projectRoot: string, debug?: boolean, knownDirs?: Set<string>, projectStructure?: string): Promise<{ system: string; user: string }>
-Generates directory-level AGENTS.md prompts by aggregating child `.sum` files via readSumFile(getSumPath()), subdirectory AGENTS.md content, and AGENTS.local.md user notes. Detects manifest files (package.json, Cargo.toml, go.mod, etc.) to identify package roots. Calls extractDirectoryImports() + formatImportMap() to embed verified import statements. Filters subdirectories against `knownDirs` set when provided. Uses DIRECTORY_SYSTEM_PROMPT template. Includes `projectStructure` in `<project-structure>` tags if available.
+### buildDirectoryPrompt
+```typescript
+async function buildDirectoryPrompt(
+  dirPath: string,
+  projectRoot: string,
+  debug = false,
+  knownDirs?: Set<string>,
+  projectStructure?: string,
+  existingAgentsMd?: string,
+): Promise<{ system: string; user: string }>
+```
+Constructs prompt for Phase 2 directory aggregation into AGENTS.md. Calls `readdir()` to enumerate entries, filters via `knownDirs` set (when provided) to skip untracked subdirectories. Reads all .sum files in parallel via `getSumPath()` + `readSumFile()`, child AGENTS.md files, AGENTS.local.md (user documentation preservation). Detects manifest files via hardcoded array: `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `pom.xml`, `build.gradle`, `Gemfile`, `composer.json`, `CMakeLists.txt`, `Makefile`. Calls `extractDirectoryImports()` for source files matching `/\.(ts|tsx|js|jsx|py|go|rs|java|kt)$/`, formats via `formatImportMap()`. Appends "Project Directory Structure" section when `projectStructure` provided. For incremental updates (when `existingAgentsMd` present), appends existing content and returns `DIRECTORY_UPDATE_SYSTEM_PROMPT` instead of `DIRECTORY_SYSTEM_PROMPT`. Returns user prompt with sections: File Summaries, Import Map, Subdirectories, Directory Hints (manifests), User Notes (AGENTS.local.md or existing non-generated AGENTS.md). Checks for `GENERATED_MARKER` to distinguish user-authored AGENTS.md from generated versions.
 
-### buildRootPrompt(projectRoot: string, debug?: boolean): Promise<{ system: string; user: string }>
-Constructs root CLAUDE.md synthesis prompt via collectAgentsDocs() to gather all AGENTS.md files into sections. Parses root package.json for metadata (name, version, description, packageManager, scripts). Embeds complete directory documentation corpus in user prompt with synthesis-only constraints ("Do NOT invent features, hooks, patterns"). Uses ROOT_SYSTEM_PROMPT template. Returns comprehensive reference document requirements.
+### buildRootPrompt
+```typescript
+async function buildRootPrompt(
+  projectRoot: string,
+  debug = false,
+): Promise<{ system: string; user: string }>
+```
+Constructs prompt for Phase 3 root document synthesis (CLAUDE.md/GEMINI.md/OPENCODE.md). Calls `collectAgentsDocs()` to recursively gather all AGENTS.md files with relative paths. Reads root package.json via `readFile()`, extracts `name`, `version`, `description`, `packageManager`, `scripts` object. Builds user prompt with sections: AGENTS.md Files (aggregated content), Package Metadata (JSON fields), Output Requirements (architecture, getting started, key technologies). Returns `ROOT_SYSTEM_PROMPT` as system message. Enforces synthesis-only constraint via user instructions: "Do NOT invent features, hooks, patterns, or APIs that are not explicitly mentioned in the AGENTS.md content."
 
-### detectLanguage(filePath: string): string
-Maps file extensions to syntax highlighting language identifiers via `langMap` object (26 mappings: `.ts` → `'typescript'`, `.py` → `'python'`, `.md` → `'markdown'`, etc.). Returns `'text'` for unmapped extensions. Normalizes extension via `path.extname().toLowerCase()`.
+### detectLanguage
+```typescript
+function detectLanguage(filePath: string): string
+```
+Maps file extension to syntax highlighting identifier. Uses `path.extname()` and hardcoded `langMap` object with 20 entries: `.ts` → `typescript`, `.tsx` → `tsx`, `.js` → `javascript`, `.jsx` → `jsx`, `.py` → `python`, `.rb` → `ruby`, `.go` → `go`, `.rs` → `rust`, `.java` → `java`, `.kt` → `kotlin`, `.swift` → `swift`, `.cs` → `csharp`, `.php` → `php`, `.vue` → `vue`, `.svelte` → `svelte`, `.json` → `json`, `.yaml`/`.yml` → `yaml`, `.md` → `markdown`, `.css` → `css`, `.scss` → `scss`, `.html` → `html`. Returns `'text'` for unmapped extensions.
 
-## Internal Utilities
+## Incremental Update Strategy
 
-### logTemplate(debug: boolean, action: string, filePath: string, extra?: string): void
-Debug logger using picocolors formatting: `[prompt] ${action} → ${relativePath} ${extra}`. Guards on `debug` flag, writes to stderr via `console.error()`.
+`buildFilePrompt` and `buildDirectoryPrompt` switch to update-specific system prompts when existing content detected. File updates use `FILE_UPDATE_SYSTEM_PROMPT` + appended `context.existingSum`, directory updates use `DIRECTORY_UPDATE_SYSTEM_PROMPT` + appended `existingAgentsMd`. Prompts instruct: "preserve stable content, modify only what changed" to minimize unnecessary rewrites.
 
 ## Dependencies
 
-**Templates:** Imports FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, DIRECTORY_SYSTEM_PROMPT, ROOT_SYSTEM_PROMPT from `./templates.js` (constant strings with Mustache-style placeholders).
-
-**Writers:** Uses readSumFile() + getSumPath() from `../writers/sum.js` to load `.sum` YAML frontmatter + summary text. References GENERATED_MARKER from `../writers/agents-md.js` to detect user-authored vs. ARE-generated AGENTS.md files.
-
-**Imports:** Calls extractDirectoryImports() + formatImportMap() from `../../imports/index.js` for static analysis of import statements in source files (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.go`, `.rs`, `.java`, `.kt` extensions).
-
-**Collector:** Uses collectAgentsDocs(projectRoot) from `../collector.js` to recursively traverse directory tree and gather all AGENTS.md files with relativePath + content.
-
-**Types:** Consumes PromptContext interface from `./types.js` (fields: filePath, content, projectPlan?, contextFiles?).
-
-## Prompt Structure Patterns
-
-**File prompts:** System prompt defines documentation density rules, user prompt embeds source code in triple-backtick fence with language tag, appends project structure in `<project-structure>` XML tags, includes related files as additional fenced blocks.
-
-**Directory prompts:** User prompt sections: file summaries (H3 headers with purpose + summary), import map (verified paths), project structure (XML tags), subdirectories (H3 headers with full AGENTS.md content), directory hints (manifest detection), user notes (AGENTS.local.md or non-generated AGENTS.md content).
-
-**Root prompts:** User prompt sections: synthesis instructions with anti-hallucination constraint, AGENTS.md corpus (H3 headers per directory), package metadata (bullet list from package.json fields), output requirements (bullet list mandating architecture, directories table, getting started, technologies).
-
-## User Content Preservation
-
-buildDirectoryPrompt() implements two-stage fallback for user documentation: first checks AGENTS.local.md, then checks existing AGENTS.md without GENERATED_MARKER (`<!-- Generated by agents-reverse-engineer -->`). Embeds user content in `## User Notes` section with reference links. First-run behavior converts user-authored AGENTS.md → AGENTS.local.md during generation phase (writer handles rename).
-
-## Manifest Detection
-
-Searches for 9 manifest file types: package.json (npm/pnpm/yarn), Cargo.toml (Rust), go.mod (Go), pyproject.toml (Python), pom.xml (Maven), build.gradle (Gradle), Gemfile (Ruby), composer.json (PHP), CMakeLists.txt (CMake), Makefile. Appends "likely a package or project root" hint to directory prompt when found.
-
-## Import Analysis Integration
-
-Filters source files by extension regex `/\.(ts|tsx|js|jsx|py|go|rs|java|kt)$/` before calling extractDirectoryImports(). Embeds formatted import map with "verified — use these exact paths" annotation to prevent phantom path hallucination in generated documentation. Only includes section when `importMapText` non-empty.
+Imports `FILE_SYSTEM_PROMPT`, `FILE_USER_PROMPT`, `FILE_UPDATE_SYSTEM_PROMPT`, `DIRECTORY_SYSTEM_PROMPT`, `DIRECTORY_UPDATE_SYSTEM_PROMPT`, `ROOT_SYSTEM_PROMPT` from `./templates.js` (static prompt templates). Calls `readSumFile()`, `getSumPath()` from `../writers/sum.js`, `GENERATED_MARKER` constant from `../writers/agents-md.js`, `extractDirectoryImports()`, `formatImportMap()` from `../../imports/index.js`, `collectAgentsDocs()` from `../collector.js`. Uses `picocolors` for debug logging via `logTemplate()`.
 
 ## Debug Logging
 
-All builder functions accept optional `debug` parameter. When enabled, logTemplate() emits: `buildFilePrompt` logs `lang=${lang}`, `buildDirectoryPrompt` logs `files=${count} subdirs=${count} imports=${count}`, `buildRootPrompt` logs `agents=${count}`. Skipped AGENTS.md files logged as `Skipping missing ${path}`.
+Internal `logTemplate()` function logs when `debug=true` via `console.error()`. Formats: `[prompt] buildFilePrompt → path lang=typescript`, `[prompt] buildDirectoryPrompt → path files=5 subdirs=2 imports=8`. All logs dim via `pc.dim()` to reduce visual noise.
+
+## User Documentation Preservation
+
+`buildDirectoryPrompt` checks for AGENTS.local.md first, falls back to non-generated AGENTS.md (missing `GENERATED_MARKER`). Appends user content as "User Notes" section with file reference. First-run detection renames user AGENTS.md → AGENTS.local.md (handled by caller, not this module).

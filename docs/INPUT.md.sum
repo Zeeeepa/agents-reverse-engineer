@@ -1,30 +1,44 @@
 ---
-generated_at: 2026-02-09T14:10:00.402Z
+generated_at: 2026-02-09T15:08:27.478Z
 content_hash: 71675547e7ed7dc5b1c708febebf0e954ac52c258471feb19766f9b2e6dc5bec
-purpose: INPUT.md defines the original product vision for agents-reverse-engineer as a brownfield documentation tool using Rec...
+purpose: INPUT.md documents the original vision, RLM algorithm, and feature requirements for agents-reverse-engineer brownfiel...
 ---
-**INPUT.md defines the original product vision for agents-reverse-engineer as a brownfield documentation tool using Recursive Language Model (RLM) algorithm to generate AI assistant documentation through bottom-up directory traversal.**
+**INPUT.md documents the original vision, RLM algorithm, and feature requirements for agents-reverse-engineer brownfield documentation tool.**
 
-## Vision Statement
+## Vision & Motivation
 
-Documents the inception rationale: streamlining brownfield project documentation to provide agents with clear codebase overviews, enabling easier long-term maintenance alongside complementary tools (SpecKit, BMAD, GSD).
+Defines ARE as "light-weight and powerful tool to reverse engineer a brownfield project" generating AGENTS.md and CLAUDE.md documentation compatible with Claude Code, OpenCode, and other agent tools. Created to streamline documenting existing projects and provide agents clear codebase overviews for maintenance.
+
+## Intended Integration Partners
+
+Lists three complementary tools:
+- SpecKit (https://github.com/github/spec-kit) for project specifications
+- BMAD (https://github.com/bmad-code-org/BMAD-METHOD) for brownfield documentation methodology  
+- Get Shit Done (https://github.com/glittercowboy/get-shit-done) for milestone-driven workflow
 
 ## Core Feature Requirements
 
-Specifies RLM execution pattern: build project structure tree, process leaf files first (generate `{filename}.sum` summaries), aggregate directory-level documentation recursively backward to root, produce `AGENTS.md` per directory with optional supplementary files (`ARCHITECTURE.md`, `STRUCTURE.md`, `STACK.md`, `INTEGRATIONS.md`, `INFRASTRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `PATTERNS.md`, `CONCERNS.md`).
+**Command Execution:** Should provide command executing scripts via Recursive Language Model (RLM) using Claude Code or alternative LLM agent tools, with platform-specific invocation (command for Claude, alternatives for others).
 
-## Multi-Platform Command Interface
+**Session Hooks:** Should support session-end hooks for updating impacted files automatically.
 
-Requires Claude Code command integration and equivalent alternatives for other LLM agent tools, with session-end hooks for incremental update of impacted files.
+**Directory Documentation:** Should generate AGENTS.md file in every directory describing current directory and sub-structure content, with optional references to ARCHITECTURE.md, STRUCTURE.md, STACK.md, INTEGRATIONS.md, INFRASTRUCTURE.md, CONVENTIONS.md, TESTING.md, PATTERNS.md, CONCERNS.md.
+
+## RLM Algorithm Specification
+
+Defines bottom-up recursive execution pattern:
+1. Build project structure tree
+2. Start execution at first leaf, build recursively backward
+3. At file leaf: analyze file, generate `{filename}.sum` summary
+4. When all directory leaves summarized: analyze directory, generate AGENTS.md (plus other files if needed)
+5. Continue recursively until project root reached
 
 ## Research Directive
 
-Instructs detailed analysis of GSD and BMAD methodologies, focusing on brownfield project approaches, repository structure patterns, special commands, and codebase implementation details to inform ARE's architecture.
+Instructs detailed analysis of GSD and BMAD methodologies, examining repository structure (primarily GSD, partially BMAD), brownfield project approach, special commands, implementation details, and codebase inspection.
 
-## Usage Examples
+## Usage Commands
 
-Demonstrates two primary commands: `/are-generate` (full documentation generation) and `/are-update` (incremental updates).
-
-## Relationship to Implementation
-
-This specification document preceded implementation of the three-phase pipeline (`src/generation/orchestrator.ts`), post-order directory traversal (`getAffectedDirectories()`, depth-based sorting), file summary generation (`.sum` files via `writeSumFile()`), directory aggregation (`AGENTS.md` via `writeAgentsMd()`), and root document synthesis (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` via `src/integration/generate.ts`).
+Specifies two CLI commands:
+- `/are-generate` for full documentation generation
+- `/are-update` for incremental updates

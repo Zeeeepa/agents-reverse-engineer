@@ -1,32 +1,21 @@
 ---
-generated_at: 2026-02-09T14:07:57.503Z
+generated_at: 2026-02-09T15:05:48.937Z
 content_hash: 9e8e20e4c2bb7c66f849ccaba5230cb66a1ca6795bd4c2bdf5dd7fb70387cbb1
-purpose: Exports prompt-related types, constants, and builder functions for generating AI analysis prompts across all three ph...
+purpose: Public interface module re-exporting prompt building functions, types, and guidelines for the three-phase documentati...
 ---
-**Exports prompt-related types, constants, and builder functions for generating AI analysis prompts across all three phases of the documentation pipeline (file analysis, directory aggregation, root synthesis).**
+**Public interface module re-exporting prompt building functions, types, and guidelines for the three-phase documentation generation pipeline.**
 
-## Exported Types
+## Exports
 
-`PromptContext` — Context object passed to prompt builders containing file/directory metadata, configuration, and aggregated child documentation.
-
-## Exported Constants
-
-`SUMMARY_GUIDELINES` — String constant containing density rules, identifier preservation requirements, and output format constraints enforced across all prompt templates.
-
-## Exported Functions
-
-`buildFilePrompt(context: PromptContext): string` — Constructs Phase 1 prompts for individual file analysis, incorporating import maps, language detection, and file-specific context.
-
-`buildDirectoryPrompt(context: PromptContext): string` — Constructs Phase 2 prompts for directory-level AGENTS.md generation, aggregating child `.sum` files, subdirectory AGENTS.md, and manifest metadata (package.json/Cargo.toml/go.mod).
-
-`buildRootPrompt(context: PromptContext): string` — Constructs Phase 3 prompts for root document synthesis (CLAUDE.md/GEMINI.md/OPENCODE.md), consuming all AGENTS.md files and project metadata.
-
-`detectLanguage(filePath: string): string` — Determines primary programming language from file extension for language-specific prompt customization.
-
-## Module Organization
-
-Re-exports internal types and functions from `./types.js` (`PromptContext`, `SUMMARY_GUIDELINES`) and `./builder.js` (builder functions, language detection). Provides single entry point for prompt generation logic used by `src/generation/executor.ts` during three-phase pipeline execution.
+- **PromptContext** (type): Re-exported from `./types.js`, defines input structure for prompt builders containing file/directory metadata, import maps, child summaries, and manifest detection results
+- **SUMMARY_GUIDELINES** (constant): Re-exported from `./types.js`, contains density rules and formatting constraints embedded in AI prompts to enforce identifier-rich, filler-free documentation
+- **buildFilePrompt** (function): Re-exported from `./builder.js`, constructs Phase 1 prompts for per-file `.sum` analysis with import context and language detection
+- **buildDirectoryPrompt** (function): Re-exported from `./builder.js`, constructs Phase 2 prompts for `AGENTS.md` aggregation from child summaries, subdirectory docs, and manifest metadata
+- **buildRootPrompt** (function): Re-exported from `./builder.js`, constructs Phase 3 prompts for platform-specific root document synthesis (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`) from `AGENTS.md` corpus
+- **detectLanguage** (function): Re-exported from `./builder.js`, maps file extensions to language identifiers for syntax highlighting in generated code blocks
 
 ## Integration Points
 
-Consumed by `GenerationExecutor` in `src/generation/executor.ts` which invokes builders per-phase: Phase 1 calls `buildFilePrompt()` for each source file, Phase 2 calls `buildDirectoryPrompt()` for post-order directory traversal, Phase 3 calls `buildRootPrompt()` sequentially for each AI platform template. Prompts passed to `AIService.call()` for subprocess execution.
+Consumed by `src/generation/executor.ts` which orchestrates three-phase pipeline execution via worker pool. Phase 1 uses `buildFilePrompt()` with `PromptContext` containing import maps from `src/imports/extractor.ts`. Phase 2 uses `buildDirectoryPrompt()` with aggregated child `.sum` content. Phase 3 uses `buildRootPrompt()` with collected `AGENTS.md` files from `src/generation/collector.ts`.
+
+The `SUMMARY_GUIDELINES` constant enforces documentation quality constraints validated post-generation by `src/quality/inconsistency/code-vs-doc.ts` and `src/quality/phantom-paths/validator.ts`.

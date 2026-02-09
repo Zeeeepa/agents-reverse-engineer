@@ -1,44 +1,32 @@
 ---
-generated_at: 2026-02-09T14:08:15.818Z
+generated_at: 2026-02-09T15:06:12.924Z
 content_hash: 75ab86d0c3fb58954b283b3a7d7248f50fb838f608dd6f39ab0db505acb7d4c8
-purpose: publish.yml defines a GitHub Actions workflow that automatically publishes the agents-reverse-engineer package to npm...
+purpose: publish.yml defines GitHub Actions workflow automating npm package publication with provenance attestation on release...
 ---
-**publish.yml defines a GitHub Actions workflow that automatically publishes the agents-reverse-engineer package to npm with provenance attestation when a GitHub release is published or when manually triggered.**
+**publish.yml defines GitHub Actions workflow automating npm package publication with provenance attestation on release events or manual dispatch.**
 
 ## Workflow Triggers
 
-The workflow activates on two events:
-- `release.types: [published]` — triggers automatically when a GitHub release transitions to published state
-- `workflow_dispatch` — allows manual workflow execution from GitHub Actions UI
+Activates on two event types via `on` key: `release` with `types: [published]` filter for GitHub release publication, `workflow_dispatch` for manual execution.
 
 ## Job Configuration
 
-The `publish` job runs on `ubuntu-latest` with permissions:
-- `contents: read` — grants read access to repository contents for checkout
-- `id-token: write` — enables OIDC token generation for npm provenance attestation
+Single `publish` job runs on `ubuntu-latest` runner with `permissions` granting `contents: read` (repository checkout) and `id-token: write` (provenance attestation signing via OIDC).
 
-## Build and Publish Steps
+## Build Steps
 
-**Checkout step** uses `actions/checkout@v4` to clone repository content.
+Executes six sequential steps:
+1. `actions/checkout@v4` clones repository
+2. `actions/setup-node@v4` installs Node.js 20 with `registry-url: 'https://registry.npmjs.org'` for npm authentication
+3. `npm ci` installs dependencies from lockfile (clean install)
+4. `npm run build` compiles TypeScript via `tsc` and copies hooks via `build:hooks` script (see package.json `prepublishOnly`)
+5. `npm publish` pushes package to npm registry with `--provenance` flag (generates cryptographic attestation linking artifact to source commit) and `--access public` (scoped package visibility)
+6. `NODE_AUTH_TOKEN` environment variable injects `${{ secrets.NPM_TOKEN }}` GitHub secret for npm authentication
 
-**Setup Node.js step** uses `actions/setup-node@v4` with:
-- `node-version: '20'` — pins Node.js runtime to version 20
-- `registry-url: 'https://registry.npmjs.org'` — configures npm registry endpoint for authentication
+## Provenance Attestation
 
-**Install dependencies step** executes `npm ci` for reproducible dependency installation from package-lock.json.
+Provenance flag leverages GitHub's OIDC token (`id-token: write` permission) to generate Sigstore-signed attestation proving package was built from specific commit SHA in CI environment, enabling supply chain verification via `npm audit signatures`.
 
-**Build step** executes `npm run build` which invokes TypeScript compilation (`tsc`) and hook file copying (`build-hooks.js`) via the `prepublishOnly` script defined in package.json.
+## Integration Points
 
-**Publish to npm step** executes `npm publish --provenance --access public` with:
-- `--provenance` flag enables cryptographic provenance attestation linking package to GitHub Actions build
-- `--access public` ensures scoped or unscoped package visibility
-- `NODE_AUTH_TOKEN` environment variable sourced from `secrets.NPM_TOKEN` repository secret for npm authentication
-
-## Integration with Package Build
-
-This workflow depends on package.json scripts:
-- `prepublishOnly` hook runs `npm run build && npm run build:hooks` before publishing
-- `build` script compiles TypeScript source from `src/` to `dist/` via `tsc`
-- `build:hooks` script copies `hooks/` directory to `hooks/dist/` for tarball inclusion
-
-The workflow mirrors npm's prepublish lifecycle but executes explicitly to ensure build artifacts exist before `npm publish` invocation.
+Depends on npm token stored in repository secrets (`NPM_TOKEN` key), package.json `prepublishOnly` lifecycle hook executing build steps, and GitHub release creation workflow triggering publication automatically.

@@ -5,9 +5,9 @@ Project: /home/pascal/wks/agents-reverse-engineer
 
 ## Summary
 
-- **Total Tasks**: 124
-- **File Tasks**: 95
-- **Directory Tasks**: 28
+- **Total Tasks**: 126
+- **File Tasks**: 96
+- **Directory Tasks**: 29
 - **Root Tasks**: 1
 - **Traversal**: Post-order (children before parents)
 
@@ -71,11 +71,6 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/change-detection/index.ts`
 - [x] `src/change-detection/types.ts`
 
-### Depth 2: src/config/ (3 files)
-- [x] `src/config/defaults.ts`
-- [x] `src/config/loader.ts`
-- [x] `src/config/schema.ts`
-
 ### Depth 2: src/cli/ (7 files)
 - [x] `src/cli/clean.ts`
 - [x] `src/cli/discover.ts`
@@ -84,6 +79,11 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/cli/init.ts`
 - [x] `src/cli/specify.ts`
 - [x] `src/cli/update.ts`
+
+### Depth 2: src/config/ (3 files)
+- [x] `src/config/defaults.ts`
+- [x] `src/config/loader.ts`
+- [x] `src/config/schema.ts`
 
 ### Depth 2: src/discovery/ (3 files)
 - [x] `src/discovery/run.ts`
@@ -159,6 +159,9 @@ Project: /home/pascal/wks/agents-reverse-engineer
 ### Depth 1: scripts/ (1 files)
 - [x] `scripts/build-hooks.js`
 
+### Depth 1: src/ (1 files)
+- [x] `src/version.ts`
+
 ### Depth 0: ./ (5 files)
 - [x] `LANGUAGES-MANIFEST.md`
 - [x] `LICENSE`
@@ -168,7 +171,7 @@ Project: /home/pascal/wks/agents-reverse-engineer
 
 ---
 
-## Phase 2: Directory AGENTS.md (Post-Order Traversal, 28 directories)
+## Phase 2: Directory AGENTS.md (Post-Order Traversal, 29 directories)
 
 ### Depth 3
 - [x] `src/ai/backends/AGENTS.md`
@@ -184,8 +187,8 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `.github/workflows/AGENTS.md`
 - [x] `src/ai/AGENTS.md`
 - [x] `src/change-detection/AGENTS.md`
-- [x] `src/config/AGENTS.md`
 - [x] `src/cli/AGENTS.md`
+- [x] `src/config/AGENTS.md`
 - [x] `src/discovery/AGENTS.md`
 - [x] `src/generation/AGENTS.md`
 - [x] `src/imports/AGENTS.md`
@@ -202,6 +205,7 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `docs/AGENTS.md`
 - [x] `hooks/AGENTS.md`
 - [x] `scripts/AGENTS.md`
+- [x] `src/AGENTS.md`
 
 ### Depth 0
 - [x] `./AGENTS.md` (root)

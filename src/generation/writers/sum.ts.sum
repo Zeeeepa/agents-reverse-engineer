@@ -1,51 +1,40 @@
 ---
-generated_at: 2026-02-09T14:08:18.060Z
+generated_at: 2026-02-09T15:06:11.076Z
 content_hash: 4b039bebed99314f51d3684c5c4dfdaf4edee6f18f522f5b116b75f365712d43
-purpose: src/generation/writers/sum.ts manages reading, parsing, writing, and formatting of `.sum` files containing AI-generat...
+purpose: sum.ts manages `.sum` file I/O with YAML frontmatter serialization for SHA-256-tracked file summaries containing meta...
 ---
-**src/generation/writers/sum.ts manages reading, parsing, writing, and formatting of `.sum` files containing AI-generated file summaries with YAML frontmatter for change detection and metadata storage.**
+**sum.ts manages `.sum` file I/O with YAML frontmatter serialization for SHA-256-tracked file summaries containing metadata and markdown content.**
 
 ## Exported Types
 
-**SumFileContent** — structure for `.sum` file content with `summary: string`, `metadata: SummaryMetadata`, `generatedAt: string`, `contentHash: string` (SHA-256 hash for incremental update detection).
+`SumFileContent` interface defines `.sum` file structure with `summary: string` (markdown body), `metadata: SummaryMetadata` (purpose/criticalTodos/relatedFiles), `generatedAt: string` (ISO 8601 timestamp), `contentHash: string` (SHA-256 hex for change detection).
 
-## Core Functions
+## Core I/O Functions
 
-**writeSumFile(sourcePath: string, content: SumFileContent): Promise<string>** — writes `.sum` file alongside source file (`foo.ts` → `foo.ts.sum`), creates parent directory via `mkdir({recursive: true})`, formats content via `formatSumFile()`, returns written path.
+`writeSumFile(sourcePath: string, content: SumFileContent): Promise<string>` creates `.sum` files via `formatSumFile()` serializer, appends `.sum` extension to source path, ensures parent directory exists with `mkdir(recursive: true)`, returns written path.
 
-**readSumFile(sumPath: string): Promise<SumFileContent | null>** — reads and parses `.sum` file via `parseSumFile()`, returns null on file not found or parse failure, used by incremental update workflow to extract `contentHash` for comparison.
+`readSumFile(sumPath: string): Promise<SumFileContent | null>` reads `.sum` files via `parseSumFile()` deserializer, returns null on file absence or parse errors (caught via try-catch).
 
-**getSumPath(sourcePath: string): string** — returns `.sum` path by appending `.sum` suffix to source path.
+`getSumPath(sourcePath: string): string` computes `.sum` path by appending `.sum` extension to source path.
 
-**sumFileExists(sourcePath: string): Promise<boolean>** — checks if valid `.sum` file exists for source file by attempting `readSumFile()` and testing for non-null result.
+`sumFileExists(sourcePath: string): Promise<boolean>` checks `.sum` file existence by calling `readSumFile()` and testing for non-null result.
 
-## YAML Frontmatter Format
+## YAML Frontmatter Parsing
 
-**Required fields:**
-- `generated_at` — ISO 8601 timestamp
-- `content_hash` — SHA-256 hex digest of source file content
-- `purpose` — single-line purpose statement from `SummaryMetadata`
+`parseSumFile(content: string): SumFileContent | null` extracts frontmatter via `/^---\n([\s\S]*?)\n---\n/` regex, parses `generated_at`, `content_hash`, `purpose` via single-line regex patterns, delegates array parsing to `parseYamlArray()`, returns null on parse failures.
 
-**Optional fields:**
-- `critical_todos` — array of critical TODO items
-- `related_files` — array of related file paths
+`parseYamlArray(frontmatter: string, key: string): string[]` supports inline format `key: [a, b, c]` via `/key:\s*\[([^\]]*)\]/` and multi-line format `key:\n  - item1` via `/key:\s*\n((?:\s+-\s+.+\n?)+)/m`, trims whitespace and quote characters, returns empty array if no match.
 
-## Internal Parsing
+## YAML Frontmatter Serialization
 
-**parseSumFile(content: string): SumFileContent | null** — extracts frontmatter via regex `/^---\n([\s\S]*?)\n---\n/`, parses YAML-like key-value pairs via `String.match()`, calls `parseYamlArray()` for array fields, returns null on malformed input.
+`formatSumFile(content: SumFileContent): string` generates YAML frontmatter with required fields (`generated_at`, `content_hash`, `purpose`), conditionally includes optional arrays (`critical_todos`, `related_files`) via `formatYamlArray()`, separates frontmatter from summary with `---` delimiters.
 
-**parseYamlArray(frontmatter: string, key: string): string[]** — supports two formats: inline `key: [a, b, c]` parsed via `/key:\s*\[([^\]]*)\]/`, and multi-line YAML list format `key:\n  - item1\n  - item2` parsed via `/key:\s*\n((?:\s+-\s+.+\n?)+)/m`, strips quotes and leading dashes, returns empty array if neither format matches.
-
-## Internal Formatting
-
-**formatSumFile(content: SumFileContent): string** — constructs YAML frontmatter by joining required fields (`generated_at`, `content_hash`, `purpose`), appends optional fields via `formatYamlArray()` if present, wraps in `---` delimiters, appends summary text.
-
-**formatYamlArray(key: string, values: string[]): string** — uses inline format `key: [val1, val2]` for arrays with ≤3 items each <40 chars, otherwise multi-line YAML list format with `  - ` prefix per item, returns `key: []` for empty arrays.
+`formatYamlArray(key: string, values: string[]): string` uses inline format for arrays with ≤3 items where all values <40 characters, otherwise uses multi-line format with `  - ` prefix per item, returns `key: []` for empty arrays.
 
 ## Integration Points
 
-Used by Phase 1 file analysis in `src/generation/executor.ts` to write `.sum` files after AI summarization, and by `src/update/orchestrator.ts` to read existing `contentHash` values for change detection. Consumed by Phase 2 directory aggregation via `src/generation/collector.ts` to gather child summaries. Referenced by quality validators in `src/quality/` for code-vs-doc consistency checks.
+Consumed by `src/generation/orchestrator.ts` Phase 1 (writes `.sum` files via `writeSumFile()`) and Phase 2 (reads child `.sum` files via `readSumFile()` for directory aggregation).
 
-## File System Operations
+Called by `src/update/orchestrator.ts` incremental update workflow to read `content_hash` from existing `.sum` files for change detection comparison.
 
-All writes create parent directories recursively. All reads handle ENOENT gracefully by returning null. No symbolic link following. UTF-8 encoding enforced for all I/O operations via `'utf-8'` encoding parameter.
+Used by `src/update/orphan-cleaner.ts` to delete stale `.sum` files when source files are removed or renamed.

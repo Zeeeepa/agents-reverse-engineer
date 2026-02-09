@@ -1,83 +1,51 @@
 ---
-generated_at: 2026-02-09T14:08:35.009Z
+generated_at: 2026-02-09T15:06:38.172Z
 content_hash: 2d0c4834799e406b4745aa058f264e3e30d85b9f9c1d84d8d8612ad0bd169e14
-purpose: Centralized subprocess spawner for AI CLI invocations with timeout enforcement, SIGKILL escalation, process group ter...
+purpose: subprocess.ts provides low-level subprocess wrapper for AI CLI invocations with timeout enforcement, SIGTERM/SIGKILL ...
 ---
-**Centralized subprocess spawner for AI CLI invocations with timeout enforcement, SIGKILL escalation, process group termination, and active subprocess tracking.**
+**subprocess.ts provides low-level subprocess wrapper for AI CLI invocations with timeout enforcement, SIGTERM/SIGKILL escalation, stdin piping, process group cleanup, and active subprocess tracking.**
 
 ## Exported Functions
 
-### runSubprocess
-```typescript
-function runSubprocess(
-  command: string,
-  args: string[],
-  options: SubprocessOptions
-): Promise<SubprocessResult>
-```
-Spawns AI CLI subprocess via `execFile()` with timeout enforcement, stdin piping, and guaranteed resolution (never rejects). Returns `SubprocessResult` containing `stdout`, `stderr`, `exitCode`, `signal`, `durationMs`, `timedOut`, `childPid`. Implements two-stage kill sequence: SIGTERM at `timeoutMs`, escalates to SIGKILL after `SIGKILL_GRACE_MS` (5000ms). Pipes `options.input` to stdin if provided, then calls `.end()` to send EOF. Invokes `options.onSpawn(pid)` synchronously after spawn for trace event timing. Tracks subprocess in `activeSubprocesses` Map from spawn to callback, enabling concurrency monitoring. Kills process groups via `process.kill(-child.pid, 'SIGKILL')` to terminate subprocess trees, falls back to single-process kill if process group targeting fails.
+**runSubprocess(command: string, args: string[], options: SubprocessOptions): Promise<SubprocessResult>**
+Spawns AI CLI subprocess via `execFile()` with timeout enforcement, always resolves (never rejects), captures errors in `SubprocessResult` fields (`exitCode`, `timedOut`, `stderr`). Sends SIGTERM at `options.timeoutMs`, escalates to SIGKILL after `SIGKILL_GRACE_MS` (5000ms) grace period. Pipes `options.input` to stdin if provided, closes stdin stream via `.end()` to unblock child process waiting for EOF. Invokes `options.onSpawn(pid)` callback synchronously after spawn for trace event timing. Kills entire process tree via `process.kill(-child.pid, 'SIGKILL')` using negative PID for process group targeting, falls back to single-process kill if group kill fails. Sets `maxBuffer: 10MB` for large AI responses, returns `SubprocessResult` with `stdout`, `stderr`, `exitCode`, `signal`, `durationMs`, `timedOut`, `childPid`.
 
-### getActiveSubprocessCount
-```typescript
-function getActiveSubprocessCount(): number
-```
-Returns count of currently tracked subprocesses in `activeSubprocesses` Map. Used for debugging concurrency issues and verifying subprocess cleanup.
+**getActiveSubprocessCount(): number**
+Returns size of `activeSubprocesses` Map tracking concurrent AI CLI processes.
 
-### getActiveSubprocesses
-```typescript
-function getActiveSubprocesses(): Array<{
-  pid: number;
-  command: string;
-  spawnedAt: number;
-  runningMs: number;
-}>
-```
-Returns array of active subprocess details with PID, command string, spawn timestamp, and elapsed milliseconds. Computes `runningMs` as delta from `Date.now()` to `spawnedAt`.
+**getActiveSubprocesses(): Array<{ pid: number; command: string; spawnedAt: number; runningMs: number }>**
+Returns array of active subprocess details with PID, command string, spawn timestamp, and elapsed runtime in milliseconds.
 
-## Exported Types
+## Types
 
-### SubprocessOptions
-```typescript
-interface SubprocessOptions {
-  timeoutMs: number;
-  input?: string;
-  onSpawn?: (pid: number | undefined) => void;
-}
-```
-Configuration for `runSubprocess()`: `timeoutMs` triggers SIGTERM, optional `input` string piped to stdin, optional `onSpawn` callback fired synchronously when `child.pid` becomes available (before `execFile` callback).
+**SubprocessOptions**
+Interface with `timeoutMs: number` (SIGTERM threshold), optional `input?: string` (stdin payload), optional `onSpawn?: (pid: number | undefined) => void` (spawn-time callback for trace events).
 
-## Process Lifecycle Management
+**SubprocessResult** (imported from `./types.js`)
+Return type containing `stdout`, `stderr`, `exitCode`, `signal`, `durationMs`, `timedOut`, `childPid` fields.
 
-**Timeout Enforcement:**
-- `execFile()` configured with `timeout: options.timeoutMs` and `killSignal: 'SIGTERM'`
-- Unref'd timer schedules SIGKILL at `timeoutMs + SIGKILL_GRACE_MS` (5s grace period)
-- Timer cleared in `execFile` callback when process exits naturally
-- Exit code extraction: uses `error.code` if numeric, falls back to `child.exitCode`, defaults to 1 for errors or 0 for success
-- `timedOut` flag set when `error.killed === true` from `execFile` timeout
+## Constants
 
-**Process Group Termination:**
-- Sends `process.kill(-child.pid, 'SIGKILL')` (negative PID targets process group)
-- Prevents zombie subprocesses spawned by AI CLI (e.g., Claude Code's internal Node.js threads)
-- Falls back to `process.kill(child.pid, 'SIGKILL')` if process group kill throws
-- Catches and ignores kill errors (process already dead)
+**SIGKILL_GRACE_MS = 5000**
+Grace period in milliseconds between SIGTERM and SIGKILL escalation to prevent hung processes.
 
-**Active Subprocess Tracking:**
-- `activeSubprocesses` Map stores `{ command: string, spawnedAt: number }` keyed by PID
-- Populated after spawn when `child.pid !== undefined`
-- Removed in `execFile` callback before resolving Promise
-- Enables concurrency debugging via `getActiveSubprocessCount()` and `getActiveSubprocesses()`
+## State Management
 
-**Stdin Piping:**
-- Writes `options.input` to `child.stdin` if provided and stream exists
-- Always calls `child.stdin.end()` to send EOF (subprocess blocks indefinitely without EOF)
-- Logs input size via `Buffer.byteLength(options.input, 'utf-8')`
+**activeSubprocesses: Map<number, { command: string; spawnedAt: number }>**
+Tracks PIDs of spawned subprocesses with command string and spawn timestamp. Populated after `execFile()` returns child object with `.pid`, cleared in callback after process exits. Used by `getActiveSubprocessCount()` and `getActiveSubprocesses()` for concurrency debugging.
 
-## Configuration Constants
+## Process Cleanup Strategy
 
-**SIGKILL_GRACE_MS:** 5000ms delay between SIGTERM and SIGKILL escalation. Prevents hung processes from surviving timeout.
+Uses unref'd `setTimeout()` for SIGKILL escalation timer (`timeout = timeoutMs + SIGKILL_GRACE_MS`) to prevent event loop blocking. Clears timer in `execFile()` callback after process exits. Attempts process group kill via `process.kill(-child.pid, 'SIGKILL')` in callback's explicit cleanup section, catches errors for already-dead processes. Handles timeout detection via `error.killed === true` from `execFile()` when SIGTERM terminates process.
 
-**maxBuffer:** `execFile` configured with 10MB buffer (`10 * 1024 * 1024`) to accommodate large AI responses without `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`.
+## Exit Code Extraction
 
-## Integration Pattern
+Prioritizes `error.code` (number type) from `execFile()` callback, falls back to `child.exitCode`, defaults to `1` for unknown failures and `0` for null error. Filters out string error codes like `'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'`.
 
-Single point of subprocess invocation for all AI backends (`claude.ts`, `gemini.ts`, `opencode.ts`). Called by `AIService.call()` via backend-specific adapters. Traces subprocess lifecycle via `onSpawn` callback consumed by `TraceWriter` in `src/orchestration/trace.ts`. Subprocess results propagate through `AIService` → retry logic (`src/ai/retry.ts`) → telemetry logger (`src/ai/telemetry/logger.ts`) → worker pool (`src/orchestration/pool.ts`).
+## Environment Configuration
+
+Spreads `process.env` into `execFile()` options without modifications. Caller (AIService) injects resource limits: `NODE_OPTIONS='--max-old-space-size=512'`, `UV_THREADPOOL_SIZE='4'`, `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS='1'`.
+
+## Integration Points
+
+Single subprocess spawn point for entire codebase. Called by `AIService.call()` in `src/ai/service.ts` which wraps with retry logic, telemetry logging, and trace emission. Returns `SubprocessResult` consumed by backend adapters (`src/ai/backends/*.ts`) for JSON parsing and error classification.

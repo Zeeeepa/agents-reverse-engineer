@@ -1,110 +1,121 @@
 ---
-generated_at: 2026-02-09T14:08:34.740Z
+generated_at: 2026-02-09T15:06:45.421Z
 content_hash: f9216f3a5cd1aa82c24b828a3d65d02bfa76f54cd303d063b4573fe03be76657
-purpose: types.ts defines the contract interfaces and error types for the AI service layer, including subprocess results, back...
+purpose: Defines shared TypeScript interfaces, types, and error classes for the AI service layer, providing contracts for back...
 ---
-**types.ts defines the contract interfaces and error types for the AI service layer, including subprocess results, backend adapters, retry configuration, telemetry logging, and normalized AI responses.**
+**Defines shared TypeScript interfaces, types, and error classes for the AI service layer, providing contracts for backend adapters (AIBackend), subprocess execution results (SubprocessResult), normalized API responses (AIResponse), retry configuration (RetryOptions), telemetry logging (TelemetryEntry, RunLog), and typed error handling (AIServiceError with AIServiceErrorCode).**
 
-## Exported Interfaces
+## Type Hierarchy
 
-**SubprocessResult** — returned by subprocess wrapper after CLI process completion:
+All AI service modules import from this central type definition file to ensure consistent interfaces across Claude, Gemini, and OpenCode backend adapters.
+
+## Subprocess Execution
+
+**SubprocessResult** captures CLI process execution outcomes with fields:
 - `stdout: string` — captured standard output
-- `stderr: string` — captured standard error
+- `stderr: string` — captured standard error  
 - `exitCode: number` — numeric exit code (0 = success)
-- `signal: string | null` — termination signal or null
-- `durationMs: number` — wall-clock duration
-- `timedOut: boolean` — whether process exceeded timeout
-- `childPid?: number` — OS PID (undefined if spawn failed)
+- `signal: string | null` — termination signal or null for normal exit
+- `durationMs: number` — wall-clock execution time
+- `timedOut: boolean` — whether process exceeded timeout threshold
+- `childPid?: number` — OS process ID (undefined if spawn failed)
 
-**AICallOptions** — input parameters for AI service calls:
-- `prompt: string` — required prompt text
+Always populated even on error/timeout conditions to provide maximum diagnostic information.
+
+## AI Call Interface
+
+**AICallOptions** defines input parameters for AI invocations:
+- `prompt: string` (required) — text prompt sent to model
 - `systemPrompt?: string` — optional context/behavior instructions
-- `model?: string` — backend-specific model identifier ("sonnet", "opus")
+- `model?: string` — backend-specific model identifier (e.g., "sonnet", "opus")
 - `timeoutMs?: number` — subprocess timeout override
-- `maxTurns?: number` — maximum agentic turns (backend-specific)
-- `taskLabel?: string` — tracing label (typically file path)
+- `maxTurns?: number` — maximum agentic turns (backend-specific interpretation)
+- `taskLabel?: string` — tracing label (typically file path being processed)
 
-**AIResponse** — normalized response from any backend adapter:
-- `text: string` — AI model's text response
-- `model: string` — model identifier from backend
-- `inputTokens: number` — input tokens consumed
-- `outputTokens: number` — output tokens generated
-- `cacheReadTokens: number` — tokens served from cache reads
+**AIResponse** normalizes backend outputs into consistent shape:
+- `text: string` — model's text response
+- `model: string` — model identifier as reported by backend
+- `inputTokens: number` — consumed input tokens
+- `outputTokens: number` — generated output tokens
+- `cacheReadTokens: number` — tokens served from cache
 - `cacheCreationTokens: number` — tokens written to cache
-- `durationMs: number` — wall-clock duration
+- `durationMs: number` — wall-clock latency
 - `exitCode: number` — CLI process exit code
-- `raw: unknown` — original CLI JSON for debugging
+- `raw: unknown` — original JSON output for debugging
 
-**AIBackend** — contract for CLI backend adapters (Claude, Gemini, OpenCode):
-- `name: string` (readonly) — human-readable backend name
-- `cliCommand: string` (readonly) — executable name on PATH
-- `isAvailable(): Promise<boolean>` — checks CLI availability
-- `buildArgs(options: AICallOptions): string[]` — constructs CLI argument array
-- `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` — parses CLI output into normalized response
-- `getInstallInstructions(): string` — user-facing install instructions
+Backend adapters must parse CLI-specific formats into this structure so callers remain backend-agnostic.
 
-**RetryOptions** — exponential backoff retry configuration:
-- `maxRetries: number` — maximum retry attempts (3 = 4 total attempts)
+## Backend Adapter Contract
+
+**AIBackend** interface requires implementation of:
+- `name: string` (readonly) — human-readable backend name ("Claude", "Gemini", "OpenCode")
+- `cliCommand: string` (readonly) — executable name on PATH ("claude", "gemini", "opencode")
+- `isAvailable(): Promise<boolean>` — checks CLI availability via PATH lookup
+- `buildArgs(options: AICallOptions): string[]` — constructs CLI argument array from call options
+- `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` — parses CLI stdout into normalized AIResponse
+- `getInstallInstructions(): string` — returns user-facing install instructions when CLI not found
+
+Enables runtime backend selection via registry pattern (see `src/ai/registry.ts`).
+
+## Retry Configuration
+
+**RetryOptions** controls exponential backoff behavior:
+- `maxRetries: number` — retry limit (3 means 4 total attempts)
 - `baseDelayMs: number` — initial delay before first retry
-- `maxDelayMs: number` — delay ceiling
+- `maxDelayMs: number` — delay ceiling cap
 - `multiplier: number` — exponential backoff multiplier
-- `isRetryable: (error: unknown) => boolean` — predicate for transient errors
-- `onRetry?: (attempt: number, error: unknown) => void` — optional retry callback
+- `isRetryable: (error: unknown) => boolean` — predicate identifying transient errors (rate limits, network issues)
+- `onRetry?: (attempt: number, error: unknown) => void` — optional callback hook
 
-**FileRead** — context file read record for telemetry:
+Applied by `src/ai/retry.ts` wrapper to handle rate limiting and transient failures.
+
+## Telemetry Schema
+
+**FileRead** tracks context files sent to AI:
 - `path: string` — file path relative to project root
 - `sizeBytes: number` — file size at read time
 
-**TelemetryEntry** — per-call telemetry log entry:
+**TelemetryEntry** logs individual AI call metadata:
 - `timestamp: string` — ISO 8601 call initiation time
-- `prompt: string` — sent prompt
-- `systemPrompt?: string` — optional system prompt
-- `response: string` — AI model's text response
+- `prompt: string` / `systemPrompt?: string` — input prompts
+- `response: string` — model output text
 - `model: string` — model identifier
-- `inputTokens: number` — input token count
-- `outputTokens: number` — output token count
-- `cacheReadTokens: number` — cache read tokens
-- `cacheCreationTokens: number` — cache write tokens
-- `latencyMs: number` — wall-clock latency
+- `inputTokens: number` / `outputTokens: number` — token consumption
+- `cacheReadTokens: number` / `cacheCreationTokens: number` — cache metrics
+- `latencyMs: number` — wall-clock duration
 - `exitCode: number` — process exit code
-- `error?: string` — error message on failure
-- `retryCount: number` — number of retries before result
-- `thinking: string` — AI reasoning content ("not supported" for backends without)
-- `filesRead: FileRead[]` — context files sent
+- `error?: string` — failure message if call errored
+- `retryCount: number` — retry attempts before result
+- `thinking: string` — model reasoning content ("not supported" for backends without this feature)
+- `filesRead: FileRead[]` — context files array
 
-**RunLog** — per-run aggregated log structure:
-- `runId: string` — unique run identifier (ISO timestamp-based)
-- `startTime: string` — ISO 8601 run start time
-- `endTime: string` — ISO 8601 run end time
-- `entries: TelemetryEntry[]` — all individual call entries
-- `summary: object` — aggregated metrics:
-  - `totalCalls: number` — total AI call count
-  - `totalInputTokens: number` — sum of input tokens
-  - `totalOutputTokens: number` — sum of output tokens
-  - `totalDurationMs: number` — total wall-clock duration
+**RunLog** aggregates per-CLI-run telemetry:
+- `runId: string` — ISO timestamp-based unique identifier
+- `startTime: string` / `endTime: string` — ISO 8601 run boundaries
+- `entries: TelemetryEntry[]` — all call logs
+- `summary` object with aggregated metrics:
+  - `totalCalls: number` — call count
+  - `totalInputTokens: number` / `totalOutputTokens: number` — summed tokens
+  - `totalDurationMs: number` — total wall-clock time
   - `errorCount: number` — failed call count
-  - `totalCacheReadTokens: number` — sum of cache reads
-  - `totalCacheCreationTokens: number` — sum of cache writes
-  - `totalFilesRead: number` — total file reads (with duplicates)
-  - `uniqueFilesRead: number` — deduplicated file read count
+  - `totalCacheReadTokens: number` / `totalCacheCreationTokens: number` — cache totals
+  - `totalFilesRead: number` — file reads including duplicates
+  - `uniqueFilesRead: number` — deduplicated file count
 
-## Exported Types
+Written to `.agents-reverse-engineer/logs/run-<timestamp>.json` by `src/ai/telemetry/run-log.ts`.
 
-**AIServiceErrorCode** — discriminated union for typed error handling:
-- `'CLI_NOT_FOUND'` — backend CLI not available on PATH
-- `'TIMEOUT'` — subprocess exceeded timeout threshold
-- `'PARSE_ERROR'` — CLI output parsing failed
-- `'SUBPROCESS_ERROR'` — subprocess execution failure
-- `'RATE_LIMIT'` — API rate limit exceeded
+## Error Handling
 
-## Exported Classes
+**AIServiceErrorCode** enum defines machine-readable error types:
+- `'CLI_NOT_FOUND'` — backend executable missing from PATH
+- `'TIMEOUT'` — subprocess exceeded configured timeout
+- `'PARSE_ERROR'` — failed to parse CLI JSON output
+- `'SUBPROCESS_ERROR'` — process execution failure
+- `'RATE_LIMIT'` — backend rate limiting detected
 
-**AIServiceError** — typed error for AI service failures:
-- `code: AIServiceErrorCode` (readonly) — machine-readable error code
-- `constructor(code: AIServiceErrorCode, message: string)` — initializes error with code and message
-- Extends standard Error with name `'AIServiceError'`
-- Enables branching on error type without string parsing
+**AIServiceError** extends Error with typed code field:
+- `code: AIServiceErrorCode` (readonly) — machine-readable error type
+- Constructor: `new AIServiceError(code, message)`
+- `name: 'AIServiceError'` — error name for instanceof checks
 
-## Integration Points
-
-All AI service modules (`service.ts`, `registry.ts`, `subprocess.ts`, backend adapters in `src/ai/backends/`, telemetry modules in `src/ai/telemetry/`) import shared contracts from this file. AIBackend implementations (ClaudeBackend, GeminiBackend, OpenCodeBackend) must conform to the AIBackend interface. Retry logic in `retry.ts` consumes RetryOptions. Telemetry logger in `src/ai/telemetry/logger.ts` writes TelemetryEntry and RunLog structures to `.agents-reverse-engineer/logs/`.
+Enables branching on error type without string parsing in retry logic and error handlers.

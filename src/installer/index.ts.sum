@@ -1,40 +1,56 @@
 ---
-generated_at: 2026-02-09T14:09:28.484Z
+generated_at: 2026-02-09T15:07:39.990Z
 content_hash: 807d633ab0a3f34ba82995ad8707fd0c6baf723f73c6eedbd50258b6fbe3725c
-purpose: `src/installer/index.ts` orchestrates npx installation workflows for ARE command files and session hooks across Claud...
+purpose: installer/index.ts orchestrates npx installation workflow with interactive prompts and CLI flag parsing, delegating r...
 ---
-**`src/installer/index.ts` orchestrates npx installation workflows for ARE command files and session hooks across Claude Code, OpenCode, and Gemini runtimes.**
+**installer/index.ts orchestrates npx installation workflow with interactive prompts and CLI flag parsing, delegating runtime-specific file operations to operations.ts and uninstall.ts while formatting output via banner.ts.**
 
 ## Exported Functions
 
-`parseInstallerArgs(args: string[]): InstallerArgs` parses CLI flags (`--runtime`, `-g`/`--global`, `-l`/`--local`, `--force`, `-q`/`--quiet`, `-h`/`--help`) into `InstallerArgs`, validating `runtime` against `['claude', 'opencode', 'gemini', 'all']` and defaulting `uninstall: false`.
+**runInstaller(args: InstallerArgs): Promise<InstallerResult[]>** — Main entry point for installation/uninstallation workflow. Returns empty array if `args.help` is true after calling `showHelp()`. Calls `displayBanner()` unless `args.quiet` is true. Validates non-interactive mode requires `--runtime` and location flags via `isInteractive()` check, exits with code 1 if missing. Delegates to `selectRuntime()` and `selectLocation()` for interactive prompts when values missing. Branches to `runUninstall()` if `args.uninstall` is true, otherwise calls `runInstall()`.
 
-`runInstaller(args: InstallerArgs): Promise<InstallerResult[]>` executes install/uninstall workflows, handling help display via `showHelp()`, non-interactive mode validation (requires `--runtime` and location flags), interactive prompts via `selectRuntime()`/`selectLocation()`, and routing to `runInstall()` or `runUninstall()` based on `args.uninstall`.
+**parseInstallerArgs(args: string[]): InstallerArgs** — Parses command-line arguments from `process.argv.slice(2)`. Recognizes short flags (`-g`, `-l`, `-h`, `-q`) and long flags (`--global`, `--local`, `--help`, `--quiet`, `--force`). Extracts `--runtime <value>` via lookahead pattern `args[++i]`. Validates runtime against `validRuntimes` array `['claude', 'opencode', 'gemini', 'all']`. Returns `InstallerArgs` with `uninstall` always false (set by command, not flag).
 
-`determineLocation(args: InstallerArgs): Location | undefined` returns `'global'` if `args.global && !args.local`, `'local'` if `args.local && !args.global`, or `undefined` for prompting.
+## Re-exported Symbols
 
-`determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime, 'all'>>` expands `'all'` to `getAllRuntimes()` array or wraps single runtime.
+Re-exports types from `./types.js`: `InstallerArgs`, `InstallerResult`, `Runtime`, `Location`, `RuntimePaths`.
 
-`runInstall(runtime: Runtime, location: Location, force: boolean, quiet: boolean): Promise<InstallerResult[]>` calls `installFiles()` from `operations.ts`, verifies via `verifyInstallation()`, displays results via `displayInstallResults()`, and returns array of `InstallerResult`.
+Re-exports functions from `./paths.js`: `getRuntimePaths`, `getAllRuntimes`, `resolveInstallPath`, `getSettingsPath`.
 
-`runUninstall(runtime: Runtime, location: Location, quiet: boolean): InstallerResult[]` calls `uninstallFiles()` from `uninstall.ts`, deletes `.agents-reverse-engineer` folder via `deleteConfigFolder()` for local installs, displays via `displayUninstallResults()`.
+Re-exports functions from `./banner.ts`: `displayBanner`, `showHelp`, `showSuccess`, `showError`, `showWarning`, `showInfo`, `showNextSteps`, `VERSION`.
 
-`displayInstallResults(results: InstallerResult[]): void` aggregates `filesCreated.length`, `filesSkipped.length`, `hookRegistered` counts, calls `showSuccess()`/`showWarning()` for summary lines, invokes `showNextSteps()` with primary runtime, prints GitHub docs link.
+Re-exports functions from `./prompts.js`: `selectRuntime`, `selectLocation`, `confirmAction`, `isInteractive`.
 
-`displayUninstallResults(results: InstallerResult[], configDeleted: boolean): void` counts deleted files (repurposed `filesCreated` field), hook unregistrations (repurposed `hookRegistered`), shows summary via `showSuccess()`/`showInfo()`.
+## Internal Workflow Functions
 
-## Re-Exports
+**runInstall(runtime: Runtime, location: Location, force: boolean, quiet: boolean): Promise<InstallerResult[]>** — Calls `installFiles(runtime, location, { force, dryRun: false })` to copy command/hook files. Aggregates `filesCreated` arrays via `flatMap()` and passes to `verifyInstallation()` for filesystem validation. Shows verification errors via `showError()` and `showWarning()` loop. Calls `displayInstallResults()` unless quiet mode. Returns `InstallerResult[]`.
 
-Re-exports types `InstallerArgs`, `InstallerResult`, `Runtime`, `Location`, `RuntimePaths` from `types.ts`; functions `getRuntimePaths`, `getAllRuntimes`, `resolveInstallPath`, `getSettingsPath` from `paths.ts`; display utilities `displayBanner`, `showHelp`, `showSuccess`, `showError`, `showWarning`, `showInfo`, `showNextSteps`, `VERSION` from `banner.ts`; prompt utilities `selectRuntime`, `selectLocation`, `confirmAction`, `isInteractive` from `prompts.ts`.
+**runUninstall(runtime: Runtime, location: Location, quiet: boolean): InstallerResult[]** — Calls `uninstallFiles(runtime, location, false)` to delete installed files. Calls `deleteConfigFolder(location, false)` to remove `.agents-reverse-engineer/` directory (local mode only). Shows results via `displayUninstallResults()` unless quiet mode. Returns `InstallerResult[]`.
 
-## Integration with Installer Subsystem
+**determineLocation(args: InstallerArgs): Location | undefined** — Returns `'global'` if `args.global && !args.local`, returns `'local'` if `args.local && !args.global`, otherwise returns `undefined` to trigger interactive prompt.
 
-Imports `installFiles`, `verifyInstallation` from `operations.ts` for copying command templates and hook files via `getTemplatesForRuntime()`, ensuring directories with `ensureDir()`, registering hooks in `settings.json` via `registerHooks()`/`registerPermissions()`, writing `ARE-VERSION` via `writeVersionFile()`.
+**determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime, 'all'>>** — Returns empty array if runtime is undefined. Returns `getAllRuntimes()` output if runtime is `'all'`. Otherwise returns single-element array `[runtime]`.
 
-Imports `uninstallFiles`, `deleteConfigFolder` from `uninstall.ts` for removing templates, hooks, cleaning empty directories recursively via `cleanupEmptyDirs()`, unregistering hooks via `unregisterHooks()`/`unregisterPermissions()`.
+**displayInstallResults(results: InstallerResult[]): void** — Iterates `results[]` showing `showSuccess()` or `showError()` per result. Accumulates `totalCreated` (sum of `filesCreated.length`), `totalSkipped` (sum of `filesSkipped.length`), `hooksRegistered` (count of `hookRegistered === true`). Shows summary counts via `showSuccess()`/`showWarning()`. Calls `showNextSteps(primaryRuntime, totalCreated)` where `primaryRuntime` defaults to `results[0]?.runtime || 'claude'`. Prints GitHub link via `showInfo('Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer')`.
 
-Coordinates dual-mode operation: interactive TTY uses arrow-key selection via `prompts.ts` raw mode handling (`arrowKeySelect()`), non-interactive CI mode uses numbered selection via `numberedSelect()`, enforcing flag requirements with `process.exit(1)` on missing values.
+**displayUninstallResults(results: InstallerResult[], configDeleted: boolean = false): void** — Similar to `displayInstallResults()` but interprets `filesCreated` as deleted files count. Shows `showInfo()` for zero deletions, `showSuccess()` for successful uninstall. Displays `hooksUnregistered` count (repurposed `hookRegistered` field). Shows `configDeleted` status via `showSuccess()` if true.
 
-## Result Aggregation Pattern
+## Integration Points
 
-`InstallerResult.filesCreated` tracks successfully written files during install, repurposed to track deleted files during uninstall. `InstallerResult.hookRegistered` indicates hook registration during install, repurposed to indicate hook unregistration during uninstall. `InstallerResult.filesSkipped` tracks existing files skipped without `--force` during install, non-existent files during uninstall. `InstallerResult.errors` accumulates error strings from failed file operations or JSON parsing failures in settings modification.
+Depends on `./operations.js` for `installFiles()` and `verifyInstallation()`.
+
+Depends on `./uninstall.js` for `uninstallFiles()` and `deleteConfigFolder()`.
+
+Depends on `./paths.js` for `getAllRuntimes()` and `resolveInstallPath()`.
+
+Depends on `./prompts.js` for `isInteractive()`, `selectRuntime()`, `selectLocation()`.
+
+Depends on `./banner.ts` for all output formatting functions (`showSuccess`, `showError`, `showWarning`, `showInfo`, `showHelp`, `showNextSteps`, `displayBanner`).
+
+## Error Handling
+
+Non-interactive mode validation exits with `process.exit(1)` on missing `--runtime` or location flags. Displays error via `showError()` before exit. Missing runtime/location after prompt phase triggers `showError('Unable to determine runtime and location')` followed by `process.exit(1)`. Verification failures show `showError()` with `showWarning()` loop for missing files but do not exit (non-fatal).
+
+## CLI Argument Pattern
+
+Mirrors `cli/index.ts` pattern using `Set<string>` for flags and `Map<string, string>` for values. Loop increments index via `args[++i]` for value extraction. Uses `flags.has()` and `values.get()` for result construction.

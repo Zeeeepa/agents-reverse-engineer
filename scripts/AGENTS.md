@@ -2,20 +2,32 @@
 
 # scripts
 
-Build automation utilities for pre-publish hook file preparation. Contains a single ES module script that copies hook source files from `hooks/` to `hooks/dist/` during the npm publish lifecycle, ensuring IDE integration hooks are bundled in the distributed package.
+Build automation directory containing prepublish hook distribution script. Executes during `npm run build:hooks` to copy session lifecycle hook files from `hooks/` to `hooks/dist/` for npm tarball inclusion.
 
 ## Contents
 
-**[build-hooks.js](./build-hooks.js)** — Copies `.js` hook files from `hooks/` to `hooks/dist/` via `copyFileSync()`, invoked by `npm run build:hooks` during `prepublishOnly` lifecycle.
+### Build Scripts
 
-## Build Integration
+**[build-hooks.js](./build-hooks.js)** — Copies `.js` files from `hooks/` to `hooks/dist/` via `copyFileSync()`, invoked by `prepublishOnly` npm lifecycle script.
 
-`build-hooks.js` executes after TypeScript compilation via `npm run prepublishOnly` script chain. Resolves `projectRoot` using `dirname(fileURLToPath(import.meta.url))` for ES module compatibility. Creates output directory with `mkdirSync(recursive: true)` before copying files.
+## Execution Model
 
-## File Selection
+Standalone Node.js script (`#!/usr/bin/env node` shebang) invoked via two mechanisms:
+- **Automatic**: `prepublishOnly` lifecycle hook ensures hooks/dist/ populated before `npm publish` tarball creation
+- **Manual**: `npm run build:hooks` for development verification after hook modifications
 
-Filters source directory with predicate `f.endsWith('.js') && f !== 'dist'` to process `are-check-update.js`, `are-session-end.js`, `opencode-are-check-update.js`, `opencode-are-session-end.js` while preventing recursion into output directory.
+## File Discovery Pattern
 
-## Output Consumption
+`readdirSync(hooks/)` + filter predicate `f.endsWith('.js') && f !== 'dist'` selects JavaScript hook files while excluding the dist/ subdirectory itself. Current hook files copied:
+- `are-check-update.js` — Claude/Gemini SessionStart version check
+- `are-session-end.js` — Claude/Gemini SessionEnd auto-update trigger  
+- `opencode-are-check-update.js` — OpenCode plugin version check wrapper
+- `opencode-are-session-end.js` — OpenCode plugin session-end handler
 
-Generated `hooks/dist/` directory consumed by `src/installer/operations.ts` during IDE command/hook installation for Claude Code, OpenCode, and Gemini CLI runtimes. Included in npm tarball via `package.json` files configuration.
+## Output Behavior
+
+Logs per-file copy operations to console with relative path formatting (`"Copied: <filename> -> hooks/dist/<filename>"`), concludes with summary (`"Done. N hook(s) built."`). Creates hooks/dist/ via `mkdirSync(recursive: true)` if missing.
+
+## Integration Points
+
+Complements TypeScript compilation (`npm run build` → tsc → dist/`) by handling non-TypeScript assets required for npm package distribution. hooks/dist/ excluded from version control but included in npm tarball via package.json `files` array.

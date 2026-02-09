@@ -1,43 +1,34 @@
 ---
-generated_at: 2026-02-09T14:10:04.714Z
+generated_at: 2026-02-09T15:08:28.764Z
 content_hash: 34836e7b21ee372f71361b50aaa9e8e19948e339aef640a828b1d1257beac09a
-purpose: are-session-end.js spawns a detached background subprocess executing `npx agents-reverse-engineer@latest update --qui...
+purpose: are-session-end.js hook triggers background `are update` execution when a Claude/Gemini session closes, gated on git ...
 ---
-**are-session-end.js spawns a detached background subprocess executing `npx agents-reverse-engineer@latest update --quiet` when the AI session ends and git working tree contains uncommitted changes.**
+**are-session-end.js hook triggers background `are update` execution when a Claude/Gemini session closes, gated on git working tree changes and disable flags.**
 
-## Exported Interface
+## Exported Symbols
 
-None. Invoked as standalone script via Node.js shebang (`#!/usr/bin/env node`).
+None. Executable script with shebang `#!/usr/bin/env node`.
 
 ## Execution Flow
 
-1. Checks `process.env.ARE_DISABLE_HOOK === '1'` → exits immediately if set
-2. Reads `.agents-reverse-engineer.yaml` via `existsSync()` + `readFileSync()` → exits if file contains substring `'hook_enabled: false'` (no YAML parser)
-3. Executes `execSync('git status --porcelain', { encoding: 'utf-8' })` → exits silently if output empty (no changes) or command fails (non-git repo)
-4. Spawns detached child process via `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })` followed by `child.unref()` to allow parent process termination
+Script exits early via `process.exit(0)` if `ARE_DISABLE_HOOK` environment variable equals `'1'` or if `.agents-reverse-engineer.yaml` contains substring `'hook_enabled: false'` (uses `readFileSync()` + `String.includes()`, no YAML parser).
 
-## Integration Pattern
+Invokes `execSync('git status --porcelain', { encoding: 'utf-8' })` to detect uncommitted changes. Exits silently if `status.trim()` returns empty string or if command throws (non-git repo, git unavailable). Exit code 0 in all early-exit branches prevents hook errors from blocking session close.
 
-- **IDE hooks**: Registered as SessionEnd hook in `~/.claude/hooks/` for Claude Code, equivalent OpenCode plugin location `~/.config/opencode/plugins/`
-- **Detached spawn**: Uses `detached: true` + `unref()` pattern to prevent blocking session close; subprocess outlives parent
-- **Silent failures**: All error conditions (`git` unavailable, config read failure, no changes) exit with code 0 to avoid hook failure alerts
+Spawns detached background process via `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })` followed by `child.unref()` to allow parent process termination without waiting for update completion.
+
+## Integration Points
+
+Installed to `~/.claude/hooks/` (Claude Code) or `~/.gemini/hooks/` (Gemini CLI) via installer operations in `src/installer/operations.ts`. SessionEnd lifecycle event triggers this script when IDE session terminates.
+
+Launches `npx` command referencing `@latest` tag to ensure auto-update behavior uses most recent published version. Subprocess inherits working directory from session context (project root).
 
 ## Disable Mechanisms
 
-- **Environment**: `ARE_DISABLE_HOOK=1` checked before any file I/O
-- **Config file**: Substring search for `'hook_enabled: false'` in `.agents-reverse-engineer.yaml` (intentionally avoids YAML parser dependency)
-- **No changes**: Exits before spawn if `git status --porcelain` returns empty output
+Two disable paths: environment variable `ARE_DISABLE_HOOK=1` (runtime override) and config file `.agents-reverse-engineer.yaml` with `hook_enabled: false` substring (persistent disable). Config check uses `existsSync(configPath)` guard before `readFileSync()` to prevent ENOENT errors in projects without ARE initialization.
 
-## Resource Management
+## Error Handling
 
-- **stdio: 'ignore'**: Suppresses subprocess stdout/stderr to prevent tty attachment
-- **detached: true**: Creates new process group (allows `kill(-pid)` semantics in child)
-- **child.unref()**: Removes subprocess from Node.js event loop reference count, allowing parent exit
-- **No timeout**: Subprocess runs indefinitely; relies on ARE's internal timeout mechanisms (`timeoutMs` in config)
+Wraps `execSync('git status --porcelain')` in try-catch block. Catch branch exits silently (code 0) to handle non-git repositories gracefully. No error logging to avoid polluting IDE session output.
 
-## Related Files
-
-- `are-check-update.js`: SessionStart hook checking for ARE version updates
-- `opencode-are-session-end.js`: OpenCode plugin adapter exporting `AreSessionEnd()` factory
-- `src/cli/update.ts`: Incremental update command invoked by this hook
-- `src/update/orchestrator.ts`: Update workflow orchestrator with git diff integration
+Spawn call ignores `stdio` to prevent blocking on child output. Detached mode with `child.unref()` ensures parent exit doesn't wait for `npx` completion or background update subprocess tree.

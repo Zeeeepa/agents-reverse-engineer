@@ -1,32 +1,41 @@
 ---
-generated_at: 2026-02-09T14:09:52.454Z
+generated_at: 2026-02-09T15:08:17.437Z
 content_hash: 879100cdd04f7597c7afab3563e6d72212a2e1f2197ade1c1baa1dfd0fd4139f
-purpose: index.ts exports the public API of the update module, exposing UpdateOrchestrator with its factory and plan type, orp...
+purpose: `src/update/index.ts` exports the public API surface for ARE's incremental documentation update system, exposing Upda...
 ---
-**index.ts exports the public API of the update module, exposing UpdateOrchestrator with its factory and plan type, orphan cleanup utilities (cleanupOrphans, cleanupEmptyDirectoryDocs, getAffectedDirectories), and TypeScript types for update operations (UpdateOptions, UpdateResult, UpdateProgress, CleanupResult).**
+**`src/update/index.ts` exports the public API surface for ARE's incremental documentation update system, exposing UpdateOrchestrator for coordinating change detection with regeneration and orphan cleanup utilities for maintaining consistency after deletions and renames.**
 
-## Exported Symbols
+## Exported Interfaces
 
-**From orchestrator.js:**
-- `UpdateOrchestrator` — Class coordinating incremental documentation update workflow
-- `createUpdateOrchestrator` — Factory function instantiating UpdateOrchestrator
-- `UpdatePlan` — Type representing planned update operations (files to analyze, skip, affected directories)
+**UpdateOrchestrator** — Primary orchestrator class (from `./orchestrator.js`) coordinating incremental update workflow: content hash comparison, affected directory computation, Phase 1/2 regeneration, orphan cleanup.
 
-**From orphan-cleaner.js:**
-- `cleanupOrphans` — Function removing stale .sum files for deleted/renamed source files
-- `cleanupEmptyDirectoryDocs` — Function removing AGENTS.md from directories with no remaining source files
-- `getAffectedDirectories` — Function computing parent directory paths impacted by file changes
+**createUpdateOrchestrator** — Factory function (from `./orchestrator.js`) instantiating UpdateOrchestrator with dependencies (AIService, config, progress reporter).
 
-**From types.ts:**
-- `UpdateOptions` — Type defining update configuration (uncommitted flag, concurrency, timeouts)
-- `UpdateResult` — Type representing update execution outcome (files analyzed/skipped/orphaned, directories regenerated)
-- `UpdateProgress` — Type for progress callback payloads during update execution
-- `CleanupResult` — Type describing orphan cleanup results (deleted .sum files, removed AGENTS.md files)
+**UpdatePlan** — Type representing the computed update execution plan with `filesToAnalyze`, `filesToSkip`, `affectedDirs`, `orphanedSumFiles` arrays.
 
-## Module Role
+## Exported Utilities
 
-Serves as facade for `src/update/` module in incremental documentation workflow. Clients import from this barrel module rather than directly referencing orchestrator.ts, orphan-cleaner.ts, or types.ts. The UpdateOrchestrator coordinates Phase 1 (file .sum regeneration) and Phase 2 (directory AGENTS.md regeneration) for changed files detected via SHA-256 content hashing or git diff parsing, while cleanup utilities handle stale artifact removal from deleted/renamed sources.
+**cleanupOrphans** — Function (from `./orphan-cleaner.js`) deleting `.sum` files for deleted source files or renamed oldPaths.
 
-## Integration Points
+**cleanupEmptyDirectoryDocs** — Function (from `./orphan-cleaner.js`) removing `AGENTS.md` from directories with no remaining source files after cleanup.
 
-Consumed by `src/cli/update.ts` command handler which constructs UpdateOrchestrator via createUpdateOrchestrator factory, executes update plan, and reports results. Types flow from this module through CLI layer to enable typed update options and progress callbacks. Cleanup functions called after change detection but before regeneration phases to ensure removed files don't pollute documentation corpus.
+**getAffectedDirectories** — Function (from `./orphan-cleaner.js`) computing set of directories requiring `AGENTS.md` regeneration by walking parent directories of changed files.
+
+## Exported Type Definitions
+
+**UpdateOptions** — Type (from `./types.js`) specifying update configuration: `uncommitted` flag for working tree changes, `projectRoot`, `config`, `aiService`, optional `onProgress` callback.
+
+**UpdateResult** — Type (from `./types.js`) representing update execution outcome: `filesAnalyzed`, `filesSkipped`, `orphansRemoved`, `directoryDocsRegenerated`, `durationMs`, optional `qualityReport`.
+
+**UpdateProgress** — Type (from `./types.js`) capturing intermediate progress state during execution: `phase`, `current`, `total`, `message`.
+
+**CleanupResult** — Type (from `./types.js`) summarizing orphan cleanup operations: `orphanedSumFiles`, `emptyDirectoryDocs`, `totalRemoved`.
+
+## Module Architecture
+
+Barrel export pattern re-exporting symbols from three submodules:
+- `./orchestrator.js` — Core update workflow coordination
+- `./orphan-cleaner.js` — Stale artifact removal logic
+- `./types.js` — Shared type definitions
+
+Consumed by `src/cli/update.ts` command handler which invokes `createUpdateOrchestrator()` → `UpdateOrchestrator.execute()` pipeline.

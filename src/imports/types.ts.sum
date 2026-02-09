@@ -1,34 +1,24 @@
 ---
-generated_at: 2026-02-09T14:09:08.564Z
+generated_at: 2026-02-09T15:07:15.194Z
 content_hash: c69fb25302e6483d7c0631a9e0713db1fc96b2749658e0a77321e40da99e422e
-purpose: types.ts defines TypeScript interfaces for representing import statement metadata extracted from source files during ...
+purpose: Defines TypeScript interfaces for representing import statements extracted from source files during static analysis.
 ---
-**types.ts defines TypeScript interfaces for representing import statement metadata extracted from source files during static analysis.**
+**Defines TypeScript interfaces for representing import statements extracted from source files during static analysis.**
 
-## Exported Interfaces
+## Exported Types
 
-**ImportEntry** — Represents a single import statement with three properties:
-- `specifier: string` — Raw import path as written in source (e.g., `'../ai/index.js'`, `'fast-glob'`)
-- `symbols: string[]` — Array of imported identifiers (e.g., `['AIService', 'AIResponse']` from named imports, or `['default']` for default imports)
-- `typeOnly: boolean` — Discriminates TypeScript type-only imports (`import type { ... }`) from runtime imports
+### ImportEntry
+Represents a single import statement with three properties:
+- `specifier: string` — Raw import path as written in source (e.g., `'../ai/index.js'`)
+- `symbols: string[]` — Array of imported identifiers (e.g., `['AIService', 'AIResponse']`)
+- `typeOnly: boolean` — Flag indicating TypeScript type-only imports (`import type { ... }`)
 
-**FileImports** — Aggregates all imports from a single source file with three properties:
-- `fileName: string` — Relative file path (e.g., `'runner.ts'`, `'src/cli/index.ts'`)
-- `externalImports: ImportEntry[]` — Imports from other directories or npm packages (cross-directory dependencies)
-- `internalImports: ImportEntry[]` — Imports from files within the same directory (intra-directory coupling)
+### FileImports
+Aggregates all imports from a single source file with three properties:
+- `fileName: string` — Relative file path (e.g., `'runner.ts'`)
+- `externalImports: ImportEntry[]` — Imports from other modules (not same directory)
+- `internalImports: ImportEntry[]` — Imports from same directory
 
 ## Integration Points
 
-**Import extraction pipeline** consumes these types in `src/imports/extractor.ts` via regex parsing of import statements, populating `FileImports` objects returned by `extractImports()` and `extractFileImports()`.
-
-**Directory aggregation prompts** (Phase 2 of generation pipeline) consume `FileImports` through `extractDirectoryImports()` in `src/generation/prompts/builder.ts`, serializing import maps into prompt context to inform `AGENTS.md` synthesis with dependency awareness.
-
-**Prompt templates** in `src/generation/prompts/templates.ts` reference `ImportEntry.symbols` and `ImportEntry.specifier` to construct dependency sections showing module coupling patterns.
-
-## Design Rationale
-
-**Internal/external split** enables detection of directory cohesion (high internal coupling) versus cross-cutting concerns (many external dependencies). Phase 2 directory aggregation uses this distinction to highlight architectural boundaries.
-
-**Type-only flag** prevents false positives in runtime dependency analysis — type imports don't affect bundle size or execution behavior, critical for distinguishing interface contracts from implementation dependencies.
-
-**Symbol arrays** support both named imports (`import { a, b }`) and namespace imports (`import * as ns`) by collecting all bound identifiers, enabling export-import graph construction for unused code detection.
+Used by `src/imports/extractor.ts` which performs regex-based import parsing to populate these structures. The `FileImports` interface feeds into `src/generation/prompts/builder.ts` via `extractDirectoryImports()` to construct import maps included in directory aggregation prompts during Phase 2 of the documentation pipeline.

@@ -2,33 +2,34 @@
 
 # src/change-detection
 
-Git-based change detection with SHA-256 content hashing for incremental documentation updates. Executes `git diff --name-status -M` to detect added/modified/deleted/renamed files between commits, optionally merges uncommitted working tree changes, and provides synchronous/asynchronous SHA-256 hashing for content comparison against `.sum` file frontmatter during incremental regeneration.
+Git-based change detection and SHA-256 content hashing for incremental documentation updates, comparing commit deltas and content digests against `.sum` frontmatter to compute `filesToAnalyze` vs `filesToSkip`.
 
 ## Contents
 
-**[detector.ts](./detector.ts)**
-Implements `isGitRepo()`, `getCurrentCommit()`, `getChangedFiles()`, `computeContentHash()`, and `computeContentHashFromString()` via `simple-git` and `node:crypto`. Parses `git diff --name-status -M` output handling `A`/`M`/`D`/`R*` status codes with rename detection (50% similarity threshold). When `includeUncommitted` is true, merges staged/unstaged changes via `git.status()` parsing (`modified`/`deleted`/`not_added`/`staged`). Returns `ChangeDetectionResult` with `currentCommit`, `baseCommit`, `changes[]`, and `includesUncommitted` flag.
+**[detector.ts](./detector.ts)** — Implements `isGitRepo()`, `getCurrentCommit()`, `getChangedFiles()` via simple-git, parses `git diff --name-status -M` output for added/modified/deleted/renamed files, merges uncommitted changes via `git.status()` when `includeUncommitted` enabled, provides `computeContentHash()` and `computeContentHashFromString()` for SHA-256 hex digest generation.
 
-**[types.ts](./types.ts)**
-Defines `ChangeType` union (`'added' | 'modified' | 'deleted' | 'renamed'`), `FileChange` interface (with `path`, `status`, optional `oldPath` for renames), `ChangeDetectionResult` (with `currentCommit`, `baseCommit`, `changes[]`, `includesUncommitted`), and `ChangeDetectionOptions` (`includeUncommitted` flag). The `oldPath` field enables orphan cleanup in `src/update/orphan-cleaner.ts` for stale `.sum` files.
+**[types.ts](./types.ts)** — Defines `ChangeType` union (`'added' | 'modified' | 'deleted' | 'renamed'`), `FileChange` interface with discriminated `status` and conditional `oldPath` for renames, `ChangeDetectionResult` containing `changes[]`, `baseCommit`, `currentCommit`, `includesUncommitted`, `ChangeDetectionOptions` with `includeUncommitted` flag.
 
-**[index.ts](./index.ts)**
-Barrel export re-exporting all functions and types from `detector.ts` and `types.ts`. Public API surface consumed by `src/update/orchestrator.ts` for computing `filesToAnalyze` vs. `filesToSkip` arrays via SHA-256 hash comparison.
+**[index.ts](./index.ts)** — Barrel export re-exporting all symbols from `detector.ts` and `types.ts` as public API surface.
 
-## Integration with Update Workflow
+## Architecture
 
-`src/update/orchestrator.ts` calls `getChangedFiles()` with optional `includeUncommitted: true` (via `--uncommitted` CLI flag), compares returned `changes[]` against `content_hash` frontmatter in `.sum` files via `computeContentHash()`, classifies files into `filesToAnalyze` (hash mismatch or added) and `filesToSkip` (hash match), then triggers `cleanupOrphans()` for deleted/renamed paths and `getAffectedDirectories()` to determine which `AGENTS.md` files need regeneration.
+### Git Integration Pipeline
 
-## Git Diff Parsing
+`getChangedFiles()` invokes `git diff --name-status -M <baseCommit>..HEAD` with rename detection (50% similarity threshold), parses tab-separated status codes: `A` (added), `M` (modified), `D` (deleted), `R{percentage}` (renamed with `oldPath` extraction). Handles two output formats: `STATUS\tFILE` for single-path changes, `STATUS\tOLD\tNEW` for renames, extracts `parts[parts.length - 1]` as final path. When `includeUncommitted: true`, aggregates from `StatusResult` arrays: `modified`, `deleted`, `not_added` (untracked), `staged`, deduplicates via `changes.some(c => c.path === file)` predicate.
 
-`detector.ts` handles four status codes from `git diff --name-status -M`:
-- `A\tpath` → `{status: 'added', path}`
-- `M\tpath` → `{status: 'modified', path}`
-- `D\tpath` → `{status: 'deleted', path}`
-- `R100\toldPath\tnewPath` → `{status: 'renamed', path: newPath, oldPath}`
+### Content Hashing
 
-Always extracts current path as last tab-delimited part (`parts[parts.length - 1]`) and filters empty lines before parsing.
+`computeContentHash()` reads file via `readFile()`, computes SHA-256 via `createHash('sha256').update(content).digest('hex')`. `computeContentHashFromString()` provides synchronous variant for in-memory content to avoid redundant I/O when frontmatter generation already loaded file. Consumed by `src/update/orchestrator.ts` which cross-references `.sum` YAML frontmatter `content_hash` fields against computed digests to determine incremental update scope.
 
-## Content Hashing
+### Discriminated Union Pattern
 
-Two SHA-256 functions: `computeContentHash(filePath)` reads from disk asynchronously, `computeContentHashFromString(content)` hashes in-memory strings synchronously. Both use `createHash('sha256').update(content).digest('hex')` from `node:crypto`. Hash comparison against `.sum` YAML frontmatter determines which files require reanalysis during incremental updates.
+`FileChange.status` acts as discriminant for `ChangeType` union, enabling type guards to narrow to specific change categories. `oldPath` field conditionally present only when `status === 'renamed'`, enforcing constraint that renames require both paths while additions/modifications/deletions have single `path`.
+
+## Integration Points
+
+**src/update/orchestrator.ts**: Calls `getChangedFiles()` with `baseCommit` from previous run, iterates `ChangeDetectionResult.changes[]`, invokes `computeContentHash()` for each modified/added file, compares against `readSumFile(sumPath).content_hash`, populates `filesToAnalyze` vs `filesToSkip` arrays. Extracts `oldPath` from renamed `FileChange` entries to feed `src/update/orphan-cleaner.ts` for stale `.sum` deletion.
+
+**src/generation/writers/sum.ts**: Calls `computeContentHashFromString()` when writing `.sum` frontmatter to embed digest without re-reading file content, populating YAML `content_hash` field for future incremental comparisons.
+
+**Non-git workflows**: `isGitRepo()` check determines fallback to pure SHA-256 hashing without commit-based delta detection, enabling incremental updates in non-versioned codebases by comparing content digests alone.

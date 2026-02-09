@@ -1,22 +1,18 @@
 ---
-generated_at: 2026-02-09T14:08:13.921Z
+generated_at: 2026-02-09T15:06:07.786Z
 content_hash: 9035c23a19fe33c400b3ebf272ce357a54458443d60020d4cecf68adbd478548
-purpose: Exports the `checkPhantomPaths` validator function from the phantom-paths quality validation module.
+purpose: Barrel export module re-exporting `checkPhantomPaths` validator for detecting unresolved file path references in gene...
 ---
-**Exports the `checkPhantomPaths` validator function from the phantom-paths quality validation module.**
+**Barrel export module re-exporting `checkPhantomPaths` validator for detecting unresolved file path references in generated `AGENTS.md` documentation.**
 
-## Public Interface
+## Exports
 
-```typescript
-export { checkPhantomPaths } from './validator.js'
-```
-
-Exports `checkPhantomPaths` function which detects unresolved path references in `AGENTS.md` files via three regex patterns: markdown link targets (`/\[(?:[^\]]*)\]\((\.[^)]+)\)/g`), backtick-quoted paths (`` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g ``), and prose-embedded paths (`/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi`), then resolves against the AGENTS.md directory and project root with `.ts`/`.js` fallback extensions, returning `PhantomPathInconsistency` instances for unresolved references.
+- `checkPhantomPaths` — Re-exported from `./validator.js`, validates that path-like strings extracted from `AGENTS.md` files resolve to actual source files
 
 ## Module Role
 
-Serves as the public API entry point for the phantom-paths quality validator within the three-validator quality system (`src/quality/index.ts` aggregates code-vs-doc, code-vs-code, and phantom-paths validators). The `checkPhantomPaths` function is invoked during Phase 2 (directory aggregation) and Phase 3 (root synthesis) to validate `AGENTS.md` path references correspond to actual files in the codebase, preventing documentation drift where referenced files have been moved, renamed, or deleted.
+Entry point for phantom-paths quality validation subsystem. Consolidates path resolution checking into single import surface for consumption by `src/quality/index.ts` quality orchestrator and `src/cli/generate.ts`/`src/cli/update.ts` command handlers.
 
-## Integration Context
+## Integration Points
 
-Called by `src/generation/orchestrator.ts` after `AGENTS.md` generation, receiving `DiscoveryResult.files[]` and generated `AGENTS.md` paths as inputs. Results are merged into `InconsistencyReport` via `src/quality/inconsistency/reporter.ts` and logged to `progress.log` with counts by severity (error/warning/info).
+Consumed by `src/quality/index.ts` which aggregates all quality validators (`checkPhantomPaths`, `checkCodeVsDoc`, `checkCodeVsCode`) into unified `InconsistencyReport`. Implementation logic resides in `./validator.ts` which extracts paths via regex patterns (markdown links, backtick-quoted paths, prose-embedded paths), resolves against project root with `.ts`/`.js` fallback, and returns `PhantomPathInconsistency` objects for unresolved references.

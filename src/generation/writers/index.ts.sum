@@ -1,22 +1,28 @@
 ---
-generated_at: 2026-02-09T14:08:06.723Z
+generated_at: 2026-02-09T15:06:06.267Z
 content_hash: c67fdb8a7cbf2059c4a63cf8ab6f62c235724007d0288b1c4b0d3b97c532aaaa
-purpose: Re-exports public interfaces from `sum.ts` and `agents-md.ts` to provide centralized access to file-level summary wri...
+purpose: Re-exports file analysis and directory aggregation writers for the three-phase documentation pipeline.
 ---
-**Re-exports public interfaces from `sum.ts` and `agents-md.ts` to provide centralized access to file-level summary writers and directory-level aggregation writers used in the three-phase generation pipeline.**
+**Re-exports file analysis and directory aggregation writers for the three-phase documentation pipeline.**
 
 ## Exported Symbols
 
-From `sum.ts`:
-- `writeSumFile(filePath: string, content: SumFileContent, sumPath: string): Promise<void>` — writes `.sum` file with YAML frontmatter containing `generated_at`, `content_hash` (SHA-256), `purpose`, optional `critical_todos`, `related_files`
-- `readSumFile(sumPath: string): Promise<SumFileContent>` — parses existing `.sum` file from YAML frontmatter plus markdown body
-- `getSumPath(filePath: string): string` — computes `.sum` file path by appending `.sum` extension to source file path
-- `sumFileExists(filePath: string): Promise<boolean>` — checks if `.sum` file exists for given source file via `fs.access()`
-- `SumFileContent` type — discriminated union with frontmatter fields plus `summary: string` body content
+Aggregates writer functions from two submodules without introducing new logic.
 
-From `agents-md.ts`:
-- `writeAgentsMd(dirPath: string, content: string): Promise<void>` — writes directory-level `AGENTS.md` with generation marker comment, preserves existing `AGENTS.md` by renaming to `AGENTS.local.md` and prepending above generated content
+**From `./sum.js`:**
+- `writeSumFile` — Writes `.sum` file with YAML frontmatter containing `generated_at`, `content_hash`, `purpose`, `critical_todos`, `related_files`
+- `readSumFile` — Parses `.sum` file YAML frontmatter and markdown body into `SumFileContent` object
+- `getSumPath` — Computes `.sum` file path from source file path by appending `.sum` extension
+- `sumFileExists` — Checks filesystem for `.sum` file existence via `getSumPath()` + `existsSync()`
+- `SumFileContent` — Type representing parsed `.sum` file structure with `metadata` (frontmatter fields) and `content` (markdown body)
 
-## Integration Role
+**From `./agents-md.js`:**
+- `writeAgentsMd` — Writes directory-level `AGENTS.md` files during Phase 2 post-order aggregation, preserving user-authored `AGENTS.local.md` content and inserting generation marker comment
 
-This barrel module serves as the public API boundary for Phase 1 (file analysis) and Phase 2 (directory aggregation) output operations within `src/generation/orchestrator.ts`, exposing only the minimal writer surface needed by the concurrent worker pool (`pool.ts`) and post-order directory traversal logic.
+## Module Purpose
+
+Provides centralized import point for file/directory writers consumed by:
+- `src/generation/orchestrator.ts` — Phase 1 calls `writeSumFile()` for concurrent file analysis
+- `src/generation/executor.ts` — Phase 2 calls `writeAgentsMd()` for directory aggregation
+- `src/update/orchestrator.ts` — Incremental updates call `readSumFile()` for hash comparison and `sumFileExists()` for orphan detection
+- `src/quality/inconsistency/code-vs-doc.ts` — Validation reads `.sum` files via `readSumFile()` to extract exported symbols

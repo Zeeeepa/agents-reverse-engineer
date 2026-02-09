@@ -1,77 +1,58 @@
 ---
-generated_at: 2026-02-09T14:08:50.105Z
+generated_at: 2026-02-09T15:06:52.895Z
 content_hash: 40987c5270cd4d77bfee1562927e78816e76974b5bdcaf2248dc4fb478b45447
-purpose: High-level file discovery pipeline that orchestrates directory walking and filter chain application via `discoverFile...
+purpose: discoverFiles() orchestrates the four-stage filter pipeline (gitignore, vendor, binary, custom) over walkDirectory() ...
 ---
-**High-level file discovery pipeline that orchestrates directory walking and filter chain application via `discoverFiles()`, composing gitignore, vendor, binary, and custom filters to produce `FilterResult` with included/excluded file lists.**
+**discoverFiles() orchestrates the four-stage filter pipeline (gitignore, vendor, binary, custom) over walkDirectory() results, returning FilterResult with included/excluded file lists and filter attribution.**
 
-## Public Interface
+## Exported Functions
 
-### Primary Export
+**discoverFiles(root: string, config: DiscoveryConfig, options?: DiscoverFilesOptions): Promise<FilterResult>**
+- Creates filter chain via createGitignoreFilter(), createVendorFilter(), createBinaryFilter(), createCustomFilter()
+- Invokes walkDirectory() with followSymlinks from config.options
+- Applies filters via applyFilters() with optional tracer and debug passthrough
+- Returns FilterResult containing both included and excluded files with filter reason metadata
 
-```typescript
-async function discoverFiles(
-  root: string,
-  config: DiscoveryConfig,
-  options?: DiscoverFilesOptions
-): Promise<FilterResult>
-```
+## Configuration Interface
 
-Orchestrates complete file discovery workflow: creates four standard filters (`createGitignoreFilter`, `createVendorFilter`, `createBinaryFilter`, `createCustomFilter`), invokes `walkDirectory()` with symlink/follow options, applies filter chain via `applyFilters()`, returns `FilterResult` containing both included files and excluded files with attribution metadata.
+**DiscoveryConfig**
+- Subset of full Config schema from src/config/schema.ts
+- Structure:
+  ```typescript
+  {
+    exclude: {
+      vendorDirs: string[];           // e.g., node_modules, .git, dist
+      binaryExtensions: string[];     // e.g., .png, .jpg, .zip
+      patterns: string[];             // gitignore-style globs
+    };
+    options: {
+      maxFileSize: number;            // binary detection threshold (1MB default)
+      followSymlinks: boolean;        // symlink traversal flag
+    };
+  }
+  ```
+- Structurally compatible with config/schema.ts Config type for duck typing
 
-### Configuration Types
+**DiscoverFilesOptions**
+- Optional tracer: ITraceWriter for trace event emission
+- Optional debug: boolean for verbose filter logging
 
-```typescript
-interface DiscoveryConfig {
-  exclude: {
-    vendorDirs: string[];
-    binaryExtensions: string[];
-    patterns: string[];
-  };
-  options: {
-    maxFileSize: number;
-    followSymlinks: boolean;
-  };
-}
-```
+## Filter Pipeline Order
 
-Structurally compatible subset of full `Config` from `src/config/schema.ts`, isolates discovery-related settings from config superset.
+1. **createGitignoreFilter(root)** — async, reads .gitignore from root directory
+2. **createVendorFilter(config.exclude.vendorDirs)** — synchronous, blocks third-party directories
+3. **createBinaryFilter({ maxFileSize, additionalExtensions })** — synchronous, checks extension + content analysis
+4. **createCustomFilter(config.exclude.patterns, root)** — synchronous, applies user-defined glob patterns
 
-```typescript
-interface DiscoverFilesOptions {
-  tracer?: ITraceWriter;
-  debug?: boolean;
-}
-```
-
-Optional runtime settings for tracing and debug output, threaded through to `applyFilters()`.
-
-## Filter Chain Composition
-
-`discoverFiles()` composes four filters in standard order:
-
-1. **Gitignore filter** (`createGitignoreFilter(root)`) — async initialization parses `.gitignore` files
-2. **Vendor filter** (`createVendorFilter(vendorDirs)`) — excludes third-party directories (node_modules, .git, dist)
-3. **Binary filter** (`createBinaryFilter({maxFileSize, additionalExtensions})`) — detects non-text files via extension + content analysis
-4. **Custom filter** (`createCustomFilter(patterns, root)`) — applies user-defined glob patterns
-
-Filter application via `applyFilters(files, filters, {tracer, debug})` produces `FilterResult` with `included[]` and `excluded[]` arrays, each file tagged with responsible filter name.
+All filters imported from './filters/index.js' barrel export.
 
 ## Integration Points
 
-Consumed by all CLI commands requiring file discovery:
+- **walkDirectory()** from './walker.js' performs directory traversal with symlink handling
+- **applyFilters()** from './filters/index.js' executes filter chain and aggregates results
+- **ITraceWriter** from '../orchestration/trace.js' enables NDJSON trace event emission
+- Used by cli/discover.ts, cli/generate.ts, cli/update.ts as shared discovery entry point
 
-- `src/cli/discover.ts` — Writes `GENERATION-PLAN.md` with phase breakdown
-- `src/cli/generate.ts` — Feeds three-phase pipeline via `orchestrateGeneration()`
-- `src/cli/update.ts` — Computes affected directories from `FilterResult.included` array
+## Design Rationale
 
-Dependencies:
-
-- `src/discovery/walker.ts` — `walkDirectory()` returns raw file list from `fast-glob`
-- `src/discovery/filters/index.ts` — Filter factory functions and `applyFilters()`
-- `src/orchestration/trace.ts` — `ITraceWriter` for telemetry emission
-- `src/discovery/types.ts` — `FilterResult` interface with included/excluded split
-
-## Design Pattern
-
-Pipeline composition pattern: synchronous filter factory construction followed by async directory walk and filter application. Exposes `FilterResult` superset rather than just `included[]` to enable CLI commands to report exclusion statistics and reasons (e.g., "Skipped 42 binary files, 18 vendor directories").
+High-level pipeline abstraction eliminates filter chain construction boilerplate across commands. Structural typing of DiscoveryConfig avoids circular dependency with config/schema.ts while maintaining type safety. Returns full FilterResult instead of just included files to support debug/diagnostics and plan generation metadata.

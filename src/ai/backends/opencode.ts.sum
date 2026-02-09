@@ -1,24 +1,28 @@
 ---
-generated_at: 2026-02-09T14:07:56.014Z
+generated_at: 2026-02-09T15:05:49.395Z
 content_hash: 766b567d891820428c3ef97c56fd538afc9041ec7b387958ce79194294ded8e9
-purpose: OpenCodeBackend implements the AIBackend interface as a stub adapter for the OpenCode CLI, providing command detectio...
+purpose: OpenCodeBackend implements AIBackend interface as stub demonstrating backend extension pattern, throwing AIServiceErr...
 ---
-**OpenCodeBackend implements the AIBackend interface as a stub adapter for the OpenCode CLI, providing command detection and argument building while throwing AIServiceError on parseResponse until JSONL parsing is implemented.**
-
-## Exported Symbols
-
-**OpenCodeBackend** class implements AIBackend interface with:
-- `readonly name: 'opencode'` — Backend identifier string
-- `readonly cliCommand: 'opencode'` — CLI executable name
-- `async isAvailable(): Promise<boolean>` — Checks PATH for `opencode` command via isCommandOnPath from claude.ts
-- `buildArgs(_options: AICallOptions): string[]` — Returns `['run', '--format', 'json']` for CLI invocation
-- `parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse` — Always throws AIServiceError with code 'SUBPROCESS_ERROR' and message directing users to Claude backend
-- `getInstallInstructions(): string` — Returns multiline string with curl install command from https://opencode.ai/install
+**OpenCodeBackend implements AIBackend interface as stub demonstrating backend extension pattern, throwing AIServiceError from parseResponse() until JSONL output parsing is implemented.**
 
 ## Implementation Status
 
-OpenCodeBackend is a non-functional stub demonstrating AIBackend extension pattern. The isAvailable and buildArgs methods work but parseResponse throws to prevent execution. Full implementation blocked on OpenCode JSONL output parsing design (referenced as RESEARCH.md Open Question 3 in module docstring). Subprocess wrapper expects prompt on stdin. AIServiceError and AICallOptions imported from '../types.js', isCommandOnPath shared utility imported from './claude.js'.
+OpenCodeBackend is a non-functional stub deferring implementation to future phase pending OpenCode JSONL output parsing (references RESEARCH.md Open Question 3). All methods except parseResponse() are operational.
 
-## Integration Points
+## Exported Class
 
-Part of AI backend registry system alongside ClaudeBackend and GeminiBackend. AIService in src/ai/service.ts routes to OpenCodeBackend when config specifies backend: 'opencode' or when auto-detection finds opencode CLI first. The buildArgs output passes to runSubprocess in src/ai/subprocess.ts which spawns execFile child process with stdin streaming.
+**OpenCodeBackend** implements AIBackend interface with:
+- `name: 'opencode'` — Backend identifier string
+- `cliCommand: 'opencode'` — Executable name for PATH lookup
+- `isAvailable(): Promise<boolean>` — Delegates to isCommandOnPath() from claude.ts backend
+- `buildArgs(_options: AICallOptions): string[]` — Returns `['run', '--format', 'json']` CLI arguments, ignores AICallOptions parameter (prompt sent via stdin by subprocess wrapper)
+- `parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse` — Throws AIServiceError with code 'SUBPROCESS_ERROR' and message 'OpenCode backend is not yet implemented. Use Claude backend.'
+- `getInstallInstructions(): string` — Returns multiline string with curl-based installation command (`curl -fsSL https://opencode.ai/install | bash`) and documentation URL
+
+## Type Dependencies
+
+Imports AIBackend, AICallOptions, AIResponse from `../types.js` and AIServiceError from same module. Imports isCommandOnPath() utility from `./claude.ts` for CLI detection.
+
+## Backend Extension Pattern
+
+Demonstrates minimal AIBackend implementation where isAvailable() and buildArgs() are functional but parseResponse() blocks usage until output format parsing is solved. Serves as template for adding new AI CLI backends to registry.
