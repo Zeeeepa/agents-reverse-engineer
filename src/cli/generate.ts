@@ -41,6 +41,8 @@ export interface GenerateOptions {
   debug?: boolean;
   /** Enable concurrency tracing to .agents-reverse-engineer/traces/ */
   trace?: boolean;
+  /** Override AI model (e.g., "sonnet", "opus") */
+  model?: string;
 }
 
 /**
@@ -166,18 +168,21 @@ export async function generateCommand(
     throw error;
   }
 
+  // Resolve effective model (CLI flag > config)
+  const effectiveModel = options.model ?? config.ai.model;
+
   // Debug: log backend info
   if (options.debug) {
     console.log(pc.dim(`[debug] Backend: ${backend.name}`));
     console.log(pc.dim(`[debug] CLI command: ${backend.cliCommand}`));
-    console.log(pc.dim(`[debug] Model: ${config.ai.model}`));
+    console.log(pc.dim(`[debug] Model: ${effectiveModel}`));
   }
 
   // Create AI service
   const aiService = new AIService(backend, {
     timeoutMs: config.ai.timeoutMs,
     maxRetries: config.ai.maxRetries,
-    model: config.ai.model,
+    model: effectiveModel,
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   });
 

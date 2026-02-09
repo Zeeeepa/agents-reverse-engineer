@@ -47,6 +47,8 @@ export interface RebuildOptions {
   debug?: boolean;
   /** Enable NDJSON tracing */
   trace?: boolean;
+  /** Override AI model (defaults to "opus" for rebuild) */
+  model?: string;
 }
 
 /**
@@ -142,18 +144,23 @@ export async function rebuildCommand(
     throw error;
   }
 
+  // Resolve effective model: CLI flag > config override > opus default
+  // Rebuild benefits from the best model; upgrade default sonnet to opus
+  const effectiveModel = options.model
+    ?? (config.ai.model === 'sonnet' ? 'opus' : config.ai.model);
+
   // Debug: log backend info
   if (options.debug) {
     console.error(pc.dim(`[debug] Backend: ${backend.name}`));
     console.error(pc.dim(`[debug] CLI command: ${backend.cliCommand}`));
-    console.error(pc.dim(`[debug] Model: ${config.ai.model}`));
+    console.error(pc.dim(`[debug] Model: ${effectiveModel}`));
   }
 
   // Create AI service with extended timeout (rebuild modules are large)
   const aiService = new AIService(backend, {
     timeoutMs: Math.max(config.ai.timeoutMs, 900_000), // 15min minimum
     maxRetries: config.ai.maxRetries,
-    model: config.ai.model,
+    model: effectiveModel,
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   });
 

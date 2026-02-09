@@ -50,6 +50,7 @@ General Options:
   --dry-run         Show plan without writing files (generate, update, specify, rebuild)
   --output <path>   Output path (specify: spec file, rebuild: output directory)
   --multi-file      Split specification into multiple files (specify only)
+  --model <name>    AI model to use (e.g., sonnet, opus, haiku)
   --concurrency <n> Number of concurrent AI calls (default: auto)
   --fail-fast       Stop on first file analysis failure
   --uncommitted     Include uncommitted changes (update only)
@@ -264,6 +265,7 @@ async function main(): Promise<void> {
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),
         trace: flags.has('trace'),
+        model: values.get('model'),
       };
       await generateCommand(positional[0] || '.', options);
       break;
@@ -277,6 +279,7 @@ async function main(): Promise<void> {
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),
         trace: flags.has('trace'),
+        model: values.get('model'),
       };
       await updateCommand(positional[0] || '.', options);
       break;
@@ -290,6 +293,7 @@ async function main(): Promise<void> {
         multiFile: flags.has('multi-file'),
         debug: flags.has('debug'),
         trace: flags.has('trace'),
+        model: values.get('model'),
       };
       await specifyCommand(positional[0] || '.', specifyOpts);
       break;
@@ -305,6 +309,7 @@ async function main(): Promise<void> {
         failFast: flags.has('fail-fast'),
         debug: flags.has('debug'),
         trace: flags.has('trace'),
+        model: values.get('model'),
       };
       await rebuildCommand(positional[0] || '.', rebuildOpts);
       break;
