@@ -7,6 +7,7 @@
  *   discover [path]   Discover files to analyze
  *   generate [path]   Generate documentation plan
  *   update [path]     Update docs incrementally
+ *   specify [path]    Generate project specification from AGENTS.md docs
  *   clean [path]      Delete all generated artifacts
  */
 
@@ -19,6 +20,7 @@ import { discoverCommand } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
 import { updateCommand, type UpdateCommandOptions } from './update.js';
 import { cleanCommand, type CleanOptions } from './clean.js';
+import { specifyCommand, type SpecifyOptions } from './specify.js';
 
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
 
@@ -48,18 +50,21 @@ Commands:
   discover [path]   Discover files to analyze (default: current directory)
   generate [path]   Generate documentation plan (default: current directory)
   update [path]     Update docs incrementally (default: current directory)
+  specify [path]    Generate project specification from AGENTS.md docs
   clean [path]      Delete all generated artifacts (.sum, AGENTS.md, etc.)
 
 Install/Uninstall Options:
   --runtime <name>  Runtime to target (claude, opencode, gemini, all)
   -g, --global      Target global config directory
   -l, --local       Target current project directory
-  --force           Overwrite existing files (install only)
+  --force           Overwrite existing files (install, specify)
 
 General Options:
   --debug           Show AI prompts and backend details
   --trace           Enable concurrency tracing (.agents-reverse-engineer/traces/)
-  --dry-run         Show plan without writing files (generate, update)
+  --dry-run         Show plan without writing files (generate, update, specify)
+  --output <path>   Output path for specification (specify only)
+  --multi-file      Split specification into multiple files (specify only)
   --concurrency <n> Number of concurrent AI calls (default: 5)
   --fail-fast       Stop on first file analysis failure
   --uncommitted     Include uncommitted changes (update only)
@@ -78,6 +83,8 @@ Examples:
   are generate ./my-project --concurrency 3
   are update
   are update --uncommitted
+  are specify --dry-run
+  are specify --output ./docs/spec.md --force
 `;
 
 /**
@@ -285,6 +292,19 @@ async function main(): Promise<void> {
         trace: flags.has('trace'),
       };
       await updateCommand(positional[0] || '.', options);
+      break;
+    }
+
+    case 'specify': {
+      const specifyOpts: SpecifyOptions = {
+        output: values.get('output'),
+        force: flags.has('force'),
+        dryRun: flags.has('dry-run'),
+        multiFile: flags.has('multi-file'),
+        debug: flags.has('debug'),
+        trace: flags.has('trace'),
+      };
+      await specifyCommand(positional[0] || '.', specifyOpts);
       break;
     }
 
