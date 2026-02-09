@@ -25,7 +25,7 @@ import {
   resolveBackend,
   getInstallInstructions,
 } from '../ai/index.js';
-import { ProgressLog } from '../orchestration/index.js';
+import { ProgressLog, createTraceWriter, cleanupOldTraces } from '../orchestration/index.js';
 import { generateCommand } from './generate.js';
 
 /**
@@ -170,6 +170,12 @@ export async function specifyCommand(
   const effectiveModel = options.model
     ?? (config.ai.model === 'sonnet' ? 'opus' : config.ai.model);
 
+  // Create trace writer
+  const tracer = createTraceWriter(absolutePath, options.trace ?? false);
+  if (options.trace && tracer.filePath) {
+    console.error(pc.dim(`[trace] Writing to ${tracer.filePath}`));
+  }
+
   // Debug: log backend info
   if (options.debug) {
     console.error(pc.dim(`[debug] Backend: ${backend.name}`));
@@ -187,6 +193,17 @@ export async function specifyCommand(
 
   if (options.debug) {
     aiService.setDebug(true);
+  }
+
+  // Wire tracer into AIService for subprocess/retry trace events
+  if (options.trace) {
+    aiService.setTracer(tracer);
+    const logDir = path.join(
+      absolutePath, '.agents-reverse-engineer', 'subprocess-logs',
+      new Date().toISOString().replace(/[:.]/g, '-'),
+    );
+    aiService.setSubprocessLogDir(logDir);
+    console.error(pc.dim(`[trace] Subprocess logs → ${logDir}`));
   }
 
   // Build prompt from collected docs and annex files
@@ -209,10 +226,21 @@ export async function specifyCommand(
   console.log(pc.dim('This may take several minutes depending on project size.'));
   progressLog.write('Generating specification...');
 
+  tracer.emit({ type: 'phase:start', phase: 'specify', taskCount: 1, concurrency: 1 });
+  const specifyStart = Date.now();
+
   const response = await aiService.call({
     prompt: prompt.user,
     systemPrompt: prompt.system,
     taskLabel: 'specify',
+  });
+
+  tracer.emit({
+    type: 'phase:end',
+    phase: 'specify',
+    durationMs: Date.now() - specifyStart,
+    tasksCompleted: 1,
+    tasksFailed: 0,
   });
 
   // ---------------------------------------------------------------------------
@@ -255,4 +283,8 @@ export async function specifyCommand(
   console.log(pc.dim(summaryLine));
   progressLog.write(summaryLine);
   await progressLog.finalize();
+  await tracer.finalize();
+  if (options.trace) {
+    await cleanupOldTraces(absolutePath);
+  }
 }
