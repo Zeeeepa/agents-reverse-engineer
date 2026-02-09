@@ -25,7 +25,7 @@ List files that would be analyzed for documentation.
    ```
 
 3. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:
-   - Every ~10 seconds, use Bash `tail -5 .agents-reverse-engineer/progress.log` to read the latest lines
+   - Wait ~10 seconds (use `sleep 10` in Bash), then use the **Read** tool to read `.agents-reverse-engineer/progress.log` (use the `offset` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using `TaskOutput` with `block: false`
    - Repeat until the background task finishes
