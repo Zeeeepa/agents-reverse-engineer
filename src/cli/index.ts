@@ -57,7 +57,7 @@ Install/Uninstall Options:
   --runtime <name>  Runtime to target (claude, opencode, gemini, all)
   -g, --global      Target global config directory
   -l, --local       Target current project directory
-  --force           Overwrite existing files (install, specify)
+  --force           Overwrite existing files (init, install, specify)
 
 General Options:
   --debug           Show AI prompts and backend details
@@ -253,7 +253,7 @@ async function main(): Promise<void> {
     }
 
     case 'init': {
-      await initCommand(positional[0] || '.');
+      await initCommand(positional[0] || '.', { force: flags.has('force') });
       break;
     }
 

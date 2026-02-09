@@ -23,15 +23,16 @@ import { createLogger } from '../output/logger.js';
  * // Creates .agents-reverse/config.yaml in current directory
  * ```
  */
-export async function initCommand(root: string): Promise<void> {
+export async function initCommand(root: string, options?: { force?: boolean }): Promise<void> {
   const resolvedRoot = path.resolve(root);
   const configPath = path.join(resolvedRoot, CONFIG_DIR, CONFIG_FILE);
+  const force = options?.force ?? false;
 
   const logger = createLogger({ colors: true });
 
   try {
     // Check if config already exists
-    if (await configExists(resolvedRoot)) {
+    if (!force && await configExists(resolvedRoot)) {
       logger.warn(`Config already exists at ${configPath}`);
       logger.info('Edit the file to customize exclusions and options.');
     } else {

@@ -131,12 +131,10 @@ ai:
   maxRetries: 3
 
   # Number of concurrent AI calls (parallelism)
-  # Range: 1-10, Default: 5
-  # Lower values (2-3) recommended for:
-  #   - WSL environments (limited resources)
-  #   - Machines with <16GB RAM
-  #   - Slow network connections
-  concurrency: 20
+  # Range: 1-20, Default: auto-detected from CPU cores and available memory
+  # Current machine default: 15
+  # Uncomment to override:
+  # concurrency: 15
 
   # Telemetry settings
   telemetry:
