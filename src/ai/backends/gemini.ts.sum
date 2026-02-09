@@ -1,0 +1,28 @@
+---
+generated_at: 2026-02-09T13:17:44.152Z
+content_hash: 2fa047b790395f27759310eeb2030fc6be107b28d9c21108f95a33119d53ab06
+purpose: GeminiBackend implements the AIBackend interface as a stub for future Gemini CLI integration, providing command detec...
+---
+**GeminiBackend implements the AIBackend interface as a stub for future Gemini CLI integration, providing command detection and argument building but throwing AIServiceError on response parsing until Gemini JSON output stabilizes.**
+
+## Exported Symbols
+
+- **GeminiBackend** class implements AIBackend interface with `name: 'gemini'` and `cliCommand: 'gemini'` properties
+- **isAvailable()**: `Promise<boolean>` delegates to `isCommandOnPath(this.cliCommand)` to detect `gemini` CLI on PATH
+- **buildArgs(_options: AICallOptions)**: `string[]` returns `['-p', '--output-format', 'json']` based on Gemini CLI flags documented in RESEARCH.md
+- **parseResponse(_stdout: string, _durationMs: number, _exitCode: number)**: `AIResponse` throws AIServiceError with code `'SUBPROCESS_ERROR'` and message directing users to Claude backend
+- **getInstallInstructions()**: `string` returns npm install command for `@anthropic-ai/gemini-cli` and GitHub repository URL
+
+## Backend Extension Pattern
+
+GeminiBackend demonstrates the AIBackend extension pattern where new CLI adapters implement command detection, argument building, and response parsing. The stub allows registry integration and availability checking without blocking on unstable Gemini JSON output format (referenced as "RESEARCH.md Open Question 2").
+
+## Dependencies
+
+- **AIBackend, AICallOptions, AIResponse** types from `../types.js` define the backend interface contract
+- **AIServiceError** from `../types.js` used to signal unimplemented parsing with `'SUBPROCESS_ERROR'` code
+- **isCommandOnPath** from `./claude.js` reused for CLI detection logic
+
+## Integration Context
+
+GeminiBackend registers in the backend registry alongside ClaudeBackend and OpenCodeBackend. The subprocess wrapper in `src/ai/subprocess.ts` passes prompts via stdin and invokes `buildArgs()` to construct the CLI command array. AIService in `src/ai/service.ts` calls `parseResponse()` to normalize subprocess output into AIResponse structure.

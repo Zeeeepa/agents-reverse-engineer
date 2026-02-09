@@ -1,0 +1,27 @@
+---
+generated_at: 2026-02-09T13:17:41.925Z
+content_hash: d949dd52d9e6602ba7336320be9efcdf5d23285444b295078fc01dc915d1c3c9
+purpose: validator.ts defines findability validation interfaces and a stub function to verify that exported symbols from .sum ...
+---
+**validator.ts defines findability validation interfaces and a stub function to verify that exported symbols from .sum files appear in parent AGENTS.md content.**
+
+## Exported Types
+
+`FindabilityResult` interface represents validation results for a single .sum file:
+- `filePath: string` — path to the validated .sum file
+- `symbolsTested: string[]` — symbol names checked for presence
+- `symbolsFound: string[]` — symbols found in AGENTS.md
+- `symbolsMissing: string[]` — symbols absent from AGENTS.md
+- `score: number` — ratio of found to tested symbols, range [0, 1]
+
+## Exported Functions
+
+`validateFindability(_agentsMdContent: string, _sumFiles: Map<string, SumFileContent>): FindabilityResult[]` returns an empty array because structured metadata extraction (publicInterface) was removed. Function signature preserved for future re-implementation via post-processing passes. No LLM calls, intended for string-based symbol matching.
+
+## Dependencies
+
+Imports `SumFileContent` from `../../generation/writers/sum.js` for type checking .sum file content structure.
+
+## Current State
+
+Function body returns `[]` — effectively disabled. Module retained as placeholder for future structured extraction support when publicInterface or equivalent metadata becomes available.

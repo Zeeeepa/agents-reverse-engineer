@@ -1,0 +1,23 @@
+---
+generated_at: 2026-02-09T13:18:15.338Z
+content_hash: bb4f55c96ec0c37663c36e05b684a022be93a51f7fedfab85751ba88c5150446
+purpose: retry.ts implements exponential backoff retry logic with jitter for transient AI service failures.
+---
+**retry.ts implements exponential backoff retry logic with jitter for transient AI service failures.**
+
+## Exported Symbols
+
+- `DEFAULT_RETRY_OPTIONS`: Constant object defining default retry configuration (`maxRetries: 3`, `baseDelayMs: 1000`, `maxDelayMs: 8000`, `multiplier: 2`) typed as `Omit<RetryOptions, 'isRetryable' | 'onRetry'>` to exclude caller-specific predicates
+- `withRetry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T>`: Wraps any async operation with configurable retry logic, returning result on success or throwing last error after exhaustion
+
+## Retry Algorithm
+
+`withRetry` executes up to `options.maxRetries + 1` total attempts (e.g., 3 retries = 4 attempts), computing delay per attempt as `min(baseDelayMs * multiplier^attempt, maxDelayMs) + jitter` where jitter is random `[0, 500ms]`. Invokes `options.isRetryable(error)` to distinguish transient failures (retry with backoff) from permanent failures (throw immediately). Calls optional `options.onRetry(attemptNumber, error)` callback before each delay.
+
+## Integration Points
+
+Depends on `RetryOptions` type from `./types.js` (imported as type-only). Used by `AIService` (in `service.ts`) to wrap AI backend calls with rate limit and timeout resilience. Jitter prevents thundering herd when concurrent workers (`pool.ts`) hit the same rate limit simultaneously.
+
+## Design Patterns
+
+Exponential backoff with jitter implements standard cloud service retry strategy. Delay formula doubles each attempt (default `multiplier: 2`) until hitting `maxDelayMs` cap, preventing unbounded delays. Type parameter `<T>` preserves return type of wrapped function through retry logic.

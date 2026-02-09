@@ -1,0 +1,64 @@
+---
+generated_at: 2026-02-09T13:19:22.287Z
+content_hash: 5df2ebbd9526eac21b33ab5b2fcdb9996b7c5c40e26241e3f3a14e929995f224
+purpose: package.json defines the NPM package configuration for agents-reverse-engineer, a CLI tool that generates AI-friendly...
+---
+**package.json defines the NPM package configuration for agents-reverse-engineer, a CLI tool that generates AI-friendly codebase documentation through reverse engineering.**
+
+## Package Metadata
+
+- **name**: `agents-reverse-engineer`
+- **version**: `0.6.2`
+- **type**: `module` (ES modules)
+- **engines**: requires Node.js `>=18.0.0`
+- **license**: MIT
+- **author**: GeoloeG-IsT
+
+## Entry Points and Binaries
+
+- **bin**: exports two CLI aliases pointing to `dist/cli/index.js`:
+  - `agents-reverse-engineer` (full name)
+  - `are` (short alias)
+- **main**: `dist/cli/index.js` serves as the package entry point
+
+## Build and Development Scripts
+
+- **build**: runs `tsc` to compile TypeScript sources to `dist/`
+- **build:hooks**: executes `node scripts/build-hooks.js` to build hook files
+- **prepublishOnly**: chains `npm run build && npm run build:hooks` before NPM publish
+- **dev**: runs `tsx watch src/cli/index.ts` for hot-reloading during development
+
+## Runtime Dependencies
+
+- **fast-glob** `^3.3.3`: file pattern matching for discovery phase
+- **ignore** `^7.0.3`: `.gitignore` parsing for filter rules
+- **isbinaryfile** `^5.0.4`: binary file detection
+- **ora** `^8.1.1`: terminal spinner UI
+- **picocolors** `^1.1.1`: terminal color output
+- **simple-git** `^3.27.0`: Git operations for change detection
+- **yaml** `^2.7.0`: YAML parsing for config files
+- **zod** `^3.24.1`: runtime schema validation
+
+## Development Dependencies
+
+- **@types/node** `^22.10.7`: Node.js TypeScript type definitions
+- **tsx** `^4.19.2`: TypeScript execution and watch mode
+- **typescript** `^5.7.3`: TypeScript compiler
+
+## Published Files
+
+The **files** array specifies NPM package contents:
+- `dist/` (compiled JavaScript)
+- `hooks/dist/` (compiled hook scripts)
+- `README.md`
+- `LICENSE`
+
+## Repository Links
+
+- **repository**: `git+https://github.com/GeoloeG-IsT/agents-reverse-engineer.git`
+- **bugs**: `https://github.com/GeoloeG-IsT/agents-reverse-engineer/issues`
+- **homepage**: `https://github.com/GeoloeG-IsT/agents-reverse-engineer#readme`
+
+## Keywords
+
+Indexed under: `documentation`, `codebase`, `ai`, `agents`, `reverse-engineering`

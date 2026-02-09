@@ -1,0 +1,28 @@
+---
+generated_at: 2026-02-09T13:17:51.454Z
+content_hash: 766b567d891820428c3ef97c56fd538afc9041ec7b387958ce79194294ded8e9
+purpose: OpenCodeBackend implements the AIBackend interface as a stub for the OpenCode CLI, detecting CLI availability and bui...
+---
+**OpenCodeBackend implements the AIBackend interface as a stub for the OpenCode CLI, detecting CLI availability and building argument arrays but throwing AIServiceError on parseResponse until full JSONL parsing is implemented.**
+
+## Exported Symbols
+
+**OpenCodeBackend** class implements AIBackend interface with:
+- `name: 'opencode'` (readonly string property)
+- `cliCommand: 'opencode'` (readonly string property)
+- `isAvailable(): Promise<boolean>` - delegates to isCommandOnPath(this.cliCommand) to check if `opencode` CLI exists on PATH
+- `buildArgs(_options: AICallOptions): string[]` - returns `['run', '--format', 'json']` argument array for OpenCode CLI invocation
+- `parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse` - throws AIServiceError with 'SUBPROCESS_ERROR' code and message directing users to Claude backend
+- `getInstallInstructions(): string` - returns multi-line string with curl install command and opencode.ai URL
+
+## Integration Points
+
+**OpenCodeBackend** imports AIBackend, AICallOptions, AIResponse, and AIServiceError from `../types.js`, plus isCommandOnPath from `./claude.js` for CLI detection. Intended for registration in AIBackendRegistry alongside ClaudeBackend and GeminiBackend (see `src/ai/registry.ts`).
+
+## Implementation Status
+
+**OpenCodeBackend** is explicitly incomplete per module docstring: "Full implementation deferred to a future phase once the OpenCode JSONL output parsing is built (see RESEARCH.md Open Question 3)". The parseResponse method blocks any actual usage by throwing AIServiceError, making this backend non-functional until JSONL parsing logic is added.
+
+## CLI Argument Construction
+
+**buildArgs** constructs OpenCode CLI invocation based on documented flags from RESEARCH.md, with prompt delivered via stdin through subprocess wrapper (handled by runSubprocess in `src/ai/subprocess.ts`). The `--format json` flag assumes JSONL output format matching OpenCode's documented behavior.

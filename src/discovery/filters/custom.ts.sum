@@ -1,0 +1,30 @@
+---
+generated_at: 2026-02-09T13:17:44.343Z
+content_hash: fb529e7928634e7d905de0768cd5e34fecc4318031610a43f56fc4f0e3fb38e9
+purpose: createCustomFilter constructs a FileFilter that excludes files matching user-provided gitignore-style patterns during...
+---
+**createCustomFilter constructs a FileFilter that excludes files matching user-provided gitignore-style patterns during discovery.**
+
+## Exported Interface
+
+```typescript
+function createCustomFilter(patterns: string[], root: string): FileFilter
+```
+
+Returns a `FileFilter` object with `name: 'custom'` and a `shouldExclude(absolutePath: string): boolean` method.
+
+## Pattern Matching Strategy
+
+Uses the `ignore` library (imported as `Ignore` type) to parse gitignore-style patterns. The `ig.add(patterns)` method loads all user-provided exclusion patterns into an `Ignore` instance. Patterns are evaluated against relative paths computed via `path.relative(normalizedRoot, absolutePath)`.
+
+## Exclusion Logic
+
+`shouldExclude` returns `false` immediately if `patterns.length === 0`, passing all files through. For paths outside the root directory (relative path starts with `..`) or empty relative paths, returns `false` to avoid spurious exclusions. Otherwise delegates to `ig.ignores(relativePath)` which applies gitignore semantics.
+
+## Integration Point
+
+Implements the `FileFilter` interface from `../types.js`, compatible with the filter chain in `src/discovery/filters/index.ts`. The `name: 'custom'` property identifies this filter in logging and diagnostic output.
+
+## Path Normalization
+
+`path.resolve(root)` normalizes the root directory to handle relative paths and symlinks consistently. All absolute paths are converted to relative before pattern matching since the `ignore` library requires relative path inputs.

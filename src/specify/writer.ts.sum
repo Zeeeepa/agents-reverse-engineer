@@ -1,0 +1,32 @@
+---
+generated_at: 2026-02-09T13:19:00.570Z
+content_hash: 1cd35b3f4d654b045247be0ba5624bf20469a0fb17c183876faa4c6897e2d9ee
+purpose: writer.ts writes AI-generated specification markdown to disk with overwrite protection and optional multi-file splitt...
+---
+**writer.ts writes AI-generated specification markdown to disk with overwrite protection and optional multi-file splitting.**
+
+## Exported Interface and Types
+
+**WriteSpecOptions** defines output behavior with `outputPath: string` (full path to output file), `force: boolean` (overwrite without error), and `multiFile: boolean` (split by top-level headings).
+
+**SpecExistsError** extends Error and captures `paths: string[]` of existing files, thrown when writeSpec() detects conflicts and force=false.
+
+**writeSpec(content: string, options: WriteSpecOptions): Promise<string[]>** writes spec markdown to disk, returning absolute paths of all written files.
+
+## Multi-File Splitting Algorithm
+
+**splitByHeadings(content: string)** splits markdown on top-level `# ` headings (regex `/^(?=# )/m`), returning `Array<{ filename: string; content: string }>`. Content before first heading becomes `00-preamble.md`.
+
+**slugify(heading: string): string** transforms heading text into filename-safe slugs via lowercase + whitespace→hyphens + strip non-alphanumeric + collapse consecutive hyphens + trim.
+
+## Write Modes
+
+Single-file mode writes content directly to outputPath. Multi-file mode derives outputDir from `path.dirname(outputPath)`, splits content via splitByHeadings(), checks all target files for existence before writing (atomic conflict detection), then writes each section to `outputDir/section.filename`.
+
+## Overwrite Protection
+
+fileExists(filePath: string) uses `access(filePath, constants.F_OK)` with try-catch. In single-file mode, throws SpecExistsError([outputPath]) if file exists and force=false. In multi-file mode, accumulates all conflicting paths before throwing SpecExistsError(conflicts) to report all collisions upfront.
+
+## Integration Point
+
+Called by specify command (src/cli/specify.ts) after AI synthesis to persist spec output. Error handling allows CLI to present user-friendly overwrite prompts.

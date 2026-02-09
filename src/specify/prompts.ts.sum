@@ -1,0 +1,28 @@
+---
+generated_at: 2026-02-09T13:19:02.529Z
+content_hash: 4271916e75010aa5b51ca125d4bfb2e89ea3ce4d8acabfa0cfc9f647a8837e96
+purpose: prompts.ts exports buildSpecPrompt() to construct AI prompts for synthesizing project specifications from AGENTS.md d...
+---
+**prompts.ts exports buildSpecPrompt() to construct AI prompts for synthesizing project specifications from AGENTS.md documentation, enforcing concern-based organization over directory mirroring.**
+
+## Exported Types
+
+**SpecPrompt** interface defines the prompt pair structure with `system: string` and `user: string` fields, representing the system instructions and user content for AI spec generation.
+
+**AgentsDocs** type (imported from `../generation/collector.js`) represents the collected AGENTS.md documents array, where each element contains `relativePath: string` and `content: string`.
+
+## Exported Constants
+
+**SPEC_SYSTEM_PROMPT** constant contains the complete system prompt string that instructs the AI to generate specifications from documentation. Enforces nine mandatory sections: Project Overview, Architecture, Public API Surface, Data Structures & State, Configuration, Dependencies, Behavioral Contracts, Test Contracts, and Build Plan. Prohibits directory-mirroring organization and exact file path prescription. Requires full type signatures, version numbers for dependencies, phased implementation ordering in Build Plan, and explicit error type specifications in Behavioral Contracts. Targets AI agent consumption with structured, instruction-oriented language.
+
+## Exported Functions
+
+**buildSpecPrompt(docs: AgentsDocs): SpecPrompt** constructs the prompt pair by injecting collected AGENTS.md content into the user prompt. Maps each document to a section with `### ${doc.relativePath}` heading followed by content. Appends Output Requirements section listing the nine mandatory specification sections. Returns SpecPrompt object with SPEC_SYSTEM_PROMPT as system field and constructed markdown as user field. The user prompt includes document count in header: `## AGENTS.md Files (${docs.length} directories)`. Final instruction enforces raw markdown output with no preamble.
+
+## Integration Points
+
+Imports **AgentsDocs** from `../generation/collector.js` which provides the array of collected AGENTS.md documents. Used by `src/specify/index.ts` as the prompt construction layer before AI invocation. The SpecPrompt output feeds into AIService for specification generation.
+
+## Design Pattern
+
+Implements Template Method pattern where SPEC_SYSTEM_PROMPT defines the invariant specification structure, and buildSpecPrompt() fills the variable content (collected documentation). Separates prompt template from content injection for testability and prompt evolution.

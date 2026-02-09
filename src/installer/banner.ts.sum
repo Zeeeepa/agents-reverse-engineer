@@ -1,0 +1,37 @@
+---
+generated_at: 2026-02-09T13:18:32.416Z
+content_hash: a85a81a5afe711c4f046f4362150ce8f01007cd33a3258f53fc4543bd88730fb
+purpose: banner.ts provides ASCII banner display, version retrieval, styled terminal output helpers, and post-installation ins...
+---
+**banner.ts provides ASCII banner display, version retrieval, styled terminal output helpers, and post-installation instructions for the ARE installer.**
+
+## Exported Constants
+
+- `VERSION: string` — package version extracted by `getVersion()`, falls back to `'unknown'` on error
+
+## Exported Functions
+
+### Banner and Help Display
+
+- `displayBanner(): void` — prints green ASCII art "ARE" logo with `VERSION` and tagline using `picocolors` (`pc.green`, `pc.dim`)
+- `showHelp(): void` — prints usage documentation including `--runtime`, `-g/--global`, `-l/--local`, `-u/--uninstall`, `--force`, `-q/--quiet`, `-h/--help` flags with examples
+
+### Styled Message Helpers
+
+- `showSuccess(msg: string): void` — prints message with green checkmark prefix (`pc.green('✓')`)
+- `showError(msg: string): void` — prints message with red X prefix (`pc.red('✗')`)
+- `showWarning(msg: string): void` — prints message with yellow exclamation prefix (`pc.yellow('!')`)
+- `showInfo(msg: string): void` — prints message with cyan arrow prefix (`pc.cyan('>')`)
+
+### Post-Installation Guidance
+
+- `showNextSteps(runtime: string, filesCreated: number): void` — prints installation summary with step-by-step workflow: `/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean` and GitHub docs link
+
+## Internal Implementation
+
+- `getVersion(): string` — resolves `package.json` path via `import.meta.url`, `fileURLToPath`, `dirname`, and `join`, reads version field with `readFileSync`, returns `'unknown'` on error
+
+## Dependencies
+
+- `picocolors` (`pc`) for terminal color styling
+- Node.js built-ins: `fs.readFileSync`, `path.{dirname, join}`, `url.fileURLToPath`

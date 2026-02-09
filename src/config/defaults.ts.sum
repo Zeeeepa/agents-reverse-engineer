@@ -1,0 +1,26 @@
+---
+generated_at: 2026-02-09T13:18:17.700Z
+content_hash: e9147e7fe9a8fc72f5afc5e8fe7d990ce8d9ac8ef4246fdbe435dbb3ada482e4
+purpose: defaults.ts exports constant configuration values for filtering files during codebase discovery, including vendor dir...
+---
+**defaults.ts exports constant configuration values for filtering files during codebase discovery, including vendor directory exclusions, file pattern ignores, binary extension filters, and size limits.**
+
+## Exported Constants
+
+- `DEFAULT_VENDOR_DIRS`: readonly string array of 18 directory names to exclude (node_modules, vendor, .git, dist, build, __pycache__, .next, venv, .venv, target, .cargo, .gradle, .agents-reverse-engineer, .agents, .planning, .claude, .opencode, .gemini)
+- `DEFAULT_EXCLUDE_PATTERNS`: readonly string array of gitignore-style glob patterns excluding AI documentation files (AGENTS.md, CLAUDE.md, OPENCODE.md, GEMINI.md with **/ prefix variants), lock files (*.lock, package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lock, bun.lockb, Gemfile.lock, Cargo.lock, poetry.lock, composer.lock, go.sum), dotfiles (.gitignore, .gitattributes, .gitkeep, .env, **/.env, **/.env.*), and generated artifacts (*.log, *.sum, **/*.sum, **/SKILL.md)
+- `DEFAULT_BINARY_EXTENSIONS`: readonly string array of 26 file extensions starting with dot (.png, .jpg, .jpeg, .gif, .bmp, .ico, .webp for images; .zip, .tar, .gz, .rar, .7z for archives; .exe, .dll, .so, .dylib for executables; .mp3, .mp4, .wav for media; .pdf for documents; .woff, .woff2, .ttf, .eot for fonts; .class, .pyc for compiled code)
+- `DEFAULT_MAX_FILE_SIZE`: number constant set to 1048576 bytes (1MB) for file size threshold
+- `DEFAULT_CONFIG`: readonly object with shape `{ exclude: { patterns, vendorDirs, binaryExtensions }, options: { followSymlinks: false, maxFileSize }, output: { colors: true } }` consolidating all defaults into schema-compatible structure
+
+## Filter Categories
+
+DEFAULT_VENDOR_DIRS targets package manager directories and build outputs (node_modules, dist, build, target), Python virtual environments (venv, .venv, __pycache__), Next.js cache (.next), Rust/Cargo (.cargo), Gradle (.gradle), and AI assistant tooling directories (.agents-reverse-engineer, .agents, .planning, .claude, .opencode, .gemini).
+
+DEFAULT_EXCLUDE_PATTERNS uses gitignore syntax for custom filter matching, explicitly excluding AI-generated documentation to prevent recursive analysis, lock files due to size and lack of semantic value, and environment/dotfiles (.env variants) for security.
+
+DEFAULT_BINARY_EXTENSIONS covers non-text file types organized by category: raster images (png/jpg/jpeg/gif/bmp/ico/webp), compressed archives (zip/tar/gz/rar/7z), platform executables (exe/dll/so/dylib), audio/video (mp3/mp4/wav), documents (pdf), web fonts (woff/woff2/ttf/eot), and bytecode (class/pyc).
+
+## Integration Points
+
+DEFAULT_CONFIG serves as fallback when config file missing or fields incomplete, matching Zod schema in src/config/schema.ts. The exclude.patterns array feeds into custom filter (src/discovery/filters/custom.ts), vendorDirs feeds vendor filter (src/discovery/filters/vendor.ts), and binaryExtensions feeds binary filter (src/discovery/filters/binary.ts) during discovery phase in src/discovery/walker.ts.

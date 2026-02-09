@@ -1,0 +1,52 @@
+---
+generated_at: 2026-02-09T13:18:55.767Z
+content_hash: d02a24e13a0906dba3a61649dc79b489cc9434ab56be1e660df457461cab2f2c
+purpose: templates.ts generates platform-specific command file templates for Claude Code, OpenCode, and Gemini CLI integration...
+---
+**templates.ts generates platform-specific command file templates for Claude Code, OpenCode, and Gemini CLI integrations, exporting getClaudeTemplates(), getOpenCodeTemplates(), and getGeminiTemplates().**
+
+## Exported Functions
+
+- **getClaudeTemplates(): IntegrationTemplate[]** — Returns Claude Code skill templates (`.claude/skills/are-{command}/SKILL.md` with frontmatter including `name:` field)
+- **getOpenCodeTemplates(): IntegrationTemplate[]** — Returns OpenCode command templates (`.opencode/commands/are-{command}.md` with `agent: build` frontmatter)
+- **getGeminiTemplates(): IntegrationTemplate[]** — Returns Gemini CLI command templates (`.gemini/commands/are-{command}.toml` in TOML format with `description` and `prompt` fields)
+
+## Command Definitions
+
+COMMANDS constant defines seven commands: `generate`, `update`, `init`, `discover`, `clean`, `specify`, `help`. Each entry contains:
+- **description: string** — Command summary (e.g., "Generate AI-friendly documentation for the entire codebase")
+- **argumentHint: string** — CLI argument syntax (e.g., "[path] [--dry-run] [--concurrency N]")
+- **content: string** — Multi-line markdown instruction block with `<execution>` tags, progress monitoring steps using `tail -5 .agents-reverse-engineer/progress.log`, and `COMMAND_PREFIX` placeholder for platform-specific prefix replacement
+
+## Platform Configuration
+
+PlatformConfig interface defines:
+- **commandPrefix: string** — Slash command prefix (`/are-` for all platforms)
+- **pathPrefix: string** — Installation directory (`.claude/skills/`, `.opencode/commands/`, `.gemini/commands/`)
+- **filenameSeparator: string** — Separator for compound filenames (`.` for Claude, `-` for OpenCode/Gemini)
+- **extraFrontmatter?: string** — Platform-specific YAML fields (`agent: build` for OpenCode only)
+- **usesName: boolean** — Whether frontmatter includes `name:` field (true for Claude only)
+
+PLATFORM_CONFIGS maps Platform union type (`'claude' | 'opencode' | 'gemini'`) to PlatformConfig objects.
+
+## Template Generation
+
+- **buildFrontmatter(platform: Platform, commandName: string, description: string): string** — Constructs YAML frontmatter with conditional `name:` field (Claude), mandatory `description:`, and optional `extraFrontmatter` (OpenCode's `agent: build`)
+- **buildGeminiToml(commandName: string, command): string** — Constructs TOML format with `description = "..."` and `prompt = """..."""` triple-quoted multiline string, replacing `COMMAND_PREFIX` placeholder
+- **buildTemplate(platform: Platform, commandName: string, command): IntegrationTemplate** — Dispatches to buildGeminiToml for Gemini platform (returns TOML), otherwise constructs Markdown with frontmatter + content and platform-specific filename (Claude uses `SKILL.md` in subdirectory, OpenCode/Gemini use `are-{command}.md/.toml` flat structure)
+- **getTemplatesForPlatform(platform: Platform): IntegrationTemplate[]** — Maps COMMANDS entries through buildTemplate
+
+## Command Execution Patterns
+
+All long-running commands (`generate`, `update`, `discover`, `specify`) share identical execution pattern:
+1. Remove stale `.agents-reverse-engineer/progress.log` via `rm -f`
+2. Run `npx agents-reverse-engineer@latest {command} $ARGUMENTS` with `run_in_background: true`
+3. Poll progress log every ~10-15 seconds using `tail -5 .agents-reverse-engineer/progress.log`
+4. Check background task completion via `TaskOutput` with `block: false`
+5. Summarize final output on completion
+
+**help** command uses `COMMAND_PREFIX` placeholder extensively throughout reference content tables and examples, replaced per platform (e.g., `/are-generate` becomes command invocation syntax).
+
+## Integration with installer
+
+IntegrationTemplate type (from `./types.js`) consumed by installer module defines `filename: string`, `path: string`, `content: string`. Template paths match installer/paths.ts expectations for skill/command directory structures per platform.

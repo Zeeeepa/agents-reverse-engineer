@@ -1,0 +1,38 @@
+---
+generated_at: 2026-02-09T13:18:15.977Z
+content_hash: 8b123030a9ae9b650e3148fccfc8bcfe2bc0e1b2bb0bfa9db2d6a0d7901c3178
+purpose: `src/ai/index.ts` exposes the public API surface for the AI service layer as a barrel export enforcing encapsulation ...
+---
+**`src/ai/index.ts` exposes the public API surface for the AI service layer as a barrel export enforcing encapsulation boundaries.**
+
+## Encapsulation Boundary
+
+All imports from `src/ai/backends/` and `src/ai/telemetry/` must route through this barrel export — direct imports to subdirectories violate the module boundary documented in the JSDoc comment.
+
+## Exported Types
+
+Re-exports from `./types.js`: `AIBackend`, `AIResponse`, `AICallOptions`, `SubprocessResult`, `RetryOptions`, `TelemetryEntry`, `RunLog`, `FileRead`.
+
+## Exported Error Classes
+
+Re-exports `AIServiceError` from `./types.js` for error handling.
+
+## Core Service Orchestrator
+
+Exports `AIService` class and `AIServiceOptions` type from `./service.js`. `AIService` constructor accepts `AIBackend` and `AIServiceOptions` with `timeoutMs`, `maxRetries`, and `telemetry.keepRuns` fields. `AIService.call()` method accepts `AICallOptions` containing `prompt` field and returns `Promise<AIResponse>`.
+
+## Backend Registry
+
+Exports `BackendRegistry` class, `createBackendRegistry()` factory, `resolveBackend()` resolver, `detectBackend()` auto-detection, and `getInstallInstructions()` from `./registry.js`. `resolveBackend()` accepts `BackendRegistry` and backend name string (supports `'auto'` for auto-detection) returning `Promise<AIBackend>`.
+
+## Retry Infrastructure
+
+Exports `withRetry()` utility and `DEFAULT_RETRY_OPTIONS` constant from `./retry.js` for retry logic with `RetryOptions`.
+
+## Subprocess Execution
+
+Exports `runSubprocess()` function from `./subprocess.js` returning `Promise<SubprocessResult>`.
+
+## Backend Utilities
+
+Exports `isCommandOnPath()` function from `./backends/claude.js` for checking CLI availability.

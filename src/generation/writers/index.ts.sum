@@ -1,0 +1,23 @@
+---
+generated_at: 2026-02-09T13:17:43.800Z
+content_hash: c67fdb8a7cbf2059c4a63cf8ab6f62c235724007d0288b1c4b0d3b97c532aaaa
+purpose: Barrel module exporting file-level documentation writers (writeSumFile, readSumFile, getSumPath, sumFileExists, SumFi...
+---
+**Barrel module exporting file-level documentation writers (writeSumFile, readSumFile, getSumPath, sumFileExists, SumFileContent) from sum.js and directory-level documentation writer (writeAgentsMd) from agents-md.js.**
+
+## Exported Symbols
+
+- `writeSumFile`: function for writing `.sum` file documentation (file-level summaries)
+- `readSumFile`: function for reading existing `.sum` files
+- `getSumPath`: utility for resolving `.sum` file paths given a source file path
+- `sumFileExists`: predicate checking existence of `.sum` file for a given source file
+- `SumFileContent`: type representing the structure of parsed `.sum` file contents
+- `writeAgentsMd`: function for generating `AGENTS.md` directory-level documentation
+
+## Module Role
+
+Centralizes access to the two-tier documentation writers used in the three-phase generation pipeline: sum.js handles atomic file-level summaries written during concurrent Phase 1, while agents-md.js handles directory-level AGENTS.md aggregation during post-order Phase 2.
+
+## Integration Context
+
+Consumed by `src/generation/orchestrator.ts` during the generation workflow and by `src/update/orchestrator.ts` during incremental updates. The sum.js exports support both writing new summaries and reading existing ones for change detection via `src/change-detection/detector.ts`.

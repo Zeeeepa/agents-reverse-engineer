@@ -1,0 +1,29 @@
+---
+generated_at: 2026-02-09T13:19:18.859Z
+content_hash: 6887e78721df5fe39e42f0d4515ab296cc48e536089ec8ca4b5916f7eddebed8
+purpose: LANGUAGES-MANIFEST.md maps ecosystem package manager manifest files to language identifiers for dependency detection ...
+---
+**LANGUAGES-MANIFEST.md maps ecosystem package manager manifest files to language identifiers for dependency detection across 26 languages.**
+
+## Reference Table Structure
+
+Columns: Language, Manifest File(s), Package Manager, Supported
+- Language column contains language names and ecosystems (JavaScript/TypeScript, C#/.NET, Dart/Flutter)
+- Manifest File(s) column lists glob-matchable filenames used by `src/imports/extractor.ts` for dependency parsing
+- Package Manager column identifies toolchain (npm, pip, cargo, etc.)
+- Supported column checkmark (✓) indicates languages with active import extraction in `ImportExtractor`
+
+## Currently Supported Languages
+
+JavaScript/TypeScript: `package.json` (npm/yarn/pnpm)
+Python: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` (pip/poetry/pipenv)
+Go: `go.mod` (go modules)
+Rust: `Cargo.toml` (cargo)
+
+## Unsupported Languages Reference
+
+Ruby (`Gemfile`), Java (`pom.xml`, `build.gradle`), Kotlin, C#/.NET (`*.csproj`), PHP (`composer.json`), Swift (`Package.swift`), Elixir (`mix.exs`), Erlang (`rebar.config`), Scala (`build.sbt`), Clojure (`deps.edn`, `project.clj`), Haskell (`package.yaml`, `*.cabal`, `stack.yaml`), Dart/Flutter (`pubspec.yaml`), Lua (`*.rockspec`), R (`DESCRIPTION`), Julia (`Project.toml`), Zig (`build.zig.zon`), Nim (`*.nimble`), OCaml (`dune-project`, `*.opam`), C/C++ (`CMakeLists.txt`, `conanfile.txt`, `vcpkg.json`)
+
+## Integration Points
+
+`src/imports/extractor.ts` uses this manifest as reference specification when implementing `ImportExtractor.extract()` to parse dependencies from language-specific lockfiles and manifest formats.

@@ -1,0 +1,30 @@
+---
+generated_at: 2026-02-09T13:19:20.651Z
+content_hash: bebbac9539b1852caf8c0855f599a72527e4266076aba139231fb1c036ad4e37
+purpose: tsconfig.json configures TypeScript compiler options for the agents-reverse-engineer project with strict type checkin...
+---
+**tsconfig.json configures TypeScript compiler options for the agents-reverse-engineer project with strict type checking, ES2022 target, and NodeNext module resolution.**
+
+## Compiler Target and Module System
+- `target: "ES2022"` compiles TypeScript down to ECMAScript 2022 syntax
+- `module: "NodeNext"` and `moduleResolution: "NodeNext"` enable Node.js native ESM support with package.json `"type": "module"`
+- `lib: ["ES2022"]` includes ES2022 standard library type definitions
+
+## Build Output Configuration
+- `outDir: "dist"` emits compiled JavaScript to dist/ directory
+- `rootDir: "src"` designates src/ as compilation root, matching include pattern `["src/**/*"]`
+- `declaration: true` generates .d.ts type declaration files for consumers
+- `declarationMap: true` creates .d.ts.map files linking declarations to source
+- `sourceMap: true` emits .js.map files for debugging compiled output
+
+## Type Safety and Module Handling
+- `strict: true` enables all strict type-checking flags (strictNullChecks, strictFunctionTypes, etc.)
+- `forceConsistentCasingInFileNames: true` enforces case-sensitive imports to prevent cross-platform issues
+- `skipLibCheck: true` skips type checking of node_modules .d.ts files for faster builds
+- `isolatedModules: true` ensures each file can be transpiled independently (required for esbuild compatibility)
+- `resolveJsonModule: true` allows importing JSON files as typed modules (used for package.json imports)
+- `esModuleInterop: true` enables default import compatibility with CommonJS modules
+
+## Compilation Scope
+- `include: ["src/**/*"]` compiles all TypeScript files under src/ directory
+- `exclude: ["node_modules", "dist"]` prevents compilation of dependencies and previous build output

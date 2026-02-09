@@ -1,0 +1,28 @@
+---
+generated_at: 2026-02-09T13:17:42.538Z
+content_hash: 27e3cf98055a02fd64a520570aee7849984b5a99f647427b1d6cedcecf8d88a3
+purpose: TelemetryLogger accumulates per-call AI telemetry entries in memory during a CLI run and computes aggregate statistic...
+---
+**TelemetryLogger accumulates per-call AI telemetry entries in memory during a CLI run and computes aggregate statistics for serialization to NDJSON run logs.**
+
+## Exported Class
+
+`TelemetryLogger` provides:
+- `constructor(runId: string)` — initializes with `runId` and captures `startTime` as ISO 8601 timestamp
+- `addEntry(entry: TelemetryEntry): void` — appends a `TelemetryEntry` to the internal `entries` array
+- `getEntries(): readonly TelemetryEntry[]` — returns immutable view of accumulated entries
+- `setFilesReadOnLastEntry(filesRead: FileRead[]): void` — mutates the `filesRead` field on the most recent entry (called by AI service after command runner attaches file metadata)
+- `getSummary(): RunLog['summary']` — computes uncached totals by iterating all entries: `totalCalls`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `totalFilesRead`, `uniqueFilesRead` (deduplicated via `Set<string>`)
+- `toRunLog(): RunLog` — assembles final `RunLog` object with `runId`, `startTime`, `endTime` (current time), cloned `entries`, and computed `summary`
+
+## Type Dependencies
+
+Imports `TelemetryEntry`, `RunLog`, `FileRead` from `../types.js`.
+
+## Usage Pattern
+
+Created once per CLI invocation, passed to AI service calls via `AIService`, mutated throughout run with `addEntry()` and `setFilesReadOnLastEntry()`, finalized with `toRunLog()` for NDJSON serialization to `.agents-reverse-engineer/logs/`.
+
+## Design Notes
+
+`getSummary()` recomputes totals on every call (no caching) to reflect real-time state during run. `uniqueFilesRead` uses `Set<string>` to deduplicate file paths across all entries. `setFilesReadOnLastEntry()` exists because file metadata attachment happens asynchronously after subprocess completion.

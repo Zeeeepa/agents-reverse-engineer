@@ -1,0 +1,34 @@
+---
+generated_at: 2026-02-09T13:19:13.468Z
+content_hash: 44cb7417cb816bca726cea3efc185fddb34ac17f60bc8f7326c1cc3281349a1b
+purpose: are-check-update.js spawns a detached background process to check `agents-reverse-engineer` npm package version and c...
+---
+**are-check-update.js spawns a detached background process to check `agents-reverse-engineer` npm package version and cache update availability status.**
+
+## Entry Point
+
+Executable Node.js script invoked by Claude Code SessionStart hook to perform non-blocking version check once per session.
+
+## File System Paths
+
+`cacheDir` resolves to `~/.claude/cache/`, created via `mkdirSync` with `recursive: true` if missing. `cacheFile` writes to `~/.claude/cache/are-update-check.json`. `projectVersionFile` reads from `${cwd}/.claude/ARE-VERSION`, `globalVersionFile` reads from `~/.claude/ARE-VERSION`, prioritizing project-local installation over global.
+
+## Background Process Pattern
+
+`spawn(process.execPath, ['-e', ...])` launches detached Node.js process with `stdio: 'ignore'`, `detached: true`, `windowsHide: true`. Parent calls `child.unref()` to allow immediate termination without waiting for background work.
+
+## Version Detection Logic
+
+Background process reads `installed` version from `projectVersionFile` or `globalVersionFile` via `fs.readFileSync`, defaulting to `'0.0.0'` on error. Queries `latest` version via `execSync('npm view agents-reverse-engineer version')` with 10s timeout. Computes `update_available` boolean as `latest && installed !== latest`.
+
+## Cache Result Schema
+
+`fs.writeFileSync(cacheFile, JSON.stringify(result))` serializes object with properties: `update_available` (boolean), `installed` (string), `latest` (string or `'unknown'`), `checked` (Unix timestamp from `Math.floor(Date.now() / 1000)`).
+
+## Error Handling
+
+Silent failure via empty `catch (e) {}` blocks: version file reads default to `'0.0.0'`, npm registry queries leave `latest` as `null`, resulting in `update_available: false` and `latest: 'unknown'`.
+
+## Dependencies
+
+Imports `existsSync`, `mkdirSync`, `readFileSync`, `writeFileSync` from `fs`, `homedir` from `os`, `join` from `path`, `spawn`, `execSync` from `child_process`. Background process requires these same Node.js built-ins via runtime `require()`.

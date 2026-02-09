@@ -1,0 +1,55 @@
+---
+generated_at: 2026-02-09T13:18:16.991Z
+content_hash: 0c23b562fa66b909d259d509549547fce02a1fd6dfb2621c38f4a569ac1bb963
+purpose: index.ts serves as the CLI entry point for the agents-reverse-engineer tool, parsing command-line arguments and routi...
+---
+**index.ts serves as the CLI entry point for the agents-reverse-engineer tool, parsing command-line arguments and routing to command handlers (initCommand, discoverCommand, generateCommand, updateCommand, cleanCommand, specifyCommand) or the interactive installer (runInstaller).**
+
+## Command Routing
+
+The `main()` function parses `process.argv` via `parseArgs()` and dispatches to six command modules:
+
+- **init**: calls `initCommand(path)` from `./init.js` to create default configuration
+- **discover**: calls `discoverCommand(path, {})` from `./discover.js` to discover files for analysis
+- **generate**: calls `generateCommand(path, GenerateOptions)` from `./generate.js` to generate documentation
+- **update**: calls `updateCommand(path, UpdateCommandOptions)` from `./update.js` for incremental doc updates
+- **specify**: calls `specifyCommand(path, SpecifyOptions)` from `./specify.js` to generate project specification from AGENTS.md
+- **clean**: calls `cleanCommand(path, CleanOptions)` from `./clean.js` to delete generated artifacts
+- **install/uninstall**: calls `runInstaller(installerArgs)` from `../installer/index.js` with `parseInstallerArgs()`
+
+## Argument Parsing
+
+`parseArgs(args: string[])` returns `{ command: string | undefined; positional: string[]; flags: Set<string>; values: Map<string, string> }`. Extracts command (first non-flag arg), positional args, boolean flags (`--flag`), and key-value pairs (`--key value`). Short flags (`-h`, `-g`, `-l`, `-V`) map to long forms (`help`, `global`, `local`, `version`).
+
+## Options Types
+
+- **GenerateOptions**: `{ dryRun?: boolean; concurrency?: number; failFast?: boolean; debug?: boolean; trace?: boolean }`
+- **UpdateCommandOptions**: `{ uncommitted?: boolean; dryRun?: boolean; concurrency?: number; failFast?: boolean; debug?: boolean; trace?: boolean }`
+- **CleanOptions**: `{ dryRun?: boolean }`
+- **SpecifyOptions**: `{ output?: string; force?: boolean; dryRun?: boolean; multiFile?: boolean; debug?: boolean; trace?: boolean }`
+
+## Installer Invocation Modes
+
+Three entry paths to `runInstaller()`:
+
+1. **Interactive (no args)**: `args.length === 0` launches installer with all flags false
+2. **Explicit command**: `install` or `uninstall` command with parsed flags
+3. **Direct flags**: no command but `hasInstallerFlags()` detects `--global`, `--local`, `--force`, or `--runtime` (supports `npx agents-reverse-engineer --runtime claude -g`)
+
+## Version and Help
+
+`getVersion()` reads `package.json` from `__dirname/../../package.json` using `fileURLToPath(import.meta.url)` and returns `VERSION` string. `showVersion()` prints version and exits. `showHelp()` prints `USAGE` constant and exits. `showVersionBanner()` prints version without exiting. `showUnknownCommand(command)` prints error and exits with code 1.
+
+## Global Flags
+
+- `--help` / `-h`: exits via `showHelp()` unless `install` command present with installer flags
+- `--version` / `-V`: exits via `showVersion()`
+- `--debug`: enables AI prompt logging (passed to command options)
+- `--trace`: enables NDJSON trace output to `.agents-reverse-engineer/traces/` (passed to command options)
+- `--dry-run`: shows plan without writing files (generate, update, specify, clean)
+- `--concurrency <n>`: sets concurrent AI call limit (default 5, passed to generate/update)
+- `--fail-fast`: stops on first file analysis failure (passed to generate/update)
+
+## Error Handling
+
+`main().catch()` logs `err.message` and exits with code 1. All command handlers are async and propagate errors upward.

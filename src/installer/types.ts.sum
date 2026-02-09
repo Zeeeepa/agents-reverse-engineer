@@ -1,0 +1,62 @@
+---
+generated_at: 2026-02-09T13:18:43.566Z
+content_hash: c9618acf7084121a419590d18820c6e7d77a9bae7c6e79d26cc1b558928b4584
+purpose: Defines TypeScript types for the ARE installer workflow supporting installation to Claude Code, OpenCode, and Gemini ...
+---
+**Defines TypeScript types for the ARE installer workflow supporting installation to Claude Code, OpenCode, and Gemini runtime directories.**
+
+## Exported Types
+
+### Runtime
+```typescript
+type Runtime = 'claude' | 'opencode' | 'gemini' | 'all'
+```
+Discriminates between supported AI coding assistant runtimes: `'claude'` maps to `~/.claude` or `.claude`, `'opencode'` to `~/.config/opencode` or `.opencode`, `'gemini'` to `~/.gemini` or `.gemini`, `'all'` installs to all three.
+
+### Location
+```typescript
+type Location = 'global' | 'local'
+```
+Discriminates installation scope: `'global'` targets user-level directories (`~/.claude`, `~/.config/opencode`, etc.), `'local'` targets project-level directories (`.claude`, `.opencode`, etc.).
+
+### InstallerArgs
+```typescript
+interface InstallerArgs {
+  runtime?: Runtime;
+  global: boolean;
+  local: boolean;
+  uninstall: boolean;
+  force: boolean;
+  help: boolean;
+  quiet: boolean;
+}
+```
+Parsed CLI arguments for installer: `runtime` selects target (optional for prompting), `global`/`local` flags control installation scope, `uninstall` triggers removal, `force` overwrites existing files, `help` shows usage, `quiet` suppresses banner/info output.
+
+### InstallerResult
+```typescript
+interface InstallerResult {
+  success: boolean;
+  runtime: Exclude<Runtime, 'all'>;
+  location: Location;
+  filesCreated: string[];
+  filesSkipped: string[];
+  errors: string[];
+  hookRegistered?: boolean;
+  versionWritten?: boolean;
+}
+```
+Reports single runtime/location installation outcome: `success` indicates overall status, `runtime` excludes `'all'` (results are per-concrete-runtime), `filesCreated`/`filesSkipped` track file write operations, `errors` accumulates failure messages, `hookRegistered` is Claude-specific (settings.json registration), `versionWritten` confirms VERSION file creation.
+
+### RuntimePaths
+```typescript
+interface RuntimePaths {
+  global: string;
+  local: string;
+  settingsFile: string;
+}
+```
+Resolved filesystem paths for a runtime: `global` points to user-level directory (`~/.claude`), `local` to project-level (`.claude`), `settingsFile` to settings.json for hook registration (Claude Code only).
+
+## Integration Context
+Used by `src/installer/operations.ts` (install/uninstall logic), `src/installer/paths.ts` (path resolution), `src/installer/prompts.ts` (interactive mode), and `src/installer/index.ts` (CLI entry point). The `Runtime` type's `'all'` variant requires expansion to concrete runtimes before producing `InstallerResult` instances.

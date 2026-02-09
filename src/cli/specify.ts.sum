@@ -1,0 +1,52 @@
+---
+generated_at: 2026-02-09T13:18:16.538Z
+content_hash: 6fdb25334ecd939dd02edcd5c18dee77450cfb0834cbe23ea6d4f2ebb01fc696
+purpose: specifyCommand() orchestrates project specification synthesis by collecting AGENTS.md files, building an AI prompt vi...
+---
+**specifyCommand() orchestrates project specification synthesis by collecting AGENTS.md files, building an AI prompt via buildSpecPrompt(), invoking AIService with extended timeout, and writing output through writeSpec().**
+
+## Exported Interface
+
+```typescript
+interface SpecifyOptions {
+  output?: string;      // Custom output path (default: specs/SPEC.md)
+  force?: boolean;      // Overwrite existing specs
+  dryRun?: boolean;     // Show plan without calling AI
+  multiFile?: boolean;  // Split output into multiple files
+  debug?: boolean;      // Show verbose debug info
+  trace?: boolean;      // Enable tracing
+}
+
+async function specifyCommand(
+  targetPath: string,
+  options: SpecifyOptions
+): Promise<void>
+```
+
+## Execution Flow
+
+specifyCommand() executes a five-phase pipeline: (1) loads configuration via loadConfig(), (2) collects AGENTS.md files through collectAgentsDocs(), (3) auto-generates missing documentation by calling generateCommand() if docs.length === 0, (4) resolves AI backend using createBackendRegistry() and resolveBackend(), (5) invokes aiService.call() with buildSpecPrompt() output, (6) writes results via writeSpec() which throws SpecExistsError when force=false and output exists.
+
+## Dry-Run Mode
+
+When options.dryRun is true, displays summary statistics (docs.length, estimated tokens via chars/4/1000 calculation, outputPath, multiFile mode) without calling generateCommand() or AIService, warns if docs.length === 0 or estimatedTokensK > 150.
+
+## AI Backend Resolution
+
+Calls createBackendRegistry() to get available backends, resolveBackend() to select configured backend, catches AIServiceError with code='CLI_NOT_FOUND' to display getInstallInstructions(), exits with process.exit(2) on missing CLI.
+
+## AIService Configuration
+
+Instantiates AIService with extended timeoutMs set to Math.max(config.ai.timeoutMs, 600_000) to accommodate long-running spec generation, passes config.ai.maxRetries, config.ai.model, and config.ai.telemetry.keepRuns, calls aiService.setDebug() when options.debug is true.
+
+## Progress Logging
+
+Creates ProgressLog.create() instance to write runtime events to .agents-reverse-engineer/progress.log, logs ISO timestamp via `new Date().toISOString()`, docs count, spec generation start, written file paths, token summary via aiService.finalize(), calls progressLog.finalize() before exit.
+
+## Error Handling
+
+Catches SpecExistsError from writeSpec() to log error.message via progressLog.write() and console.error(), exits with process.exit(1), propagates other errors uncaught.
+
+## Dependencies
+
+Imports loadConfig from ../config/loader, collectAgentsDocs from ../generation/collector, buildSpecPrompt/writeSpec/SpecExistsError from ../specify/, AIService/AIServiceError/createBackendRegistry/resolveBackend/getInstallInstructions from ../ai/, ProgressLog from ../orchestration/, generateCommand from ./generate.

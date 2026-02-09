@@ -1,0 +1,32 @@
+---
+generated_at: 2026-02-09T13:18:15.213Z
+content_hash: 20526dbcc3fa83bca2efb8a76027db019b8944ad212cf781c189935bfced0410
+purpose: Detects documentation drift by comparing exported symbols in TypeScript/JavaScript source files against their corresp...
+---
+**Detects documentation drift by comparing exported symbols in TypeScript/JavaScript source files against their corresponding .sum documentation content.**
+
+## Exported Functions
+
+### extractExports
+```typescript
+function extractExports(sourceContent: string): string[]
+```
+Parses TypeScript/JavaScript source using regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` to extract exported identifier names. Matches `export function foo`, `export const BAR`, `export default class App`, and similar patterns. Ignores re-exports (e.g., `export { x } from 'y'`), commented lines, and non-exported declarations. Returns array of identifier strings.
+
+### checkCodeVsDoc
+```typescript
+function checkCodeVsDoc(
+  sourceContent: string,
+  sumContent: SumFileContent,
+  filePath: string,
+): CodeDocInconsistency | null
+```
+Compares exports extracted from `sourceContent` against `sumContent.summary` text to detect inconsistencies. Identifies `missingFromDoc` (symbols exported in source but not mentioned in .sum text) using case-sensitive substring matching (`sumText.includes(e)`). Returns `CodeDocInconsistency` object with `type: 'code-vs-doc'`, `severity: 'warning'`, `filePath`, `sumPath`, `description`, and `details: { missingFromDoc, missingFromCode }`. Returns `null` when all exports are mentioned in documentation. The `missingFromCode` array is always empty in current implementation (legacy field for detecting items in `publicInterface` without matching exports).
+
+## Type Dependencies
+
+Imports `SumFileContent` from `../../generation/writers/sum.js` (parsed .sum file structure with `summary` field). Imports `CodeDocInconsistency` from `../types.js` (quality report descriptor with `type`, `severity`, `filePath`, `sumPath`, `description`, `details` fields).
+
+## Heuristic Limitations
+
+Uses regex-based parsing instead of AST analysis, which may miss complex export patterns (destructured exports, namespace exports, dynamic exports). Substring matching in `checkCodeVsDoc` produces false negatives if identifier appears in unrelated context (e.g., `Button` mentioned in prose but not as documented interface). Does not validate whether mentions are semantically meaningful (could appear in code examples vs. actual documentation).

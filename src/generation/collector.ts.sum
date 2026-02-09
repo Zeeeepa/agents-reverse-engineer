@@ -1,0 +1,33 @@
+---
+generated_at: 2026-02-09T13:18:21.669Z
+content_hash: c8a71b15b244882eea6f7ba9fd399016256f2ad569eda3f9c4474c8ddcf7f8ca
+purpose: collector.ts recursively discovers and reads all AGENTS.md files from a project tree, returning them as sorted Agents...
+---
+**collector.ts recursively discovers and reads all AGENTS.md files from a project tree, returning them as sorted AgentsDocs entries.**
+
+## Exports
+
+- `AgentsDocs`: Type alias for `Array<{ relativePath: string; content: string }>`, representing collected documentation files with project-relative paths.
+- `collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>`: Recursively walks the directory tree starting at `projectRoot`, collects all AGENTS.md files, and returns them sorted alphabetically by `relativePath`.
+
+## Directory Filtering
+
+`SKIP_DIRS` Set excludes `node_modules`, `.git`, `.agents-reverse-engineer`, `vendor`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`, `.cargo`, and `.gradle` from traversal to avoid vendor, build artifacts, and meta-directories.
+
+## Error Handling
+
+`collectAgentsDocs` uses internal `walk` function that silently skips:
+- Unreadable directories (catches `readdir` errors)
+- Unreadable AGENTS.md files (catches `readFile` errors)
+
+## Algorithm
+
+Post-order depth-first traversal via recursive `walk(currentDir)`:
+1. Reads directory entries with `readdir(..., { withFileTypes: true })`
+2. Recursively descends into subdirectories not in `SKIP_DIRS`
+3. Reads AGENTS.md files via `readFile(filePath, 'utf-8')`
+4. Accumulates results array, then sorts by `relativePath.localeCompare()`
+
+## Integration
+
+Output format matches input expected by root documentation builders and specification generators that aggregate directory-level AGENTS.md files into project-wide views.

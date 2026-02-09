@@ -1,0 +1,24 @@
+---
+generated_at: 2026-02-09T13:18:21.271Z
+content_hash: 4c45840b650bc80b1f64e7a9fdcb91facda8d7364bf0159ba9453de1df0fcb92
+purpose: types.ts defines the core interfaces for the file discovery pipeline: FileFilter for exclusion logic, FilterResult fo...
+---
+**types.ts defines the core interfaces for the file discovery pipeline: FileFilter for exclusion logic, FilterResult for discovery outcomes, ExcludedFile for exclusion tracking, and WalkerOptions for directory traversal configuration.**
+
+## Exported Interfaces
+
+**FileFilter** - Synchronous or asynchronous predicate interface for excluding files during discovery. Contains `name: string` for filter identification and `shouldExclude(path: string, stats?: Stats): Promise<boolean> | boolean` for exclusion logic. Implemented by GitignoreFilter, BinaryFilter, VendorFilter, and CustomPatternFilter.
+
+**ExcludedFile** - Record structure with `path: string` (absolute path), `reason: string` (human-readable exclusion cause), and `filter: string` (name of excluding filter). Used for tracking which filter rejected which file.
+
+**FilterResult** - Discovery outcome container with `included: string[]` (files passing all filters) and `excluded: ExcludedFile[]` (rejected files with metadata). Returned by filter chain execution.
+
+**WalkerOptions** - Configuration for directory traversal with `cwd: string` (absolute root path), optional `followSymlinks?: boolean` (default false per CONTEXT.md), and optional `dot?: boolean` (default true to include dotfiles).
+
+## Dependencies
+
+Imports `Stats` from `node:fs` for file metadata in `shouldExclude()` and `WalkerOptions`.
+
+## Design Pattern
+
+Strategy pattern via FileFilter interface enables composable filter chains where each filter independently decides exclusion based on different criteria (gitignore rules, binary detection, vendor paths, custom patterns).

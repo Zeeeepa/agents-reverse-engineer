@@ -1,0 +1,36 @@
+---
+generated_at: 2026-02-09T13:18:17.822Z
+content_hash: e060bb0cea93ea372937e4dc63e9d5c260e578633be16094c928f681af348f70
+purpose: detector.ts provides git-based change detection and SHA-256 content hashing for incremental documentation updates.
+---
+**detector.ts provides git-based change detection and SHA-256 content hashing for incremental documentation updates.**
+
+## Exported Functions
+
+`isGitRepo(projectRoot: string): Promise<boolean>` checks if the given path is inside a git repository using `simpleGit().checkIsRepo()`.
+
+`getCurrentCommit(projectRoot: string): Promise<string>` returns the current HEAD commit hash by invoking `git.revparse(['HEAD'])` and trimming whitespace.
+
+`getChangedFiles(projectRoot: string, baseCommit: string, options?: ChangeDetectionOptions): Promise<ChangeDetectionResult>` detects files changed between `baseCommit` and HEAD using `git diff --name-status -M` for rename detection (50% similarity threshold), parses status codes ('A', 'M', 'D', 'R') into `FileChange[]` objects with `status` ('added', 'modified', 'deleted', 'renamed'), and optionally includes uncommitted changes (staged, modified, deleted, not_added, staged files) when `options.includeUncommitted` is true.
+
+`computeContentHash(filePath: string): Promise<string>` reads file content from disk via `readFile()` and returns hex-encoded SHA-256 hash using `createHash('sha256').update(content).digest('hex')`.
+
+`computeContentHashFromString(content: string): string` computes SHA-256 hash from in-memory string content to avoid redundant disk reads, using the same `createHash()` API.
+
+## Dependencies
+
+Uses `simpleGit` from 'simple-git' for all git operations (`checkIsRepo`, `revparse`, `diff`, `status`).
+
+Uses `createHash` from 'node:crypto' for SHA-256 hashing and `readFile` from 'node:fs/promises' for file I/O.
+
+Imports `FileChange`, `ChangeDetectionResult`, `ChangeDetectionOptions` types from './types.js'.
+
+## Git Diff Parsing
+
+Parses `git diff --name-status` output where each line has format `STATUS\tFILE` or `STATUS\tOLD\tNEW` for renames. Status codes map: 'A' → 'added', 'M' → 'modified', 'D' → 'deleted', 'R{percentage}' → 'renamed' (stores `oldPath` from `parts[1]`).
+
+## Uncommitted Change Detection
+
+When `includeUncommitted` is true, merges `git status` results (status.modified, status.deleted, status.not_added, status.staged) into `changes[]`, deduplicating by checking `changes.some(c => c.path === file)` before adding.
+
+Returns `ChangeDetectionResult` with `currentCommit`, `baseCommit`, `changes[]`, and `includesUncommitted` boolean flag.

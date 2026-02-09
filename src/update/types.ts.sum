@@ -1,0 +1,39 @@
+---
+generated_at: 2026-02-09T13:19:06.182Z
+content_hash: 7c45f747a3c815a11629fab142997544da6ffc1f850dce8a181dc9a6b8fe78d4
+purpose: Defines TypeScript interfaces for incremental documentation update workflow results, options, and progress callbacks.
+---
+**Defines TypeScript interfaces for incremental documentation update workflow results, options, and progress callbacks.**
+
+## Exported Interfaces
+
+### CleanupResult
+Captures orphan cleanup outcome with two fields:
+- `deletedSumFiles: string[]` — paths to removed .sum files
+- `deletedAgentsMd: string[]` — paths to removed AGENTS.md files from emptied directories
+
+### UpdateOptions
+Configures update command behavior:
+- `includeUncommitted?: boolean` — processes staged and working directory changes
+- `dryRun?: boolean` — simulates changes without writing to disk
+
+### UpdateResult
+Aggregates full update run outcome:
+- `analyzedFiles: string[]` — files re-analyzed (added or modified)
+- `skippedFiles: string[]` — unchanged files
+- `cleanup: CleanupResult` — deleted documentation artifacts
+- `regeneratedDirs: string[]` — directories where AGENTS.md was rebuilt
+- `baseCommit: string` — git SHA before update
+- `currentCommit: string` — git SHA after update
+- `dryRun: boolean` — indicates simulation mode
+
+### UpdateProgress
+Progress callback interface for streaming update events:
+- `onFileStart?: (path: string, status: 'analyzing' | 'skipping') => void` — fires before file processing
+- `onFileDone?: (path: string, status: 'analyzed' | 'skipped' | 'error') => void` — fires after file processing
+- `onCleanup?: (path: string, type: 'sum' | 'agents-md') => void` — fires when orphan deleted
+- `onDirRegenerate?: (path: string) => void` — fires when directory AGENTS.md regenerated
+
+## Integration Context
+
+Depends on `FileChange` from `../change-detection/types.js` (imported but unused in this file, likely consumed by modules implementing these interfaces). Consumed by `src/update/orchestrator.ts` for incremental update execution and `src/cli/update.ts` for CLI argument mapping.

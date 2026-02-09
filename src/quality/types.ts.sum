@@ -1,0 +1,24 @@
+---
+generated_at: 2026-02-09T13:18:58.796Z
+content_hash: cf3a2e38893eba8c064f647e2325adb2358162304275fc28ae3760811fbab6fe
+purpose: Defines TypeScript types for ARE's quality analysis subsystem: inconsistency detection variants (CodeDocInconsistency...
+---
+**Defines TypeScript types for ARE's quality analysis subsystem: inconsistency detection variants (CodeDocInconsistency, CodeCodeInconsistency, PhantomPathInconsistency) and structured InconsistencyReport output.**
+
+## Exported Types
+
+**InconsistencySeverity**: Type alias for `'info' | 'warning' | 'error'` severity levels.
+
+**CodeDocInconsistency**: Interface representing mismatches between source code exports and `.sum` documentation content. Contains `type: 'code-vs-doc'`, `severity: InconsistencySeverity`, `filePath: string`, `sumPath: string`, `description: string`, and nested `details` object with `missingFromDoc: string[]` (exported symbols absent from docs), `missingFromCode: string[]` (documented symbols absent from exports), and optional `purposeMismatch?: string`.
+
+**CodeCodeInconsistency**: Interface representing cross-file inconsistencies (duplicate exports, pattern violations). Contains `type: 'code-vs-code'`, `severity: InconsistencySeverity`, `files: string[]`, `description: string`, and `pattern: string` (e.g., `'duplicate-export'`).
+
+**PhantomPathInconsistency**: Interface representing unresolved path references in `AGENTS.md` files. Contains `type: 'phantom-path'`, `severity: InconsistencySeverity`, `agentsMdPath: string`, `description: string`, and nested `details` object with `referencedPath: string` (phantom path as written), `resolvedTo: string` (resolution base: project root or AGENTS.md directory), and `context: string` (containing line text).
+
+**Inconsistency**: Discriminated union type combining `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` for pattern matching on `type` field.
+
+**InconsistencyReport**: Interface representing structured analysis output. Contains `metadata` object (`timestamp: string`, `projectRoot: string`, `filesChecked: number`, `durationMs: number`), `issues: Inconsistency[]` array, and `summary` object with counts (`total`, `codeVsDoc`, `codeVsCode`, `phantomPaths`, `errors`, `warnings`, `info`).
+
+## Role in Quality Subsystem
+
+This file defines the data contracts consumed by `src/quality/inconsistency/reporter.ts` for formatting output and by individual validators (`code-vs-doc.ts`, `code-vs-code.ts`, `src/quality/phantom-paths/validator.ts`) that detect specific inconsistency patterns. The discriminated union pattern on `Inconsistency.type` enables type-safe handling of heterogeneous validation results.

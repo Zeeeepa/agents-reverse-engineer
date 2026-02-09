@@ -1,0 +1,72 @@
+---
+generated_at: 2026-02-09T13:18:56.250Z
+content_hash: b575904587e10b1df3ab8ee5ee49ac8d6c75f7510ec02cec70bed423bd710aaa
+purpose: operations.ts orchestrates installer file operations: copies command templates and session hooks to Claude/Gemini/Ope...
+---
+**operations.ts orchestrates installer file operations: copies command templates and session hooks to Claude/Gemini/OpenCode runtime directories, registers hooks in settings.json, and verifies installations.**
+
+## Exported Functions
+
+**installFiles(runtime: Runtime, location: Location, options: InstallOptions): InstallerResult[]** — Entry point that dispatches to `installFilesForRuntime()` for a single runtime or maps over `getAllRuntimes()` when `runtime === 'all'`, returning an array of `InstallerResult` objects.
+
+**verifyInstallation(files: string[]): { success: boolean; missing: string[] }** — Checks existence of given file paths using `existsSync()`, returns missing paths.
+
+**registerHooks(basePath: string, runtime: Exclude<Runtime, 'all'>, dryRun: boolean): boolean** — Registers ARE session hooks in settings.json by dispatching to `registerClaudeHooks()` or `registerGeminiHooks()` based on runtime, returns true if any hook was added.
+
+**registerPermissions(settingsPath: string, dryRun: boolean): boolean** — Adds `ARE_PERMISSIONS` bash command patterns to `settings.permissions.allow[]` in Claude Code settings.json to reduce user friction.
+
+**getPackageVersion(): string** — Reads version string from package.json at project root using `fileURLToPath(import.meta.url)` navigation, returns 'unknown' on error.
+
+**writeVersionFile(basePath: string, dryRun: boolean): void** — Writes ARE-VERSION file containing `getPackageVersion()` result to track installed version.
+
+**formatInstallResult(result: InstallerResult): string[]** — Formats `InstallerResult` into human-readable lines showing created/skipped files, hook registration, and summary counts.
+
+## Installation Strategy
+
+**installFilesForRuntime(runtime: Exclude<Runtime, 'all'>, location: Location, options: InstallOptions): InstallerResult** — Core installer that resolves base path via `resolveInstallPath()`, fetches templates via `getTemplatesForRuntime()`, writes command files, installs hooks/plugins based on runtime, registers hooks in settings.json, and writes VERSION file. Skips existing files unless `options.force === true`. Populates `InstallerResult.filesCreated`, `filesSkipped`, and `errors` arrays.
+
+**getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>)** — Switches on runtime to call `getClaudeTemplates()`, `getOpenCodeTemplates()`, or `getGeminiTemplates()` from `src/integration/templates.ts`.
+
+## Hook System Integration
+
+**ARE_HOOKS: HookDefinition[]** — Array of hook definitions with `event` (SessionStart | SessionEnd), `filename` (e.g., 'are-check-update.js'), and `name` (for Gemini format). Currently empty as hooks are disabled due to issues.
+
+**ARE_PLUGINS: PluginDefinition[]** — Array mapping source filenames in `hooks/dist/` (prefixed with 'opencode-') to destination filenames in `.opencode/plugins/`. Contains `are-check-update.js` plugin definition.
+
+**registerClaudeHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean** — Reads settings.json as `SettingsJson`, ensures `settings.hooks[event]` arrays exist, appends `HookEvent` objects containing nested `SessionHook` arrays with `type: 'command'` and `command: 'node .claude/hooks/<filename>'`, writes JSON with 2-space indent.
+
+**registerGeminiHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean** — Reads settings.json as `GeminiSettingsJson`, appends flat `GeminiHook` objects with `name`, `type`, and `command` fields (no nested hooks array like Claude format).
+
+**ARE_PERMISSIONS: string[]** — Bash command patterns for npx ARE commands (init, discover, generate, update, clean) and progress.log operations, prefixed with `'Bash(...*)'` glob syntax.
+
+## Bundled Resource Access
+
+**getBundledHookPath(hookName: string): string** — Navigates from compiled location at `dist/installer/operations.js` up two levels to project root, then to `hooks/dist/<hookName>` using `fileURLToPath(import.meta.url)`.
+
+**readBundledHook(hookName: string): string** — Calls `getBundledHookPath()`, throws Error if path not found via `existsSync()`, returns file content via `readFileSync()`.
+
+## Type Definitions
+
+**InstallOptions** — Interface with `force: boolean` (overwrite existing) and `dryRun: boolean` (preview mode).
+
+**SettingsJson** — Claude Code settings.json schema with optional `hooks` (SessionStart/SessionEnd as `HookEvent[]`) and `permissions` (allow/deny string arrays).
+
+**GeminiSettingsJson** — Gemini CLI settings.json schema with optional `hooks` (SessionStart/SessionEnd as `GeminiHook[]`), no permissions field.
+
+**SessionHook** — Claude hook definition with `type: 'command'` and `command: string`.
+
+**HookEvent** — Claude hook event wrapper containing `hooks: SessionHook[]` (nested array structure).
+
+**GeminiHook** — Gemini hook definition with `name: string`, `type: 'command'`, and `command: string` (flat structure).
+
+**HookDefinition** — Hook metadata with `event`, `filename`, and `name` fields used by `ARE_HOOKS`.
+
+**PluginDefinition** — OpenCode plugin metadata with `srcFilename` and `destFilename` used by `ARE_PLUGINS`.
+
+## Directory Management
+
+**ensureDir(filePath: string): void** — Extracts directory via `path.dirname()`, creates recursively via `mkdirSync({ recursive: true })` if missing.
+
+## Dependencies
+
+Imports `resolveInstallPath()` and `getAllRuntimes()` from `./paths.js`, template getters from `../integration/templates.js`, and `Runtime`, `Location`, `InstallerResult` types from `./types.js`. Uses Node.js built-ins: `fs` (existsSync, mkdirSync, writeFileSync, readFileSync), `path`, `url` (fileURLToPath).

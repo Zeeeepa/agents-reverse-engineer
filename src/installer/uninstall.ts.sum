@@ -1,0 +1,64 @@
+---
+generated_at: 2026-02-09T13:18:55.633Z
+content_hash: fdb4705e29e0d5786dff9ce35a4eea394d7080ae93f9e040dd41ad7bad4c2aab
+purpose: uninstall.ts removes ARE command templates, hooks, permissions, and configuration artifacts from Claude Code, OpenCod...
+---
+**uninstall.ts removes ARE command templates, hooks, permissions, and configuration artifacts from Claude Code, OpenCode, and Gemini CLI installations.**
+
+## Exported Functions
+
+`uninstallFiles(runtime: Runtime, location: Location, dryRun: boolean = false): InstallerResult[]` orchestrates uninstallation for one or all runtimes, delegating to `uninstallFilesForRuntime` and aggregating results.
+
+`unregisterHooks(basePath: string, runtime: Exclude<Runtime, 'all'>, dryRun: boolean): boolean` removes ARE hook entries from `settings.json` for Claude or Gemini runtimes, dispatching to `unregisterClaudeHooks` or `unregisterGeminiHooks` based on runtime.
+
+`unregisterPermissions(basePath: string, dryRun: boolean): boolean` removes ARE-related Bash command permissions from Claude Code's `settings.json` permissions.allow array.
+
+`deleteConfigFolder(location: Location, dryRun: boolean): boolean` recursively deletes `.agents-reverse-engineer/` directory for local installations using `rmSync`.
+
+## Runtime-Specific Uninstall Logic
+
+`uninstallFilesForRuntime(runtime: Exclude<Runtime, 'all'>, location: Location, dryRun: boolean): InstallerResult` removes command templates from `getTemplatesForRuntime`, deletes hook/plugin files based on runtime, unregisters hooks from `settings.json`, removes `ARE-VERSION` file, and cleans empty directories.
+
+`getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>)` maps runtime to `getClaudeTemplates`, `getOpenCodeTemplates`, or `getGeminiTemplates` from `src/integration/templates.ts`.
+
+## Settings.json Hook Unregistration
+
+`unregisterClaudeHooks(basePath: string, dryRun: boolean): boolean` filters `SessionStart` and `SessionEnd` hooks arrays in Claude Code's `settings.json`, removing entries matching patterns from `getHookPatterns`, and deletes empty hook structures.
+
+`unregisterGeminiHooks(basePath: string, dryRun: boolean): boolean` applies same filtering logic to Gemini CLI's simpler `GeminiHook` format (flat array without nested `hooks` property).
+
+`getHookPatterns(runtimeDir: string): string[]` generates hook command patterns for both current (`node ${runtimeDir}/hooks/${filename}`) and legacy (`node hooks/${filename}`) path formats.
+
+## Cleanup Helpers
+
+`cleanupEmptyDirs(dirPath: string): void` recursively removes empty directories using `rmdirSync`, stopping at runtime roots (`.claude`, `.opencode`, `.gemini`, `.config`).
+
+`cleanupAreSkillDirs(skillsDir: string): void` removes empty `are-*` skill directories from Claude's skills folder.
+
+`cleanupLegacyGeminiFiles(commandsDir: string): void` deletes legacy `are-*.md` files from `.gemini/commands/` and old `.toml` files from nested `.gemini/commands/are/` directory (pre-flat structure migrations).
+
+## Constants
+
+`ARE_HOOKS: HookDefinition[]` defines `{ event: 'SessionStart' | 'SessionEnd', filename: string }` entries for `are-check-update.js` and `are-session-end.js`.
+
+`ARE_PLUGIN_FILENAMES: string[]` lists `are-check-update.js` and `are-session-end.js` for OpenCode plugin removal.
+
+`ARE_PERMISSIONS: string[]` defines Bash command permission patterns for init, discover, generate, update, and clean commands.
+
+`CONFIG_DIR = '.agents-reverse-engineer'` matches `src/config/loader.ts` configuration directory name.
+
+## Type Definitions
+
+`SettingsJson` interface models Claude Code's `settings.json` structure with `hooks?: { SessionStart?: HookEvent[], SessionEnd?: HookEvent[] }`, `permissions?: { allow?: string[], deny?: string[] }`, and `HookEvent` containing `hooks: SessionHook[]` where `SessionHook` has `type: 'command'` and `command: string`.
+
+`GeminiSettingsJson` interface models simpler Gemini CLI format with `hooks?: { SessionStart?: GeminiHook[], SessionEnd?: GeminiHook[] }` where `GeminiHook` directly contains `name`, `type: 'command'`, and `command` (no nested array).
+
+`HookDefinition` interface pairs `event: 'SessionStart' | 'SessionEnd'` with `filename: string` for hook file identification.
+
+## Dependencies
+
+Imports `resolveInstallPath`, `getAllRuntimes`, `getRuntimePaths` from `./paths.js` and `getClaudeTemplates`, `getOpenCodeTemplates`, `getGeminiTemplates` from `../integration/templates.js`. Uses `Runtime`, `Location`, `InstallerResult` from `./types.js`. Relies on Node.js `fs` module (`existsSync`, `unlinkSync`, `readFileSync`, `writeFileSync`, `readdirSync`, `rmdirSync`, `rmSync`) and `path` module.
+
+## Dry Run Support
+
+All mutation operations check `dryRun` parameter before executing `unlinkSync`, `rmdirSync`, `rmSync`, or `writeFileSync`, enabling preview mode for uninstall commands.

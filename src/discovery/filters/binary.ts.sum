@@ -1,0 +1,31 @@
+---
+generated_at: 2026-02-09T13:17:44.076Z
+content_hash: 0413cc0407abd16929f8e47ccef5f2f7a1ba233c05fce4b56e6da03dabba5981
+purpose: binary.ts implements extension-based and content-based binary file detection for FileFilter integration, excluding bi...
+---
+**binary.ts implements extension-based and content-based binary file detection for FileFilter integration, excluding binary files and oversized files from documentation generation.**
+
+## Exported Symbols
+
+- `BINARY_EXTENSIONS: Set<string>` — Readonly set of 80+ known binary extensions (.png, .jpg, .zip, .exe, .pdf, .woff, .db, .pyc, .wasm, etc.) used for fast-path exclusion without content analysis
+- `BinaryFilterOptions` — Configuration interface with `maxFileSize?: number` (default 1MB) and `additionalExtensions?: string[]` for extending binary extension set
+- `createBinaryFilter(options?: BinaryFilterOptions): FileFilter` — Factory function returning FileFilter with `name: 'binary'` and `shouldExclude(absolutePath: string): Promise<boolean>` method
+
+## Detection Strategy
+
+createBinaryFilter implements two-phase detection:
+1. Fast path: `path.extname()` check against combined `binaryExtensions` Set (BINARY_EXTENSIONS + additionalExtensions)
+2. Slow path: For unknown extensions, calls `isBinaryFile(absolutePath)` from isbinaryfile package after `fs.stat()` size check
+3. Size threshold: Files exceeding `maxFileSize` (default DEFAULT_MAX_FILE_SIZE = 1048576 bytes) excluded before content analysis
+
+## Error Handling
+
+shouldExclude returns true (exclude) on fs.stat() or isBinaryFile() errors, treating unreadable files as binary to prevent processing failures downstream.
+
+## Extension Normalization
+
+createBinaryFilter normalizes additionalExtensions by prepending '.' if missing (`ext.startsWith('.') ? ext : '.${ext}'`) and lowercases all extensions via `path.extname().toLowerCase()` before Set lookup.
+
+## Integration with FileFilter
+
+Implements FileFilter interface from `../types.js`, providing `name` property for filter identification and async `shouldExclude` predicate for use in discovery.walker file filtering pipeline.

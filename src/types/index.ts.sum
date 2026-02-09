@@ -1,0 +1,29 @@
+---
+generated_at: 2026-02-09T13:18:58.658Z
+content_hash: 38568303038b8592202e7cb3a10296983279d31d0297e87048561aa7d45cc41e
+purpose: Defines core shared types for file discovery results and statistics used across the ARE tool.
+---
+**Defines core shared types for file discovery results and statistics used across the ARE tool.**
+
+## Exported Types
+
+### ExcludedFile
+Interface representing a file excluded from documentation generation:
+- `path: string` — absolute or relative path to excluded file
+- `reason: string` — exclusion reason (e.g., "gitignore pattern", "binary file", "vendor directory")
+
+### DiscoveryResult
+Interface representing the outcome of the file discovery process:
+- `files: string[]` — list of file paths selected for analysis
+- `excluded: ExcludedFile[]` — list of excluded files with their reasons
+
+### DiscoveryStats
+Interface providing metrics about the discovery process:
+- `totalFiles: number` — total files found during traversal
+- `includedFiles: number` — count of files selected for analysis
+- `excludedFiles: number` — count of excluded files
+- `exclusionReasons: Record<string, number>` — map of reason strings to occurrence counts
+
+## Usage Context
+
+These types flow through the discovery phase (`src/discovery/`), consumed by filters (`src/discovery/filters/`) and referenced in CLI commands (`src/cli/discover.ts`). DiscoveryResult feeds into generation orchestration (`src/generation/orchestrator.ts`) to determine which files receive `.sum` documentation. DiscoveryStats supports telemetry and progress reporting (`src/orchestration/progress.ts`).

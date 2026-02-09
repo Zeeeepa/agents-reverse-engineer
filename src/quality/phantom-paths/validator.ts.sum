@@ -1,0 +1,41 @@
+---
+generated_at: 2026-02-09T13:18:15.142Z
+content_hash: be5da3f84bcde292733c820cb325be1212baf0436f982f8fc9bf91c74db73382
+purpose: validator.ts detects phantom path references in AGENTS.md files by extracting path-like strings, resolving them again...
+---
+**validator.ts detects phantom path references in AGENTS.md files by extracting path-like strings, resolving them against the filesystem, and reporting paths that don't exist.**
+
+## Exported Interface
+
+- `checkPhantomPaths(agentsMdPath: string, content: string, projectRoot: string): PhantomPathInconsistency[]` - scans AGENTS.md content for path references, validates their existence, returns array of `PhantomPathInconsistency` objects for missing paths
+
+## Path Extraction Patterns
+
+`PATH_PATTERNS` defines three RegExp patterns:
+- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` - captures markdown link targets `[text](./path)`
+- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` - captures backtick-quoted paths like `` `src/foo/bar.ts` `` or `` `../foo/bar.js` ``
+- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` - captures prose-embedded paths following keywords "from", "in", "by", "via", "see"
+
+## Path Resolution Strategy
+
+`checkPhantomPaths` resolves each extracted path in two ways:
+1. `fromAgentsMd = path.resolve(agentsMdDir, rawPath)` - relative to AGENTS.md directory
+2. `fromRoot = path.resolve(projectRoot, rawPath)` - relative to project root for `src/` paths
+
+For `.js` extensions, also attempts `.ts` variants (handles TypeScript import convention where `.ts` source imports as `.js`).
+
+`existsSync()` validates against all candidate paths; if none exist, creates `PhantomPathInconsistency` with `type: 'phantom-path'`, `severity: 'warning'`.
+
+## Filtering Logic
+
+`SKIP_PATTERNS` excludes non-file references:
+- `node_modules`, `.git/` - vendor/tooling paths
+- `https?:` - URLs
+- `\{\{`, `\${` - template placeholders/literals
+- `\*`, `\{[^}]*,[^}]*\}` - glob patterns and brace expansions
+
+Uses `seen` Set to deduplicate repeated path references within same file.
+
+## Error Context
+
+For each phantom path, extracts `contextLine` containing the reference (first matching line, trimmed to 120 chars) and includes in `PhantomPathInconsistency.details.context` for debugging.

@@ -1,0 +1,36 @@
+---
+generated_at: 2026-02-09T13:17:50.689Z
+content_hash: 9c98c917fde849284a46f0ed20bbef87a30caf8e94be8578b8d689ff92618f2d
+purpose: ClaudeBackend implements AIBackend for the Claude Code CLI, building args arrays, parsing JSON responses via ClaudeRe...
+---
+**ClaudeBackend implements AIBackend for the Claude Code CLI, building args arrays, parsing JSON responses via ClaudeResponseSchema, and detecting CLI availability on PATH.**
+
+## Exported Symbols
+
+- **`ClaudeBackend`** (class): Implements `AIBackend` interface with `name='claude'`, `cliCommand='claude'`
+  - `isAvailable(): Promise<boolean>` - delegates to `isCommandOnPath('claude')`
+  - `buildArgs(options: AICallOptions): string[]` - returns `['-p', '--output-format', 'json', '--no-session-persistence', '--permission-mode', 'bypassPermissions']` plus optional `--model`, `--system-prompt`, `--max-turns` based on `AICallOptions.model`, `AICallOptions.systemPrompt`, `AICallOptions.maxTurns`
+  - `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` - extracts JSON from stdout (skipping prefix text via `indexOf('{')`), validates against `ClaudeResponseSchema`, maps to `AIResponse` with `text`, `model` (from `modelUsage` keys), `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`, `durationMs`, `exitCode`, `raw`
+  - `getInstallInstructions(): string` - returns npm install command for `@anthropic-ai/claude-code`
+
+- **`isCommandOnPath(command: string): Promise<boolean>`** (function): Splits `process.env.PATH` by `path.delimiter`, checks each directory for file matching `command + ext` where `ext` comes from `process.env.PATHEXT` (Windows) or `['']` (Unix), uses `fs.stat` to verify file existence
+
+## Schema Validation
+
+**`ClaudeResponseSchema`** (Zod schema): Validates Claude CLI v2.1.31 JSON output with shape `{ type: 'result', subtype: 'success'|'error', is_error: boolean, duration_ms: number, duration_api_ms: number, num_turns: number, result: string, session_id: string, total_cost_usd: number, usage: { input_tokens, cache_creation_input_tokens, cache_read_input_tokens, output_tokens }, modelUsage: Record<string, { inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens, costUSD }> }`
+
+## Error Handling
+
+`parseResponse` throws `AIServiceError` with code `'PARSE_ERROR'` if stdout contains no `{` character or if `ClaudeResponseSchema.parse` fails, includes first 200 chars of stdout in error message for diagnostics.
+
+## CLI Argument Strategy
+
+`buildArgs` returns args array WITHOUT the prompt itself—prompt goes to stdin via `runSubprocess` (documented in module JSDoc). Uses `--permission-mode bypassPermissions` to skip interactive prompts in non-interactive mode (reference: PITFALLS.md §8).
+
+## Cross-Platform PATH Detection
+
+`isCommandOnPath` handles Windows executable extensions via `PATHEXT` environment variable (e.g., `.EXE`, `.CMD`, `.BAT`), uses `fs.stat` instead of `fs.access` with execute bit for Windows compatibility (no Unix permissions on Windows), strips quotes from `PATH` via `replace(/["]+/g, '')` before splitting.
+
+## Response Parsing Resilience
+
+`parseResponse` performs defensive JSON extraction by searching for first `{` character in stdout to handle upgrade notices or other prefix text (documented as RESEARCH.md Pitfall 4), extracts model name from first key of `parsed.modelUsage` with fallback to `'unknown'`.

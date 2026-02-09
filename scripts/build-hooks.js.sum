@@ -1,0 +1,22 @@
+---
+generated_at: 2026-02-09T13:19:15.832Z
+content_hash: a40783828dd9498fd985c6549a5633cdcc281a734dbad7cd209d46861ee350be
+purpose: build-hooks.js copies hook source files from hooks/ to hooks/dist/ for npm bundling.
+---
+**build-hooks.js copies hook source files from hooks/ to hooks/dist/ for npm bundling.**
+
+## Execution Context
+
+Node.js script invoked via `npm run build:hooks` or automatically during `npm run prepublishOnly`. Uses ES module syntax (`import.meta.url`, `fileURLToPath`, `dirname`) to resolve paths.
+
+## Core Operations
+
+`__filename` and `__dirname` derived from `fileURLToPath(import.meta.url)` for ESM compatibility. `projectRoot` computed as `join(__dirname, '..')`. `HOOKS_SRC` points to `hooks/`, `HOOKS_DIST` to `hooks/dist/`.
+
+`mkdirSync(HOOKS_DIST, { recursive: true })` ensures dist directory exists before copy operations.
+
+`readdirSync(HOOKS_SRC)` filters for `.js` files excluding `dist` itself. `copyFileSync(src, dest)` copies each hook file from `hooks/` to `hooks/dist/` with console logging per file.
+
+## Integration Points
+
+Supports hook files `are-check-update.js`, `are-session-end.js`, `opencode-are-check-update.js`, `opencode-are-session-end.js` (per project structure). Copies synchronously without transformation—hooks remain executable JavaScript.

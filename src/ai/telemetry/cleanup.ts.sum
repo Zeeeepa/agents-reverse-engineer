@@ -1,0 +1,22 @@
+---
+generated_at: 2026-02-09T13:17:42.596Z
+content_hash: 25f1c6c8f5b0d5b82c8b107a6c4714f4b553092e58c74a5e09e7e4f24745533e
+purpose: cleanupOldLogs manages telemetry log file retention by deleting old run logs from `.agents-reverse-engineer/logs/`.
+---
+**cleanupOldLogs manages telemetry log file retention by deleting old run logs from `.agents-reverse-engineer/logs/`.**
+
+## Exported Function
+
+`cleanupOldLogs(projectRoot: string, keepCount: number): Promise<number>` removes telemetry log files exceeding the retention limit, returning the count of deleted files. Filters files matching the `run-*.json` pattern, sorts lexicographically in reverse order (newest first, leveraging ISO timestamp filenames), and deletes all entries beyond `keepCount`. Returns 0 without error if the logs directory does not exist (ENOENT error code).
+
+## Constants
+
+`LOGS_DIR` defines the relative path `.agents-reverse-engineer/logs` for telemetry log storage.
+
+## Error Handling
+
+`cleanupOldLogs` catches `fs.readdir` errors and returns 0 when the logs directory is missing (ENOENT), propagating all other errors to the caller.
+
+## Dependencies
+
+Uses `node:fs/promises` for asynchronous file operations (`readdir`, `unlink`) and `node:path` for path resolution. Integrates with the telemetry system defined in `src/ai/telemetry/logger.ts` and `src/ai/telemetry/run-log.ts` by managing the log files they produce.

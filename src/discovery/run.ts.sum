@@ -1,0 +1,22 @@
+---
+generated_at: 2026-02-09T13:18:20.640Z
+content_hash: 40987c5270cd4d77bfee1562927e78816e76974b5bdcaf2248dc4fb478b45447
+purpose: Aggregates directory walking and filter chain application into a single discoverFiles() pipeline that returns include...
+---
+**Aggregates directory walking and filter chain application into a single discoverFiles() pipeline that returns included and excluded file lists.**
+
+## Exported Interface
+
+**discoverFiles(root: string, config: DiscoveryConfig, options?: DiscoverFilesOptions): Promise<FilterResult>** walks the directory tree at root, applies four filters in order (gitignore, vendor, binary, custom), and returns FilterResult containing both included files and excluded files with filter attribution.
+
+**DiscoveryConfig** defines the configuration subset required for discovery: `exclude.vendorDirs` (string[]), `exclude.binaryExtensions` (string[]), `exclude.patterns` (string[]), `options.maxFileSize` (number), and `options.followSymlinks` (boolean). Structurally compatible with full Config from `config/schema.ts`.
+
+**DiscoverFilesOptions** provides optional `tracer?: ITraceWriter` and `debug?: boolean` for filter diagnostics.
+
+## Filter Chain Orchestration
+
+discoverFiles() instantiates filters in fixed order: createGitignoreFilter(root) for .gitignore rules, createVendorFilter(config.exclude.vendorDirs) for vendor directory exclusions, createBinaryFilter({ maxFileSize, additionalExtensions }) for binary file detection, and createCustomFilter(config.exclude.patterns, root) for user-defined glob patterns. All four filters come from `./filters/index.js`.
+
+## Integration Points
+
+Calls walkDirectory({ cwd: root, followSymlinks }) from `./walker.js` to get raw file list, then passes files and filters to applyFilters(files, filters, { tracer, debug }) from `./filters/index.js`. Returns FilterResult unchanged so callers (CLI commands) can access both `included` and `excluded` arrays with filter names attached to exclusions.

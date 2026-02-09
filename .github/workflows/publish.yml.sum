@@ -1,0 +1,36 @@
+---
+generated_at: 2026-02-09T13:18:11.593Z
+content_hash: 75ab86d0c3fb58954b283b3a7d7248f50fb838f608dd6f39ab0db505acb7d4c8
+purpose: publish.yml defines a GitHub Actions workflow that builds and publishes the agents-reverse-engineer package to npm wh...
+---
+**publish.yml defines a GitHub Actions workflow that builds and publishes the agents-reverse-engineer package to npm when a release is published or manually triggered.**
+
+## Workflow Triggers
+
+- `release.types: [published]`: Automatically runs when a GitHub release is published
+- `workflow_dispatch`: Allows manual triggering from the GitHub Actions UI
+
+## Job Configuration
+
+The `publish` job runs on `ubuntu-latest` with permissions:
+- `contents: read`: Read repository contents
+- `id-token: write`: Required for npm provenance attestations
+
+## Build and Publish Steps
+
+1. **actions/checkout@v4**: Checks out repository code
+2. **actions/setup-node@v4**: Installs Node.js 20 and configures npm registry URL `https://registry.npmjs.org`
+3. **npm ci**: Installs dependencies from package-lock.json (clean install)
+4. **npm run build**: Executes TypeScript compilation via `tsc` (see project memory)
+5. **npm publish**: Publishes to npm with `--provenance` flag for supply chain attestation and `--access public` for scoped packages
+
+## Authentication
+
+Uses `NODE_AUTH_TOKEN` environment variable set from `secrets.NPM_TOKEN` GitHub secret for npm authentication during publish step.
+
+## Integration Points
+
+- Depends on `package.json` scripts (`build` script must exist)
+- Requires `tsconfig.json` for TypeScript compilation
+- Entry point defined in `package.json` must reference built artifacts from `src/cli/index.ts`
+- NPM_TOKEN secret must be configured in GitHub repository settings

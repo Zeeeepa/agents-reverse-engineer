@@ -1,0 +1,14 @@
+---
+generated_at: 2026-02-09T13:18:05.300Z
+content_hash: 9035c23a19fe33c400b3ebf272ce357a54458443d60020d4cecf68adbd478548
+purpose: Re-exports `checkPhantomPaths` from `./validator.js` to provide a single entry point for phantom path validation func...
+---
+**Re-exports `checkPhantomPaths` from `./validator.js` to provide a single entry point for phantom path validation functionality.**
+
+## Exported Symbols
+
+- `checkPhantomPaths`: Re-exported from `./validator.js` — delegates to validator module for detecting phantom path references (documented links that point to non-existent files in the codebase).
+
+## Module Role
+
+Barrel export pattern for the `quality/phantom-paths/` subsystem. Centralizes access to phantom path detection, which validates that cross-reference paths in generated `.sum` files and `AGENTS.md` documents resolve to actual discovered files. Consumed by quality orchestration in `src/quality/index.ts` during the validation phase of `are-generate` and `are-update` commands.

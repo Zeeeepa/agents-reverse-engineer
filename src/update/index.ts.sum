@@ -1,0 +1,32 @@
+---
+generated_at: 2026-02-09T13:19:01.662Z
+content_hash: 879100cdd04f7597c7afab3563e6d72212a2e1f2197ade1c1baa1dfd0fd4139f
+purpose: Entry point for the update module that re-exports orchestration, cleanup, and type definitions for incremental docume...
+---
+**Entry point for the update module that re-exports orchestration, cleanup, and type definitions for incremental documentation updates.**
+
+## Exported Symbols
+
+**UpdateOrchestrator** (class, from `./orchestrator.js`): Main orchestrator class for coordinating incremental updates.
+
+**createUpdateOrchestrator** (function, from `./orchestrator.js`): Factory function returning an UpdateOrchestrator instance.
+
+**UpdatePlan** (type, from `./orchestrator.js`): Type definition describing the update execution plan structure.
+
+**cleanupOrphans** (function, from `./orphan-cleaner.js`): Removes .sum files for deleted source files and updates affected AGENTS.md docs.
+
+**cleanupEmptyDirectoryDocs** (function, from `./orphan-cleaner.js`): Removes AGENTS.md files from directories with no .sum files remaining.
+
+**getAffectedDirectories** (function, from `./orphan-cleaner.js`): Computes set of directories requiring AGENTS.md regeneration after orphan cleanup.
+
+**UpdateOptions** (type, from `./types.js`): Configuration interface for update operations.
+
+**UpdateResult** (type, from `./types.js`): Return type capturing update execution outcomes.
+
+**UpdateProgress** (type, from `./types.js`): Progress reporting structure during update execution.
+
+**CleanupResult** (type, from `./types.js`): Return type for orphan cleanup operations detailing removed files and affected directories.
+
+## Module Organization
+
+The update module follows a three-file structure: `orchestrator.ts` handles state management and change detection coordination, `orphan-cleaner.ts` manages stale documentation removal, and `types.ts` defines shared interfaces. This barrel export provides a clean public API boundary for the CLI command in `src/cli/update.ts`.

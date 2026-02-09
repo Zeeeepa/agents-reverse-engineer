@@ -1,0 +1,24 @@
+---
+generated_at: 2026-02-09T13:17:43.383Z
+content_hash: 9e8e20e4c2bb7c66f849ccaba5230cb66a1ca6795bd4c2bdf5dd7fb70387cbb1
+purpose: Barrel export module that re-exports prompt building functions and types from the generation/prompts subsystem.
+---
+**Barrel export module that re-exports prompt building functions and types from the generation/prompts subsystem.**
+
+## Exported Symbols
+
+Exports `PromptContext` type from `'./types.js'` — represents context data passed to prompt builders (file paths, content, language detection, etc.).
+
+Exports `SUMMARY_GUIDELINES` constant from `'./types.js'` — contains the core prompt text defining documentation generation rules (density requirements, identifier preservation, format constraints).
+
+Exports `buildFilePrompt` function from `'./builder.js'` — constructs AI prompt for analyzing individual source files and generating .sum documentation.
+
+Exports `buildDirectoryPrompt` function from `'./builder.js'` — constructs AI prompt for synthesizing directory-level AGENTS.md from child .sum files.
+
+Exports `buildRootPrompt` function from `'./builder.js'` — constructs AI prompt for generating root AGENTS.md from all directory-level documentation.
+
+Exports `detectLanguage` function from `'./builder.js'` — infers programming language from file extension for context-aware prompt generation.
+
+## Module Role
+
+Centralizes prompt generation API surface for the three-phase documentation pipeline: file analysis → directory synthesis → root aggregation. Consumed by `src/generation/executor.ts` orchestration logic and `src/cli/` command handlers.

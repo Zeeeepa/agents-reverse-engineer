@@ -1,0 +1,18 @@
+---
+generated_at: 2026-02-09T13:18:54.027Z
+content_hash: 29c55f8542e839d5bdbe19864b5affe5f68bc685b1fa6f594dd7aa25018ed8b9
+purpose: src/specify/index.ts re-exports the specification generation subsystem's public API for creating project specificatio...
+---
+**src/specify/index.ts re-exports the specification generation subsystem's public API for creating project specification documents from AGENTS.md documentation.**
+
+## Exported Symbols
+
+- **buildSpecPrompt**: Function imported from `./prompts.js` that constructs prompts for AI-driven specification generation
+- **SpecPrompt**: Type definition imported from `./prompts.js` representing the structure of specification generation prompts
+- **writeSpec**: Function imported from `./writer.js` that writes generated specification content to disk
+- **SpecExistsError**: Error class imported from `./writer.js` thrown when attempting to overwrite existing specification files
+- **WriteSpecOptions**: Type definition imported from `./writer.js` containing options for the writeSpec function
+
+## Module Role
+
+This barrel export module serves as the public interface boundary for the `/are-specify` skill command, exposing only the prompt builder, writer function, and their associated types while hiding internal implementation details. The specification subsystem synthesizes AGENTS.md documentation files across the codebase into a consolidated project specification document.

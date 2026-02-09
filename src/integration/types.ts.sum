@@ -1,0 +1,24 @@
+---
+generated_at: 2026-02-09T13:18:42.360Z
+content_hash: 01bab7b9592390c583c058793bcf28fce57c72b8240bc084c0dbde7a8a9a5af1
+purpose: types.ts defines TypeScript interfaces for AI coding assistant environment detection and integration file generation.
+---
+**types.ts defines TypeScript interfaces for AI coding assistant environment detection and integration file generation.**
+
+## Exported Types
+
+**EnvironmentType**: Union type `'claude' | 'opencode' | 'aider' | 'gemini'` enumerating supported AI assistant platforms.
+
+**DetectedEnvironment**: Interface describing environment detection results with `type: EnvironmentType`, `configDir: string` (e.g., '.claude', '.opencode'), and `detected: boolean` flag.
+
+**IntegrationTemplate**: Interface representing integration file artifacts with `filename: string`, `path: string` (relative from project root), and `content: string` (template body).
+
+**IntegrationResult**: Interface capturing integration generation outcomes with `environment: EnvironmentType`, `filesCreated: string[]` (successful writes), and `filesSkipped: string[]` (already-existing files).
+
+## Integration Architecture
+
+DetectedEnvironment serves as input to template generation logic (likely in `src/integration/generate.ts`), mapping each EnvironmentType to its platform-specific configDir. IntegrationTemplate structures command files and hooks destined for directories like `.claude/commands/` or `.opencode/hooks/`. IntegrationResult provides atomic write tracking to distinguish new installations from updates, preventing overwrites of user-modified files.
+
+## Usage Pattern
+
+Detection phase produces DetectedEnvironment instances, generation phase consumes them to create IntegrationTemplate arrays, and installation phase writes templates while accumulating IntegrationResult for user feedback. The `filesSkipped` field enables idempotent installation—repeated runs preserve existing customizations.

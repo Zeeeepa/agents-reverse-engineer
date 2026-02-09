@@ -1,0 +1,115 @@
+---
+generated_at: 2026-02-09T13:19:24.567Z
+content_hash: 52863b003f5248e4078c5f018400bad5039bdcbdb08ae6ecd6973861f12283a4
+purpose: CommandRunner orchestrates AI-driven documentation generation through a three-phase pipeline: concurrent file analysi...
+---
+**CommandRunner orchestrates AI-driven documentation generation through a three-phase pipeline: concurrent file analysis, post-order directory AGENTS.md generation, and sequential root document creation.**
+
+## Exported Interface
+
+CommandRunner class exposes two public methods:
+- `constructor(aiService: AIService, options: CommandRunOptions)` — creates runner instance with AI service and execution options (concurrency, failFast, tracer)
+- `executeGenerate(plan: ExecutionPlan): Promise<RunSummary>` — runs full three-phase pipeline for `generate` command
+- `executeUpdate(filesToAnalyze: FileChange[], projectRoot: string, config: Config): Promise<RunSummary>` — runs file-analysis-only pipeline for `update` command
+
+## Three-Phase Execution Model
+
+### Pre-Phase 1: .sum Cache Loading
+Reads existing .sum files concurrently (concurrency=20) into `oldSumCache` Map for stale documentation detection. Uses `readSumFile()` from `src/generation/writers/sum.ts`. Emits `phase:start`/`phase:end` trace events for "pre-phase-1-cache".
+
+### Phase 1: File Analysis
+Processes `plan.fileTasks` through `runPool()` with user-configured concurrency. Each file task:
+1. Reads source file into memory, stores in `sourceContentCache` Map
+2. Calls `AIService.call()` with `buildFilePrompt()` user/system prompts
+3. Calls `computeContentHashFromString()` on loaded content (avoids second readFile)
+4. Strips preamble via `stripPreamble()`, extracts purpose via `extractPurpose()`
+5. Writes SumFileContent to `.sum` file via `writeSumFile()`
+6. Updates `ProgressReporter` via `onFileDone()` and `PlanTracker` via `markDone()`
+
+Returns FileTaskResult array with tokensIn/tokensOut/cacheReadTokens/cacheCreationTokens/durationMs/model fields. Emits "phase-1-files" trace events.
+
+### Post-Phase 1: Inconsistency Detection
+Groups processed files by directory path, runs quality checks per directory group (concurrency=10):
+- **Old-doc check**: `checkCodeVsDoc(sourceContent, oldSum, filePath)` detects stale documentation by comparing current source against cached old .sum
+- **New-doc check**: `checkCodeVsDoc(sourceContent, newSum, filePath)` detects LLM omissions in freshly generated .sum
+- **Code-vs-code check**: `checkCodeVsCode(filesForCodeVsCode)` scoped to directory group
+
+Aggregates Inconsistency[] into InconsistencyReport via `buildInconsistencyReport()`, prints via `formatReportForCli()`. Clears `sourceContentCache` after detection to free memory. Non-throwing — errors logged to stderr but don't break pipeline.
+
+### Phase 2: Directory AGENTS.md Generation
+Groups `plan.directoryTasks` by depth (from `metadata.depth`), processes depth levels in descending order (deepest first = post-order). Each depth level runs concurrently:
+1. Builds `knownDirs` Set from plan directory tasks (passed to `buildDirectoryPrompt()` for filtering)
+2. Calls `buildDirectoryPrompt(absolutePath, projectRoot, debug, knownDirs, projectStructure)`
+3. Calls `AIService.call()` with directory prompt
+4. Writes AGENTS.md via `writeAgentsMd(absolutePath, projectRoot, responseText)`
+5. Updates `ProgressReporter.onDirectoryDone()` and `PlanTracker.markDone()`
+
+Emits phase-specific trace events as `phase-2-dirs-depth-${depth}`. Concurrency capped at `Math.min(options.concurrency, dirsAtDepth.length)`.
+
+### Post-Phase 2: Phantom Path Validation
+Reads each generated AGENTS.md, calls `checkPhantomPaths(agentsMdPath, content, projectRoot)` to detect invalid file references. Builds InconsistencyReport, prints to stderr. Non-throwing.
+
+### Phase 3: Root Documents
+Processes `plan.rootTasks` sequentially (concurrency=1):
+1. Calls `buildRootPrompt(projectRoot, debug)` which injects all AGENTS.md content
+2. Calls `AIService.call()` with `maxTurns: 1` (no tool use needed)
+3. Strips markdown preamble by searching for first `# ` header
+4. Writes to `rootTask.outputPath` via `writeFile()`
+5. Updates `ProgressReporter.onRootDone()` and `PlanTracker.markDone()`
+
+Emits "phase-3-root" trace events with `taskStart`, `task:start`, `task:done` per root document.
+
+## executeUpdate Pipeline
+
+Simplified pipeline for incremental updates (Phase 1 only):
+1. Attempts to read GENERATION-PLAN.md for `projectPlan` context (passed to `buildFilePrompt()`)
+2. Runs file analysis phase with `buildFilePrompt({ filePath, content, projectPlan }, debug)`
+3. Caches source content in `updateSourceCache`, writes .sum files via `writeSumFile()`
+4. Runs post-analysis inconsistency detection (new-doc check + code-vs-code, no old-doc check)
+5. Returns RunSummary with inconsistency counts
+
+Skips directory and root document generation — caller handles AGENTS.md regeneration based on affected directories.
+
+## Integration Points
+
+Orchestrates six subsystems:
+- **AIService**: `call()`, `getSummary()`, `setTracer()`, `addFilesReadToLastEntry()`
+- **ExecutionPlan**: Consumes `fileTasks`, `directoryTasks`, `rootTasks`, `projectStructure`
+- **runPool**: Concurrent task execution from `src/orchestration/pool.ts`
+- **ProgressReporter**: `onFileStart/Done/Error`, `onDirectoryStart/Done`, `onRootDone`, `printSummary()`
+- **PlanTracker**: `initialize()`, `markDone()`, `flush()` for GENERATION-PLAN.md checkbox updates
+- **ITraceWriter**: Emits phase:start/end, task:start/done events for concurrency debugging
+
+## Quality Reporting
+
+Aggregates three inconsistency types into RunSummary:
+- `inconsistenciesCodeVsDoc` — missing identifiers in .sum files
+- `inconsistenciesCodeVsCode` — undocumented imports between documented files
+- `phantomPaths` — invalid file references in AGENTS.md
+
+Stores full InconsistencyReport in `summary.inconsistencyReport` field. All quality checks are non-throwing — errors logged but don't break pipeline.
+
+## Preamble Stripping Strategy
+
+`stripPreamble()` removes LLM conversational preamble via two patterns:
+1. Content after `\n---\n` separator (within first 500 chars)
+2. Content starting with bold purpose line `**[A-Z]` (if preamble before is <300 chars, no identifiers, no markdown headers)
+
+`extractPurpose()` skips lines matching PREAMBLE_PREFIXES constant (`'now i'`, `'perfect'`, `'based on'`, `'let me'`, `'here is'`, `'i\'ll'`, `'i will'`, `'great'`, `'okay'`, `'sure'`, `'certainly'`, `'alright'`), strips markdown headers/separators, unwraps bold syntax, truncates to 120 chars.
+
+## Trace Event Schema
+
+Emits structured events via `tracer.emit()`:
+- `phase:start` — phase label, taskCount, concurrency
+- `phase:end` — phase label, durationMs, tasksCompleted, tasksFailed
+- `task:start` — taskLabel, phase
+- `task:done` — workerId, taskIndex, taskLabel, durationMs, success, error, activeTasks
+
+Phase labels: "pre-phase-1-cache", "phase-1-files", "post-phase-1-quality", "phase-2-dirs-depth-N", "post-phase-2-phantom", "phase-3-root", "update-phase-1-files", "update-post-phase-1-quality".
+
+## Resource Management
+
+- Caches source file content in Map during Phase 1 (`sourceContentCache`, `updateSourceCache`) to avoid repeated readFile() calls
+- Clears content cache after inconsistency detection via `sourceContentCache.clear()` to free memory
+- Throttles .sum reads (concurrency=20) and directory quality checks (concurrency=10) to avoid file descriptor exhaustion
+- Flushes `PlanTracker` via `flush()` before returning to ensure serialized writes complete

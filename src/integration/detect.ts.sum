@@ -1,0 +1,32 @@
+---
+generated_at: 2026-02-09T13:18:40.927Z
+content_hash: f2c64d262c35364a46b10b33f9d740d89cb81adccc17d12081bd23269592cea1
+purpose: detectEnvironments() identifies AI coding assistant configurations (Claude Code, OpenCode, Aider) by checking filesys...
+---
+**detectEnvironments() identifies AI coding assistant configurations (Claude Code, OpenCode, Aider) by checking filesystem markers, returning DetectedEnvironment[] for multi-assistant setup detection.**
+
+## Exported Functions
+
+### detectEnvironments
+```typescript
+function detectEnvironments(projectRoot: string): DetectedEnvironment[]
+```
+Scans projectRoot for three AI assistant configurations: checks `.claude/` directory OR `CLAUDE.md` file for Claude Code, `.opencode/` directory for OpenCode, `.aider.conf.yml` file OR `.aider/` directory for Aider. Returns DetectedEnvironment[] array allowing multiple simultaneous assistant detection.
+
+### hasEnvironment
+```typescript
+function hasEnvironment(projectRoot: string, type: EnvironmentType): boolean
+```
+Convenience predicate wrapping detectEnvironments() to test presence of specific EnvironmentType ('claude' | 'opencode' | 'aider'). Returns true if any matching environment exists.
+
+## Dependencies
+
+Uses `existsSync` from `node:fs` for synchronous filesystem checks and `path.join()` from `node:path` for cross-platform path construction. Imports `DetectedEnvironment` and `EnvironmentType` from `./types.js`.
+
+## Detection Logic
+
+Claude Code requires either `.claude/` directory or `CLAUDE.md` file (OR condition). OpenCode requires `.opencode/` directory only. Aider requires either `.aider.conf.yml` config file or `.aider/` directory (OR condition). Each detected environment pushes object with `type`, `configDir`, and `detected: true` to result array.
+
+## Integration Points
+
+Called by `src/integration/generate.ts` to determine which AGENTS.md files to generate during `are-init` or `are-generate` commands. Output drives template selection in `src/integration/templates.ts` for environment-specific documentation.

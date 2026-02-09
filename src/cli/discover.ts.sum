@@ -1,0 +1,42 @@
+---
+generated_at: 2026-02-09T13:18:11.758Z
+content_hash: 79c56b266e6a9cedc43be6fe15516e276874c36636d49eae53f0a6b6db41a2ca
+purpose: discoverCommand executes file discovery with gitignore/vendor/binary filtering, generates GENERATION-PLAN.md, and wri...
+---
+**discoverCommand executes file discovery with gitignore/vendor/binary filtering, generates GENERATION-PLAN.md, and writes NDJSON progress logs.**
+
+## Exported Interface
+
+```typescript
+interface DiscoverOptions {
+  tracer?: ITraceWriter;
+  debug?: boolean;
+}
+
+async function discoverCommand(
+  targetPath: string,
+  options: DiscoverOptions
+): Promise<void>
+```
+
+discoverCommand resolves targetPath to absolute path (defaults to `process.cwd()`), loads config via loadConfig, verifies directory accessibility using `access()` with `constants.R_OK`, runs discoverFiles from `../discovery/run.js`, and writes results to ProgressLog instance created via `ProgressLog.create()`.
+
+## Execution Flow
+
+discoverCommand emits `discovery:start` trace event before calling discoverFiles, then emits `discovery:end` with filesIncluded, filesExcluded, and durationMs measured via `process.hrtime.bigint()`. Returns DiscoveryResult containing included/excluded file arrays. Creates orchestrator via createOrchestrator, calls `orchestrator.createPlan(discoveryResult)` to produce generationPlan, transforms it via buildExecutionPlan with post-order traversal, formats output using formatExecutionPlanAsMarkdown, and writes to `.agents-reverse-engineer/GENERATION-PLAN.md`.
+
+## Dependencies
+
+Imports loadConfig from `../config/loader.js`, discoverFiles from `../discovery/run.js`, createLogger from `../output/logger.js`, createOrchestrator from `../generation/orchestrator.js`, buildExecutionPlan and formatExecutionPlanAsMarkdown from `../generation/executor.js`, ProgressLog from `../orchestration/index.js`, ITraceWriter from `../orchestration/trace.js`, and DiscoveryResult from `../types/index.js`.
+
+## Error Handling
+
+discoverCommand handles ENOENT (directory not found), EACCES/EPERM (permission denied) from access() call by logging error and calling `process.exit(1)`. Catches writeFile failures when creating GENERATION-PLAN.md, logs error message, finalizes progressLog, and exits with code 1.
+
+## Output Behavior
+
+Uses logger.file() for included files, logger.excluded() for filtered files with reason and filter type, logger.summary() for counts. ProgressLog.write() mirrors all output for `tail -f` monitoring via `.agents-reverse-engineer/progress.log`. All file paths displayed using `path.relative()` for cleaner output relative to resolvedPath.
+
+## Debug Mode
+
+When `options.debug === true`, emits picocolors.dim() messages to stderr showing discovery start path, completion stats (included/excluded counts). Debug output bypasses logger to avoid progress.log duplication.

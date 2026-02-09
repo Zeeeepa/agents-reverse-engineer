@@ -1,0 +1,32 @@
+---
+generated_at: 2026-02-09T13:18:47.118Z
+content_hash: e162684d4e68559017b2915d2aa98f8c025b3e699aa5d84b58e7848c17f69da9
+purpose: PlanTracker maintains in-memory markdown content for GENERATION-PLAN.md and serializes concurrent checkbox updates vi...
+---
+**PlanTracker maintains in-memory markdown content for GENERATION-PLAN.md and serializes concurrent checkbox updates via a promise chain to prevent file corruption during parallel Phase 1 generation.**
+
+## Exported Class
+
+`PlanTracker` — tracks generation progress by updating markdown checkboxes in `.agents-reverse-engineer/GENERATION-PLAN.md`.
+
+```typescript
+constructor(projectRoot: string, initialMarkdown: string)
+```
+
+Creates instance with `planPath` set to `${projectRoot}/${CONFIG_DIR}/GENERATION-PLAN.md` and stores `initialMarkdown` in `content` field.
+
+## Public Methods
+
+`initialize(): Promise<void>` — writes initial `content` to disk at `planPath`, creating parent directory recursively via `mkdir()`. Swallows errors silently (non-critical operation).
+
+`markDone(itemPath: string): void` — replaces `- [ ] \`${itemPath}\`` with `- [x] \`${itemPath}\`` in `content`. Expects caller to pass exact path format: file (`src/cli/init.ts`), directory (`src/cli/AGENTS.md` with `/AGENTS.md` appended), or root doc (`CLAUDE.md`). Skips write if no replacement occurred. Appends `writeFile()` promise to `writeQueue` chain to serialize disk writes, swallowing errors.
+
+`flush(): Promise<void>` — awaits `writeQueue` to ensure all pending writes complete before caller exits.
+
+## Concurrency Pattern
+
+Uses promise chain serialization via `writeQueue` field initialized to `Promise.resolve()`. Each `markDone()` call chains `.then(() => writeFile(...))` onto previous promise, preventing concurrent writes from Phase 1 worker pool from corrupting file content. Similar pattern used in `TraceWriter` for NDJSON trace logs.
+
+## Integration Points
+
+Instantiated by `executeGenerate()` in `src/generation/executor.ts` with initial markdown from plan builder. Worker threads call `markDone()` after completing Phase 1 file analysis tasks. Called from `executeUpdate()` in `src/update/orchestrator.ts` for incremental updates.

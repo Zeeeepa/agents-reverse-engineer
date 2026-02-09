@@ -1,0 +1,43 @@
+---
+generated_at: 2026-02-09T13:18:15.274Z
+content_hash: 6632cd3ce8671181e7aecae242f25345ffa0351e4e81efefd82c9b04a55865c9
+purpose: cleanCommand() deletes all generated ARE documentation artifacts (*.sum, AGENTS.md, CLAUDE.md, GENERATION-PLAN.md) wi...
+---
+**cleanCommand() deletes all generated ARE documentation artifacts (*.sum, AGENTS.md, CLAUDE.md, GENERATION-PLAN.md) with dry-run support and user-authored file preservation.**
+
+## Exported Interface
+
+```typescript
+interface CleanOptions {
+  dryRun: boolean;  // Preview deletions without executing
+}
+
+async function cleanCommand(
+  targetPath: string,
+  options: CleanOptions
+): Promise<void>
+```
+
+## Artifact Discovery Strategy
+
+cleanCommand() uses fast-glob (fg.glob) to discover files in parallel via Promise.all across three patterns: `**/*.sum`, `**/AGENTS.md`, `**/AGENTS.local.md`. All globs ignore `**/node_modules/**` and `**/.git/**` directories, use absolute paths, and set `dot: true` for hidden file matching.
+
+AGENTS.md files undergo content filtering—only files containing GENERATED_MARKER from `src/generation/writers/agents-md.js` are added to generatedAgentsFiles, while user-authored AGENTS.md files populate skippedAgentsFiles to prevent accidental deletion.
+
+Single-file artifacts (CLAUDE.md at project root, .agents-reverse-engineer/GENERATION-PLAN.md) are checked via access() with constants.F_OK and pushed to singleFiles array if present.
+
+## Deletion and Restoration Logic
+
+In non-dry-run mode, cleanCommand() executes unlink() on all files in the combined allFiles array (sumFiles + generatedAgentsFiles + singleFiles), incrementing deleted counter and logging errors via logger.error() for failed deletions.
+
+AGENTS.local.md restoration reverses the rename operation from generation phase: for each localAgentsFiles entry, rename() moves it to path.join(path.dirname(localFile), 'AGENTS.md'), restoring user-defined documentation that was temporarily moved during generation.
+
+## Error Handling and Exit Codes
+
+cleanCommand() validates targetPath existence via access() with constants.R_OK, exiting with process.exit(1) for ENOENT (directory not found) or EACCES/EPERM (permission denied) errors. Unhandled errors propagate via throw.
+
+## Output and Logging
+
+createLogger({ colors: true }) provides logger instance for all output. Dry-run mode displays "Files that would be deleted:" prefix, while actual mode shows deletion progress. Summary line uses pc.bold() for numeric counts and pc.green() for success messages, pc.yellow() for dry-run notifications.
+
+relativePath() helper converts absolute paths to project-relative for user-friendly display via path.relative(resolvedPath, absPath).

@@ -1,0 +1,27 @@
+---
+generated_at: 2026-02-09T13:17:41.927Z
+content_hash: 1a738e5c2c022071d21cc5f162a3dbbae98ae485bf46586ce68d97a0bcfcbfc1
+purpose: Defines TypeScript types and constants for the prompt generation subsystem used during AI-driven file analysis.
+---
+**Defines TypeScript types and constants for the prompt generation subsystem used during AI-driven file analysis.**
+
+## Exported Types
+
+### PromptContext
+Interface passed to prompt builders containing:
+- `filePath: string` - absolute path to the file being analyzed
+- `content: string` - raw file content to analyze
+- `contextFiles?: Array<{path: string; content: string}>` - optional related files for cross-file context
+- `projectPlan?: string` - optional project structure listing for architectural awareness
+
+## Exported Constants
+
+### SUMMARY_GUIDELINES
+Structured constant defining documentation generation rules sourced from CONTEXT.md:
+- `targetLength: {min: 200, max: 300}` - word count bounds for .sum file output
+- `include: string[]` - array of 6 required documentation elements (purpose, public interface, patterns, dependencies, signatures, coupled files)
+- `exclude: string[]` - array of 3 forbidden content types (internal details, generic TODOs, broad architecture)
+
+## Usage Context
+
+PromptContext serves as input to `src/generation/prompts/builder.ts` functions that construct AI prompts for file analysis. The `contextFiles` field enables cross-reference analysis during concurrent file processing in `src/generation/executor.ts`. SUMMARY_GUIDELINES provides validation criteria consumed by quality checkers in `src/quality/` modules.

@@ -1,0 +1,17 @@
+---
+generated_at: 2026-02-09T13:18:15.196Z
+content_hash: 78cff2ed3b8efd6a7641dbc57fffa5d8b41fc24da285f3d31326bfc74d582b82
+purpose: types.ts defines TypeScript interfaces and types for git-based change detection in the ARE incremental documentation ...
+---
+**types.ts defines TypeScript interfaces and types for git-based change detection in the ARE incremental documentation update system.**
+
+## Exported Types
+
+- `ChangeType`: Union type literal `'added' | 'modified' | 'deleted' | 'renamed'` representing git diff status codes
+- `FileChange`: Interface describing a single file change with `path: string`, `status: ChangeType`, and optional `oldPath?: string` (populated for renames)
+- `ChangeDetectionResult`: Interface containing `currentCommit: string`, `baseCommit: string`, `changes: FileChange[]`, and `includesUncommitted: boolean` flag
+- `ChangeDetectionOptions`: Interface with single optional field `includeUncommitted?: boolean` to control whether staged and working directory changes are detected
+
+## Integration Context
+
+These types are consumed by `src/change-detection/detector.ts` (git diff execution) and `src/update/orchestrator.ts` (incremental update workflow). The `oldPath` field on `FileChange` enables tracking file renames through git history. The `includesUncommitted` flag distinguishes between committed-only diffs and diffs that include working tree modifications.

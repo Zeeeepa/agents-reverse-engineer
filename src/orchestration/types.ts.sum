@@ -1,0 +1,73 @@
+---
+generated_at: 2026-02-09T13:19:00.127Z
+content_hash: 4a5107766627829bab96cbea5651382b846fd508544a3c043d367b7abf39a2b9
+purpose: Defines core TypeScript interfaces for orchestrating concurrent AI analysis tasks, tracking file-level results, aggre...
+---
+**Defines core TypeScript interfaces for orchestrating concurrent AI analysis tasks, tracking file-level results, aggregating run summaries, emitting progress events, and configuring command execution.**
+
+## Exported Types
+
+### FileTaskResult
+Captures outcome of a single file's AI analysis with token usage and timing metrics:
+- `path: string` — relative path to analyzed source file
+- `success: boolean` — whether AI call succeeded
+- `tokensIn: number` — non-cached input tokens consumed
+- `tokensOut: number` — output tokens generated
+- `cacheReadTokens: number` — cached input tokens read
+- `cacheCreationTokens: number` — input tokens written to cache
+- `durationMs: number` — wall-clock milliseconds for the call
+- `model: string` — AI model identifier used
+- `error?: string` — optional error message on failure
+
+Used by command runner to return per-file outcomes to the orchestrator for aggregation.
+
+### RunSummary
+Aggregates all FileTaskResult data into totals for end-of-run reporting and telemetry:
+- `filesProcessed: number` — count of successfully analyzed files
+- `filesFailed: number` — count of failed file analyses
+- `filesSkipped: number` — count skipped (e.g., dry-run mode)
+- `totalCalls: number` — total AI API calls made
+- `totalInputTokens: number` — sum of tokensIn across all calls
+- `totalOutputTokens: number` — sum of tokensOut across all calls
+- `totalCacheReadTokens: number` — sum of cache reads
+- `totalCacheCreationTokens: number` — sum of cache writes
+- `totalDurationMs: number` — cumulative wall-clock time
+- `errorCount: number` — total errors encountered
+- `retryCount: number` — total retry attempts
+- `totalFilesRead: number` — total file read operations
+- `uniqueFilesRead: number` — deduplicated count of files read
+- `inconsistenciesCodeVsDoc?: number` — optional count of code-vs-doc inconsistencies
+- `inconsistenciesCodeVsCode?: number` — optional count of code-vs-code inconsistencies
+- `phantomPaths?: number` — optional count of phantom path references in AGENTS.md
+- `inconsistencyReport?: InconsistencyReport` — full inconsistency details if quality checks ran
+
+Produced at the end of generate or update commands for display and NDJSON logging.
+
+### ProgressEvent
+Discriminated union emitted by command runner to progress reporter for real-time status updates:
+- `type: 'start' | 'done' | 'error' | 'dir-done' | 'root-done'` — event discriminator
+- `filePath: string` — file or directory path being processed
+- `index: number` — zero-based task index within current phase
+- `total: number` — total tasks in current phase
+- `durationMs?: number` — milliseconds elapsed (on 'done')
+- `tokensIn?: number` — input tokens consumed (on 'done')
+- `tokensOut?: number` — output tokens generated (on 'done')
+- `model?: string` — model identifier (on 'done')
+- `error?: string` — error message (on 'error')
+
+Events flow from runner → ProgressReporter → console output and progress.log. Event types 'start', 'done', and 'error' apply to file-level tasks; 'dir-done' applies to directory AGENTS.md synthesis; 'root-done' applies to root document generation.
+
+### CommandRunOptions
+Configuration object controlling command execution behavior:
+- `concurrency: number` — max parallel AI calls (default 2, formerly 5)
+- `failFast?: boolean` — stop processing on first error
+- `debug?: boolean` — log exact prompts sent to AI
+- `dryRun?: boolean` — list files without executing
+- `tracer?: ITraceWriter` — NDJSON trace writer for concurrency debugging (NullTraceWriter when disabled)
+- `progressLog?: ProgressLog` — file-based progress mirroring for `tail -f` monitoring
+
+Populated from YAML config defaults merged with CLI flag overrides. Threaded through orchestrator → runner → pool → AIService for consistent behavior control.
+
+## Integration Points
+
+Imports `InconsistencyReport` from `../quality/index.js` for RunSummary.inconsistencyReport field, `ProgressLog` from `./progress.js` for CommandRunOptions.progressLog, and `ITraceWriter` from `./trace.js` for CommandRunOptions.tracer. Used by `src/orchestration/runner.ts` (produces FileTaskResult and ProgressEvent), `src/orchestration/pool.ts` (consumes CommandRunOptions.concurrency and tracer), `src/generation/orchestrator.ts` (aggregates RunSummary), and `src/orchestration/progress.ts` (consumes ProgressEvent).

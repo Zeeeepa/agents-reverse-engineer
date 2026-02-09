@@ -1,0 +1,28 @@
+---
+generated_at: 2026-02-09T13:18:26.454Z
+content_hash: 4a69c6ca8327582e8a6dc390f7ea2e7d38e67c9e93128163405cea5db79d3252
+purpose: Analyzes codebase structural complexity from discovered file paths to inform concurrency and resource allocation deci...
+---
+**Analyzes codebase structural complexity from discovered file paths to inform concurrency and resource allocation decisions.**
+
+## Exported Interface
+
+`ComplexityMetrics` contains:
+- `fileCount: number` - total source files discovered
+- `directoryDepth: number` - maximum nesting depth relative to projectRoot
+- `files: string[]` - complete list of source file paths
+- `directories: Set<string>` - unique directory paths extracted from files
+
+## Exported Function
+
+`analyzeComplexity(files: string[], projectRoot: string): ComplexityMetrics` orchestrates all complexity calculations by calling `calculateDirectoryDepth()` and `extractDirectories()`, returning a populated `ComplexityMetrics` object.
+
+## Internal Algorithms
+
+`calculateDirectoryDepth(files: string[], projectRoot: string): number` computes max depth by splitting `path.relative(projectRoot, file)` on `path.sep`, subtracting 1 to exclude the filename, tracking the maximum across all files.
+
+`extractDirectories(files: string[]): Set<string>` walks upward from each `path.dirname(file)` until reaching root (detected when `parent === dir`), accumulating unique directory paths in a Set, ensuring all ancestor directories are captured.
+
+## Integration Points
+
+Called by orchestration layer to determine concurrency parameters and progress reporting granularity based on codebase size and nesting depth. The `directories` Set drives directory-level AGENTS.md generation in post-order traversal (referenced in MEMORY.md three-phase architecture).

@@ -1,0 +1,33 @@
+---
+generated_at: 2026-02-09T13:17:46.141Z
+content_hash: 21bf8f8555dac27a2608934b9016f732256e87fab42ec4dce4f6c8f1b746e901
+purpose: gitignore.ts provides gitignore-based path filtering for file discovery using the `ignore` library.
+---
+**gitignore.ts provides gitignore-based path filtering for file discovery using the `ignore` library.**
+
+## Exported Interface
+
+- **`createGitignoreFilter(root: string): Promise<FileFilter>`** — Asynchronous factory that loads `.gitignore` from `root`, parses patterns via `ignore()`, and returns a `FileFilter` implementation.
+
+## FileFilter Implementation
+
+The returned object implements `FileFilter` from `../types.js`:
+
+- **`name: 'gitignore'`** — Filter identifier.
+- **`shouldExclude(absolutePath: string): boolean`** — Converts `absolutePath` to relative path via `path.relative(normalizedRoot, absolutePath)`, rejects paths outside root (starting with `..` or empty), then calls `ig.ignores(relativePath)` to match against loaded patterns.
+
+## Dependencies
+
+- **`ignore`** (`Ignore` type) — Third-party library for parsing and matching gitignore patterns; requires relative paths (not absolute).
+- **`fs.readFile(gitignorePath, 'utf-8')`** — Loads `.gitignore` content from `path.join(normalizedRoot, '.gitignore')`. Silent fallback on error (no-op filter if file missing).
+- **`path.resolve(root)`** — Normalizes root to absolute path stored in `normalizedRoot`.
+
+## Path Handling
+
+- **Relative Path Requirement**: `ignore` library operates on relative paths; `path.relative()` converts absolute input to project-relative format.
+- **Boundary Check**: Paths starting with `..` or empty strings (outside root) return `false` immediately to prevent incorrect matches.
+- **Trailing Slash Semantics**: Comment notes `ignore` library treats directories differently (requires trailing slash); current implementation handles files only (no slash appended) since walker returns files, not directories.
+
+## Error Handling
+
+- **Silent .gitignore Load Failure**: Try-catch around `fs.readFile()` swallows errors; missing `.gitignore` results in `ig` with no patterns (excludes nothing).

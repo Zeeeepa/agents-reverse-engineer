@@ -1,0 +1,25 @@
+---
+generated_at: 2026-02-09T13:18:15.545Z
+content_hash: c77dda0aa1a589b4b753f5790ede7d263fca6eb7a99f509b4e07fe04bf0e20f8
+purpose: index.ts exports the public API of the change-detection module, exposing git-based change tracking functions and type...
+---
+**index.ts exports the public API of the change-detection module, exposing git-based change tracking functions and types for incremental documentation updates.**
+
+## Exported Functions
+
+- `isGitRepo(): Promise<boolean>` checks if current directory is a git repository
+- `getCurrentCommit(): Promise<string | null>` retrieves current git commit SHA
+- `getChangedFiles(options: ChangeDetectionOptions): Promise<ChangeDetectionResult>` detects added, modified, deleted, and renamed files between commits or against working tree
+- `computeContentHash(filePath: string): Promise<string>` computes SHA-256 hash of file contents
+- `computeContentHashFromString(content: string): string` computes SHA-256 hash of in-memory string content
+
+## Exported Types
+
+- `ChangeType` discriminates between 'added', 'modified', 'deleted', 'renamed' file states
+- `FileChange` represents a single file change with path, changeType, and optional oldPath for renames
+- `ChangeDetectionResult` encapsulates the current commit SHA and array of FileChange objects
+- `ChangeDetectionOptions` configures change detection behavior (baseline commit, paths to include/exclude)
+
+## Module Role
+
+This barrel export consolidates the change detection subsystem used by `src/cli/update.ts` to identify which files require re-analysis. The actual implementation resides in `./detector.js` with type definitions in `./types.js`.

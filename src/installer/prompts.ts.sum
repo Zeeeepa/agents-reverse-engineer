@@ -1,0 +1,40 @@
+---
+generated_at: 2026-02-09T13:18:40.021Z
+content_hash: 897dac2c7186b17ac9b4816a3e65206f5358e6b7fdcf0a5c440436462359236e
+purpose: prompts.ts implements interactive runtime and location selection prompts with arrow-key navigation in TTY mode and nu...
+---
+**prompts.ts implements interactive runtime and location selection prompts with arrow-key navigation in TTY mode and numbered fallback for CI/non-interactive environments.**
+
+## Exported Functions
+
+- `isInteractive(): boolean` - returns true if `process.stdin.isTTY === true`, false for CI/piped input
+- `selectOption<T>(prompt: string, options: SelectOption<T>[]): Promise<T>` - dispatches to `arrowKeySelect()` in TTY mode or `numberedSelect()` in non-TTY mode
+- `selectRuntime(mode: 'install' | 'uninstall'): Promise<Runtime>` - prompts for runtime selection ('claude', 'opencode', 'gemini', 'all')
+- `selectLocation(mode: 'install' | 'uninstall'): Promise<Location>` - prompts for location selection ('global', 'local')
+- `confirmAction(message: string): Promise<boolean>` - prompts Yes/No confirmation returning boolean
+
+## Internal Implementation
+
+- `arrowKeySelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>` - uses `readline.emitKeypressEvents()` and `process.stdin.setRawMode(true)` to capture up/down/return keypresses, renders selection with `pc.cyan()` highlight, handles Ctrl+C via `key.ctrl && key.name === 'c'`
+- `numberedSelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>` - prints numbered list, creates `readline.createInterface()`, reads numeric input via `rl.question()`, validates `1-options.length` range
+- `SelectOption<T>` interface defines `{ label: string; value: T }` structure for prompt options
+
+## Raw Mode Lifecycle Management
+
+- `rawModeActive: boolean` module-level flag tracks raw mode state
+- `cleanupRawMode(): void` calls `process.stdin.setRawMode(false)` and `process.stdin.pause()` with error suppression
+- Global handlers registered: `process.on('exit', cleanupRawMode)` and `process.on('SIGINT', cleanupRawMode)` ensure terminal restoration
+- `arrowKeySelect()` uses try/finally pattern: setup in try block, `cleanupRawMode()` in catch, explicit cleanup on 'return' keypress
+
+## Dependencies
+
+- `node:readline` for `emitKeypressEvents()`, `createInterface()`, and keypress event handling
+- `picocolors` (pc) for `pc.cyan()` and `pc.bold()` terminal styling
+- `./types.js` for `Runtime` ('claude' | 'opencode' | 'gemini' | 'all') and `Location` ('global' | 'local') types
+
+## Terminal Control Sequences
+
+- `\x1b[${n}A` moves cursor up n lines for re-rendering
+- `\x1b[2K` clears current line
+- `\x1b[1B` moves cursor down one line
+- `render(clear: boolean)` function redraws selection UI, clearing previous output when `clear === true`

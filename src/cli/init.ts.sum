@@ -1,0 +1,30 @@
+---
+generated_at: 2026-02-09T13:18:10.845Z
+content_hash: 6ca4f0b7de0732f0b668336ec6dbb64cc5095b2a86e975c398ff22e2a986e66e
+purpose: initCommand creates `.agents-reverse-engineer/config.yaml` with default settings and warns if configuration already e...
+---
+**initCommand creates `.agents-reverse-engineer/config.yaml` with default settings and warns if configuration already exists.**
+
+## Exported Functions
+
+```typescript
+async function initCommand(root: string): Promise<void>
+```
+
+initCommand resolves the root directory to an absolute path, checks existence via configExists, and either warns if config exists at `${CONFIG_DIR}/${CONFIG_FILE}` or calls writeDefaultConfig to create it. Logs guidance about customizable fields: `exclude.patterns`, `ai.concurrency` (1-10, default 5), `ai.timeoutMs` (default 300,000ms), `ai.backend` (claude/gemini/opencode/auto).
+
+## Dependencies
+
+- `path` (Node.js): resolve and join paths for configPath construction
+- `configExists` (`../config/loader.js`): async check if config file exists
+- `writeDefaultConfig` (`../config/loader.js`): async write default YAML config
+- `CONFIG_DIR`, `CONFIG_FILE` (`../config/loader.js`): constants for `.agents-reverse-engineer` directory and `config.yaml` filename
+- `createLogger` (`../output/logger.js`): factory for colored logger instance
+
+## Error Handling
+
+initCommand catches NodeJS.ErrnoException and checks error.code: exits with code 1 on `EACCES` or `EPERM` (permission denied), exits with code 1 on any other error after logging error.message. Uses logger.warn for pre-existing config, logger.info for success and usage guidance, logger.error for failures.
+
+## CLI Integration
+
+Implements `are init` command which sets up initial configuration in project root before first discovery/generation run.

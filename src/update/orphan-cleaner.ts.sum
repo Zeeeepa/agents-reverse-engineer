@@ -1,0 +1,43 @@
+---
+generated_at: 2026-02-09T13:19:09.019Z
+content_hash: c0b2afdea7b5cf019d45bff398962317566ac087fde3ddfa890cd2f97b14adb5
+purpose: orphan-cleaner.ts deletes stale .sum files and AGENTS.md files when source files are removed or renamed.
+---
+**orphan-cleaner.ts deletes stale .sum files and AGENTS.md files when source files are removed or renamed.**
+
+## Exports
+
+### cleanupOrphans
+```typescript
+async function cleanupOrphans(
+  projectRoot: string,
+  changes: FileChange[],
+  dryRun: boolean = false
+): Promise<CleanupResult>
+```
+Orchestrates cleanup by processing `FileChange` arrays: for `status === 'deleted'` items, deletes `<path>.sum`; for `status === 'renamed'` items with `oldPath`, deletes `<oldPath>.sum`. Collects affected parent directories from `pathsToClean` using `path.dirname()`, then calls `cleanupEmptyDirectoryDocs()` for each directory. Returns `CleanupResult` with `deletedSumFiles` (relative paths with `.sum` suffix) and `deletedAgentsMd` (relative paths to AGENTS.md files).
+
+### cleanupEmptyDirectoryDocs
+```typescript
+async function cleanupEmptyDirectoryDocs(
+  dirPath: string,
+  dryRun: boolean = false
+): Promise<boolean>
+```
+Reads `dirPath` via `readdir()` and checks if any source files remain by filtering out entries that start with `.`, end with `.sum`, or exist in `GENERATED_FILES` Set. If no source files remain, calls `deleteIfExists()` on `AGENTS.md`. Returns `true` if AGENTS.md was deleted or would be in dry run.
+
+### getAffectedDirectories
+```typescript
+function getAffectedDirectories(changes: FileChange[]): Set<string>
+```
+Extracts parent directory paths from non-deleted `FileChange` items. Walks up from `path.dirname(change.path)` until reaching `'.'` or absolute path, adding each directory to a Set. Always includes `'.'` root directory. Skips `status === 'deleted'` changes since deleted files don't trigger directory doc regeneration.
+
+## Dependencies
+
+Imports `FileChange` from `../change-detection/types.js` (contains `status`, `path`, `oldPath` fields), `CleanupResult` from `./types.js` (has `deletedSumFiles: string[]`, `deletedAgentsMd: string[]`), and `unlink`, `readdir`, `stat` from `node:fs/promises` for async file operations.
+
+## Internal Helpers
+
+`deleteIfExists()` wraps `stat()` + `unlink()` to safely delete files, returning `true` if file existed (or would be deleted in dry run), `false` if file not found.
+
+`GENERATED_FILES` Set contains `'AGENTS.md'` and `'CLAUDE.md'` — excluded when determining if directory has source files.

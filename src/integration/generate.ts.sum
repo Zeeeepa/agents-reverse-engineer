@@ -1,0 +1,35 @@
+---
+generated_at: 2026-02-09T13:18:47.511Z
+content_hash: 815c6784f88dbd27ad0b859beb5c7fa30845665400df4d51a3ed29f557812499
+purpose: generate.ts orchestrates integration file creation for AI assistant environments (Claude, OpenCode, Gemini, Aider) by...
+---
+**generate.ts orchestrates integration file creation for AI assistant environments (Claude, OpenCode, Gemini, Aider) by detecting or targeting specific environments, instantiating templates, and writing command files and hooks to disk with skip-if-exists or force-overwrite behavior.**
+
+## Exported Interface
+
+- `generateIntegrationFiles(projectRoot: string, options: GenerateOptions): Promise<IntegrationResult[]>` - Main entry point that detects or targets environments, retrieves templates via `getTemplatesForEnvironment()`, writes files to disk unless they exist, and for Claude environment, copies bundled `are-session-end.js` hook from `hooks/dist/` to `.claude/hooks/`.
+
+- `GenerateOptions` - Configuration interface with `dryRun?: boolean` (simulate without writing), `force?: boolean` (overwrite existing files), `environment?: EnvironmentType` (bypass auto-detection and target specific environment).
+
+## Integration with Detection and Templates
+
+- Calls `detectEnvironments(projectRoot)` from `./detect.js` when no specific environment provided, yielding `{ type: EnvironmentType; configDir: string }[]`.
+- Maps `EnvironmentType` ('claude' | 'opencode' | 'gemini' | 'aider') to config directory names via `configDirMap`.
+- Delegates template retrieval to `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` from `./templates.js` via `getTemplatesForEnvironment()` switch statement; returns empty array for Aider.
+
+## File System Operations
+
+- `ensureDir(filePath: string)` extracts parent directory via `path.dirname()` and creates it recursively via `mkdirSync({ recursive: true })` if missing.
+- `getBundledHookPath(hookName: string)` constructs path from `import.meta.url` via `fileURLToPath()`, navigates up two levels from `dist/integration/` to project root, then to `hooks/dist/`.
+- `readBundledHook(hookName: string)` reads hook content via `readFileSync()`, throws if path does not exist.
+- `writeFileSync()` writes template content or hook content to disk unless `dryRun` is true.
+
+## File Creation Logic
+
+- For each template, checks `existsSync(fullPath)` before writing; if file exists and `force` is false, adds path to `result.filesSkipped`, otherwise writes and adds to `result.filesCreated`.
+- Special handling for Claude: after processing templates, generates `.claude/hooks/are-session-end.js` by reading bundled hook via `readBundledHook('are-session-end.js')` and writing to project.
+
+## Return Value Structure
+
+- Returns `IntegrationResult[]` where each result contains `{ environment: EnvironmentType, filesCreated: string[], filesSkipped: string[] }`.
+- One result per detected or specified environment.

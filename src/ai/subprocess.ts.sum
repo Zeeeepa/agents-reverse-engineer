@@ -1,0 +1,42 @@
+---
+generated_at: 2026-02-09T13:18:10.644Z
+content_hash: 2d0c4834799e406b4745aa058f264e3e30d85b9f9c1d84d8d8612ad0bd169e14
+purpose: `subprocess.ts` spawns and manages AI CLI child processes with timeout enforcement, SIGKILL escalation, stdin piping,...
+---
+**`subprocess.ts` spawns and manages AI CLI child processes with timeout enforcement, SIGKILL escalation, stdin piping, and active subprocess tracking.**
+
+## Exported Function
+
+`runSubprocess(command: string, args: string[], options: SubprocessOptions): Promise<SubprocessResult>` spawns a CLI subprocess via Node.js `execFile()`, pipes optional stdin, enforces a timeout via SIGTERM, escalates to SIGKILL after `SIGKILL_GRACE_MS` (5000ms) grace period, and always resolves with `SubprocessResult` containing `stdout`, `stderr`, `exitCode`, `signal`, `durationMs`, `timedOut`, and `childPid`. Never rejects—failures are captured in result fields.
+
+`getActiveSubprocessCount(): number` returns the current count of tracked subprocesses from the internal `activeSubprocesses` Map.
+
+`getActiveSubprocesses(): Array<{ pid: number; command: string; spawnedAt: number; runningMs: number }>` returns details of all active subprocesses with their PIDs, commands, spawn timestamps, and elapsed runtime.
+
+## Configuration Types
+
+`SubprocessOptions` interface defines `timeoutMs: number`, optional `input?: string` for stdin piping, and `onSpawn?: (pid: number | undefined) => void` callback fired synchronously when the child process spawns.
+
+## Process Management Strategy
+
+`runSubprocess()` uses `execFile()` with `timeout` and `killSignal: 'SIGTERM'` options. Sets `maxBuffer: 10 * 1024 * 1024` (10MB) to handle large AI responses. When timeout expires, `execFile` sends SIGTERM. If process doesn't exit within `SIGKILL_GRACE_MS` (5000ms), escalates to SIGKILL via `setTimeout()` timer (unref'd to avoid blocking event loop). Attempts process group kill with `process.kill(-child.pid, 'SIGKILL')` to terminate entire subprocess tree, falls back to single-process `process.kill(child.pid, 'SIGKILL')` if process group kill fails.
+
+## Exit Code Extraction
+
+Callback extracts `exitCode` from `ExecFileException.code` (number), falls back to `child.exitCode`, then defaults to 1 for unknown failures or 0 for no error. Detects timeout via `error.killed === true` flag set by `execFile()` when process exceeds timeout.
+
+## Stdin Piping
+
+Writes `options.input` to `child.stdin` and calls `child.stdin.end()` to close the stream—critical to prevent child process blocking on stdin EOF (references RESEARCH.md Pitfall 1 in comment).
+
+## Active Subprocess Tracking
+
+Maintains `activeSubprocesses` Map with `pid -> { command: string; spawnedAt: number }` entries. Registers subprocess on spawn, removes on callback. Used by `getActiveSubprocessCount()` and `getActiveSubprocesses()` for debugging concurrency.
+
+## Spawn Timing
+
+Invokes `options.onSpawn?.(child.pid)` synchronously after `execFile()` returns, before callback fires. Enables trace events to capture actual spawn time rather than callback time.
+
+## Signal Handling
+
+Stores `error.signal` (string | null) in `SubprocessResult.signal` field. Clears SIGKILL escalation timer in callback to prevent redundant kills after process exits naturally.

@@ -1,0 +1,34 @@
+---
+generated_at: 2026-02-09T13:19:16.685Z
+content_hash: b6592de50e518a82f7185d14f371f7ccfff18a4569aa6e6fdf3d18d40b9f4d83
+purpose: opencode-are-check-update.js exports AreCheckUpdate hook that spawns background npm version checks on OpenCode sessio...
+---
+**opencode-are-check-update.js exports AreCheckUpdate hook that spawns background npm version checks on OpenCode session.created events and caches results to ~/.config/opencode/cache/are-update-check.json.**
+
+## Exported Symbols
+
+- `AreCheckUpdate`: async function returning hook object with `event['session.created']` handler
+
+## Hook Lifecycle
+
+AreCheckUpdate returns object mapping `'session.created'` event to async handler. Handler executes synchronously then spawns detached background process via `spawn(process.execPath, ['-e', scriptString], {stdio: 'ignore', detached: true, windowsHide: true})` followed by `child.unref()` to prevent parent blocking.
+
+## Version File Resolution
+
+Background script checks `projectVersionFile` at `<cwd>/.opencode/ARE-VERSION` first, falls back to `globalVersionFile` at `~/.config/opencode/ARE-VERSION`. Reads `installed` version via `readFileSync(versionFile, 'utf8').trim()`, defaults to '0.0.0' if both missing.
+
+## NPM Version Check
+
+Background script invokes `execSync('npm view agents-reverse-engineer version', {encoding: 'utf8', timeout: 10000, windowsHide: true})` to fetch `latest` version from registry. Silently catches errors and sets `latest = null` on failure.
+
+## Cache Format
+
+Writes JSON object to `cacheFile` with fields: `update_available` (boolean comparing installed !== latest), `installed` (string), `latest` (string or 'unknown'), `checked` (Unix timestamp from `Math.floor(Date.now() / 1000)`).
+
+## Directory Initialization
+
+Ensures `cacheDir` exists via `mkdirSync(cacheDir, {recursive: true})` before spawning background process.
+
+## Integration Pattern
+
+OpenCode equivalent of Claude/Gemini SessionStart hooks (`are-check-update.js`). Detached spawn pattern prevents blocking OpenCode initialization while allowing background npm registry check to complete asynchronously.

@@ -1,0 +1,26 @@
+---
+generated_at: 2026-02-09T13:19:12.515Z
+content_hash: 34836e7b21ee372f71361b50aaa9e8e19948e339aef640a828b1d1257beac09a
+purpose: are-session-end.js serves as a Claude Code session-end hook that spawns `are update` in the background when the sessi...
+---
+**are-session-end.js serves as a Claude Code session-end hook that spawns `are update` in the background when the session closes and uncommitted git changes exist.**
+
+## Hook Lifecycle
+
+Executes automatically via Claude Code's session lifecycle integration. Checks two disable mechanisms: `ARE_DISABLE_HOOK` environment variable and `hook_enabled: false` in `.agents-reverse-engineer.yaml` config file. Exits silently (status 0) if disabled.
+
+## Git Change Detection
+
+Uses `execSync('git status --porcelain')` to detect uncommitted changes. Exits early if no changes exist or if git is unavailable. This prevents unnecessary documentation updates when no code has changed since last run.
+
+## Background Process Spawning
+
+Spawns `npx agents-reverse-engineer@latest update --quiet` via `spawn()` with `detached: true` and `stdio: 'ignore'`. Calls `child.unref()` to allow parent process (Claude session) to exit without waiting for update completion. This non-blocking design prevents session close delays.
+
+## Dependencies
+
+Imports `execSync`, `spawn` from `child_process`, `existsSync`, `readFileSync` from `fs`. No external npm dependencies beyond Node.js stdlib. Requires `#!/usr/bin/env node` shebang for direct execution.
+
+## Configuration Integration
+
+Reads `.agents-reverse-engineer.yaml` synchronously via `readFileSync()`. Uses simple string inclusion check (`config.includes('hook_enabled: false')`) rather than full YAML parsing for performance. Config file location is hardcoded as relative path.

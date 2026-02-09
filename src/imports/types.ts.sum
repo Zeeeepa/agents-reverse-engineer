@@ -1,0 +1,32 @@
+---
+generated_at: 2026-02-09T13:18:27.983Z
+content_hash: c69fb25302e6483d7c0631a9e0713db1fc96b2749658e0a77321e40da99e422e
+purpose: types.ts defines TypeScript interfaces for representing import statements extracted from source files.
+---
+**types.ts defines TypeScript interfaces for representing import statements extracted from source files.**
+
+## Exported Interfaces
+
+### ImportEntry
+Represents a single import statement extracted from source code.
+
+**Properties:**
+- `specifier: string` — raw import path as written in source (e.g., `'../ai/index.js'`)
+- `symbols: string[]` — array of imported identifiers (e.g., `['AIService', 'AIResponse']`)
+- `typeOnly: boolean` — flag indicating TypeScript type-only imports (`import type`)
+
+### FileImports
+Aggregates all imports discovered in a single source file, categorized by locality.
+
+**Properties:**
+- `fileName: string` — relative file path (e.g., `'runner.ts'`)
+- `externalImports: ImportEntry[]` — imports from other modules (not same directory)
+- `internalImports: ImportEntry[]` — imports from same directory
+
+## Design Pattern
+
+FileImports segregates imports into `externalImports` (cross-module dependencies) and `internalImports` (intra-directory dependencies), enabling dependency analysis and coupling metrics. The `ImportEntry.typeOnly` flag distinguishes TypeScript type imports from runtime imports for accurate dependency graph construction.
+
+## Integration Context
+
+These types are consumed by `src/imports/extractor.ts` (parses source into ImportEntry/FileImports) and referenced in `src/generation/prompts/builder.ts` (includes import metadata in AI prompts for context-aware documentation generation).

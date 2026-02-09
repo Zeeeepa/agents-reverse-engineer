@@ -1,0 +1,35 @@
+---
+generated_at: 2026-02-09T13:18:46.666Z
+content_hash: c54b67ea5f368404974a24012da22317186b49543249ead73a5cec227f874c98
+purpose: Barrel export module aggregating the public API of the orchestration subsystem (concurrency pool, progress tracking, ...
+---
+**Barrel export module aggregating the public API of the orchestration subsystem (concurrency pool, progress tracking, command execution, tracing).**
+
+## Exported Types
+
+- **FileTaskResult**: Task outcome for file-level operations
+- **RunSummary**: Aggregate metrics from command execution
+- **ProgressEvent**: Event payload for progress reporting
+- **CommandRunOptions**: Configuration object threaded through runner → pool → AIService
+- **PoolOptions**: Concurrency pool configuration (worker count, iterator)
+- **TaskResult**: Generic task outcome from `runPool<T>()`
+- **ITraceWriter**: Interface for NDJSON trace event emission
+- **TraceEvent**: Discriminated union of trace event types (phase:start/end, worker:start/end, task:pickup/done, subprocess:spawn/exit, retry)
+- **TraceEventPayload**: Union of payload shapes for all TraceEvent variants
+
+## Exported Functions
+
+- **runPool**: Iterator-based concurrency pool executor (shared iterator, N workers, serialized via promise chain)
+- **createTraceWriter**: Factory function returning ITraceWriter implementation (TraceWriter or NullTraceWriter based on enablement)
+- **cleanupOldTraces**: Deletes trace files older than retention threshold from `.agents-reverse-engineer/traces/`
+
+## Exported Classes
+
+- **ProgressReporter**: Emits ProgressEvent objects during command execution (file completions, phase transitions)
+- **ProgressLog**: Writes human-readable progress updates to `.agents-reverse-engineer/progress.log`
+- **PlanTracker**: Serializes plan state writes to disk via promise chain (prevents corruption from concurrent workers)
+- **CommandRunner**: Orchestrates three-phase execution (file analysis → directory AGENTS.md → root docs) with AIService integration
+
+## Module Role
+
+Single import point for orchestration engine. Consumers (CLI commands, test suites) import from `./orchestration/index.js` to access runPool, CommandRunner, ProgressReporter, PlanTracker, and tracing infrastructure without direct coupling to internal module structure (`./pool.js`, `./runner.js`, `./progress.js`, `./plan-tracker.js`, `./trace.js`, `./types.js`).

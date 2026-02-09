@@ -1,0 +1,30 @@
+---
+generated_at: 2026-02-09T13:17:45.376Z
+content_hash: 4b039bebed99314f51d3684c5c4dfdaf4edee6f18f522f5b116b75f365712d43
+purpose: sum.ts manages .sum file I/O, serializing SummaryMetadata and summary text into YAML-frontmatter format with change d...
+---
+**sum.ts manages .sum file I/O, serializing SummaryMetadata and summary text into YAML-frontmatter format with change detection via SHA-256 content hashes.**
+
+## Exported Types
+
+- `SumFileContent`: structure containing `summary: string`, `metadata: SummaryMetadata`, `generatedAt: string`, and `contentHash: string` for SHA-256-based change detection
+- `SummaryMetadata` imported from `../types.js` containing `purpose`, optional `criticalTodos`, and optional `relatedFiles`
+
+## File Format
+
+YAML frontmatter delimited by `---` containing `generated_at`, `content_hash`, `purpose`, and optional `critical_todos` and `related_files` arrays, followed by summary text. `formatSumFile` emits inline array syntax `[a, b, c]` for arrays ≤3 items with item length <40 chars, otherwise multi-line `- item` syntax. `parseSumFile` handles both inline `key: [a, b, c]` and multi-line formats via regex extraction in `parseYamlArray`.
+
+## Public Interface
+
+- `writeSumFile(sourcePath: string, content: SumFileContent): Promise<string>`: creates directory with `mkdir(..., {recursive: true})`, formats via `formatSumFile`, writes to `${sourcePath}.sum`, returns sum path
+- `readSumFile(sumPath: string): Promise<SumFileContent | null>`: reads file and delegates to `parseSumFile`, returns null on read or parse failure
+- `getSumPath(sourcePath: string): string`: appends `.sum` suffix
+- `sumFileExists(sourcePath: string): Promise<boolean>`: checks if `readSumFile(getSumPath(sourcePath))` returns non-null
+
+## Internal Parsing Logic
+
+`parseSumFile` extracts frontmatter via `/^---\n([\s\S]*?)\n---\n/` regex, parses `generated_at` and `content_hash` via line-based regex matching, invokes `parseYamlArray` for `critical_todos` and `related_files`, conditionally populates `SummaryMetadata` fields only if arrays non-empty, returns null on any parse error.
+
+## Integration Points
+
+Consumed by change detection system (`src/change-detection/detector.ts`) to compare `contentHash` values, and by orchestrator (`src/generation/orchestrator.ts`) to read existing summaries during incremental updates.

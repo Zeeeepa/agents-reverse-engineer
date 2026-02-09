@@ -1,0 +1,30 @@
+---
+generated_at: 2026-02-09T13:19:22.176Z
+content_hash: 71675547e7ed7dc5b1c708febebf0e954ac52c258471feb19766f9b2e6dc5bec
+purpose: INPUT.md defines the original project vision for agents-reverse-engineer, documenting the brownfield documentation au...
+---
+**INPUT.md defines the original project vision for agents-reverse-engineer, documenting the brownfield documentation automation tool that generates AGENTS.md files via recursive language model execution.**
+
+## Document Type
+
+INPUT.md is a requirements and vision document (not executable code), outlining the conceptual design for the agents-reverse-engineer CLI tool before implementation.
+
+## Core Workflow Description
+
+The Recursive Language Model (RLM) algorithm builds a project structure tree, executes at leaf nodes (files), generates `{filename}.sum` summaries for each file, then recursively generates AGENTS.md at each directory level from leaf to root, working backward through the tree structure.
+
+## Generated Artifact Types
+
+AGENTS.md files at each directory level describe current directory content and sub-structure. Related reference documents include ARCHITECTURE.md, STRUCTURE.md, STACK.md, INTEGRATIONS.md, INFRASTRUCTURE.md, CONVENTIONS.md, TESTING.md, PATTERNS.md, and CONCERNS.md. The tool also generates CLAUDE.md files.
+
+## Integration Targets
+
+Compatible with Claude Code, OpenCode, and other LLM agent tools. Complementary tools referenced: SpecKit (https://github.com/github/spec-kit), BMAD (https://github.com/bmad-code-org/BMAD-METHOD), and Get Shit Done/GSD (https://github.com/glittercowboy/get-shit-done).
+
+## Command Interface
+
+Primary commands: `/are-generate` and `/are-update`. Session hooks enable automatic documentation updates for impacted files at session end (see `are-session-end.js` and `opencode-are-session-end.js` in hooks/ directory).
+
+## Architectural Inspiration
+
+Project structure and brownfield project approach derived from GSD methodology with elements from BMAD, as noted in the "Research" section directing analysis of both codebases for brownfield handling patterns and special commands.

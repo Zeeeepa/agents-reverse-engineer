@@ -1,0 +1,53 @@
+---
+generated_at: 2026-02-09T13:18:45.608Z
+content_hash: 807d633ab0a3f34ba82995ad8707fd0c6baf723f73c6eedbd50258b6fbe3725c
+purpose: Main orchestrator for the npx installation workflow, exposing runInstaller() and parseInstallerArgs() to manage skill...
+---
+**Main orchestrator for the npx installation workflow, exposing runInstaller() and parseInstallerArgs() to manage skill file deployment across claude/opencode/gemini runtimes in global or local installation locations.**
+
+## Exported API Surface
+
+- **`runInstaller(args: InstallerArgs): Promise<InstallerResult[]>`** — Main entry point for install/uninstall workflow; handles help flag, displays banner unless quiet=true, dispatches to runInstall() or runUninstall() based on args.uninstall flag, returns array of InstallerResult objects (one per runtime/location pair).
+- **`parseInstallerArgs(args: string[]): InstallerArgs`** — Parses CLI args (short: -g/-l/-h/-q, long: --global/--local/--help/--quiet/--force/--runtime); validates runtime against `['claude', 'opencode', 'gemini', 'all']`, returns InstallerArgs object with flags and validated runtime.
+
+## Re-Exported Symbols
+
+Re-exports from submodules for external consumers:
+- Types: `InstallerArgs`, `InstallerResult`, `Runtime`, `Location`, `RuntimePaths`
+- Functions: `getRuntimePaths`, `getAllRuntimes`, `resolveInstallPath`, `getSettingsPath`, `displayBanner`, `showHelp`, `showSuccess`, `showError`, `showWarning`, `showInfo`, `showNextSteps`, `VERSION`, `selectRuntime`, `selectLocation`, `confirmAction`, `isInteractive`
+
+## Workflow Modes
+
+- **Interactive mode**: Detected via isInteractive(); prompts user via selectRuntime() and selectLocation() if flags missing; used for npx CLI flows.
+- **Non-interactive mode**: Requires --runtime and -g/--global or -l/--local flags; exits with showError() if missing; used for CI/scripted installs.
+- **Install mode** (default): Calls runInstall() → installFiles() → verifyInstallation() → displayInstallResults(); supports --force to overwrite existing files.
+- **Uninstall mode** (args.uninstall=true): Calls runUninstall() → uninstallFiles() + deleteConfigFolder() → displayUninstallResults(); repurposes filesCreated field to track deleted files.
+
+## Internal Helpers
+
+- **`determineLocation(args: InstallerArgs): Location | undefined`** — Returns 'global' if only --global set, 'local' if only --local set, undefined if both/neither (requires prompt).
+- **`determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime, 'all'>>`** — Expands 'all' to getAllRuntimes(), single runtime to one-element array, undefined to empty array (prompt needed).
+- **`runInstall(runtime, location, force, quiet): Promise<InstallerResult[]>`** — Calls installFiles() with dryRun=false, verifyInstallation() on filesCreated, shows missing files via showWarning() if verification fails, returns results array.
+- **`runUninstall(runtime, location, quiet): InstallerResult[]`** — Calls uninstallFiles() + deleteConfigFolder() for local installs, returns results with filesCreated repurposed as deleted file list.
+
+## Display Functions
+
+- **`displayInstallResults(results: InstallerResult[])`** — Aggregates filesCreated/filesSkipped/hookRegistered counts across results, calls showSuccess()/showError()/showWarning() with counts, invokes showNextSteps() with primaryRuntime from results[0], displays GitHub link via showInfo().
+- **`displayUninstallResults(results: InstallerResult[], configDeleted: boolean)`** — Repurposes filesCreated as deleted files, filesSkipped as not-found files, hookRegistered as "hook was unregistered" flag; aggregates counts and displays via showSuccess()/showInfo().
+
+## Dependencies
+
+Imports from installer submodules:
+- `./types.js`: InstallerArgs, InstallerResult, Runtime, Location types
+- `./paths.js`: getAllRuntimes(), resolveInstallPath()
+- `./banner.js`: displayBanner(), show* styled output functions
+- `./prompts.js`: selectRuntime(), selectLocation(), confirmAction(), isInteractive()
+- `./operations.js`: installFiles(), verifyInstallation(), formatInstallResult()
+- `./uninstall.js`: uninstallFiles(), deleteConfigFolder()
+
+## Error Handling
+
+- Exits with process.exit(1) if non-interactive mode missing required flags (--runtime or -g/-l).
+- Exits with process.exit(1) if unable to determine runtime/location after prompts.
+- Shows verification warnings via showWarning() if verifyInstallation() reports missing files but does not exit.
+- Accumulates errors in InstallerResult.errors array, displayed via showWarning() in display functions.

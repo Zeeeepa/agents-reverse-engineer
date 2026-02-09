@@ -1,0 +1,66 @@
+---
+generated_at: 2026-02-09T13:18:40.425Z
+content_hash: b5b20a83f1fe73aea8e05063d8242f06c7f80b130820584ddee3aac3c07959d9
+purpose: Implements the `updateCommand` CLI entry point for incremental documentation updates based on git changes, orchestrat...
+---
+**Implements the `updateCommand` CLI entry point for incremental documentation updates based on git changes, orchestrating file analysis via `CommandRunner`, AGENTS.md regeneration, and telemetry finalization.**
+
+## Exported Functions
+
+### updateCommand
+```typescript
+async function updateCommand(targetPath: string, options: UpdateCommandOptions): Promise<void>
+```
+Executes incremental update workflow: loads config via `loadConfig()`, creates `UpdateOrchestrator` via `createUpdateOrchestrator()`, prepares `UpdatePlan` via `orchestrator.preparePlan()`, resolves AI backend via `resolveBackend()`, analyzes changed files via `runner.executeUpdate()`, regenerates AGENTS.md for `plan.affectedDirs`, finalizes telemetry via `aiService.finalize()`, and records run state via `orchestrator.recordRun()`. Exit codes: 0 (success), 1 (partial failure), 2 (total failure/no CLI). Handles `--dry-run`, `--uncommitted`, `--fail-fast`, `--debug`, `--trace`, and `--concurrency` options.
+
+## Interface
+
+### UpdateCommandOptions
+```typescript
+interface UpdateCommandOptions {
+  uncommitted?: boolean;        // Include staged + working directory changes
+  dryRun?: boolean;             // Show plan without making changes
+  concurrency?: number;         // Concurrent AI calls
+  failFast?: boolean;           // Stop on first analysis failure
+  debug?: boolean;              // Show AI prompts and backend details
+  trace?: boolean;              // Enable NDJSON tracing to .agents-reverse-engineer/traces/
+}
+```
+
+## Two-Phase Execution Model
+
+Phase 1 (File Analysis): `CommandRunner.executeUpdate()` processes `plan.filesToAnalyze` concurrently with worker pool, emitting `phase:start`, `task:start`, `task:done`, `phase:end` trace events. Phase 2 (Directory Regeneration): Sequential loop over `plan.affectedDirs`, calling `buildDirectoryPrompt()` and `writeAgentsMd()` for each directory, emitting manual trace events with phase label `'update-phase-dir-regen'`.
+
+## Helper Functions
+
+### formatPlan
+```typescript
+function formatPlan(plan: UpdatePlan): string
+```
+Renders `UpdatePlan` to colored console output showing `plan.currentCommit`, `plan.filesToAnalyze` with status markers (`+` added, `R` renamed, `M` modified), `plan.filesToSkip`, cleanup actions via `formatCleanup()`, and `plan.affectedDirs`. Returns early with `'No changes detected since last run.'` if all counts are zero. Displays `'First run detected. Use "are generate" for initial documentation.'` if `plan.isFirstRun === true`.
+
+### formatCleanup
+```typescript
+function formatCleanup(plan: UpdatePlan): string[]
+```
+Formats `plan.cleanup.deletedSumFiles` and `plan.cleanup.deletedAgentsMd` as yellow-prefixed lists with red `-` markers.
+
+## Integration Points
+
+Imports `createUpdateOrchestrator` and `UpdatePlan` from `../update/index.js`, `writeAgentsMd` from `../generation/writers/agents-md.js`, `buildDirectoryPrompt` from `../generation/prompts/index.js`, `AIService`, `createBackendRegistry`, `resolveBackend`, `getInstallInstructions`, `AIServiceError` from `../ai/index.js`, `CommandRunner`, `ProgressReporter`, `ProgressLog`, `createTraceWriter`, `cleanupOldTraces` from `../orchestration/index.js`, `loadConfig` from `../config/loader.js`, and `createLogger` from `../output/logger.js`.
+
+## Backend Resolution Error Handling
+
+Catches `AIServiceError` with `error.code === 'CLI_NOT_FOUND'` during `resolveBackend()`, logs `getInstallInstructions(registry)` to stderr, and exits with code 2. Enables subprocess output logging to `'.agents-reverse-engineer/subprocess-logs/<timestamp>/'` via `aiService.setSubprocessLogDir()` when `options.trace === true`.
+
+## Progress Reporting
+
+Creates `ProgressLog` instance via `ProgressLog.create(absolutePath)`, writes header with timestamp and file counts, passes to `CommandRunner` constructor and `ProgressReporter` for directory regeneration. Calls `progressLog.finalize()` after both phases complete. Creates `ProgressReporter` for Phase 2 with `new ProgressReporter(0, plan.affectedDirs.length, progressLog)`, invoking `dirReporter.onDirectoryStart()` and `dirReporter.onDirectoryDone()` with token metrics.
+
+## Concurrency and Trace Configuration
+
+Determines concurrency via `options.concurrency ?? config.ai.concurrency`, passes to `CommandRunner` constructor. Creates trace writer early via `createTraceWriter(absolutePath, options.trace ?? false)`, threads through `loadConfig()` and `createUpdateOrchestrator()`. Logs trace file path and subprocess log directory to stderr with `pc.dim()` when `options.trace === true`. Calls `cleanupOldTraces(absolutePath)` after `tracer.finalize()`.
+
+## Debug Mode Behavior
+
+When `options.debug === true`, logs backend name, CLI command, and model to stdout via `pc.dim()`, enables `aiService.setDebug(true)`, and passes `debug: true` to `loadConfig()`, `createUpdateOrchestrator()`, `buildDirectoryPrompt()`, and `CommandRunner` constructor.

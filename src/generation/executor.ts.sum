@@ -1,0 +1,32 @@
+---
+generated_at: 2026-02-09T13:18:31.302Z
+content_hash: ce2e011f7fef57965d65e9ef53021b1c55e08a731d46740a22fe9df388a8a907
+purpose: executor.ts builds ExecutionPlan with dependency graphs from GenerationPlan, enforcing post-order traversal for direc...
+---
+**executor.ts builds ExecutionPlan with dependency graphs from GenerationPlan, enforcing post-order traversal for directory AGENTS.md generation.**
+
+## Exported Types
+
+**ExecutionTask** represents an AI processing job with fields: `id` (string), `type` ('file' | 'directory' | 'root-doc'), `path` (relative), `absolutePath`, `systemPrompt`, `userPrompt`, `dependencies` (task IDs), `outputPath`, and `metadata` containing optional `directoryFiles` (string[]), `depth` (number), and `packageRoot` (string).
+
+**ExecutionPlan** contains the dependency graph: `projectRoot` (string), `tasks` (ExecutionTask[]), `fileTasks` (ExecutionTask[]), `directoryTasks` (ExecutionTask[]), `rootTasks` (ExecutionTask[]), `directoryFileMap` (Record<string, string[]>), and optional `projectStructure` (string).
+
+## Core Functions
+
+**buildExecutionPlan**(plan: GenerationPlan, projectRoot: string): ExecutionPlan constructs the three-phase execution graph by creating file tasks with `id: "file:${filePath}"` and empty dependencies, directory tasks with `id: "dir:${dir}"` depending on child file task IDs, and root tasks with `id: "root:CLAUDE.md"` depending on all directory task IDs. Directory tasks are sorted via getDirectoryDepth() for post-order traversal (deepest directories first, ensuring child AGENTS.md files generate before parents). File task prompts use the provided systemPrompt and userPrompt from GenerationPlan, while directory and root task prompts are placeholders with text "Built at execution time by buildDirectoryPrompt()" and "Built at runtime by buildRootPrompt()" because actual prompts are constructed at runtime by runner.ts Phase 2 and Phase 3.
+
+**getDirectoryDepth**(dir: string): number calculates path depth by splitting on path.sep, returning 0 for "." (root) and segment count otherwise (e.g., "src/cli" returns 2).
+
+**isDirectoryComplete**(dirPath: string, expectedFiles: string[], projectRoot: string): Promise<{complete: boolean, missing: string[]}> checks if all expectedFiles have corresponding .sum files via sumFileExists(), returning completion status and missing file list.
+
+**getReadyDirectories**(executionPlan: ExecutionPlan): Promise<string[]> filters directories from directoryFileMap where isDirectoryComplete() returns true, identifying directories ready for AGENTS.md generation.
+
+**formatExecutionPlanAsMarkdown**(plan: ExecutionPlan): string serializes the execution plan into markdown with sections for Phase 1 (file analysis grouped by directory depth), Phase 2 (directory AGENTS.md grouped by depth descending), and Phase 3 (root documents), using post-order traversal ordering throughout. Groups fileTasks by directory using task paths, iterates directoryTasks to emit files in post-order, and groups directory tasks by depth field from metadata for hierarchical display.
+
+## Dependency Integration
+
+Imports GenerationPlan from './orchestrator.js' as input and sumFileExists from './writers/sum.js' for completion checking. The ExecutionPlan output drives the runner.ts orchestration phases, with directoryFileMap enabling parallel file processing and dependency tracking enabling sequential directory and root document generation.
+
+## Post-Order Traversal Strategy
+
+The post-order traversal pattern ensures child directories are processed before parents by sorting directories using getDirectoryDepth() in descending order. In buildExecutionPlan(), directoryTasks are created from sortedDirs (sorted via `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)`), and fileTasks are sorted similarly. This ordering guarantees that when a directory task executes, all child file .sum files and child directory AGENTS.md files already exist, enabling parent AGENTS.md to reference complete child documentation.

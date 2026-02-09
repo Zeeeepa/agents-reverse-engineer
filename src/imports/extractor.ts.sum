@@ -1,0 +1,28 @@
+---
+generated_at: 2026-02-09T13:18:29.993Z
+content_hash: f2c9479d7a3584696151222359bc71431ab5cc330dfebf20efd1f361f7b4b07c
+purpose: extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files to map inter-module de...
+---
+**extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files to map inter-module dependencies.**
+
+## Exported Functions
+
+- `extractImports(sourceContent: string): ImportEntry[]` — parses raw source text using `IMPORT_REGEX` to extract all import statements, returning structured `ImportEntry[]` with `specifier`, `symbols`, and `typeOnly` fields
+- `extractDirectoryImports(dirPath: string, fileNames: string[]): Promise<FileImports[]>` — reads first 100 lines of each file in `fileNames`, extracts imports via `extractImports()`, filters for relative imports only (`.` or `..`), classifies into `internalImports` (same directory `./`) and `externalImports` (parent directory `../`), excludes `node:` builtins and npm packages
+- `formatImportMap(fileImports: FileImports[]): string` — converts `FileImports[]` into human-readable text format for LLM prompts, showing each file's external imports with `specifier → symbols (type)` notation
+
+## Import Parsing Strategy
+
+`IMPORT_REGEX` captures five groups: `(type\s+)?` for type-only imports, `\{([^}]*)\}` for named imports, `(\*\s+as\s+\w+)` for namespace imports, `(\w+)` for default imports, and `['"]([^'"]+)['"]` for module specifiers. The regex uses `^import` anchor and `/gm` flags to match only line-start imports, avoiding false positives from dynamic imports or string literals.
+
+## Performance Optimization
+
+`extractDirectoryImports()` reads only the first 100 lines of each file using `content.split('\n').slice(0, 100).join('\n')` before calling `extractImports()`, assuming imports cluster at file tops. Silently skips unreadable files via empty catch block.
+
+## Import Classification
+
+Relative imports are partitioned into `internalImports` (specifiers starting with `./`) and `externalImports` (specifiers starting with `../`). Bare specifiers (npm packages like `react`) and `node:` protocol imports are excluded via `filter()` predicate checking `startsWith('.')` or `startsWith('..')`.
+
+## Dependencies
+
+Uses Node.js `fs/promises` `readFile()` for async file I/O and `path.join()` for cross-platform path construction. Consumes `ImportEntry` and `FileImports` types from `./types.js`.

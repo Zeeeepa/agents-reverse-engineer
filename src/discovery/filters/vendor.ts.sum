@@ -1,0 +1,23 @@
+---
+generated_at: 2026-02-09T13:17:43.180Z
+content_hash: 8334930ab77a89aadf421359a55e0a69194517b120a26ca30f7e986838eabec0
+purpose: createVendorFilter constructs a FileFilter that excludes files within third-party dependency directories using either...
+---
+**createVendorFilter constructs a FileFilter that excludes files within third-party dependency directories using either single-segment directory names or multi-segment path patterns.**
+
+## Exports
+
+- `DEFAULT_VENDOR_DIRS: readonly string[]` — predefined list containing `'node_modules'`, `'vendor'`, `'.git'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`
+- `createVendorFilter(vendorDirs: string[]): FileFilter` — returns FileFilter with `shouldExclude(absolutePath: string): boolean` method
+
+## FileFilter Interface Implementation
+
+createVendorFilter returns an object conforming to FileFilter (from `../types.js`) with `name: 'vendor'` and shouldExclude method that checks if absolutePath contains excluded directory patterns.
+
+## Pattern Matching Strategy
+
+createVendorFilter separates vendorDirs into two categories: single-segment names (no path separator) stored in Set<string> for O(1) lookup per path segment, and pathPatterns (containing path.sep after normalization) checked via string inclusion. shouldExclude splits absolutePath by path.sep and iterates segments against singleSegments Set, then checks each pathPattern via includes(). Path normalization uses `dir.replace(/[\\/]/g, path.sep)` to handle cross-platform path separators.
+
+## Integration Point
+
+Used by discovery system (likely imported via `src/discovery/filters/index.ts`) to exclude third-party code during file discovery phase before analysis. Operates on absolute paths provided by walker.

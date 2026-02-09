@@ -1,0 +1,36 @@
+---
+generated_at: 2026-02-09T13:19:31.158Z
+content_hash: d96faaf817c7bc9d8b5ab3bd189a658f76e658213df6079f0cd895abe010f30c
+purpose: opencode-are-session-end.js exports AreSessionEnd, an OpenCode plugin factory that spawns `are update` in the backgro...
+---
+**opencode-are-session-end.js exports AreSessionEnd, an OpenCode plugin factory that spawns `are update` in the background when a session ends if uncommitted git changes exist.**
+
+## Exported Interface
+
+```javascript
+export const AreSessionEnd: () => Promise<{
+  event: {
+    'session.deleted': () => Promise<void>
+  }
+}>
+```
+
+AreSessionEnd returns a plugin object with a `session.deleted` event handler for OpenCode's plugin system.
+
+## Event Handler Logic
+
+The `session.deleted` handler implements a three-stage gate:
+
+1. **Environment disable check**: Returns early if `process.env.ARE_DISABLE_HOOK === '1'`
+2. **Config file disable check**: Returns early if `.agents-reverse-engineer.yaml` contains `hook_enabled: false` (uses synchronous `existsSync()` + `readFileSync()` + string search)
+3. **Git status check**: Executes `git status --porcelain` via `execSync()` and returns early if output is empty (no changes) or if git is unavailable (catches and silently ignores errors)
+
+If all gates pass, spawns `npx agents-reverse-engineer@latest update --quiet` using `spawn()` with `{ stdio: 'ignore', detached: true }` and immediately calls `child.unref()` to prevent blocking the session close.
+
+## Integration Context
+
+This file is the OpenCode counterpart to `are-session-end.js` (Claude/Gemini hook). Both implement identical session-end update logic but target different IDE plugin systems. The hook enables automatic documentation sync without user intervention when ending coding sessions with uncommitted work.
+
+## Resource Management
+
+The detached spawn with `unref()` ensures the parent process (OpenCode session) can exit immediately while the background `are update` continues independently. The `--quiet` flag suppresses output since `stdio: 'ignore'` discards all streams.

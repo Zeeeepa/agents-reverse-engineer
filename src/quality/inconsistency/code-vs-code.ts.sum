@@ -1,0 +1,24 @@
+---
+generated_at: 2026-02-09T13:17:44.914Z
+content_hash: 48a2ef2363302abe6f4b31022b7afa304960c3631294ddbed6bbe3e4b3251a9a
+purpose: code-vs-code.ts detects duplicate exports across multiple source files via heuristic symbol extraction to flag cross-...
+---
+**code-vs-code.ts detects duplicate exports across multiple source files via heuristic symbol extraction to flag cross-file inconsistencies.**
+
+## Exported Functions
+
+**`checkCodeVsCode(files: Array<{ path: string; content: string }>): CodeCodeInconsistency[]`** detects duplicate exports by aggregating exported symbol names from all input files and returning inconsistencies for any symbol exported by multiple files. Calls `extractExports(file.content)` for each file to obtain exported symbol names, builds a `Map<string, string[]>` tracking which files export each symbol, and constructs `CodeCodeInconsistency` objects with `type: 'code-vs-code'`, `severity: 'warning'`, `pattern: 'duplicate-export'` for symbols appearing in more than one file.
+
+## Dependencies
+
+**`extractExports`** imported from `./code-vs-doc.js` performs regex-based extraction of exported identifiers from TypeScript/JavaScript source code.
+
+**`CodeCodeInconsistency`** type imported from `../types.js` defines the shape of cross-file inconsistency reports with fields `type`, `severity`, `files`, `description`, and `pattern`.
+
+## Scope and Caller Responsibility
+
+Caller must scope input files to per-directory groups to avoid false positives across unrelated modules, as the heuristic flags any duplicate export name without semantic analysis of whether the duplication is intentional (e.g., index re-exports or separate namespaces).
+
+## Design Pattern
+
+Pure heuristic detector with no AI calls, operates synchronously on in-memory file content, suitable for fast pre-flight validation before expensive AI-driven quality checks.

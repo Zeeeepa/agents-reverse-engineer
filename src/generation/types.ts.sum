@@ -1,0 +1,18 @@
+---
+generated_at: 2026-02-09T13:18:24.498Z
+content_hash: 170a8dbec49b601e218709256527ba0dbfa43f1f69e0aac7a6e7e3f9370fcb86
+purpose: types.ts defines TypeScript interfaces for the documentation generation pipeline, specifying the contract between fil...
+---
+**types.ts defines TypeScript interfaces for the documentation generation pipeline, specifying the contract between file analysis (populated by LLM) and downstream processing stages.**
+
+## Exported Interfaces
+
+**AnalysisResult** represents the output of LLM-driven file analysis, containing two properties: `summary: string` (generated documentation text) and `metadata: SummaryMetadata` (structured extraction).
+
+**SummaryMetadata** captures structured information extracted during analysis: `purpose: string` (primary file purpose), `criticalTodos?: string[]` (security/breaking issues only), and `relatedFiles?: string[]` (tightly coupled file dependencies).
+
+**SummaryOptions** configures summary generation behavior with `targetLength: 'short' | 'standard' | 'detailed'` (output verbosity control) and `includeCodeSnippets: boolean` (code inclusion flag).
+
+## Integration Point
+
+AnalysisResult serves as the boundary type between AI analysis subprocess (which populates these fields via host communication) and the generation orchestrator (which consumes them to build .sum files and AGENTS.md documentation). SummaryMetadata.relatedFiles drives cross-reference link generation in agents-md writer, while criticalTodos surfaces high-priority issues in final documentation.
