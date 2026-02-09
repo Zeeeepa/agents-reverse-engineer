@@ -57,7 +57,8 @@
       "Bash(git show:*)",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(npm pack:*)"
+      "Bash(npm pack:*)",
+      "Bash(wc -l:*)"
     ]
   }
 }
