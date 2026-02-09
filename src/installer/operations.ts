@@ -424,6 +424,8 @@ const ARE_PERMISSIONS = [
   'Bash(npx agents-reverse-engineer@latest generate*)',
   'Bash(npx agents-reverse-engineer@latest update*)',
   'Bash(npx agents-reverse-engineer@latest clean*)',
+  'Bash(tail -5 .agents-reverse-engineer/progress.log*)',
+  'Bash(rm -f .agents-reverse-engineer/progress.log*)',
 ];
 
 /**
