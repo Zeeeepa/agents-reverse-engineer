@@ -12,7 +12,6 @@
  */
 
 import * as path from 'node:path';
-import { readFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import { loadConfig } from '../config/loader.js';
 import { collectAgentsDocs } from '../generation/collector.js';
@@ -45,36 +44,6 @@ export interface SpecifyOptions {
 }
 
 /**
- * Read package.json and format metadata as a markdown section.
- *
- * Follows the same pattern as buildRootPrompt() in generation/prompts/builder.ts.
- * Returns an empty string if package.json is missing or unparseable.
- */
-async function readPackageSection(projectRoot: string): Promise<string> {
-  try {
-    const pkgRaw = await readFile(path.join(projectRoot, 'package.json'), 'utf-8');
-    const pkg = JSON.parse(pkgRaw) as Record<string, unknown>;
-    const parts: string[] = [];
-    if (pkg.name) parts.push(`- **Name**: ${pkg.name}`);
-    if (pkg.version) parts.push(`- **Version**: ${pkg.version}`);
-    if (pkg.description) parts.push(`- **Description**: ${pkg.description}`);
-    if (pkg.packageManager) parts.push(`- **Package Manager**: ${pkg.packageManager}`);
-    if (pkg.scripts && typeof pkg.scripts === 'object') {
-      const scripts = Object.entries(pkg.scripts as Record<string, string>)
-        .map(([k, v]) => `  - \`${k}\`: \`${v}\``)
-        .join('\n');
-      parts.push(`- **Scripts**:\n${scripts}`);
-    }
-    if (parts.length > 0) {
-      return parts.join('\n');
-    }
-  } catch {
-    // No package.json or parse error
-  }
-  return '';
-}
-
-/**
  * Specify command - collects AGENTS.md documentation, synthesizes it via AI,
  * and writes a comprehensive project specification.
  *
@@ -96,21 +65,8 @@ export async function specifyCommand(
   // Collect AGENTS.md files
   let docs = await collectAgentsDocs(absolutePath);
 
-  if (docs.length === 0) {
-    console.log(pc.yellow('No AGENTS.md files found. Running generate first...'));
-    await generateCommand(targetPath, {
-      debug: options.debug,
-      trace: options.trace,
-    });
-    docs = await collectAgentsDocs(absolutePath);
-    if (docs.length === 0) {
-      console.error(pc.red('Error: No AGENTS.md files found after generation. Cannot proceed.'));
-      process.exit(1);
-    }
-  }
-
   // ---------------------------------------------------------------------------
-  // Dry-run mode: show summary without calling AI
+  // Dry-run mode: show summary without calling AI or generating
   // ---------------------------------------------------------------------------
 
   if (options.dryRun) {
@@ -125,12 +81,29 @@ export async function specifyCommand(
     console.log('');
     console.log(pc.dim('No AI calls made (dry run).'));
 
-    if (estimatedTokensK > 150) {
+    if (docs.length === 0) {
+      console.log('');
+      console.log(pc.yellow('Warning: No AGENTS.md files found. Run `are generate` first or omit --dry-run to auto-generate.'));
+    } else if (estimatedTokensK > 150) {
       console.log('');
       console.log(pc.yellow('Warning: Input exceeds 150K tokens. Consider using a model with extended context.'));
     }
 
     return;
+  }
+
+  // Auto-generate if no AGENTS.md files exist
+  if (docs.length === 0) {
+    console.log(pc.yellow('No AGENTS.md files found. Running generate first...'));
+    await generateCommand(targetPath, {
+      debug: options.debug,
+      trace: options.trace,
+    });
+    docs = await collectAgentsDocs(absolutePath);
+    if (docs.length === 0) {
+      console.error(pc.red('Error: No AGENTS.md files found after generation. Cannot proceed.'));
+      process.exit(1);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -169,9 +142,8 @@ export async function specifyCommand(
     aiService.setDebug(true);
   }
 
-  // Build prompt from collected docs and package metadata
-  const packageSection = await readPackageSection(absolutePath);
-  const prompt = buildSpecPrompt(docs, packageSection || undefined);
+  // Build prompt from collected docs
+  const prompt = buildSpecPrompt(docs);
 
   if (options.debug) {
     console.error(pc.dim(`[debug] System prompt: ${prompt.system.length} chars`));

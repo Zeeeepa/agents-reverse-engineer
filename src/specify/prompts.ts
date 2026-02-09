@@ -51,15 +51,12 @@ OUTPUT: Raw markdown. No preamble. No meta-commentary. No "Here is..." or "I've 
 /**
  * Build the system + user prompt pair for spec generation.
  *
- * Injects all collected AGENTS.md content with section delimiters
- * and optional package metadata. Follows the buildRootPrompt() pattern
- * from generation/prompts/builder.ts.
+ * Injects all collected AGENTS.md content with section delimiters.
  *
  * @param docs - Collected AGENTS.md documents from collectAgentsDocs()
- * @param packageSection - Optional pre-formatted package.json metadata string
  * @returns SpecPrompt with system and user prompt strings
  */
-export function buildSpecPrompt(docs: AgentsDocs, packageSection?: string): SpecPrompt {
+export function buildSpecPrompt(docs: AgentsDocs): SpecPrompt {
   const agentsSections = docs.map(
     (doc) => `### ${doc.relativePath}\n\n${doc.content}`,
   );
@@ -71,10 +68,6 @@ export function buildSpecPrompt(docs: AgentsDocs, packageSection?: string): Spec
     '',
     ...agentsSections,
   ];
-
-  if (packageSection) {
-    userSections.push('', `## Package Metadata`, '', packageSection);
-  }
 
   userSections.push(
     '',
