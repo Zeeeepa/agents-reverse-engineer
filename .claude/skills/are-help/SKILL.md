@@ -6,7 +6,9 @@ description: Show available ARE commands and usage guide
 <objective>
 Display the complete ARE command reference.
 
-Output ONLY the reference content below. Do NOT add:
+**First**: Read `.claude/ARE-VERSION` and show the user the version: `agents-reverse-engineer vX.Y.Z`
+
+**Then**: Output ONLY the reference content below. Do NOT add:
 - Project-specific analysis
 - Git status or file context
 - Next-step suggestions

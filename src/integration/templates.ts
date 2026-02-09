@@ -21,24 +21,26 @@ Run the generate command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Clear stale progress log** (if it exists):
+1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+
+2. **Clear stale progress log** (if it exists):
    \`\`\`bash
    rm -f .agents-reverse-engineer/progress.log
    \`\`\`
 
-2. **Run the generate command in the background** using \`run_in_background: true\`:
+3. **Run the generate command in the background** using \`run_in_background: true\`:
    \`\`\`bash
    npx agents-reverse-engineer@latest generate $ARGUMENTS
    \`\`\`
 
-3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
    - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update (e.g. "32/96 files analyzed, ~12m remaining")
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
    - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
 
-4. **On completion**, read the full background task output and summarize:
+5. **On completion**, read the full background task output and summarize:
    - Number of files analyzed and any failures
    - Number of directories documented
    - Root and per-package documents generated
@@ -73,24 +75,26 @@ Run the update command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Clear stale progress log** (if it exists):
+1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+
+2. **Clear stale progress log** (if it exists):
    \`\`\`bash
    rm -f .agents-reverse-engineer/progress.log
    \`\`\`
 
-2. **Run the update command in the background** using \`run_in_background: true\`:
+3. **Run the update command in the background** using \`run_in_background: true\`:
    \`\`\`bash
    npx agents-reverse-engineer@latest update $ARGUMENTS
    \`\`\`
 
-3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
    - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update (e.g. "12/30 files updated, ~5m remaining")
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
    - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
 
-4. **On completion**, read the full background task output and summarize:
+5. **On completion**, read the full background task output and summarize:
    - Files updated
    - Files unchanged
    - Any orphaned docs cleaned up
@@ -111,7 +115,9 @@ Run the update command in the background and monitor progress in real time.
     content: `Initialize agents-reverse-engineer configuration in this project.
 
 <execution>
-Run the agents-reverse-engineer init command:
+1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+
+2. Run the agents-reverse-engineer init command:
 
 \`\`\`bash
 npx agents-reverse-engineer@latest init
@@ -135,24 +141,26 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 
 ## Steps
 
-1. **Clear stale progress log** (if it exists):
+1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+
+2. **Clear stale progress log** (if it exists):
    \`\`\`bash
    rm -f .agents-reverse-engineer/progress.log
    \`\`\`
 
-2. **Run the discover command in the background** using \`run_in_background: true\`:
+3. **Run the discover command in the background** using \`run_in_background: true\`:
    \`\`\`bash
    npx agents-reverse-engineer@latest discover $ARGUMENTS
    \`\`\`
 
-3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
    - Wait ~10 seconds (use \`sleep 10\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
    - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
 
-4. **On completion**, read the full background task output and report number of files found.
+5. **On completion**, read the full background task output and report number of files found.
 </execution>`,
   },
 
@@ -167,6 +175,8 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 1. Run ONLY this exact command: \`npx agents-reverse-engineer@latest clean $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXclean\`, run with ZERO flags
+
+**Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
 
 \`\`\`bash
 npx agents-reverse-engineer@latest clean $ARGUMENTS
@@ -186,24 +196,26 @@ Run the specify command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Clear stale progress log** (if it exists):
+1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+
+2. **Clear stale progress log** (if it exists):
    \`\`\`bash
    rm -f .agents-reverse-engineer/progress.log
    \`\`\`
 
-2. **Run the specify command in the background** using \`run_in_background: true\`:
+3. **Run the specify command in the background** using \`run_in_background: true\`:
    \`\`\`bash
    npx agents-reverse-engineer@latest specify $ARGUMENTS
    \`\`\`
 
-3. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
+4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
    - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
    - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
 
-4. **On completion**, read the full background task output and summarize:
+5. **On completion**, read the full background task output and summarize:
    - Number of AGENTS.md files collected
    - Output file(s) written
 
@@ -228,7 +240,9 @@ If no AGENTS.md files exist, it will auto-run \`generate\` first.
     content: `<objective>
 Display the complete ARE command reference.
 
-Output ONLY the reference content below. Do NOT add:
+**First**: Read \`VERSION_FILE_PATH\` and show the user the version: \`agents-reverse-engineer vX.Y.Z\`
+
+**Then**: Output ONLY the reference content below. Do NOT add:
 - Project-specific analysis
 - Git status or file context
 - Next-step suggestions
@@ -528,6 +542,7 @@ interface PlatformConfig {
   filenameSeparator: string; // . or -
   extraFrontmatter?: string; // e.g., "agent: build" for OpenCode
   usesName: boolean; // Claude uses "name:" in frontmatter
+  versionFilePath: string; // .claude/ARE-VERSION, .opencode/ARE-VERSION, etc.
 }
 
 const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
@@ -536,6 +551,7 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     pathPrefix: '.claude/skills/',
     filenameSeparator: '.',
     usesName: true,
+    versionFilePath: '.claude/ARE-VERSION',
   },
   opencode: {
     commandPrefix: '/are-',
@@ -543,12 +559,14 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     filenameSeparator: '-',
     extraFrontmatter: 'agent: build',
     usesName: false,
+    versionFilePath: '.opencode/ARE-VERSION',
   },
   gemini: {
     commandPrefix: '/are-',
     pathPrefix: '.gemini/commands/',
     filenameSeparator: '-',
     usesName: false,
+    versionFilePath: '.gemini/ARE-VERSION',
   },
 };
 
@@ -585,8 +603,10 @@ function buildGeminiToml(
   command: (typeof COMMANDS)[keyof typeof COMMANDS]
 ): string {
   const config = PLATFORM_CONFIGS.gemini;
-  // Replace command prefix placeholder in content
-  const promptContent = command.content.replace(/COMMAND_PREFIX/g, config.commandPrefix);
+  // Replace placeholders in content
+  const promptContent = command.content
+    .replace(/COMMAND_PREFIX/g, config.commandPrefix)
+    .replace(/VERSION_FILE_PATH/g, config.versionFilePath);
 
   // Build TOML content
   // Use triple quotes for multi-line prompt
@@ -638,8 +658,10 @@ function buildTemplate(
     command.description
   );
 
-  // Replace command prefix placeholder in help content
-  const content = command.content.replace(/COMMAND_PREFIX/g, config.commandPrefix);
+  // Replace placeholders in content
+  const content = command.content
+    .replace(/COMMAND_PREFIX/g, config.commandPrefix)
+    .replace(/VERSION_FILE_PATH/g, config.versionFilePath);
 
   return {
     filename,
