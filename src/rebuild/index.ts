@@ -21,3 +21,7 @@ export { readSpecFiles, partitionSpec } from './spec-reader.js';
 export { parseModuleOutput } from './output-parser.js';
 
 export { CheckpointManager } from './checkpoint.js';
+
+export { REBUILD_SYSTEM_PROMPT, buildRebuildPrompt } from './prompts.js';
+
+export { executeRebuild, type RebuildExecutionOptions } from './orchestrator.js';
