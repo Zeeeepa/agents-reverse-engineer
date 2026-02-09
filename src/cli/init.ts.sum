@@ -1,30 +1,32 @@
 ---
-generated_at: 2026-02-09T13:18:10.845Z
-content_hash: 6ca4f0b7de0732f0b668336ec6dbb64cc5095b2a86e975c398ff22e2a986e66e
-purpose: initCommand creates `.agents-reverse-engineer/config.yaml` with default settings and warns if configuration already e...
+generated_at: 2026-02-09T13:42:33.083Z
+content_hash: a66a26ea4834a619ed367be1bd4fd149651d146da1ff6a4e56695a37aaaad999
+purpose: initCommand creates `.agents-reverse-engineer/config.yaml` with defaults via `writeDefaultConfig()`, warns if `config...
 ---
-**initCommand creates `.agents-reverse-engineer/config.yaml` with default settings and warns if configuration already exists.**
+**initCommand creates `.agents-reverse-engineer/config.yaml` with defaults via `writeDefaultConfig()`, warns if `configExists()` returns true, handles EACCES/EPERM errors by logging permission denied messages and calling `process.exit(1)`.**
 
-## Exported Functions
+## Exported Interface
 
 ```typescript
 async function initCommand(root: string): Promise<void>
 ```
 
-initCommand resolves the root directory to an absolute path, checks existence via configExists, and either warns if config exists at `${CONFIG_DIR}/${CONFIG_FILE}` or calls writeDefaultConfig to create it. Logs guidance about customizable fields: `exclude.patterns`, `ai.concurrency` (1-10, default 5), `ai.timeoutMs` (default 300,000ms), `ai.backend` (claude/gemini/opencode/auto).
+Takes `root` directory path (resolved via `path.resolve()`), constructs `configPath` by joining `resolvedRoot`, `CONFIG_DIR`, and `CONFIG_FILE` constants from `../config/loader.js`.
 
-## Dependencies
+## Execution Flow
 
-- `path` (Node.js): resolve and join paths for configPath construction
-- `configExists` (`../config/loader.js`): async check if config file exists
-- `writeDefaultConfig` (`../config/loader.js`): async write default YAML config
-- `CONFIG_DIR`, `CONFIG_FILE` (`../config/loader.js`): constants for `.agents-reverse-engineer` directory and `config.yaml` filename
-- `createLogger` (`../output/logger.js`): factory for colored logger instance
+initCommand checks configuration existence via `configExists(resolvedRoot)` predicate. On match, logs warning with `logger.warn()` and exits early. Otherwise invokes `writeDefaultConfig(resolvedRoot)` to generate YAML file, then emits multi-line instructional output describing customizable fields: `exclude.patterns`, `ai.concurrency` (range 1-20, default auto), `ai.timeoutMs` (default 300,000ms = 5 minutes), `ai.backend` (enum: claude/gemini/opencode/auto).
 
 ## Error Handling
 
-initCommand catches NodeJS.ErrnoException and checks error.code: exits with code 1 on `EACCES` or `EPERM` (permission denied), exits with code 1 on any other error after logging error.message. Uses logger.warn for pre-existing config, logger.info for success and usage guidance, logger.error for failures.
+Catches `NodeJS.ErrnoException`, discriminates on `error.code` property. For EACCES or EPERM codes, logs permission-denied message referencing `configPath` and calls `process.exit(1)`. All other errors trigger generic failure message with `error.message` interpolation followed by `process.exit(1)`.
+
+## Dependencies
+
+- `path` (Node.js stdlib): `resolve()`, `join()` for path construction
+- `../config/loader.js`: `configExists()`, `writeDefaultConfig()`, `CONFIG_DIR`, `CONFIG_FILE` constants
+- `../output/logger.js`: `createLogger()` factory returning logger with `warn()`, `info()`, `error()` methods, initialized with `colors: true` option
 
 ## CLI Integration
 
-Implements `are init` command which sets up initial configuration in project root before first discovery/generation run.
+Invoked by `are init` command via `src/cli/index.ts` command router. Creates `.agents-reverse-engineer/` directory tree if absent (handled by `writeDefaultConfig()` implementation in loader module).

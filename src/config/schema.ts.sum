@@ -1,32 +1,50 @@
 ---
-generated_at: 2026-02-09T13:18:25.932Z
-content_hash: 42fa51670b055eae335470b88121535bbd72454dc75676dce8f7b0224c943bc7
-purpose: Defines Zod validation schemas and TypeScript types for the `.agents-reverse-engineer/config.yaml` configuration file...
+generated_at: 2026-02-09T13:42:35.162Z
+content_hash: ddcb35a58fc7c96be861daff467611b0b3f9fa7cb760da90af97960452c887c8
+purpose: ConfigSchema defines Zod schemas for validating `.agents-reverse-engineer/config.yaml` with nested object structures ...
 ---
-**Defines Zod validation schemas and TypeScript types for the `.agents-reverse-engineer/config.yaml` configuration file, with nested schemas for exclude rules, discovery options, output formatting, and AI service settings.**
+**ConfigSchema defines Zod schemas for validating `.agents-reverse-engineer/config.yaml` with nested object structures for exclusion rules, discovery options, output formatting, and AI service configuration, providing type-safe defaults for all fields.**
 
 ## Exported Schemas
 
-`ExcludeSchema` validates exclusion configuration with three array fields: `patterns` (custom glob patterns, defaults to `DEFAULT_EXCLUDE_PATTERNS`), `vendorDirs` (defaults to `DEFAULT_VENDOR_DIRS`), and `binaryExtensions` (defaults to `DEFAULT_BINARY_EXTENSIONS`). All fields use array spread to copy defaults.
+**ExcludeSchema** - Zod object schema for exclusion configuration with three fields:
+- `patterns: z.array(z.string())` - custom glob patterns defaulting to `DEFAULT_EXCLUDE_PATTERNS`
+- `vendorDirs: z.array(z.string())` - vendor directories defaulting to `DEFAULT_VENDOR_DIRS`
+- `binaryExtensions: z.array(z.string())` - binary file extensions defaulting to `DEFAULT_BINARY_EXTENSIONS`
 
-`OptionsSchema` validates discovery options with two fields: `followSymlinks` (boolean, defaults to `false`) and `maxFileSize` (positive number in bytes, defaults to `DEFAULT_MAX_FILE_SIZE`).
+**OptionsSchema** - Zod object schema for discovery options:
+- `followSymlinks: z.boolean()` - defaults to `false`
+- `maxFileSize: z.number().positive()` - defaults to `DEFAULT_MAX_FILE_SIZE`
 
-`OutputSchema` validates output configuration with a single `colors` boolean field defaulting to `true` for terminal color support.
+**OutputSchema** - Zod object schema for output formatting:
+- `colors: z.boolean()` - ANSI color toggle defaulting to `true`
 
-`AISchema` validates AI service configuration with six fields: `backend` (enum of `'claude' | 'gemini' | 'opencode' | 'auto'`, defaults to `'auto'`), `model` (string, defaults to `'sonnet'`), `timeoutMs` (positive number, defaults to `300_000`), `maxRetries` (non-negative number, defaults to `3`), `concurrency` (number between 1-20, defaults to `5`), and nested `telemetry` object containing `keepRuns` (non-negative number, defaults to `50`).
+**AISchema** - Zod object schema for AI service configuration:
+- `backend: z.enum(['claude', 'gemini', 'opencode', 'auto'])` - CLI backend selection defaulting to `'auto'`
+- `model: z.string()` - model identifier defaulting to `'sonnet'`
+- `timeoutMs: z.number().positive()` - subprocess timeout defaulting to `300_000` (5 minutes)
+- `maxRetries: z.number().min(0)` - retry attempts defaulting to `3`
+- `concurrency: z.number().min(1).max(20)` - worker pool size defaulting to `getDefaultConcurrency` function result
+- `telemetry.keepRuns: z.number().min(0)` - log retention count defaulting to `50`
 
-`ConfigSchema` composes all sub-schemas into a main configuration schema with four top-level fields: `exclude` (ExcludeSchema), `options` (OptionsSchema), `output` (OutputSchema), and `ai` (AISchema). All fields have `.default({})` making empty objects valid and resulting in fully populated configurations.
+**ConfigSchema** - Root Zod object schema composing `ExcludeSchema`, `OptionsSchema`, `OutputSchema`, `AISchema` under fields `exclude`, `options`, `output`, `ai` respectively, with all nested defaults applied.
 
 ## Exported Types
 
-`Config` is the inferred TypeScript type from `ConfigSchema` via `z.infer`, used for function parameters and return types throughout the codebase.
+**Config** - TypeScript type inferred from `ConfigSchema` via `z.infer<typeof ConfigSchema>`, representing fully validated configuration object.
 
-`ExcludeConfig` infers from `ExcludeSchema`, `OptionsConfig` from `OptionsSchema`, `OutputConfig` from `OutputSchema`, and `AIConfig` from `AISchema`. These granular types enable type-safe access to configuration subsections.
+**ExcludeConfig** - Type inferred from `ExcludeSchema` for exclusion rules section.
 
-## Dependencies
+**OptionsConfig** - Type inferred from `OptionsSchema` for discovery options section.
 
-Imports `z` from `zod` for schema validation. Imports `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, and `DEFAULT_EXCLUDE_PATTERNS` from `./defaults.js` to populate default values across schemas.
+**OutputConfig** - Type inferred from `OutputSchema` for output formatting section.
 
-## Design Pattern
+**AIConfig** - Type inferred from `AISchema` for AI service configuration section.
 
-Implements defensive copying via array spread operators (`[...DEFAULT_EXCLUDE_PATTERNS]`) to prevent shared reference mutation when defaults are used. All schemas cascade `.default({})` to enable incremental configuration overrides where partial objects are merged with defaults during parsing.
+## Default Value Integration
+
+Imports `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, `DEFAULT_EXCLUDE_PATTERNS`, `getDefaultConcurrency` from `./defaults.js` to populate schema defaults. All schemas use `.default()` chaining to ensure empty object `{}` parses successfully with full configuration populated.
+
+## Schema Design Pattern
+
+Each nested schema exports as standalone constant (`ExcludeSchema`, `OptionsSchema`, etc.) enabling granular validation testing and reusable composition. Root `ConfigSchema` assembles nested schemas into single validation pipeline. JSDoc examples demonstrate parsing empty objects and partial overrides via `ConfigSchema.parse()`.
