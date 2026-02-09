@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v3.0 Specification Generation -- Phase 10 added
+**Current focus:** v3.0 Specification Generation -- shipped
 
 ## Current Position
 
 Phase: 10 of 10 (Specify Command)
 Plan: 3 of 3
-Status: Phase complete
-Last activity: 2026-02-09 -- Completed 10-03-PLAN.md
+Status: v3.0 milestone complete
+Last activity: 2026-02-09 -- Phase 10 verified and complete
 
 Progress: [████████████████████████] 100% (v3.0 -- 3/3 plans)
 
@@ -115,9 +115,10 @@ v3.0 decisions:
 - Multi-file split on top-level '# ' headings with slugified filenames; pre-heading content to 00-preamble.md
 - Atomic conflict detection in multi-file mode: all target files checked before any writes
 - Extended timeout uses Math.max(config.ai.timeoutMs, 600_000) for 10min minimum on spec generation
-- readPackageSection extracted as standalone async function for clean separation in specify handler
+- No language-specific metadata (readPackageSection removed) -- tool stays language-agnostic
 - Debug output goes to stderr (console.error) to keep stdout clean for piping
-- Auto-generate fallback: when no AGENTS.md found, invoke generateCommand() then re-collect
+- Auto-generate fallback: when no AGENTS.md found, invoke generateCommand() then re-collect (skipped in dry-run)
+- Extended timeout uses Math.max(config.ai.timeoutMs, 600_000) for 10min minimum on spec generation
 
 ### Pending Todos
 
@@ -135,5 +136,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 10-03-PLAN.md (specify CLI handler and registration -- phase 10 complete)
+Stopped at: Phase 10 verified and complete -- v3.0 milestone shipped
 Resume file: None
