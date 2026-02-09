@@ -12,6 +12,8 @@
  */
 
 import * as path from 'node:path';
+import { access, readdir } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import pc from 'picocolors';
 import { loadConfig } from '../config/loader.js';
 import { collectAgentsDocs, collectAnnexFiles } from '../generation/collector.js';
@@ -59,6 +61,37 @@ export async function specifyCommand(
   const outputPath = options.output
     ? path.resolve(options.output)
     : path.join(absolutePath, 'specs', 'SPEC.md');
+
+  // Early exit if spec file(s) already exist (avoids waiting for AI call)
+  if (!options.force && !options.dryRun) {
+    const conflicts: string[] = [];
+    if (options.multiFile) {
+      const outputDir = path.dirname(outputPath);
+      try {
+        const entries = await readdir(outputDir);
+        for (const entry of entries) {
+          if (entry.endsWith('.md')) {
+            conflicts.push(path.join(outputDir, entry));
+          }
+        }
+      } catch {
+        // Directory doesn't exist — no conflicts
+      }
+    } else {
+      try {
+        await access(outputPath, constants.F_OK);
+        conflicts.push(outputPath);
+      } catch {
+        // File doesn't exist — no conflict
+      }
+    }
+
+    if (conflicts.length > 0) {
+      const list = conflicts.map((p) => `  - ${p}`).join('\n');
+      console.error(pc.red(`Spec file(s) already exist:\n${list}\nUse --force to overwrite.`));
+      process.exit(1);
+    }
+  }
 
   // Load configuration
   const config = await loadConfig(absolutePath, { debug: options.debug });
