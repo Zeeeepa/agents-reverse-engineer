@@ -1,28 +1,26 @@
 ---
-generated_at: 2026-02-09T13:17:41.451Z
+generated_at: 2026-02-09T14:07:54.669Z
 content_hash: 885090812a3be24de9212805ef4c0d2b922fe78af57830769f591dd57f88ba4b
-purpose: Exports writeRunLog to persist completed RunLog objects as timestamped JSON files in the telemetry logs directory.
+purpose: `run-log.ts` serializes completed `RunLog` telemetry data to disk as pretty-printed JSON files in `.agents-reverse-en...
 ---
-**Exports writeRunLog to persist completed RunLog objects as timestamped JSON files in the telemetry logs directory.**
+**`run-log.ts` serializes completed `RunLog` telemetry data to disk as pretty-printed JSON files in `.agents-reverse-engineer/logs/` with ISO-timestamp-derived filenames.**
 
 ## Exported Functions
 
-### writeRunLog
-```typescript
-async function writeRunLog(projectRoot: string, runLog: RunLog): Promise<string>
-```
-Creates `.agents-reverse-engineer/logs/` directory if missing, sanitizes the `runLog.startTime` ISO timestamp by replacing `:` and `.` with `-` to form a valid cross-platform filename like `run-2026-02-07T12-00-00-000Z.json`, writes the RunLog as pretty-printed JSON with 2-space indentation via `fs.writeFile`, and returns the absolute path to the written file.
-
-## Constants
-
-`LOGS_DIR` defines the relative path `.agents-reverse-engineer/logs` used as the target directory for all telemetry log files within the project root.
-
-## Dependencies
-
-- `node:fs/promises`: provides `mkdir` with `recursive: true` for directory creation and `writeFile` for JSON persistence
-- `node:path`: provides `join` for cross-platform path construction
-- `../types.js`: imports the RunLog type definition
+**`writeRunLog(projectRoot: string, runLog: RunLog): Promise<string>`** — Creates logs directory via `fs.mkdir()` with `recursive: true`, sanitizes `runLog.startTime` by replacing `:` and `.` with `-` to form valid cross-platform filename `run-${safeTimestamp}.json`, writes JSON via `fs.writeFile()` with 2-space indentation, returns absolute path to written file.
 
 ## Integration Points
 
-This module is referenced in the project memory as part of the **Telemetry** system, which writes NDJSON run logs to `.agents-reverse-engineer/logs/` for tracking AI backend usage, file processing statistics, and command execution metadata. The RunLog type (imported from `src/ai/types.ts`) captures run-level telemetry data that writeRunLog serializes to disk.
+**Dependency on `RunLog` type** — Imports `RunLog` from `../types.js`, expects structured telemetry data with `startTime` field (ISO 8601 string) and arbitrary payload fields for token counts, costs, errors, file metadata.
+
+**Consumed by telemetry system** — Called after AI generation run completes to persist aggregated metrics. Pairs with cleanup logic in `src/ai/telemetry/cleanup.ts` which enforces retention limits via `cleanupOldLogs(keepCount)`.
+
+## File Path Construction
+
+**Constants** — `LOGS_DIR` hardcoded as `.agents-reverse-engineer/logs` relative to project root.
+
+**Filename sanitization** — Uses `String.prototype.replace(/[:.]/g, '-')` on ISO timestamp to convert `2026-02-07T12:00:00.000Z` → `2026-02-07T12-00-00-000Z`, ensuring Windows/POSIX compatibility by removing filesystem-unsafe characters.
+
+## Error Handling
+
+**No explicit error handling** — Allows `fs.mkdir()` and `fs.writeFile()` exceptions to propagate to caller. Parent orchestration layers handle I/O failures.

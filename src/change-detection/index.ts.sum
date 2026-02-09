@@ -1,25 +1,29 @@
 ---
-generated_at: 2026-02-09T13:18:15.545Z
+generated_at: 2026-02-09T14:08:30.255Z
 content_hash: c77dda0aa1a589b4b753f5790ede7d263fca6eb7a99f509b4e07fe04bf0e20f8
-purpose: index.ts exports the public API of the change-detection module, exposing git-based change tracking functions and type...
+purpose: index.ts exports the public API surface of the change-detection module, providing git-based file change detection wit...
 ---
-**index.ts exports the public API of the change-detection module, exposing git-based change tracking functions and types for incremental documentation updates.**
+**index.ts exports the public API surface of the change-detection module, providing git-based file change detection with SHA-256 content hashing for incremental documentation updates.**
 
 ## Exported Functions
 
-- `isGitRepo(): Promise<boolean>` checks if current directory is a git repository
-- `getCurrentCommit(): Promise<string | null>` retrieves current git commit SHA
-- `getChangedFiles(options: ChangeDetectionOptions): Promise<ChangeDetectionResult>` detects added, modified, deleted, and renamed files between commits or against working tree
-- `computeContentHash(filePath: string): Promise<string>` computes SHA-256 hash of file contents
-- `computeContentHashFromString(content: string): string` computes SHA-256 hash of in-memory string content
+- `isGitRepo(): Promise<boolean>` — Detects whether current working directory is a git repository
+- `getCurrentCommit(): Promise<string>` — Returns current git commit SHA for baseline comparison
+- `getChangedFiles(options: ChangeDetectionOptions): Promise<ChangeDetectionResult>` — Computes diff between commits, returns FileChange[] with status (added/modified/deleted/renamed) and paths
+- `computeContentHash(filePath: string): Promise<string>` — Generates SHA-256 hash of file contents for change detection
+- `computeContentHashFromString(content: string): string` — Generates SHA-256 hash from string content (synchronous)
 
 ## Exported Types
 
-- `ChangeType` discriminates between 'added', 'modified', 'deleted', 'renamed' file states
-- `FileChange` represents a single file change with path, changeType, and optional oldPath for renames
-- `ChangeDetectionResult` encapsulates the current commit SHA and array of FileChange objects
-- `ChangeDetectionOptions` configures change detection behavior (baseline commit, paths to include/exclude)
+- `ChangeType` — Union of literal strings: `'added' | 'modified' | 'deleted' | 'renamed'`
+- `FileChange` — Discriminated union representing detected changes with `status: ChangeType`, `filePath: string`, optional `oldPath: string` for renames
+- `ChangeDetectionResult` — Container for change detection output with `changes: FileChange[]` and optional metadata
+- `ChangeDetectionOptions` — Configuration for `getChangedFiles()` including `baseCommit?: string`, `includeUncommitted?: boolean`, rename detection threshold, path filters
 
-## Module Role
+## Module Dependencies
 
-This barrel export consolidates the change detection subsystem used by `src/cli/update.ts` to identify which files require re-analysis. The actual implementation resides in `./detector.js` with type definitions in `./types.js`.
+All implementations reside in `./detector.js` (note ES module `.js` extension). Type definitions import from `./types.js`. This barrel export pattern centralizes the change detection API used by `src/update/orchestrator.ts` for incremental update workflows.
+
+## Integration Points
+
+The `src/update/` module consumes `getChangedFiles()` to compute `filesToAnalyze[]` vs. `filesToSkip[]` by comparing `content_hash` from `.sum` YAML frontmatter against `computeContentHash()` results. Renamed files trigger orphan cleanup via `oldPath` detection. Non-git workflows fall back to pure SHA-256 comparison without diff support.

@@ -2,18 +2,16 @@
 
 # src/quality/density
 
-Validates that exported symbols from .sum files appear in parent AGENTS.md files, ensuring AI assistants can locate key identifiers from directory-level documentation. Module currently disabled pending structured metadata support.
+Validates symbol presence in aggregated documentation through string-based findability heuristics — currently disabled pending structured metadata extraction re-implementation after `SumFileContent.metadata.publicInterface` field removal.
 
 ## Contents
 
-### Validation Interface
+**[validator.ts](./validator.ts)** — Exports `validateFindability()` returning empty array until post-processing pass restores structured symbol extraction; defines `FindabilityResult` interface tracking per-file `symbolsTested`, `symbolsFound`, `symbolsMissing`, and `score` (found/tested ratio 0-1).
 
-**[validator.ts](./validator.ts)** — Exports `FindabilityResult` interface (filePath, symbolsTested, symbolsFound, symbolsMissing, score) and `validateFindability()` stub function. Returns empty array because publicInterface extraction was removed from SumFileContent schema. Imports `SumFileContent` from `../../generation/writers/sum.js` for type compatibility. Function signature preserved for future re-implementation via string-based symbol matching or post-processing passes.
+## Status
 
-## Current State
+Validator placeholder retained in quality pipeline alongside `src/quality/inconsistency/` (code-vs-doc, code-vs-code) and `src/quality/phantom-paths/` modules. Function signature preserved with underscore-prefixed parameters (`_agentsMdContent`, `_sumFiles`) indicating unused status. Original design verified exported symbols from child `.sum` files appear in synthesized parent `AGENTS.md` via string matching — no LLM calls required.
 
-`validateFindability()` disabled (returns `[]`) after structured metadata removal. Module retained as architectural placeholder for anchor term preservation enforcement when symbol extraction pipeline is restored.
+## Integration
 
-## Relationship to Quality System
-
-Invoked by parent `src/quality/index.ts` module alongside `src/quality/inconsistency/` and `src/quality/phantom-paths/` validators to produce comprehensive quality reports for generated documentation artifacts.
+Quality orchestrator at `src/quality/index.ts` invokes density validator post-generation as part of `InconsistencyReport` assembly. `FindabilityResult` structure aligns with inconsistency reporter patterns: per-file arrays of tested/found/missing symbols plus normalized score metric.

@@ -1,40 +1,54 @@
 ---
-generated_at: 2026-02-09T13:18:40.021Z
+generated_at: 2026-02-09T14:09:23.940Z
 content_hash: 897dac2c7186b17ac9b4816a3e65206f5358e6b7fdcf0a5c440436462359236e
-purpose: prompts.ts implements interactive runtime and location selection prompts with arrow-key navigation in TTY mode and nu...
+purpose: prompts.ts implements interactive CLI selection prompts with arrow key navigation in TTY mode and numbered fallback f...
 ---
-**prompts.ts implements interactive runtime and location selection prompts with arrow-key navigation in TTY mode and numbered fallback for CI/non-interactive environments.**
+**prompts.ts implements interactive CLI selection prompts with arrow key navigation in TTY mode and numbered fallback for non-interactive environments.**
 
 ## Exported Functions
 
-- `isInteractive(): boolean` - returns true if `process.stdin.isTTY === true`, false for CI/piped input
-- `selectOption<T>(prompt: string, options: SelectOption<T>[]): Promise<T>` - dispatches to `arrowKeySelect()` in TTY mode or `numberedSelect()` in non-TTY mode
-- `selectRuntime(mode: 'install' | 'uninstall'): Promise<Runtime>` - prompts for runtime selection ('claude', 'opencode', 'gemini', 'all')
-- `selectLocation(mode: 'install' | 'uninstall'): Promise<Location>` - prompts for location selection ('global', 'local')
-- `confirmAction(message: string): Promise<boolean>` - prompts Yes/No confirmation returning boolean
+**isInteractive(): boolean** — Returns `true` if `process.stdin.isTTY === true`, indicating interactive terminal availability versus CI/piped input.
 
-## Internal Implementation
+**selectOption<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Generic option selector routing to `arrowKeySelect()` for TTY or `numberedSelect()` for non-TTY based on `isInteractive()` check.
 
-- `arrowKeySelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>` - uses `readline.emitKeypressEvents()` and `process.stdin.setRawMode(true)` to capture up/down/return keypresses, renders selection with `pc.cyan()` highlight, handles Ctrl+C via `key.ctrl && key.name === 'c'`
-- `numberedSelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>` - prints numbered list, creates `readline.createInterface()`, reads numeric input via `rl.question()`, validates `1-options.length` range
-- `SelectOption<T>` interface defines `{ label: string; value: T }` structure for prompt options
+**selectRuntime(mode: 'install' | 'uninstall'): Promise<Runtime>** — Prompts for runtime selection among `'claude'`, `'opencode'`, `'gemini'`, `'all'` using `selectOption()` with mode-specific prompt text.
 
-## Raw Mode Lifecycle Management
+**selectLocation(mode: 'install' | 'uninstall'): Promise<Location>** — Prompts for installation location (`'global'` vs `'local'`) using `selectOption()` with mode-specific prompt text.
 
-- `rawModeActive: boolean` module-level flag tracks raw mode state
-- `cleanupRawMode(): void` calls `process.stdin.setRawMode(false)` and `process.stdin.pause()` with error suppression
-- Global handlers registered: `process.on('exit', cleanupRawMode)` and `process.on('SIGINT', cleanupRawMode)` ensure terminal restoration
-- `arrowKeySelect()` uses try/finally pattern: setup in try block, `cleanupRawMode()` in catch, explicit cleanup on 'return' keypress
+**confirmAction(message: string): Promise<boolean>** — Displays confirmation message with `Yes`/`No` options via `selectOption<boolean>()`.
 
-## Dependencies
+## Interface Types
 
-- `node:readline` for `emitKeypressEvents()`, `createInterface()`, and keypress event handling
-- `picocolors` (pc) for `pc.cyan()` and `pc.bold()` terminal styling
-- `./types.js` for `Runtime` ('claude' | 'opencode' | 'gemini' | 'all') and `Location` ('global' | 'local') types
+**SelectOption<T>** — Option descriptor with `label: string` and `value: T` for type-safe selection results.
 
-## Terminal Control Sequences
+## Arrow Key Navigation
 
-- `\x1b[${n}A` moves cursor up n lines for re-rendering
-- `\x1b[2K` clears current line
-- `\x1b[1B` moves cursor down one line
-- `render(clear: boolean)` function redraws selection UI, clearing previous output when `clear === true`
+**arrowKeySelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Enables raw mode via `process.stdin.setRawMode(true)`, calls `readline.emitKeypressEvents(process.stdin)`, listens for `'keypress'` events handling `'up'`/`'down'`/`'return'`/`Ctrl+C`, renders selection state with cursor repositioning via ANSI escape sequences (`\x1b[${n}A` for cursor up, `\x1b[2K` for clear line), highlights selected option with `pc.cyan()`.
+
+**render(clear: boolean)** — Redraws prompt and options list, moving cursor up `options.length + 1` lines and clearing with `\x1b[2K\x1b[1B` when `clear=true`, applying cyan highlight to selected index.
+
+**handleKeypress(_str: string | undefined, key: {name?: string; ctrl?: boolean})** — Responds to `key.name === 'up'` by decrementing `selectedIndex` with `Math.max(0, ...)` bound, `'down'` by incrementing with `Math.min(options.length - 1, ...)` bound, `'return'` by removing listener and calling `cleanupRawMode()` before resolving promise.
+
+## Non-Interactive Fallback
+
+**numberedSelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Prints numbered list (1-indexed), creates `readline.Interface` calling `rl.question('Enter number: ', ...)`, parses integer input with `parseInt(answer, 10)` validation rejecting invalid range, resolves with `options[num - 1].value`.
+
+## Terminal State Management
+
+**rawModeActive: boolean** — Module-level flag tracking raw mode state for cleanup coordination across exit handlers.
+
+**cleanupRawMode(): void** — Restores terminal by calling `process.stdin.setRawMode(false)` and `process.stdin.pause()` when `rawModeActive && process.stdin.isTTY`, ignores errors during cleanup, resets `rawModeActive = false`.
+
+**Global handlers** — Registered via `process.on('exit', cleanupRawMode)` and `process.on('SIGINT', ...)` with immediate `process.exit(0)` after cleanup to ensure raw mode never leaks on interrupt or normal exit.
+
+## Error Handling
+
+**arrowKeySelect()** wraps raw mode setup in `try/catch` calling `cleanupRawMode()` before rethrowing errors to prevent terminal corruption on initialization failure.
+
+**numberedSelect()** rejects promise with `new Error('Invalid selection: ${answer}. Expected 1-${options.length}')` when `isNaN(num)` or out of bounds.
+
+## Integration Points
+
+Imports `Runtime` and `Location` types from `./types.js` for type-safe prompt return values used by installer orchestration (`src/installer/index.ts`, `src/installer/operations.ts`).
+
+Uses `picocolors` (`pc`) for cyan highlighting (`pc.cyan()`) and bold text (`pc.bold()`) in prompt rendering.

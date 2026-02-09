@@ -1,32 +1,26 @@
 ---
-generated_at: 2026-02-09T13:18:15.213Z
+generated_at: 2026-02-09T14:08:15.724Z
 content_hash: 20526dbcc3fa83bca2efb8a76027db019b8944ad212cf781c189935bfced0410
-purpose: Detects documentation drift by comparing exported symbols in TypeScript/JavaScript source files against their corresp...
+purpose: Detects code-vs-doc inconsistencies by extracting exports from TypeScript/JavaScript source and verifying their prese...
 ---
-**Detects documentation drift by comparing exported symbols in TypeScript/JavaScript source files against their corresponding .sum documentation content.**
+**Detects code-vs-doc inconsistencies by extracting exports from TypeScript/JavaScript source and verifying their presence in corresponding `.sum` file documentation.**
 
 ## Exported Functions
 
-### extractExports
-```typescript
-function extractExports(sourceContent: string): string[]
-```
-Parses TypeScript/JavaScript source using regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` to extract exported identifier names. Matches `export function foo`, `export const BAR`, `export default class App`, and similar patterns. Ignores re-exports (e.g., `export { x } from 'y'`), commented lines, and non-exported declarations. Returns array of identifier strings.
+**`extractExports(sourceContent: string): string[]`**
+Extracts named and default export identifiers from TypeScript/JavaScript source using regex pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`. Matches declarations like `export function foo`, `export const BAR`, `export default class App`. Ignores re-exports, commented-out lines, and internal non-exported declarations. Returns array of exported identifier names.
 
-### checkCodeVsDoc
-```typescript
-function checkCodeVsDoc(
-  sourceContent: string,
-  sumContent: SumFileContent,
-  filePath: string,
-): CodeDocInconsistency | null
-```
-Compares exports extracted from `sourceContent` against `sumContent.summary` text to detect inconsistencies. Identifies `missingFromDoc` (symbols exported in source but not mentioned in .sum text) using case-sensitive substring matching (`sumText.includes(e)`). Returns `CodeDocInconsistency` object with `type: 'code-vs-doc'`, `severity: 'warning'`, `filePath`, `sumPath`, `description`, and `details: { missingFromDoc, missingFromCode }`. Returns `null` when all exports are mentioned in documentation. The `missingFromCode` array is always empty in current implementation (legacy field for detecting items in `publicInterface` without matching exports).
+**`checkCodeVsDoc(sourceContent: string, sumContent: SumFileContent, filePath: string): CodeDocInconsistency | null`**
+Compares source exports against `.sum` documentation content to detect two inconsistency types: `missingFromDoc` (symbols exported in source but not mentioned in `.sum` text via case-sensitive substring search), and `missingFromCode` (items listed in `publicInterface` with no matching export, though current implementation returns empty array for this field). Returns `CodeDocInconsistency` with `type: 'code-vs-doc'`, `severity: 'warning'`, `filePath`, `sumPath` (constructed as `${filePath}.sum`), `description` (count-based message), and `details` object containing both arrays. Returns `null` when all exports appear in `sumText`.
 
 ## Type Dependencies
 
-Imports `SumFileContent` from `../../generation/writers/sum.js` (parsed .sum file structure with `summary` field). Imports `CodeDocInconsistency` from `../types.js` (quality report descriptor with `type`, `severity`, `filePath`, `sumPath`, `description`, `details` fields).
+Imports `SumFileContent` from `../../generation/writers/sum.js` (parsed `.sum` file structure with `summary` field containing documentation text). Imports `CodeDocInconsistency` from `../types.js` (inconsistency report interface with discriminated union `type` field).
 
-## Heuristic Limitations
+## Algorithm Characteristics
 
-Uses regex-based parsing instead of AST analysis, which may miss complex export patterns (destructured exports, namespace exports, dynamic exports). Substring matching in `checkCodeVsDoc` produces false negatives if identifier appears in unrelated context (e.g., `Button` mentioned in prose but not as documented interface). Does not validate whether mentions are semantically meaningful (could appear in code examples vs. actual documentation).
+Validation uses regex-based export extraction missing complex patterns (destructured exports, namespace exports, dynamic exports). Substring matching via `sumText.includes(e)` yields false negatives when export name appears in prose unrelated to API surface (e.g., "we export the results" mentions "export" but doesn't document the symbol). Operates on raw source strings without AST parsing.
+
+## Integration Points
+
+Called by quality validation orchestrator in Phase 1 file analysis to detect documentation drift during `.sum` generation. Feeds `CodeDocInconsistency` results into `InconsistencyReport` via `src/quality/inconsistency/reporter.ts` aggregation. Works alongside `code-vs-code.ts` (duplicate symbol detection) and `phantom-paths/validator.ts` (path resolution validation).

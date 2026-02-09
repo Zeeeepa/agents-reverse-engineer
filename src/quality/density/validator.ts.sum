@@ -1,27 +1,29 @@
 ---
-generated_at: 2026-02-09T13:17:41.925Z
+generated_at: 2026-02-09T14:08:11.628Z
 content_hash: d949dd52d9e6602ba7336320be9efcdf5d23285444b295078fc01dc915d1c3c9
-purpose: validator.ts defines findability validation interfaces and a stub function to verify that exported symbols from .sum ...
+purpose: validator.ts implements findability validation checking that exported symbols from .sum files appear in parent AGENTS...
 ---
-**validator.ts defines findability validation interfaces and a stub function to verify that exported symbols from .sum files appear in parent AGENTS.md content.**
+**validator.ts implements findability validation checking that exported symbols from .sum files appear in parent AGENTS.md content, currently disabled pending structured metadata extraction re-implementation.**
 
-## Exported Types
+## Current Status
 
-`FindabilityResult` interface represents validation results for a single .sum file:
-- `filePath: string` — path to the validated .sum file
-- `symbolsTested: string[]` — symbol names checked for presence
-- `symbolsFound: string[]` — symbols found in AGENTS.md
-- `symbolsMissing: string[]` — symbols absent from AGENTS.md
-- `score: number` — ratio of found to tested symbols, range [0, 1]
+validateFindability returns empty array since SumFileContent no longer includes `metadata.publicInterface` field removed in prior refactor. Function signature preserved for future post-processing pass implementation using structured symbol extraction.
 
-## Exported Functions
+## Exported Interface
 
-`validateFindability(_agentsMdContent: string, _sumFiles: Map<string, SumFileContent>): FindabilityResult[]` returns an empty array because structured metadata extraction (publicInterface) was removed. Function signature preserved for future re-implementation via post-processing passes. No LLM calls, intended for string-based symbol matching.
+**FindabilityResult** interface describes validation outcome per .sum file:
+- `filePath: string` — Path to validated .sum file
+- `symbolsTested: string[]` — Symbol names checked for presence
+- `symbolsFound: string[]` — Symbols appearing in AGENTS.md
+- `symbolsMissing: string[]` — Symbols absent from AGENTS.md
+- `score: number` — Ratio of found/tested ranging 0 (no symbols found) to 1 (all symbols found)
 
-## Dependencies
+**validateFindability** function signature takes `_agentsMdContent: string` (full AGENTS.md text) and `_sumFiles: Map<string, SumFileContent>` (parsed sum file mapping), returns `FindabilityResult[]` (currently empty array). Parameters prefixed with underscore indicating unused status until re-implementation.
 
-Imports `SumFileContent` from `../../generation/writers/sum.js` for type checking .sum file content structure.
+## Design Intent
 
-## Current State
+No LLM calls — purely string-based symbol matching heuristic. Original design verified key exported symbols from child .sum files appear in synthesized parent AGENTS.md content to detect documentation omissions. Relied on structured `publicInterface` metadata extraction during .sum file generation phase.
 
-Function body returns `[]` — effectively disabled. Module retained as placeholder for future structured extraction support when publicInterface or equivalent metadata becomes available.
+## Integration Context
+
+Module retained in `src/quality/density/` alongside `src/quality/inconsistency/` validators (code-vs-doc, code-vs-code) and `src/quality/phantom-paths/` validators. Quality validation pipeline invoked post-generation via `src/quality/index.ts` orchestrator producing `InconsistencyReport` with metadata/issues/summary sections.

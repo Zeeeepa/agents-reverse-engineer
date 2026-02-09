@@ -1,18 +1,23 @@
 ---
-generated_at: 2026-02-09T13:19:14.422Z
+generated_at: 2026-02-09T14:10:04.974Z
 content_hash: d1466918414db67dbb0d230e53203cb4d8b01df54d267427a029d1494fc00406
-purpose: LICENSE grants MIT License terms for the agents-reverse-engineer project, owned by GeoloeG-IsT (2026), permitting unr...
+purpose: LICENSE grants MIT permission for agents-reverse-engineer software distribution, modification, and commercial use wit...
 ---
-**LICENSE grants MIT License terms for the agents-reverse-engineer project, owned by GeoloeG-IsT (2026), permitting unrestricted use, modification, and distribution with warranty disclaimers and liability limitations.**
+**LICENSE grants MIT permission for agents-reverse-engineer software distribution, modification, and commercial use without warranty.**
 
-## Legal Scope
+## License Terms
 
-MIT License permits use, copy, modify, merge, publish, distribute, sublicense, and sell rights without restriction, requiring only copyright notice and permission notice inclusion in all Software copies or substantial portions.
+MIT License with copyright holder `GeoloeG-IsT` (year 2026) applies to all agents-reverse-engineer software and documentation files.
 
-## Warranty and Liability Terms
+## Permissions Granted
 
-Software provided "AS IS" without warranties of MERCHANTABILITY, FITNESS FOR PARTICULAR PURPOSE, or NONINFRINGEMENT. Copyright holder GeoloeG-IsT disclaims all liability for claims, damages, or other liability arising from contract, tort, or other legal theory related to Software use or dealings.
+- Commercial use, modification, distribution, sublicensing, and sale of the Software without restriction
+- Inclusion of copyright notice and permission text required in all copies or substantial portions
 
-## Copyright Attribution
+## Warranty Disclaimer
 
-Copyright (c) 2026 GeoloeG-IsT applies to all agents-reverse-engineer Software and associated documentation files.
+Software provided "AS IS" without warranties of MERCHANTABILITY, FITNESS FOR PARTICULAR PURPOSE, or NONINFRINGEMENT. Authors hold no liability for claims, damages, or other liabilities arising from Software use or dealings.
+
+## Integration Context
+
+Referenced in npm package metadata (`package.json` likely contains `"license": "MIT"` field) for public distribution via npm registry. Applies to all TypeScript source in `src/`, build artifacts in `dist/`, CLI hooks in `hooks/`, and generated documentation templates in `src/integration/templates.ts`.

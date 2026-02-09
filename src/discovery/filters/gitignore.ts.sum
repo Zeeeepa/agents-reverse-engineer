@@ -1,33 +1,39 @@
 ---
-generated_at: 2026-02-09T13:17:46.141Z
+generated_at: 2026-02-09T14:07:53.063Z
 content_hash: 21bf8f8555dac27a2608934b9016f732256e87fab42ec4dce4f6c8f1b746e901
-purpose: gitignore.ts provides gitignore-based path filtering for file discovery using the `ignore` library.
+purpose: createGitignoreFilter creates a FileFilter that excludes files matching .gitignore patterns by loading and parsing th...
 ---
-**gitignore.ts provides gitignore-based path filtering for file discovery using the `ignore` library.**
+**createGitignoreFilter creates a FileFilter that excludes files matching .gitignore patterns by loading and parsing the root .gitignore file via the ignore library.**
 
-## Exported Interface
+## Exported Function
 
-- **`createGitignoreFilter(root: string): Promise<FileFilter>`** — Asynchronous factory that loads `.gitignore` from `root`, parses patterns via `ignore()`, and returns a `FileFilter` implementation.
+**createGitignoreFilter(root: string): Promise<FileFilter>**
+- Returns FileFilter with name `'gitignore'` and shouldExclude predicate
+- Loads .gitignore from `path.join(root, '.gitignore')` if it exists
+- Silently passes all files if .gitignore is missing or unreadable
+- Normalizes root via `path.resolve()` for absolute path resolution
 
-## FileFilter Implementation
+## Integration Points
 
-The returned object implements `FileFilter` from `../types.js`:
+- Implements FileFilter interface from `../types.js` (requires `name: string` and `shouldExclude(absolutePath: string): boolean`)
+- Used by filter chain in `src/discovery/walker.ts` alongside binary/vendor/custom filters
+- Consumed by `createGitignoreFilter` aggregator in `src/discovery/filters/index.ts`
 
-- **`name: 'gitignore'`** — Filter identifier.
-- **`shouldExclude(absolutePath: string): boolean`** — Converts `absolutePath` to relative path via `path.relative(normalizedRoot, absolutePath)`, rejects paths outside root (starting with `..` or empty), then calls `ig.ignores(relativePath)` to match against loaded patterns.
+## Path Processing Logic
+
+**shouldExclude(absolutePath: string)**
+- Converts absolute paths to relative via `path.relative(normalizedRoot, absolutePath)` (ignore library requires relative paths)
+- Returns false for paths outside root (relativePath starts with `'..'`) or empty relativePath
+- Calls `ig.ignores(relativePath)` without trailing slash (walker provides file paths only, not directories)
+- Critical constraint: ignore library treats paths differently with/without trailing slash—directory exclusion would need slash appending
 
 ## Dependencies
 
-- **`ignore`** (`Ignore` type) — Third-party library for parsing and matching gitignore patterns; requires relative paths (not absolute).
-- **`fs.readFile(gitignorePath, 'utf-8')`** — Loads `.gitignore` content from `path.join(normalizedRoot, '.gitignore')`. Silent fallback on error (no-op filter if file missing).
-- **`path.resolve(root)`** — Normalizes root to absolute path stored in `normalizedRoot`.
-
-## Path Handling
-
-- **Relative Path Requirement**: `ignore` library operates on relative paths; `path.relative()` converts absolute input to project-relative format.
-- **Boundary Check**: Paths starting with `..` or empty strings (outside root) return `false` immediately to prevent incorrect matches.
-- **Trailing Slash Semantics**: Comment notes `ignore` library treats directories differently (requires trailing slash); current implementation handles files only (no slash appended) since walker returns files, not directories.
+- **ignore**: Ignore instance created via `ignore()`, patterns added via `ig.add(content)`, matching via `ig.ignores(relativePath)`
+- **fs.promises**: Reads .gitignore content via `fs.readFile(gitignorePath, 'utf-8')`
+- **path**: Resolves root, joins gitignorePath, computes relative paths
 
 ## Error Handling
 
-- **Silent .gitignore Load Failure**: Try-catch around `fs.readFile()` swallows errors; missing `.gitignore` results in `ig` with no patterns (excludes nothing).
+- Try-catch around `fs.readFile()` swallows all errors (missing file, permission denied, invalid encoding)
+- Empty Ignore instance passes all paths when no .gitignore exists

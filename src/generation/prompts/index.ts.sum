@@ -1,24 +1,32 @@
 ---
-generated_at: 2026-02-09T13:17:43.383Z
+generated_at: 2026-02-09T14:07:57.503Z
 content_hash: 9e8e20e4c2bb7c66f849ccaba5230cb66a1ca6795bd4c2bdf5dd7fb70387cbb1
-purpose: Barrel export module that re-exports prompt building functions and types from the generation/prompts subsystem.
+purpose: Exports prompt-related types, constants, and builder functions for generating AI analysis prompts across all three ph...
 ---
-**Barrel export module that re-exports prompt building functions and types from the generation/prompts subsystem.**
+**Exports prompt-related types, constants, and builder functions for generating AI analysis prompts across all three phases of the documentation pipeline (file analysis, directory aggregation, root synthesis).**
 
-## Exported Symbols
+## Exported Types
 
-Exports `PromptContext` type from `'./types.js'` — represents context data passed to prompt builders (file paths, content, language detection, etc.).
+`PromptContext` — Context object passed to prompt builders containing file/directory metadata, configuration, and aggregated child documentation.
 
-Exports `SUMMARY_GUIDELINES` constant from `'./types.js'` — contains the core prompt text defining documentation generation rules (density requirements, identifier preservation, format constraints).
+## Exported Constants
 
-Exports `buildFilePrompt` function from `'./builder.js'` — constructs AI prompt for analyzing individual source files and generating .sum documentation.
+`SUMMARY_GUIDELINES` — String constant containing density rules, identifier preservation requirements, and output format constraints enforced across all prompt templates.
 
-Exports `buildDirectoryPrompt` function from `'./builder.js'` — constructs AI prompt for synthesizing directory-level AGENTS.md from child .sum files.
+## Exported Functions
 
-Exports `buildRootPrompt` function from `'./builder.js'` — constructs AI prompt for generating root AGENTS.md from all directory-level documentation.
+`buildFilePrompt(context: PromptContext): string` — Constructs Phase 1 prompts for individual file analysis, incorporating import maps, language detection, and file-specific context.
 
-Exports `detectLanguage` function from `'./builder.js'` — infers programming language from file extension for context-aware prompt generation.
+`buildDirectoryPrompt(context: PromptContext): string` — Constructs Phase 2 prompts for directory-level AGENTS.md generation, aggregating child `.sum` files, subdirectory AGENTS.md, and manifest metadata (package.json/Cargo.toml/go.mod).
 
-## Module Role
+`buildRootPrompt(context: PromptContext): string` — Constructs Phase 3 prompts for root document synthesis (CLAUDE.md/GEMINI.md/OPENCODE.md), consuming all AGENTS.md files and project metadata.
 
-Centralizes prompt generation API surface for the three-phase documentation pipeline: file analysis → directory synthesis → root aggregation. Consumed by `src/generation/executor.ts` orchestration logic and `src/cli/` command handlers.
+`detectLanguage(filePath: string): string` — Determines primary programming language from file extension for language-specific prompt customization.
+
+## Module Organization
+
+Re-exports internal types and functions from `./types.js` (`PromptContext`, `SUMMARY_GUIDELINES`) and `./builder.js` (builder functions, language detection). Provides single entry point for prompt generation logic used by `src/generation/executor.ts` during three-phase pipeline execution.
+
+## Integration Points
+
+Consumed by `GenerationExecutor` in `src/generation/executor.ts` which invokes builders per-phase: Phase 1 calls `buildFilePrompt()` for each source file, Phase 2 calls `buildDirectoryPrompt()` for post-order directory traversal, Phase 3 calls `buildRootPrompt()` sequentially for each AI platform template. Prompts passed to `AIService.call()` for subprocess execution.

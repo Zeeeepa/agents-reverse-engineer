@@ -1,33 +1,50 @@
 ---
-generated_at: 2026-02-09T13:18:52.355Z
+generated_at: 2026-02-09T14:09:43.083Z
 content_hash: ace71137f853e1fd5c989c3d4e5326fe3cb526ea38d3fc753486e7d037c687b9
-purpose: src/quality/index.ts re-exports all quality analysis types and functions from inconsistency detection, phantom path d...
+purpose: Public API facade for quality analysis module that re-exports inconsistency detection, phantom path validation, and d...
 ---
-**src/quality/index.ts re-exports all quality analysis types and functions from inconsistency detection, phantom path detection, and density validation submodules.**
+**Public API facade for quality analysis module that re-exports inconsistency detection, phantom path validation, and density checking from submodules.**
 
 ## Exported Types
 
-Exports `InconsistencySeverity`, `CodeDocInconsistency`, `CodeCodeInconsistency`, `PhantomPathInconsistency`, `Inconsistency`, `InconsistencyReport` from `./types.js`.
+Re-exports discriminated union types from `./types.js`:
+- `InconsistencySeverity` — Severity levels for quality issues
+- `CodeDocInconsistency` — Represents exports missing from `.sum` documentation
+- `CodeCodeInconsistency` — Represents duplicate symbol definitions across files
+- `PhantomPathInconsistency` — Represents unresolvable path references in `AGENTS.md`
+- `Inconsistency` — Discriminated union of all inconsistency types
+- `InconsistencyReport` — Container with `metadata`, `issues[]`, and `summary` counts
 
-Exports `FindabilityResult` from `./density/validator.js`.
+## Code-vs-Doc Validation
 
-## Exported Functions
+Re-exports functions from `./inconsistency/code-vs-doc.js`:
+- `extractExports(sourceCode: string): string[]` — Regex-based extraction of exported symbols using pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`
+- `checkCodeVsDoc(filePath: string, sumContent: string): CodeDocInconsistency | null` — Verifies all extracted exports appear in summary text via substring search, returns inconsistency with `missingFromDoc` array if validation fails
 
-**Code-vs-Doc Analysis:**
-- `extractExports` and `checkCodeVsDoc` from `./inconsistency/code-vs-doc.js` — detects mismatches between source code exports and documentation claims
+## Code-vs-Code Duplicate Detection
 
-**Code-vs-Code Analysis:**
-- `checkCodeVsCode` from `./inconsistency/code-vs-code.js` — validates cross-references between code modules
+Re-exports `checkCodeVsCode(filesByDir: Map<string, string[]>): CodeCodeInconsistency[]` from `./inconsistency/code-vs-code.js` — Aggregates exports per directory, detects symbols appearing in multiple files, returns array of inconsistencies with `pattern: 'duplicate-export'`
 
-**Inconsistency Reporting:**
-- `buildInconsistencyReport` and `formatReportForCli` from `./inconsistency/reporter.js` — aggregates and formats detected inconsistencies for CLI output
+## Inconsistency Reporting
 
-**Phantom Path Detection:**
-- `checkPhantomPaths` from `./phantom-paths/index.js` — identifies references to non-existent file paths in documentation
+Re-exports from `./inconsistency/reporter.js`:
+- `buildInconsistencyReport(issues: Inconsistency[], metadata: object): InconsistencyReport` — Constructs report with computed summary counts by type and severity
+- `formatReportForCli(report: InconsistencyReport): string` — Renders human-readable CLI output with picocolors formatting
 
-**Density Validation:**
-- `validateFindability` from `./density/validator.js` — checks documentation density and identifier coverage
+## Phantom Path Detection
 
-## Module Role
+Re-exports `checkPhantomPaths(agentsMdPath: string, projectRoot: string): PhantomPathInconsistency[]` from `./phantom-paths/index.js` — Extracts path-like strings from `AGENTS.md` via three regex patterns (markdown links, backtick-quoted paths, prose-embedded paths), resolves against directory and project root with `.ts`/`.js` fallback, returns unresolved references
 
-Serves as the public API facade for the quality analysis subsystem, consolidating four distinct validation concerns (code-doc consistency, code-code consistency, phantom paths, density) into a single import surface for consumers in other modules.
+## Density Validation
+
+Re-exports from `./density/validator.js`:
+- `validateFindability(sumContent: string, sourceFilePath: string): FindabilityResult` — Disabled validator (previously checked structured `publicInterface` schema removed in earlier version)
+- `FindabilityResult` — Return type for density validation result
+
+## Module Organization
+
+Barrel export pattern aggregating quality analysis capabilities:
+- `./types.js` — Shared discriminated union types
+- `./inconsistency/` — Code-vs-doc and code-vs-code validators with CLI reporter
+- `./phantom-paths/` — Unresolvable path reference detection
+- `./density/` — Disabled findability validator

@@ -1,35 +1,41 @@
 ---
-generated_at: 2026-02-09T13:18:46.666Z
+generated_at: 2026-02-09T14:09:25.451Z
 content_hash: c54b67ea5f368404974a24012da22317186b49543249ead73a5cec227f874c98
-purpose: Barrel export module aggregating the public API of the orchestration subsystem (concurrency pool, progress tracking, ...
+purpose: `src/orchestration/index.ts` re-exports the orchestration module's public API: concurrency pool, progress reporter, p...
 ---
-**Barrel export module aggregating the public API of the orchestration subsystem (concurrency pool, progress tracking, command execution, tracing).**
+**`src/orchestration/index.ts` re-exports the orchestration module's public API: concurrency pool, progress reporter, plan tracker, trace writer, command runner, and shared types.**
 
 ## Exported Types
 
-- **FileTaskResult**: Task outcome for file-level operations
-- **RunSummary**: Aggregate metrics from command execution
-- **ProgressEvent**: Event payload for progress reporting
-- **CommandRunOptions**: Configuration object threaded through runner → pool → AIService
-- **PoolOptions**: Concurrency pool configuration (worker count, iterator)
-- **TaskResult**: Generic task outcome from `runPool<T>()`
-- **ITraceWriter**: Interface for NDJSON trace event emission
-- **TraceEvent**: Discriminated union of trace event types (phase:start/end, worker:start/end, task:pickup/done, subprocess:spawn/exit, retry)
-- **TraceEventPayload**: Union of payload shapes for all TraceEvent variants
+- `FileTaskResult` — Result type for individual file processing tasks
+- `RunSummary` — Aggregate summary of command execution (counts, durations, errors)
+- `ProgressEvent` — Event payload for progress updates during execution
+- `CommandRunOptions` — Configuration options threaded through command runners (includes `tracer?: ITraceWriter`)
+- `PoolOptions` — Configuration for worker pool (concurrency, fail-fast, callbacks)
+- `TaskResult` — Generic result type from pool execution
 
 ## Exported Functions
 
-- **runPool**: Iterator-based concurrency pool executor (shared iterator, N workers, serialized via promise chain)
-- **createTraceWriter**: Factory function returning ITraceWriter implementation (TraceWriter or NullTraceWriter based on enablement)
-- **cleanupOldTraces**: Deletes trace files older than retention threshold from `.agents-reverse-engineer/traces/`
+- `runPool()` — Iterator-based worker pool executing tasks with shared iterator across N workers
+- `cleanupOldTraces()` — Retention management for NDJSON trace files
 
 ## Exported Classes
 
-- **ProgressReporter**: Emits ProgressEvent objects during command execution (file completions, phase transitions)
-- **ProgressLog**: Writes human-readable progress updates to `.agents-reverse-engineer/progress.log`
-- **PlanTracker**: Serializes plan state writes to disk via promise chain (prevents corruption from concurrent workers)
-- **CommandRunner**: Orchestrates three-phase execution (file analysis → directory AGENTS.md → root docs) with AIService integration
+- `CommandRunner` — High-level orchestrator with `executeGenerate()`, `executeUpdate()`, `executeDiscover()` methods
+- `ProgressReporter` — Streaming progress updates with ETA calculation via moving average
+- `ProgressLog` — File-backed progress logging to `.agents-reverse-engineer/progress.log`
+- `PlanTracker` — Serialized writer for `GENERATION-PLAN.md` with promise-chain pattern preventing concurrent write corruption
+
+## Exported Factories
+
+- `createTraceWriter()` — Returns `ITraceWriter` implementation (NullTraceWriter or TraceWriter based on flag)
+
+## Exported Interfaces
+
+- `ITraceWriter` — Contract for trace event emission with `emit()`, `end()`, `createChild()` methods
+- `TraceEvent` — Discriminated union of trace event types (phase:start/end, worker:start/end, task:pickup/done, subprocess:spawn/exit, retry)
+- `TraceEventPayload` — Raw event data before auto-populated fields (`seq`, `ts`, `pid`, `elapsedMs`)
 
 ## Module Role
 
-Single import point for orchestration engine. Consumers (CLI commands, test suites) import from `./orchestration/index.js` to access runPool, CommandRunner, ProgressReporter, PlanTracker, and tracing infrastructure without direct coupling to internal module structure (`./pool.js`, `./runner.js`, `./progress.js`, `./plan-tracker.js`, `./trace.js`, `./types.js`).
+Barrel export aggregating orchestration subsystems: pool-based concurrency (`pool.ts`), progress monitoring (`progress.ts`), plan tracking (`plan-tracker.ts`), telemetry tracing (`trace.ts`), and command execution (`runner.ts`). Provides single import point for three-phase pipeline orchestration with NDJSON trace emission, serialized file writes, and ETA-aware progress streaming.

@@ -2,54 +2,59 @@
 
 # src/discovery/filters
 
-File exclusion filters for documentation discovery phase, implementing gitignore semantics, binary detection, vendor directory exclusion, and custom pattern matching through a unified FileFilter interface.
+File exclusion predicates implementing gitignore parsing, binary detection, vendor directory matching, and custom glob patterns via composable FileFilter interface with short-circuit evaluation and statistics tracking.
 
 ## Contents
 
 ### Filter Implementations
 
-- **[binary.ts](./binary.ts)** — Extension-based and content-based binary detection using `BINARY_EXTENSIONS` Set (80+ extensions) and `isBinaryFile()` with configurable `maxFileSize` threshold (default 1MB), implements two-phase fast-path/slow-path strategy
-- **[gitignore.ts](./gitignore.ts)** — Async gitignore parser using `ignore` library, loads `.gitignore` from root via `fs.readFile()`, converts absolute paths to relative via `path.relative()` before matching, silently passes all files if `.gitignore` missing
-- **[vendor.ts](./vendor.ts)** — Third-party directory exclusion supporting single-segment names (O(1) Set lookup per path segment) and multi-segment patterns (string inclusion), exports `DEFAULT_VENDOR_DIRS` containing node_modules, .git, dist, build, __pycache__, .next, venv, target
-- **[custom.ts](./custom.ts)** — User-provided pattern matcher wrapping `ignore` library for gitignore-style patterns, normalizes paths via `path.relative()`, returns no-op filter when `patterns.length === 0`
-- **[index.ts](./index.ts)** — Filter orchestration with `applyFilters(files, filters, options)` implementing bounded concurrency (CONCURRENCY=30), short-circuit exclusion logic, deterministic ordering preservation, per-filter statistics tracking (`filterStats: Map<string, { matched, rejected }>`), and `filter:applied` trace events
+**[binary.ts](./binary.ts)** — createBinaryFilter() with two-phase detection: extension-based fast path (BINARY_EXTENSIONS Set of 91 types), content analysis fallback via `isbinaryfile`, configurable maxFileSize threshold (default 1MB).
+
+**[custom.ts](./custom.ts)** — createCustomFilter() wraps `ignore` library for gitignore-syntax pattern matching against user-defined exclusion patterns from config.exclude.patterns.
+
+**[gitignore.ts](./gitignore.ts)** — createGitignoreFilter() loads root .gitignore via fs.promises.readFile(), converts absolute paths to relative for `ig.ignores()` predicate, silently passes all files when .gitignore missing.
+
+**[vendor.ts](./vendor.ts)** — createVendorFilter() matches third-party directories via dual strategy: singleSegments Set for name-only matching (e.g., `node_modules`), pathPatterns array for multi-segment substring search (e.g., `.agents/skills`). Exports DEFAULT_VENDOR_DIRS with 10 common directory names.
+
+**[index.ts](./index.ts)** — applyFilters() orchestrates filter chain with 30-worker concurrency pool, short-circuit evaluation (stops at first exclusion), per-filter statistics (matched/rejected counts), ITraceWriter emission of `filter:applied` events. Re-exports all filter creators and BINARY_EXTENSIONS/DEFAULT_VENDOR_DIRS constants.
 
 ## Architecture
 
-### FileFilter Interface
+### FileFilter Interface Contract
 
-All filters implement `FileFilter` from `../types.js`:
-- `name: string` — Filter identifier for logging and diagnostics
-- `shouldExclude(absolutePath: string): Promise<boolean> | boolean` — Predicate returning true to exclude file from discovery
+```typescript
+interface FileFilter {
+  name: string
+  shouldExclude(absolutePath: string): boolean | Promise<boolean>
+}
+```
 
-### Filter Chain Execution
+Implemented by all filter modules (gitignore, vendor, binary, custom) via `../types.js`. Enables polymorphic filter chaining with consistent error handling and telemetry.
 
-applyFilters processes files concurrently via shared iterator pattern:
-1. Spawns `Math.min(CONCURRENCY, files.length)` workers
-2. Each worker iterates `files.entries()` applying filters sequentially
-3. First filter returning `shouldExclude=true` short-circuits remaining filters
-4. Results collected in `included: string[]` and `excluded: ExcludedFile[]` (annotated with `filter` name and `reason`)
-5. Output sorted by original `index` to preserve deterministic ordering despite parallel execution
+### Execution Strategy
 
-### Path Normalization Strategy
+**Short-circuit evaluation** — applyFilters() iterates filter array for each file, breaks on first `shouldExclude()=true`, records exclusion reason as filter name. Prevents redundant I/O when gitignore filter rejects file before binary content analysis.
 
-Filters requiring relative paths (gitignore.ts, custom.ts) use `path.relative(normalizedRoot, absolutePath)` and reject paths outside root (starting with `..` or empty strings). Vendor filter normalizes separators via `.replace(/[\\/]/g, path.sep)` for cross-platform compatibility.
+**Bounded concurrency** — Worker pool spawns `Math.min(30, files.length)` tasks sharing single `files.entries()` iterator. Prevents file descriptor exhaustion during binary detection (isBinaryFile() reads file chunks synchronously).
 
-## Binary Detection Strategy
+**Statistics aggregation** — Initializes `Map<filterName, {matched, rejected}>` for all filters. Increments `rejected` when filter excludes file. Increments `matched` for all filters when file survives full chain (tracks "pass-through" counts).
 
-binary.ts implements two-phase detection:
-1. **Fast path**: `path.extname().toLowerCase()` check against combined `binaryExtensions` Set (BINARY_EXTENSIONS + additionalExtensions with `.` prefix normalization)
-2. **Slow path**: Unknown extensions trigger `fs.stat()` size check followed by `isBinaryFile()` content analysis
-3. **Error handling**: `shouldExclude` returns `true` (exclude) on stat/read errors to prevent downstream processing failures
+### Path Normalization Patterns
 
-## Concurrency and I/O Management
+**binary.ts** — Uses `path.extname(absolutePath).toLowerCase()` for case-insensitive extension lookup, fs.stat() for size metadata.
 
-applyFilters limits concurrent file processing to CONCURRENCY=30 to prevent file descriptor exhaustion during binary content detection. Each worker calls async `filter.shouldExclude()` operations sequentially per file but processes multiple files in parallel across workers.
+**gitignore.ts / custom.ts** — Converts absolute paths to relative via `path.relative(normalizedRoot, absolutePath)` (ignore library requires relative paths, treats `../` prefixes as outside boundary).
 
-## Trace Integration
+**vendor.ts** — Normalizes input patterns via `.replace(/[\\/]/g, path.sep)` for cross-platform separator handling, splits paths via `path.sep` for segment matching.
 
-When `options.tracer` provided, index.ts emits `filter:applied` events with `filterName`, `matched`, `rejected` counts after all workers complete. Trace events enable visualization of filter effectiveness and bottleneck identification.
+## Integration Points
 
-## Debug Output
+**Discovery walker** (`src/discovery/walker.ts`) — Composes filters via createGitignoreFilter + createVendorFilter + createBinaryFilter + createCustomFilter sequence, passes result to applyFilters().
 
-When `options.debug=true`, logs `[debug] Filter [${filter.name}]: ${stats.rejected} files rejected` via picocolors dim styling for filters with `rejected > 0`, providing CLI visibility into filter behavior without trace file analysis.
+**Config schema** (`src/config/schema.ts`) — Sources patterns from config.exclude.patterns (custom), config.exclude.vendorDirs (vendor), config.exclude.binaryExtensions (binary), config.options.maxFileSize (binary).
+
+**Trace emission** (`src/orchestration/trace.ts`) — ITraceWriter.write() receives `{event: 'filter:applied', filterName, filesMatched, filesRejected}` events for telemetry aggregation.
+
+## File Relationships
+
+**index.ts** re-exports all filter creators and constants, centralizes applyFilters() orchestration logic. Binary/gitignore/vendor/custom modules operate independently (no cross-dependencies). All modules import FileFilter interface from `../types.js` (shared contract definition).

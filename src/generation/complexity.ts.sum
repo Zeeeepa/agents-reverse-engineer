@@ -1,28 +1,38 @@
 ---
-generated_at: 2026-02-09T13:18:26.454Z
+generated_at: 2026-02-09T14:08:56.716Z
 content_hash: 4a69c6ca8327582e8a6dc390f7ea2e7d38e67c9e93128163405cea5db79d3252
-purpose: Analyzes codebase structural complexity from discovered file paths to inform concurrency and resource allocation deci...
+purpose: analyzeComplexity() computes codebase complexity metrics (file count, max directory depth, directory set) from discov...
 ---
-**Analyzes codebase structural complexity from discovered file paths to inform concurrency and resource allocation decisions.**
+**analyzeComplexity() computes codebase complexity metrics (file count, max directory depth, directory set) from discovered source file paths to inform generation strategy and progress estimation.**
 
 ## Exported Interface
 
-`ComplexityMetrics` contains:
-- `fileCount: number` - total source files discovered
-- `directoryDepth: number` - maximum nesting depth relative to projectRoot
-- `files: string[]` - complete list of source file paths
-- `directories: Set<string>` - unique directory paths extracted from files
+**ComplexityMetrics** — Shape of complexity analysis output:
+- `fileCount: number` — Total source files discovered
+- `directoryDepth: number` — Maximum nesting level from projectRoot (file basename excluded from depth calculation)
+- `files: string[]` — Complete list of discovered source file paths
+- `directories: Set<string>` — Unique directory paths extracted via parent traversal
 
 ## Exported Function
 
-`analyzeComplexity(files: string[], projectRoot: string): ComplexityMetrics` orchestrates all complexity calculations by calling `calculateDirectoryDepth()` and `extractDirectories()`, returning a populated `ComplexityMetrics` object.
+**analyzeComplexity(files: string[], projectRoot: string): ComplexityMetrics** — Orchestrates complexity calculation by invoking calculateDirectoryDepth() and extractDirectories(), returns populated ComplexityMetrics structure used by generation pipeline for ETA calculation and phase planning.
 
-## Internal Algorithms
+## Internal Functions
 
-`calculateDirectoryDepth(files: string[], projectRoot: string): number` computes max depth by splitting `path.relative(projectRoot, file)` on `path.sep`, subtracting 1 to exclude the filename, tracking the maximum across all files.
+**calculateDirectoryDepth(files: string[], projectRoot: string): number** — Computes maximum directory depth by calling path.relative() to normalize paths against projectRoot, splitting on path.sep, subtracting 1 for file basename, tracking max via Math.max() accumulator.
 
-`extractDirectories(files: string[]): Set<string>` walks upward from each `path.dirname(file)` until reaching root (detected when `parent === dir`), accumulating unique directory paths in a Set, ensuring all ancestor directories are captured.
+**extractDirectories(files: string[]): Set<string>** — Walks parent directories for each file via path.dirname() loop, terminating when dir === '.' or parent === dir (root condition), populates Set<string> with all ancestor directories for post-order traversal sequence calculation.
 
 ## Integration Points
 
-Called by orchestration layer to determine concurrency parameters and progress reporting granularity based on codebase size and nesting depth. The `directories` Set drives directory-level AGENTS.md generation in post-order traversal (referenced in MEMORY.md three-phase architecture).
+**Consumer**: `src/generation/orchestrator.ts` calls analyzeComplexity() during discover/generate/update commands to populate ComplexityMetrics passed to executor for progress reporting and directory sorting.
+
+**Dependencies**: Node.js `path` module for path.relative(), path.dirname(), path.sep operations. No external libraries.
+
+## Algorithm Notes
+
+**Depth calculation**: Uses path.split(path.sep).length - 1 formula to exclude file basename from depth count (directory nesting only). Example: `src/generation/complexity.ts` relative to project root → `['src', 'generation', 'complexity.ts']` → depth = 2.
+
+**Directory extraction**: Iterative parent walking via while loop with dual termination conditions prevents infinite loops at filesystem root. Set deduplicates paths automatically without manual tracking.
+
+**Edge cases**: Empty files array returns depth=0, empty directory Set. Single-file projects return depth=0 (file in projectRoot). Handles both Unix (`/`) and Windows (`\`) path separators via path.sep.

@@ -1,27 +1,54 @@
 ---
-generated_at: 2026-02-09T13:17:41.927Z
+generated_at: 2026-02-09T14:07:54.978Z
 content_hash: 1a738e5c2c022071d21cc5f162a3dbbae98ae485bf46586ce68d97a0bcfcbfc1
-purpose: Defines TypeScript types and constants for the prompt generation subsystem used during AI-driven file analysis.
+purpose: Defines TypeScript interfaces and constants for prompt construction in the file analysis phase of ARE's documentation...
 ---
-**Defines TypeScript types and constants for the prompt generation subsystem used during AI-driven file analysis.**
+**Defines TypeScript interfaces and constants for prompt construction in the file analysis phase of ARE's documentation generation pipeline.**
 
 ## Exported Types
 
 ### PromptContext
-Interface passed to prompt builders containing:
-- `filePath: string` - absolute path to the file being analyzed
-- `content: string` - raw file content to analyze
-- `contextFiles?: Array<{path: string; content: string}>` - optional related files for cross-file context
-- `projectPlan?: string` - optional project structure listing for architectural awareness
+
+Interface providing context data for prompt construction during file analysis:
+
+```typescript
+interface PromptContext {
+  filePath: string;              // Absolute path to file being analyzed
+  content: string;               // File content to analyze
+  contextFiles?: Array<{         // Optional related files for context
+    path: string;
+    content: string;
+  }>;
+  projectPlan?: string;          // Optional project structure listing
+}
+```
+
+Used by `buildPrompt()` in `src/generation/prompts/builder.ts` to assemble analysis prompts for AI subprocess calls.
 
 ## Exported Constants
 
 ### SUMMARY_GUIDELINES
-Structured constant defining documentation generation rules sourced from CONTEXT.md:
-- `targetLength: {min: 200, max: 300}` - word count bounds for .sum file output
-- `include: string[]` - array of 6 required documentation elements (purpose, public interface, patterns, dependencies, signatures, coupled files)
-- `exclude: string[]` - array of 3 forbidden content types (internal details, generic TODOs, broad architecture)
 
-## Usage Context
+Frozen object defining `.sum` file generation rules derived from CONTEXT.md:
 
-PromptContext serves as input to `src/generation/prompts/builder.ts` functions that construct AI prompts for file analysis. The `contextFiles` field enables cross-reference analysis during concurrent file processing in `src/generation/executor.ts`. SUMMARY_GUIDELINES provides validation criteria consumed by quality checkers in `src/quality/` modules.
+- **targetLength**: `{ min: 200, max: 300 }` word count range for summaries
+- **include**: Array of 6 required elements:
+  - `'Purpose and responsibility'`
+  - `'Public interface (exports, key functions)'`
+  - `'Key patterns and notable algorithms'`
+  - `'Dependencies with usage context'`
+  - `'Key function signatures as code snippets'`
+  - `'Tightly coupled sibling files'`
+- **exclude**: Array of 3 items to omit:
+  - `'Internal implementation details'`
+  - `'Generic TODOs/FIXMEs (keep only security/breaking)'`
+  - `'Broad architectural relationships (handled by AGENTS.md)'`
+
+Marked with `as const` for compile-time immutability. Referenced by prompt templates in `src/generation/prompts/templates.ts` to enforce consistent summary structure across AI backends.
+
+## Integration Points
+
+- Consumed by `buildPrompt()` which constructs AI prompts for Phase 1 file analysis
+- `PromptContext.contextFiles` populated by import extraction logic in `src/imports/extractor.ts`
+- `PromptContext.projectPlan` sourced from `GENERATION-PLAN.md` written by `src/orchestration/plan-tracker.ts`
+- `SUMMARY_GUIDELINES` embedded in template strings that instruct Claude/Gemini/OpenCode subprocesses

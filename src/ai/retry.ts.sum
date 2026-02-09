@@ -1,23 +1,43 @@
 ---
-generated_at: 2026-02-09T13:18:15.338Z
+generated_at: 2026-02-09T14:08:21.913Z
 content_hash: bb4f55c96ec0c37663c36e05b684a022be93a51f7fedfab85751ba88c5150446
-purpose: retry.ts implements exponential backoff retry logic with jitter for transient AI service failures.
+purpose: Exponential backoff retry wrapper for AI service calls with jitter-based delay calculation and retryable error predic...
 ---
-**retry.ts implements exponential backoff retry logic with jitter for transient AI service failures.**
+**Exponential backoff retry wrapper for AI service calls with jitter-based delay calculation and retryable error predication.**
 
 ## Exported Symbols
 
-- `DEFAULT_RETRY_OPTIONS`: Constant object defining default retry configuration (`maxRetries: 3`, `baseDelayMs: 1000`, `maxDelayMs: 8000`, `multiplier: 2`) typed as `Omit<RetryOptions, 'isRetryable' | 'onRetry'>` to exclude caller-specific predicates
-- `withRetry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T>`: Wraps any async operation with configurable retry logic, returning result on success or throwing last error after exhaustion
+### `DEFAULT_RETRY_OPTIONS`
+Partial retry configuration constant providing timing defaults without predicate functions:
+- `maxRetries: 3` — Maximum retry attempts (4 total invocations)
+- `baseDelayMs: 1000` — Initial delay before first retry
+- `maxDelayMs: 8000` — Upper bound for exponential delay calculation
+- `multiplier: 2` — Exponential growth factor for backoff
 
-## Retry Algorithm
+Type: `Omit<RetryOptions, 'isRetryable' | 'onRetry'>` — Excludes caller-specific predicates requiring spread composition.
 
-`withRetry` executes up to `options.maxRetries + 1` total attempts (e.g., 3 retries = 4 attempts), computing delay per attempt as `min(baseDelayMs * multiplier^attempt, maxDelayMs) + jitter` where jitter is random `[0, 500ms]`. Invokes `options.isRetryable(error)` to distinguish transient failures (retry with backoff) from permanent failures (throw immediately). Calls optional `options.onRetry(attemptNumber, error)` callback before each delay.
+### `withRetry<T>(fn, options)`
+Executes async function with exponential backoff retry on transient failures:
+- **Parameters:**
+  - `fn: () => Promise<T>` — Async operation to retry
+  - `options: RetryOptions` — Retry configuration with `isRetryable` predicate, `onRetry` callback, and timing parameters
+- **Returns:** `Promise<T>` — Result of successful `fn()` invocation
+- **Throws:** Last error if retries exhausted or error non-retryable
+
+**Retry logic:**
+- Executes `fn()` up to `maxRetries + 1` times (inclusive loop: `attempt <= maxRetries`)
+- Throws immediately on permanent failure (`!isRetryable(error)`)
+- Computes delay: `min(baseDelayMs * multiplier^attempt, maxDelayMs) + jitter` where jitter ∈ [0, 500ms]
+- Invokes `onRetry?.(attempt + 1, error)` before waiting
+- Returns first successful result
+- Falls through to unreachable throw statement for TypeScript exhaustiveness
 
 ## Integration Points
 
-Depends on `RetryOptions` type from `./types.js` (imported as type-only). Used by `AIService` (in `service.ts`) to wrap AI backend calls with rate limit and timeout resilience. Jitter prevents thundering herd when concurrent workers (`pool.ts`) hit the same rate limit simultaneously.
+**Consumed by:** `AIService.call()` in `src/ai/service.ts` wraps `runSubprocess()` invocations with retry logic. Predicate `isRetryable` detects rate limit errors via stderr pattern matching ("rate limit", "429", "too many requests", "overloaded"). Callback `onRetry` logs retry attempts and emits trace events when `ITraceWriter` available.
 
-## Design Patterns
+**Dependencies:** Requires `RetryOptions` interface from `./types.js` containing `maxRetries`, `baseDelayMs`, `maxDelayMs`, `multiplier`, `isRetryable: (error: unknown) => boolean`, `onRetry?: (attempt: number, error: unknown) => void`.
 
-Exponential backoff with jitter implements standard cloud service retry strategy. Delay formula doubles each attempt (default `multiplier: 2`) until hitting `maxDelayMs` cap, preventing unbounded delays. Type parameter `<T>` preserves return type of wrapped function through retry logic.
+## Concurrency Behavior
+
+Jitter (random 0-500ms added to exponential delay) prevents thundering herd when multiple concurrent workers hit rate limits simultaneously. Each `withRetry()` invocation calculates independent jitter values, staggering retry attempts across worker pool.

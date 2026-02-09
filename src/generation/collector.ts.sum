@@ -1,33 +1,30 @@
 ---
-generated_at: 2026-02-09T13:18:21.669Z
+generated_at: 2026-02-09T14:08:54.544Z
 content_hash: c8a71b15b244882eea6f7ba9fd399016256f2ad569eda3f9c4474c8ddcf7f8ca
-purpose: collector.ts recursively discovers and reads all AGENTS.md files from a project tree, returning them as sorted Agents...
+purpose: `collector.ts` recursively discovers and aggregates all `AGENTS.md` files across the project tree, skipping vendor/bu...
 ---
-**collector.ts recursively discovers and reads all AGENTS.md files from a project tree, returning them as sorted AgentsDocs entries.**
+**`collector.ts` recursively discovers and aggregates all `AGENTS.md` files across the project tree, skipping vendor/build directories, returning sorted file paths with content for root document synthesis.**
 
-## Exports
+## Exported Functions
 
-- `AgentsDocs`: Type alias for `Array<{ relativePath: string; content: string }>`, representing collected documentation files with project-relative paths.
-- `collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>`: Recursively walks the directory tree starting at `projectRoot`, collects all AGENTS.md files, and returns them sorted alphabetically by `relativePath`.
+**`collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>`** — Recursively walks directory tree from `projectRoot`, collects all `AGENTS.md` files, returns array of `{ relativePath: string, content: string }` sorted alphabetically by `relativePath` via `localeCompare()`.
 
-## Directory Filtering
+## Exported Types
 
-`SKIP_DIRS` Set excludes `node_modules`, `.git`, `.agents-reverse-engineer`, `vendor`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`, `.cargo`, and `.gradle` from traversal to avoid vendor, build artifacts, and meta-directories.
+**`AgentsDocs`** — Type alias for `Array<{ relativePath: string; content: string }>` representing collected AGENTS.md documents with project-relative paths.
+
+## Directory Exclusion Strategy
+
+**`SKIP_DIRS`** — Set containing 13 directory names excluded from traversal: `'node_modules'`, `'.git'`, `'.agents-reverse-engineer'`, `'vendor'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`, `'.cargo'`, `'.gradle'`.
+
+## Traversal Algorithm
+
+**`walk(currentDir: string)`** — Nested async function implementing depth-first traversal via `readdir()` with `{ withFileTypes: true }` for `Dirent` metadata, recursively descends into directories not in `SKIP_DIRS`, pushes `AGENTS.md` file content to `results` array when encountered. Catches and silently ignores permission errors on `readdir()` and `readFile()` calls (pattern: empty catch blocks).
+
+## Integration Points
+
+Consumed by root document synthesis phase (`src/generation/prompts/builder.ts`) to aggregate all directory-level documentation into context for `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` generation. Works with `path.relative()` to compute project-relative paths and `path.join()` for absolute path construction during traversal.
 
 ## Error Handling
 
-`collectAgentsDocs` uses internal `walk` function that silently skips:
-- Unreadable directories (catches `readdir` errors)
-- Unreadable AGENTS.md files (catches `readFile` errors)
-
-## Algorithm
-
-Post-order depth-first traversal via recursive `walk(currentDir)`:
-1. Reads directory entries with `readdir(..., { withFileTypes: true })`
-2. Recursively descends into subdirectories not in `SKIP_DIRS`
-3. Reads AGENTS.md files via `readFile(filePath, 'utf-8')`
-4. Accumulates results array, then sorts by `relativePath.localeCompare()`
-
-## Integration
-
-Output format matches input expected by root documentation builders and specification generators that aggregate directory-level AGENTS.md files into project-wide views.
+Gracefully handles filesystem access errors via try-catch with no-op catch blocks: returns early from `walk()` on `readdir()` failure (unreadable directories), continues traversal on `readFile()` failure (skips unreadable `AGENTS.md` files). No error reporting or logging — silent failure pattern ensures partial results even in permission-restricted environments.

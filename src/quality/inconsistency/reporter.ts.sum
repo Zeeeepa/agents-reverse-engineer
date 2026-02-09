@@ -1,20 +1,22 @@
 ---
-generated_at: 2026-02-09T13:18:09.748Z
+generated_at: 2026-02-09T14:08:15.168Z
 content_hash: 48d4aecccbb0b9df690e33716b28c299a767ac99176e78200e16ec0b7e28a91f
-purpose: reporter.ts builds structured InconsistencyReport objects from raw Inconsistency arrays and formats them as plain-tex...
+purpose: reporter.ts aggregates inconsistency issues into typed reports with summary counts and formats them as plain-text CLI...
 ---
-**reporter.ts builds structured InconsistencyReport objects from raw Inconsistency arrays and formats them as plain-text CLI output.**
+**reporter.ts aggregates inconsistency issues into typed reports with summary counts and formats them as plain-text CLI output without color dependencies.**
 
 ## Exported Functions
 
-`buildInconsistencyReport(issues: Inconsistency[], metadata: { projectRoot: string; filesChecked: number; durationMs: number }): InconsistencyReport` aggregates Inconsistency arrays into typed reports with summary counts (codeVsDoc, codeVsCode, phantomPaths, errors, warnings, info), attaches ISO timestamp via `new Date().toISOString()`, and embeds metadata (projectRoot, filesChecked, durationMs).
+**buildInconsistencyReport(issues: Inconsistency[], metadata: { projectRoot: string; filesChecked: number; durationMs: number }): InconsistencyReport**
+Aggregates `Inconsistency[]` into structured `InconsistencyReport` with summary counts by type (`codeVsDoc`, `codeVsCode`, `phantomPaths`) and severity (`errors`, `warnings`, `info`). Attaches run metadata including ISO 8601 timestamp via `new Date().toISOString()`, `projectRoot`, `filesChecked`, and `durationMs`. Computes `summary.total` as `issues.length` and increments counters by iterating over `issue.type` and `issue.severity` discriminants.
 
-`formatReportForCli(report: InconsistencyReport): string` transforms InconsistencyReport into plain-text output with header (`=== Inconsistency Report ===`), summary line (`Checked N files in Nms`), and per-issue blocks with severity tags `[ERROR]`, `[WARN]`, `[INFO]`. Conditionally renders `File:` for code-vs-doc type, `Doc:` and `Path:` for phantom-path type, `Files:` for code-vs-code type.
+**formatReportForCli(report: InconsistencyReport): string**
+Renders `InconsistencyReport` as human-readable plain text with severity tags (`[ERROR]`, `[WARN]`, `[INFO]`) and type-specific detail formatting. For `code-vs-doc` issues displays `filePath`, for `phantom-path` issues displays `agentsMdPath` and `details.referencedPath`, for `code-vs-code` issues displays `files.join(', ')`. Header includes `metadata.filesChecked`, `metadata.durationMs`, and `summary.total`. Returns newline-delimited string with blank lines between issues. No color formatting applied (deferred to CLI layer).
 
 ## Type Dependencies
 
-Imports `Inconsistency` and `InconsistencyReport` from `../types.js`. Inconsistency discriminated union has `type` field ('code-vs-doc' | 'code-vs-code' | 'phantom-path') and `severity` field ('error' | 'warning' | 'info'). InconsistencyReport contains `metadata`, `issues`, and `summary` with count breakdowns.
+Imports `Inconsistency` and `InconsistencyReport` from `../types.js`. `Inconsistency` is discriminated union with `type` field ('code-vs-doc' | 'code-vs-code' | 'phantom-path') and `severity` field ('error' | 'warning' | 'info'). Each union variant provides type-specific fields: `CodeDocInconsistency` has `filePath` and `missingFromDoc`, `CodeCodeInconsistency` has `symbol`, `files[]`, and `pattern`, `PhantomPathInconsistency` has `agentsMdPath` and `details.referencedPath`.
 
 ## Design Constraints
 
-No color dependencies (no picocolors imports) — formatReportForCli emits raw plain text so testing stays pure and color injection can happen in CLI layer (src/cli/). Counter loops over issues array incrementing type/severity buckets without external state.
+Pure functions with no side effects or external dependencies beyond type imports. No `picocolors` or terminal formatting libraries to enable test isolation and composition with CLI-layer formatting. Stateless aggregation via local counter variables (`codeVsDoc`, `errors`, etc.) avoids mutation of input `issues[]` array.

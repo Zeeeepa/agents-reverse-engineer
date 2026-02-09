@@ -2,21 +2,37 @@
 
 # src/types
 
-Defines shared TypeScript interfaces for file discovery results, exclusion tracking, and discovery statistics consumed across the ARE tool.
+Central type definition directory exporting shared TypeScript interfaces for file discovery results (`DiscoveryResult`), exclusion metadata (`ExcludedFile`), and discovery statistics (`DiscoveryStats`). These interfaces form the contract between the discovery pipeline (`src/discovery/`) and downstream consumers (CLI commands, generation orchestrator, quality validators, plan tracker).
 
 ## Contents
 
 ### [index.ts](./index.ts)
-Exports `ExcludedFile` (path + reason), `DiscoveryResult` (files + excluded arrays), and `DiscoveryStats` (totalFiles, includedFiles, excludedFiles counts + exclusionReasons map).
+Exports three core interfaces: `ExcludedFile` (path + exclusion reason), `DiscoveryResult` (approved files array + excluded files array), `DiscoveryStats` (count aggregates + exclusion reason histogram). Consumed by `src/cli/discover.ts` for reporting, `src/generation/orchestrator.ts` for Phase 1 task queue construction, `src/orchestration/plan-tracker.ts` for GENERATION-PLAN.md serialization, and `src/quality/` validators for documentation coverage checks. Produced by `src/discovery/walker.ts` and `src/discovery/filters/` chain.
 
 ## Data Flow
 
-`DiscoveryResult` flows from `../discovery/run.ts` → `../generation/orchestrator.ts` to determine which files receive `.sum` documentation. `ExcludedFile.reason` aggregates into `DiscoveryStats.exclusionReasons` (exclusion reason → count map) for telemetry via `../orchestration/progress.ts`. Filters in `../discovery/filters/` (binary, custom, gitignore, vendor) populate `ExcludedFile` instances with standardized reason strings.
+**Producers:**
+- `walker.ts` aggregates filter results into `DiscoveryResult` with `files[]` and `excluded[]`
+- `filters/` modules (gitignore, binary, vendor, custom) append `ExcludedFile` entries with filter-specific reasons
 
-## Usage Pattern
+**Consumers:**
+- `cli/discover.ts` formats `DiscoveryStats` for terminal output (included/excluded counts, exclusion histogram)
+- `generation/orchestrator.ts` reads `DiscoveryResult.files` to populate Phase 1 worker pool task queue
+- `orchestration/plan-tracker.ts` serializes `DiscoveryResult` into GENERATION-PLAN.md file/directory counts
+- `quality/` validators check `DiscoveryResult.files` against generated `.sum`/`AGENTS.md` for coverage gaps
 
-Import these types when handling discovery output:
-- **Discovery phase**: `../discovery/walker.ts` builds `DiscoveryResult` by applying filter predicates
-- **Generation orchestration**: `../generation/orchestrator.ts` iterates `DiscoveryResult.files` for concurrent `.sum` generation
-- **CLI commands**: `../cli/discover.ts` consumes `DiscoveryStats` to render exclusion summaries
-- **Change detection**: `../change-detection/detector.ts` compares `DiscoveryResult.files` against existing `.sum` files
+## Interface Contracts
+
+**ExcludedFile:**
+- `path: string` — Absolute or relative file path excluded from analysis
+- `reason: string` — Human-readable exclusion cause (e.g., "gitignore pattern", "binary file", "vendor directory")
+
+**DiscoveryResult:**
+- `files: string[]` — File paths approved for analysis (passed all filters)
+- `excluded: ExcludedFile[]` — Files rejected with reasons
+
+**DiscoveryStats:**
+- `totalFiles: number` — Count of all files found during traversal
+- `includedFiles: number` — Count approved for analysis
+- `excludedFiles: number` — Count rejected by filters
+- `exclusionReasons: Record<string, number>` — Histogram of exclusion reasons (reason string keys, frequency values)

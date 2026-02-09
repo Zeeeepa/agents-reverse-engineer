@@ -1,50 +1,53 @@
 ---
-generated_at: 2026-02-09T13:42:35.162Z
+generated_at: 2026-02-09T14:08:41.941Z
 content_hash: ddcb35a58fc7c96be861daff467611b0b3f9fa7cb760da90af97960452c887c8
-purpose: ConfigSchema defines Zod schemas for validating `.agents-reverse-engineer/config.yaml` with nested object structures ...
+purpose: Zod validation schema defining the structure of `.agents-reverse-engineer/config.yaml` with type inference exports an...
 ---
-**ConfigSchema defines Zod schemas for validating `.agents-reverse-engineer/config.yaml` with nested object structures for exclusion rules, discovery options, output formatting, and AI service configuration, providing type-safe defaults for all fields.**
+**Zod validation schema defining the structure of `.agents-reverse-engineer/config.yaml` with type inference exports and sensible defaults for all configuration fields.**
 
 ## Exported Schemas
 
-**ExcludeSchema** - Zod object schema for exclusion configuration with three fields:
-- `patterns: z.array(z.string())` - custom glob patterns defaulting to `DEFAULT_EXCLUDE_PATTERNS`
-- `vendorDirs: z.array(z.string())` - vendor directories defaulting to `DEFAULT_VENDOR_DIRS`
-- `binaryExtensions: z.array(z.string())` - binary file extensions defaulting to `DEFAULT_BINARY_EXTENSIONS`
+**ConfigSchema** — Root Zod schema (`z.object`) with four nested sections: `exclude` (ExcludeSchema), `options` (OptionsSchema), `output` (OutputSchema), `ai` (AISchema). All fields default via `.default({})` allowing empty object `{}` as valid input. Parse via `ConfigSchema.parse(rawYaml)` to produce validated Config instance.
 
-**OptionsSchema** - Zod object schema for discovery options:
-- `followSymlinks: z.boolean()` - defaults to `false`
-- `maxFileSize: z.number().positive()` - defaults to `DEFAULT_MAX_FILE_SIZE`
+**ExcludeSchema** — Defines file/directory exclusion rules with three arrays: `patterns` (glob strings from DEFAULT_EXCLUDE_PATTERNS), `vendorDirs` (from DEFAULT_VENDOR_DIRS), `binaryExtensions` (from DEFAULT_BINARY_EXTENSIONS). Each array initialized via spread operator `[...DEFAULT_*]` to prevent mutation of shared defaults.
 
-**OutputSchema** - Zod object schema for output formatting:
-- `colors: z.boolean()` - ANSI color toggle defaulting to `true`
+**OptionsSchema** — Discovery behavior controls with `followSymlinks` (boolean, default false) and `maxFileSize` (positive number from DEFAULT_MAX_FILE_SIZE, enforced via `.positive()` constraint).
 
-**AISchema** - Zod object schema for AI service configuration:
-- `backend: z.enum(['claude', 'gemini', 'opencode', 'auto'])` - CLI backend selection defaulting to `'auto'`
-- `model: z.string()` - model identifier defaulting to `'sonnet'`
-- `timeoutMs: z.number().positive()` - subprocess timeout defaulting to `300_000` (5 minutes)
-- `maxRetries: z.number().min(0)` - retry attempts defaulting to `3`
-- `concurrency: z.number().min(1).max(20)` - worker pool size defaulting to `getDefaultConcurrency` function result
-- `telemetry.keepRuns: z.number().min(0)` - log retention count defaulting to `50`
+**OutputSchema** — Terminal formatting settings with single field `colors` (boolean, default true) controlling ANSI color code emission in CLI output.
 
-**ConfigSchema** - Root Zod object schema composing `ExcludeSchema`, `OptionsSchema`, `OutputSchema`, `AISchema` under fields `exclude`, `options`, `output`, `ai` respectively, with all nested defaults applied.
+**AISchema** — AI service configuration with six fields:
+- `backend`: Enum `'claude' | 'gemini' | 'opencode' | 'auto'` (default 'auto' triggers runtime detection)
+- `model`: String identifier (default 'sonnet', backend-specific values like "opus")
+- `timeoutMs`: Positive number (default 300,000 = 5 minutes)
+- `maxRetries`: Non-negative number (default 3, enforced via `.min(0)`)
+- `concurrency`: Number 1-20 (default from `getDefaultConcurrency()` function, auto-detects CPU/memory)
+- `telemetry`: Nested object with `keepRuns` (non-negative number, default 50) controlling log retention
 
-## Exported Types
+## Exported TypeScript Types
 
-**Config** - TypeScript type inferred from `ConfigSchema` via `z.infer<typeof ConfigSchema>`, representing fully validated configuration object.
+**Config** — Inferred via `z.infer<typeof ConfigSchema>`, represents validated configuration object with all defaults applied. Use for function parameters accepting parsed config.
 
-**ExcludeConfig** - Type inferred from `ExcludeSchema` for exclusion rules section.
+**ExcludeConfig** — Inferred from ExcludeSchema, type for `config.exclude` section with `patterns`, `vendorDirs`, `binaryExtensions` arrays.
 
-**OptionsConfig** - Type inferred from `OptionsSchema` for discovery options section.
+**OptionsConfig** — Inferred from OptionsSchema, type for `config.options` section with `followSymlinks` and `maxFileSize` fields.
 
-**OutputConfig** - Type inferred from `OutputSchema` for output formatting section.
+**OutputConfig** — Inferred from OutputSchema, type for `config.output` section with `colors` field.
 
-**AIConfig** - Type inferred from `AISchema` for AI service configuration section.
+**AIConfig** — Inferred from AISchema, type for `config.ai` section with `backend`, `model`, `timeoutMs`, `maxRetries`, `concurrency`, `telemetry` fields.
 
-## Default Value Integration
+## Dependencies
 
-Imports `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, `DEFAULT_EXCLUDE_PATTERNS`, `getDefaultConcurrency` from `./defaults.js` to populate schema defaults. All schemas use `.default()` chaining to ensure empty object `{}` parses successfully with full configuration populated.
+Imports `z` from `zod` for schema construction. Imports constants and functions from `./defaults.js`: `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, `DEFAULT_EXCLUDE_PATTERNS`, `getDefaultConcurrency`. Separation allows defaults module to compute dynamic values (CPU cores, memory constraints) without circular dependencies.
 
-## Schema Design Pattern
+## Default Value Strategy
 
-Each nested schema exports as standalone constant (`ExcludeSchema`, `OptionsSchema`, etc.) enabling granular validation testing and reusable composition. Root `ConfigSchema` assembles nested schemas into single validation pipeline. JSDoc examples demonstrate parsing empty objects and partial overrides via `ConfigSchema.parse()`.
+All schemas apply `.default()` at both field and object levels. Numeric constraints (`positive()`, `min()`, `max()`) enforce invariants before default assignment. Arrays spread default constants to prevent shared reference mutations. Functions like `getDefaultConcurrency()` enable runtime computation of defaults based on system resources (CPU cores via `os.cpus().length`, memory via `os.freemem()`).
+
+## Validation Constraints
+
+- `backend`: Restricted to literal union via `z.enum()`
+- `timeoutMs`: Must be positive integer via `.positive()`
+- `maxRetries`: Non-negative via `.min(0)`
+- `concurrency`: Bounded 1-20 via `.min(1).max(20)`
+- `maxFileSize`: Must be positive via `.positive()`
+- `keepRuns`: Non-negative via `.min(0)`

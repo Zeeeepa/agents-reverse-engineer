@@ -1,17 +1,34 @@
 ---
-generated_at: 2026-02-09T13:18:15.196Z
+generated_at: 2026-02-09T14:08:28.076Z
 content_hash: 78cff2ed3b8efd6a7641dbc57fffa5d8b41fc24da285f3d31326bfc74d582b82
-purpose: types.ts defines TypeScript interfaces and types for git-based change detection in the ARE incremental documentation ...
+purpose: Defines TypeScript interfaces and type aliases for git-based change detection representing file modifications, additi...
 ---
-**types.ts defines TypeScript interfaces and types for git-based change detection in the ARE incremental documentation update system.**
+**Defines TypeScript interfaces and type aliases for git-based change detection representing file modifications, additions, deletions, and renames with associated metadata.**
 
 ## Exported Types
 
-- `ChangeType`: Union type literal `'added' | 'modified' | 'deleted' | 'renamed'` representing git diff status codes
-- `FileChange`: Interface describing a single file change with `path: string`, `status: ChangeType`, and optional `oldPath?: string` (populated for renames)
-- `ChangeDetectionResult`: Interface containing `currentCommit: string`, `baseCommit: string`, `changes: FileChange[]`, and `includesUncommitted: boolean` flag
-- `ChangeDetectionOptions`: Interface with single optional field `includeUncommitted?: boolean` to control whether staged and working directory changes are detected
+### ChangeType
+Type alias for discriminating file change status: `'added' | 'modified' | 'deleted' | 'renamed'`.
 
-## Integration Context
+### FileChange
+Interface representing a single detected file change:
+- `path: string` — Relative file path (new path for renames)
+- `status: ChangeType` — Discriminant field for change type
+- `oldPath?: string` — Original path for renamed files (present only when `status === 'renamed'`)
 
-These types are consumed by `src/change-detection/detector.ts` (git diff execution) and `src/update/orchestrator.ts` (incremental update workflow). The `oldPath` field on `FileChange` enables tracking file renames through git history. The `includesUncommitted` flag distinguishes between committed-only diffs and diffs that include working tree modifications.
+### ChangeDetectionResult
+Interface returned by change detection operations:
+- `currentCommit: string` — HEAD commit SHA
+- `baseCommit: string` — Comparison baseline commit SHA
+- `changes: FileChange[]` — Array of detected file changes
+- `includesUncommitted: boolean` — Flag indicating whether working tree changes were merged
+
+### ChangeDetectionOptions
+Configuration interface for change detection behavior:
+- `includeUncommitted?: boolean` — When true, merges staged and working directory changes with committed diff
+
+## Usage Context
+
+Consumed by `src/change-detection/detector.ts` for git diff parsing (`git diff --name-status -M`) with rename detection and `src/update/orchestrator.ts` for incremental update workflows that compute `filesToAnalyze` and `filesToSkip` arrays via SHA-256 content hash comparison against `.sum` file frontmatter.
+
+The `oldPath` field in `FileChange` enables orphan cleanup logic in `src/update/orphan-cleaner.ts` to delete stale `.sum` files for renamed source files.

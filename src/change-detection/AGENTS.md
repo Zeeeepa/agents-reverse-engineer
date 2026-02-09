@@ -2,20 +2,33 @@
 
 # src/change-detection
 
-Git-based change detection subsystem for incremental documentation updates. Provides `getChangedFiles()` to compute file deltas between commits and SHA-256 content hashing via `computeContentHash()` to detect modifications in non-git workflows.
+Git-based change detection with SHA-256 content hashing for incremental documentation updates. Executes `git diff --name-status -M` to detect added/modified/deleted/renamed files between commits, optionally merges uncommitted working tree changes, and provides synchronous/asynchronous SHA-256 hashing for content comparison against `.sum` file frontmatter during incremental regeneration.
 
 ## Contents
 
-**[detector.ts](./detector.ts)** — Implements `isGitRepo()`, `getCurrentCommit()`, `getChangedFiles()`, `computeContentHash()`, and `computeContentHashFromString()` using `simpleGit` and `node:crypto`. Parses `git diff --name-status -M` output to detect added/modified/deleted/renamed files, maps status codes ('A', 'M', 'D', 'R{percentage}') to `ChangeType` enum, and optionally merges uncommitted changes (staged, modified, not_added) via `git status` when `includeUncommitted: true`.
+**[detector.ts](./detector.ts)**
+Implements `isGitRepo()`, `getCurrentCommit()`, `getChangedFiles()`, `computeContentHash()`, and `computeContentHashFromString()` via `simple-git` and `node:crypto`. Parses `git diff --name-status -M` output handling `A`/`M`/`D`/`R*` status codes with rename detection (50% similarity threshold). When `includeUncommitted` is true, merges staged/unstaged changes via `git.status()` parsing (`modified`/`deleted`/`not_added`/`staged`). Returns `ChangeDetectionResult` with `currentCommit`, `baseCommit`, `changes[]`, and `includesUncommitted` flag.
 
-**[types.ts](./types.ts)** — Defines `ChangeType` union literal `'added' | 'modified' | 'deleted' | 'renamed'`, `FileChange` interface with `path`, `status`, and optional `oldPath` for renames, `ChangeDetectionResult` containing `currentCommit`, `baseCommit`, `changes[]`, and `includesUncommitted` flag, plus `ChangeDetectionOptions` with `includeUncommitted?: boolean`.
+**[types.ts](./types.ts)**
+Defines `ChangeType` union (`'added' | 'modified' | 'deleted' | 'renamed'`), `FileChange` interface (with `path`, `status`, optional `oldPath` for renames), `ChangeDetectionResult` (with `currentCommit`, `baseCommit`, `changes[]`, `includesUncommitted`), and `ChangeDetectionOptions` (`includeUncommitted` flag). The `oldPath` field enables orphan cleanup in `src/update/orphan-cleaner.ts` for stale `.sum` files.
 
-**[index.ts](./index.ts)** — Barrel export consolidating public API: re-exports `isGitRepo`, `getCurrentCommit`, `getChangedFiles`, `computeContentHash`, `computeContentHashFromString` from `detector.js` and all types from `types.js`.
+**[index.ts](./index.ts)**
+Barrel export re-exporting all functions and types from `detector.ts` and `types.ts`. Public API surface consumed by `src/update/orchestrator.ts` for computing `filesToAnalyze` vs. `filesToSkip` arrays via SHA-256 hash comparison.
 
-## Integration
+## Integration with Update Workflow
 
-Used by `src/update/orchestrator.ts` (`UpdateOrchestrator.run()`) to compute file deltas for incremental `.sum` regeneration. The `oldPath` field on `FileChange` enables rename tracking (50% similarity threshold via `-M` flag). SHA-256 hashing supports non-git workflows where modification timestamps are unreliable.
+`src/update/orchestrator.ts` calls `getChangedFiles()` with optional `includeUncommitted: true` (via `--uncommitted` CLI flag), compares returned `changes[]` against `content_hash` frontmatter in `.sum` files via `computeContentHash()`, classifies files into `filesToAnalyze` (hash mismatch or added) and `filesToSkip` (hash match), then triggers `cleanupOrphans()` for deleted/renamed paths and `getAffectedDirectories()` to determine which `AGENTS.md` files need regeneration.
 
 ## Git Diff Parsing
 
-`getChangedFiles()` invokes `git diff --name-status -M <baseCommit>..HEAD`, splits output into lines, parses tab-delimited status codes. Rename detection stores `oldPath` from `parts[1]` and `path` from `parts[2]` when status starts with 'R'. Uncommitted changes merge `status.modified`, `status.deleted`, `status.not_added`, `status.staged` arrays after deduplicating via `changes.some(c => c.path === file)`.
+`detector.ts` handles four status codes from `git diff --name-status -M`:
+- `A\tpath` → `{status: 'added', path}`
+- `M\tpath` → `{status: 'modified', path}`
+- `D\tpath` → `{status: 'deleted', path}`
+- `R100\toldPath\tnewPath` → `{status: 'renamed', path: newPath, oldPath}`
+
+Always extracts current path as last tab-delimited part (`parts[parts.length - 1]`) and filters empty lines before parsing.
+
+## Content Hashing
+
+Two SHA-256 functions: `computeContentHash(filePath)` reads from disk asynchronously, `computeContentHashFromString(content)` hashes in-memory strings synchronously. Both use `createHash('sha256').update(content).digest('hex')` from `node:crypto`. Hash comparison against `.sum` YAML frontmatter determines which files require reanalysis during incremental updates.

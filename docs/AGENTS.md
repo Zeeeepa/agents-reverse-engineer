@@ -2,24 +2,27 @@
 
 # docs
 
-Original vision document for agents-reverse-engineer (ARE), defining the brownfield documentation automation tool architecture and recursive language model execution strategy.
+Foundational specification document defining the original product vision, RLM algorithm, and feature requirements that guided the implementation of agents-reverse-engineer's three-phase documentation generation pipeline.
 
 ## Contents
 
-### Vision Document
-
-**[INPUT.md](./INPUT.md)** — Requirements and vision document defining the Recursive Language Model (RLM) algorithm: builds project structure tree, executes at leaf nodes to generate `{filename}.sum` summaries, then recursively generates AGENTS.md from leaf to root using post-order traversal.
-
-## Purpose
-
-INPUT.md predates implementation and describes the conceptual design for the ARE CLI tool, including:
-- Generated artifact types: AGENTS.md, ARCHITECTURE.md, STRUCTURE.md, STACK.md, INTEGRATIONS.md, INFRASTRUCTURE.md, CONVENTIONS.md, TESTING.md, PATTERNS.md, CONCERNS.md, CLAUDE.md
-- Primary commands: `/are-generate`, `/are-update`
-- Integration targets: Claude Code, OpenCode, LLM agent tools
-- Complementary tools: SpecKit, BMAD, Get Shit Done (GSD)
-- Session hooks: `are-session-end.js`, `opencode-are-session-end.js` (located in `../hooks/`)
-- Architectural inspiration from GSD methodology and BMAD brownfield patterns
+**[INPUT.md](./INPUT.md)** — Original product specification defining RLM (Recursive Language Model) algorithm for brownfield documentation: bottom-up directory traversal generating `{filename}.sum` summaries at leaves, recursive aggregation into `AGENTS.md` per directory, optional supplementary files (`ARCHITECTURE.md`, `STRUCTURE.md`, `STACK.md`, `INTEGRATIONS.md`, `INFRASTRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `PATTERNS.md`, `CONCERNS.md`), multi-platform command interface requirements (`/are-generate`, `/are-update`), session-end hook specifications, and research directives for GSD/BMAD methodology integration.
 
 ## Relationship to Implementation
 
-INPUT.md serves as the original requirements specification. Implemented workflow phases are defined in `../src/generation/executor.ts` (file analysis, directory AGENTS.md generation, root documentation), with the RLM algorithm orchestrated by `../src/generation/orchestrator.ts` using post-order tree traversal via `../src/discovery/walker.ts`.
+INPUT.md precedes and informs the concrete implementation residing in `src/`:
+
+- **RLM algorithm** → `src/generation/orchestrator.ts` three-phase pipeline: concurrent file analysis (`runPhase1()`), post-order directory aggregation (`runPhase2()` with depth-based sorting via `getAffectedDirectories()`), sequential root synthesis (`runPhase3()`)
+- **File summaries** → `src/generation/writers/sum.ts` (`writeSumFile()`) with YAML frontmatter containing `content_hash`, `purpose`, `critical_todos`, `related_files`
+- **Directory aggregation** → `src/generation/writers/agents-md.ts` (`writeAgentsMd()`) consuming child `.sum` files and subdirectory `AGENTS.md` via `collectAgentsDocs()`
+- **Root documents** → `src/integration/generate.ts` producing `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` with platform-specific command templates
+- **Incremental updates** → `src/update/orchestrator.ts` using SHA-256 hash comparison from `.sum` frontmatter
+- **Session hooks** → `hooks/are-session-end.js`, `hooks/opencode-are-session-end.js` implementing post-session update triggers
+
+## Vision Continuity
+
+The document's emphasis on brownfield project support manifests in:
+- Gitignore-aware discovery (`src/discovery/filters/gitignore.ts`)
+- Vendor directory exclusion defaults (`src/config/defaults.ts`: 18 entries including `node_modules`, `.git`, `dist`)
+- Change detection via `simple-git` (`src/change-detection/detector.ts`)
+- Quality validation detecting code-documentation drift (`src/quality/inconsistency/`)

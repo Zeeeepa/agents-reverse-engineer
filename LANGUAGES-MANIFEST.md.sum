@@ -1,29 +1,29 @@
 ---
-generated_at: 2026-02-09T13:19:18.859Z
+generated_at: 2026-02-09T14:10:07.265Z
 content_hash: 6887e78721df5fe39e42f0d4515ab296cc48e536089ec8ca4b5916f7eddebed8
-purpose: LANGUAGES-MANIFEST.md maps ecosystem package manager manifest files to language identifiers for dependency detection ...
+purpose: LANGUAGES-MANIFEST.md documents package manager manifest files across programming languages with support status flags...
 ---
-**LANGUAGES-MANIFEST.md maps ecosystem package manager manifest files to language identifiers for dependency detection across 26 languages.**
+**LANGUAGES-MANIFEST.md documents package manager manifest files across programming languages with support status flags for ARE's manifest detection logic.**
 
-## Reference Table Structure
+## Manifest Detection Matrix
 
-Columns: Language, Manifest File(s), Package Manager, Supported
-- Language column contains language names and ecosystems (JavaScript/TypeScript, C#/.NET, Dart/Flutter)
-- Manifest File(s) column lists glob-matchable filenames used by `src/imports/extractor.ts` for dependency parsing
-- Package Manager column identifies toolchain (npm, pip, cargo, etc.)
-- Supported column checkmark (✓) indicates languages with active import extraction in `ImportExtractor`
+References 24 programming language ecosystems with their manifest files used by `src/generation/prompts/builder.ts` during directory aggregation prompts. Columns define `Language`, `Manifest File(s)` (comma-separated multiple files for ecosystems with variants), `Package Manager` (toolchain names), and `Supported` (checkmark indicates ARE actively detects these manifests).
 
-## Currently Supported Languages
+## Supported Manifests
 
-JavaScript/TypeScript: `package.json` (npm/yarn/pnpm)
-Python: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` (pip/poetry/pipenv)
-Go: `go.mod` (go modules)
-Rust: `Cargo.toml` (cargo)
+ARE's `buildDirectoryPrompt()` in `src/generation/prompts/builder.ts` calls `detectManifests()` which checks for these marked-supported files:
 
-## Unsupported Languages Reference
+- **JavaScript/TypeScript**: `package.json` (npm/yarn/pnpm)
+- **Python**: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` (pip/poetry/pipenv)
+- **Go**: `go.mod` (go modules)
+- **Rust**: `Cargo.toml` (cargo)
 
-Ruby (`Gemfile`), Java (`pom.xml`, `build.gradle`), Kotlin, C#/.NET (`*.csproj`), PHP (`composer.json`), Swift (`Package.swift`), Elixir (`mix.exs`), Erlang (`rebar.config`), Scala (`build.sbt`), Clojure (`deps.edn`, `project.clj`), Haskell (`package.yaml`, `*.cabal`, `stack.yaml`), Dart/Flutter (`pubspec.yaml`), Lua (`*.rockspec`), R (`DESCRIPTION`), Julia (`Project.toml`), Zig (`build.zig.zon`), Nim (`*.nimble`), OCaml (`dune-project`, `*.opam`), C/C++ (`CMakeLists.txt`, `conanfile.txt`, `vcpkg.json`)
+## Unsupported Manifests
+
+Languages without checkmarks have detection stubs or are pending implementation:
+
+- Ruby `Gemfile`, Java `pom.xml`/`build.gradle`, Kotlin `build.gradle.kts`, C# `*.csproj`, PHP `composer.json`, Swift `Package.swift`, Elixir `mix.exs`, Erlang `rebar.config`, Scala `build.sbt`, Clojure `deps.edn`/`project.clj`, Haskell `package.yaml`/`*.cabal`, Dart `pubspec.yaml`, Lua `*.rockspec`, R `DESCRIPTION`, Julia `Project.toml`, Zig `build.zig.zon`, Nim `*.nimble`, OCaml `dune-project`/`*.opam`, C/C++ `CMakeLists.txt`/`conanfile.txt`/`vcpkg.json`
 
 ## Integration Points
 
-`src/imports/extractor.ts` uses this manifest as reference specification when implementing `ImportExtractor.extract()` to parse dependencies from language-specific lockfiles and manifest formats.
+`src/generation/prompts/builder.ts` injects detected manifest metadata into directory aggregation prompts via `detectedManifests` array, enabling AI backends to infer dependency structure and entry points. Extension of manifest detection requires updating both this reference document and `detectManifests()` glob patterns.

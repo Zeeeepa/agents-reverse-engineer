@@ -2,33 +2,66 @@
 
 # src/specify
 
-Synthesizes collected AGENTS.md documentation into project specification documents through AI-driven prompt construction and multi-file output handling.
+**Synthesizes all `AGENTS.md` directory documentation into project specifications via AI-driven prompt construction, supporting single-file (`specs/SPEC.md`) and multi-file (`specs/<slug>.md`) output modes with overwrite protection.**
 
 ## Contents
 
 ### Core Modules
 
-**[index.ts](./index.ts)** — Barrel export exposing `buildSpecPrompt()`, `writeSpec()`, `SpecPrompt`, `WriteSpecOptions`, and `SpecExistsError` as the public API for the `/are-specify` command.
+**[index.ts](./index.ts)** — Barrel export centralizing `buildSpecPrompt()`, `SpecPrompt`, `writeSpec()`, `SpecExistsError`, `WriteSpecOptions` from prompt and writer modules as public API for `/are-specify` command implementation in `src/cli/specify.ts`.
 
-**[prompts.ts](./prompts.ts)** — Exports `buildSpecPrompt(docs: AgentsDocs): SpecPrompt` to construct AI prompts from collected AGENTS.md files. Defines `SPEC_SYSTEM_PROMPT` constant enforcing nine mandatory specification sections (Project Overview, Architecture, Public API Surface, Data Structures & State, Configuration, Dependencies, Behavioral Contracts, Test Contracts, Build Plan). Injects document content under `### ${doc.relativePath}` headings in user prompt. Prohibits directory-mirroring organization.
+**[prompts.ts](./prompts.ts)** — Exports `buildSpecPrompt()` constructing `SpecPrompt` pairs with `SPEC_SYSTEM_PROMPT` enforcing nine-section conceptual organization (Project Overview, Architecture, Public API Surface, Data Structures & State, Configuration, Dependencies, Behavioral Contracts, Test Contracts, Build Plan) and user prompts aggregating `AgentsDocs` array from `../generation/collector.js` with section-delimited markdown blocks under `### ${relativePath}` headers.
 
-**[writer.ts](./writer.ts)** — Exports `writeSpec(content: string, options: WriteSpecOptions): Promise<string[]>` to persist specification markdown. Implements `splitByHeadings(content: string)` for multi-file output via `/^(?=# )/m` regex splitting. Provides `slugify(heading: string)` for filename generation. Throws `SpecExistsError` with `paths: string[]` when overwrite conflicts detected and `force: boolean` is false.
+**[writer.ts](./writer.ts)** — Exports `writeSpec()` orchestrating file output with `WriteSpecOptions` controlling single-file vs. multi-file split modes, `splitByHeadings()` parsing top-level `# ` markdown delimiters into `{filename, content}` sections via slugified heading text, `fileExists()` predicate for overwrite protection, and `SpecExistsError` exception exposing conflicting `paths[]` when force=false.
 
-## Data Flow
+## Architecture
 
-1. **src/cli/specify.ts** invokes `collector.collectAgentsDocs()` from `../generation/collector.js` to gather AGENTS.md files
-2. **buildSpecPrompt(docs)** constructs `SpecPrompt` with system instructions and injected documentation
-3. **AIService** processes prompt pair to generate specification markdown
-4. **writeSpec(content, options)** persists output as single file or split sections based on `WriteSpecOptions.multiFile`
+### Specification Generation Pipeline
 
-## Integration Dependencies
+1. **Prompt Construction** (`buildSpecPrompt`) — Consumes `AgentsDocs` from `collectAgentsDocs()` post-order traversal, constructs system prompt with conceptual grouping constraints (concern-based not directory-based), assembles user prompt with aggregated documentation sections and nine-item output requirements checklist
+2. **AI Invocation** — `AIService.call()` in `src/cli/specify.ts` receives `SpecPrompt` and generates markdown content via LLM subprocess
+3. **Content Segmentation** (`splitByHeadings`) — Regex-based parser splits AI output at `/^# /m` markers, preserves heading text in sections, generates slugified filenames via `toLowerCase()` → whitespace-to-hyphens → alphanumeric filter → hyphen collapse chain
+4. **File Writing** (`writeSpec`) — Single-file mode writes directly to `outputPath`, multi-file mode writes each section to `path.join(outputDir, section.filename)`, creates parent directories via `mkdir({recursive: true})`, throws `SpecExistsError` with `paths[]` property if conflicts exist and `force=false`
 
-- **AgentsDocs** type from `../generation/collector.js` provides collected documentation structure
-- **src/cli/specify.ts** orchestrates prompt building → AI invocation → disk writing
-- **src/ai/service.ts** consumes `SpecPrompt` for specification generation
+### Specification Structure Constraints
 
-## Design Patterns
+`SPEC_SYSTEM_PROMPT` enforces nine-section markdown output:
+- **Project Overview** — High-level purpose, goals, conceptual architecture
+- **Architecture** — Component interactions, data flow, system boundaries
+- **Public API Surface** — Full type signatures with parameter/return types
+- **Data Structures & State** — Schema definitions, state management patterns
+- **Configuration** — Environment variables, config surface area, defaults
+- **Dependencies** — Exact versions with version ranges, third-party packages
+- **Behavioral Contracts** — Success/error conditions with exact error type specifications
+- **Test Contracts** — Verification requirements, edge case coverage
+- **Build Plan** — Phased implementation sequence with explicit "depends on" and "enables" relationships
 
-**Template Method**: `SPEC_SYSTEM_PROMPT` defines invariant structure; `buildSpecPrompt()` injects variable content  
-**Atomic Conflict Detection**: Multi-file mode checks all target paths before writing to prevent partial overwrites  
-**Error Aggregation**: `SpecExistsError.paths` reports all conflicts upfront rather than failing on first collision
+System prompt prohibits exact file path prescription, folder-based section headings, and directory structure mirroring.
+
+## Key Types
+
+**`SpecPrompt`** — Prompt pair with `system: string` containing `SPEC_SYSTEM_PROMPT` and `user: string` containing aggregated `AGENTS.md` markdown with section headers
+
+**`WriteSpecOptions`** — Configuration interface with `outputPath: string`, `force: boolean` overwrite flag, `multiFile: boolean` split mode toggle
+
+**`SpecExistsError`** — Exception extending `Error` with readonly `paths: string[]` property containing all conflicting file paths, constructor formatting multi-line bullet-pointed error message with "Use --force to overwrite." guidance
+
+## File Relationships
+
+**Prompt Construction** — `buildSpecPrompt()` consumes `AgentsDocs` type from `../generation/collector.js` produced by `collectAgentsDocs()` recursive tree traversal
+
+**Command Integration** — `src/cli/specify.ts` imports `buildSpecPrompt()` and `writeSpec()` to orchestrate full pipeline: collect docs → build prompt → call AI service → write files
+
+**Error Handling** — `SpecExistsError` caught by CLI layer in `src/cli/specify.ts` for user-friendly formatting with `--force` flag suggestion
+
+**Output Logging** — `writeSpec()` interacts with `src/output/logger.ts` for progress reporting of written file paths
+
+## Usage Patterns
+
+**Single-file mode** (`multiFile: false`) — Writes complete AI-generated markdown to `specs/SPEC.md` without segmentation
+
+**Multi-file mode** (`multiFile: true`) — Splits content at top-level headings, writes sections to `specs/<slugified-heading>.md`, generates `00-preamble.md` for content before first heading
+
+**Overwrite protection** — Collects all conflicting paths via `fileExists()` predicate before throwing `SpecExistsError` to provide complete error context in single exception
+
+**Slugification** — Transforms heading text (e.g., "Project Overview") to filenames (e.g., "project-overview.md") via lowercase → hyphenate → alphanumeric filter → hyphen collapse chain

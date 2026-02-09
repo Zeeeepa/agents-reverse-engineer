@@ -1,34 +1,51 @@
 ---
-generated_at: 2026-02-09T13:19:16.685Z
+generated_at: 2026-02-09T14:10:06.217Z
 content_hash: b6592de50e518a82f7185d14f371f7ccfff18a4569aa6e6fdf3d18d40b9f4d83
-purpose: opencode-are-check-update.js exports AreCheckUpdate hook that spawns background npm version checks on OpenCode sessio...
+purpose: opencode-are-check-update.js exports AreCheckUpdate() async factory function that returns an OpenCode plugin for back...
 ---
-**opencode-are-check-update.js exports AreCheckUpdate hook that spawns background npm version checks on OpenCode session.created events and caches results to ~/.config/opencode/cache/are-update-check.json.**
+**opencode-are-check-update.js exports AreCheckUpdate() async factory function that returns an OpenCode plugin for background version checking on session creation, writing comparison results to ~/.config/opencode/cache/are-update-check.json.**
 
-## Exported Symbols
+## Exported Interface
 
-- `AreCheckUpdate`: async function returning hook object with `event['session.created']` handler
+**AreCheckUpdate()**: Async factory function returning OpenCode plugin object with event handlers.
+- **Returns**: `Promise<{ event: { 'session.created': () => Promise<void> } }>`
+- **Event hook**: `'session.created'` triggers background version check subprocess
 
-## Hook Lifecycle
+## Version Check Strategy
 
-AreCheckUpdate returns object mapping `'session.created'` event to async handler. Handler executes synchronously then spawns detached background process via `spawn(process.execPath, ['-e', scriptString], {stdio: 'ignore', detached: true, windowsHide: true})` followed by `child.unref()` to prevent parent blocking.
+**Version file resolution order**:
+1. Project-local: `${cwd}/.opencode/ARE-VERSION`
+2. Global fallback: `${homeDir}/.config/opencode/ARE-VERSION`
 
-## Version File Resolution
+**Detached subprocess pattern**: `spawn(process.execPath, ['-e', scriptString], { stdio: 'ignore', detached: true, windowsHide: true }).unref()` ensures non-blocking execution.
 
-Background script checks `projectVersionFile` at `<cwd>/.opencode/ARE-VERSION` first, falls back to `globalVersionFile` at `~/.config/opencode/ARE-VERSION`. Reads `installed` version via `readFileSync(versionFile, 'utf8').trim()`, defaults to '0.0.0' if both missing.
+**Subprocess logic** (inline string passed to `-e`):
+- Reads installed version from ARE-VERSION via `readFileSync()` with project precedence
+- Queries npm registry via `execSync('npm view agents-reverse-engineer version', { timeout: 10000 })` for latest version
+- Writes cache JSON via `writeFileSync(cacheFile, JSON.stringify(result))`
 
-## NPM Version Check
+**Cache schema** (are-update-check.json):
+```typescript
+{
+  update_available: boolean,  // installed !== latest comparison
+  installed: string,          // semver from ARE-VERSION or '0.0.0' default
+  latest: string,             // npm registry version or 'unknown' on fetch error
+  checked: number            // Unix timestamp (seconds)
+}
+```
 
-Background script invokes `execSync('npm view agents-reverse-engineer version', {encoding: 'utf8', timeout: 10000, windowsHide: true})` to fetch `latest` version from registry. Silently catches errors and sets `latest = null` on failure.
+## File System Operations
 
-## Cache Format
+**Dependencies**: `fs.existsSync`, `fs.mkdirSync`, `fs.readFileSync`, `fs.writeFileSync` from 'fs'; `os.homedir`; `path.join`; `child_process.spawn`.
 
-Writes JSON object to `cacheFile` with fields: `update_available` (boolean comparing installed !== latest), `installed` (string), `latest` (string or 'unknown'), `checked` (Unix timestamp from `Math.floor(Date.now() / 1000)`).
+**Cache directory creation**: `mkdirSync(cacheDir, { recursive: true })` ensures `~/.config/opencode/cache/` exists before subprocess writes.
 
-## Directory Initialization
+**Error handling**: Subprocess try-catch blocks swallow exceptions, defaulting `installed` to '0.0.0' and `latest` to null on failure.
 
-Ensures `cacheDir` exists via `mkdirSync(cacheDir, {recursive: true})` before spawning background process.
+## OpenCode Plugin Contract
 
-## Integration Pattern
+**Event system**: Plugin object returns event handlers keyed by OpenCode lifecycle events ('session.created', 'session.deleted', etc.).
 
-OpenCode equivalent of Claude/Gemini SessionStart hooks (`are-check-update.js`). Detached spawn pattern prevents blocking OpenCode initialization while allowing background npm registry check to complete asynchronously.
+**Async event handler**: `'session.created'` handler is async but does not await subprocess completion—spawns detached process and immediately returns.
+
+**Runtime isolation**: Subprocess executes via `process.execPath` with `-e` flag (eval mode) running CommonJS require() context (not ES module imports).

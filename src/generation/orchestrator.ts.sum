@@ -1,44 +1,59 @@
 ---
-generated_at: 2026-02-09T13:18:38.710Z
+generated_at: 2026-02-09T14:09:15.293Z
 content_hash: c0712c285f40f41fb325d88722e2d7bd8fd599a11ad3eb1124e785743dad01a6
-purpose: GenerationOrchestrator coordinates the three-phase documentation workflow: file preparation, task creation for file a...
+purpose: GenerationOrchestrator coordinates the three-phase documentation pipeline by preparing files, analyzing complexity, b...
 ---
-**GenerationOrchestrator coordinates the three-phase documentation workflow: file preparation, task creation for file and directory analysis, and complexity assessment.**
+**GenerationOrchestrator coordinates the three-phase documentation pipeline by preparing files, analyzing complexity, building prompts with project structure context, creating file/directory analysis tasks, and emitting trace events for planning phases.**
 
 ## Exported Types
 
-**PreparedFile** represents a file ready for analysis with `filePath: string` (absolute), `relativePath: string` (from project root), and `content: string`.
+**PreparedFile** represents a source file ready for analysis with `filePath: string` (absolute), `relativePath: string` (from project root), and `content: string` (file text). Content gets cleared after prompt construction to free memory before execution.
 
-**AnalysisTask** is a discriminated union with `type: 'file' | 'directory'`. File tasks include `systemPrompt?: string` and `userPrompt?: string` (both set immediately). Directory tasks include `directoryInfo?: { sumFiles: string[]; fileCount: number }` and build prompts at execution time.
+**AnalysisTask** is a discriminated union via `type: 'file' | 'directory'` field. File tasks include `systemPrompt?: string` and `userPrompt?: string` built immediately. Directory tasks defer prompt construction until execution time, storing `directoryInfo?: { sumFiles: string[], fileCount: number }` pointing to `.sum` files from completed file analysis.
 
-**GenerationPlan** aggregates `files: PreparedFile[]`, `tasks: AnalysisTask[]`, `complexity: ComplexityMetrics`, and `projectStructure?: string` (compact directory tree for AI context).
-
-## Exported Functions
-
-**createOrchestrator(config: Config, projectRoot: string, options?: { tracer?: ITraceWriter; debug?: boolean }): GenerationOrchestrator** constructs a GenerationOrchestrator instance with tracing and debug capabilities.
+**GenerationPlan** aggregates `files: PreparedFile[]`, `tasks: AnalysisTask[]` (file tasks + directory tasks), `complexity: ComplexityMetrics` from `analyzeComplexity()`, and `projectStructure?: string` (compact directory tree listing).
 
 ## Core Class
 
-**GenerationOrchestrator** exposes four public methods:
+**GenerationOrchestrator** constructor accepts `config: Config`, `projectRoot: string`, and optional `{ tracer?: ITraceWriter, debug?: boolean }`. Stores these as private fields for use across methods.
 
-- **prepareFiles(discoveryResult: DiscoveryResult): Promise<PreparedFile[]>** reads file contents via `readFile(filePath, 'utf-8')`, converts absolute paths to relative using `path.relative(projectRoot, filePath)`, and silently skips unreadable files.
+**prepareFiles(discoveryResult: DiscoveryResult): Promise<PreparedFile[]>** reads each file path from `discoveryResult.files` via `readFile(filePath, 'utf-8')`, computes `relativePath` via `path.relative(projectRoot, filePath)`, returns array of PreparedFile objects. Silently skips files throwing read errors (permissions, deletion during scan).
 
-- **createFileTasks(files: PreparedFile[], projectStructure?: string): AnalysisTask[]** invokes `buildFilePrompt({ filePath, content, projectPlan }, debug)` for each PreparedFile to generate `systemPrompt` and `userPrompt`, returning file-type AnalysisTask objects.
+**createFileTasks(files: PreparedFile[], projectStructure?: string): AnalysisTask[]** invokes `buildFilePrompt({ filePath, content, projectPlan: projectStructure }, debug)` for each PreparedFile, constructs AnalysisTask objects with `type: 'file'`, `filePath: relativePath`, `systemPrompt`, `userPrompt`.
 
-- **createDirectoryTasks(files: PreparedFile[]): AnalysisTask[]** groups PreparedFile objects by `path.dirname(relativePath)`, maps each group to a directory-type AnalysisTask with `sumFiles` computed as `relativePath + '.sum'`, and defers prompt construction to runtime via `buildDirectoryPrompt()`.
+**createDirectoryTasks(files: PreparedFile[]): AnalysisTask[]** groups PreparedFile objects by `path.dirname(relativePath)` into `Map<string, PreparedFile[]>`, creates directory task for each group with `type: 'directory'`, `filePath: dir`, `directoryInfo: { sumFiles: [relativePaths + '.sum'], fileCount }`. Prompts built later by `buildDirectoryPrompt()` in `src/generation/prompts/builder.ts`.
 
-- **createPlan(discoveryResult: DiscoveryResult): Promise<GenerationPlan>** orchestrates the workflow: calls `prepareFiles()`, invokes `analyzeComplexity(files.map(f => f.filePath), projectRoot)`, builds `projectStructure` via `buildProjectStructure()`, generates tasks with `createFileTasks()` and `createDirectoryTasks()`, emits trace events (`phase:start`, `plan:created`, `phase:end`), and zeroes out PreparedFile.content to reclaim memory.
+**createPlan(discoveryResult: DiscoveryResult): Promise<GenerationPlan>** orchestrates full planning workflow:
+1. Emits `phase:start` trace event with `phase: 'plan-creation'`
+2. Calls `prepareFiles()` to load file contents
+3. Calls `analyzeComplexity()` from `src/generation/complexity.ts` with file paths
+4. Calls `buildProjectStructure()` to generate compact directory tree
+5. Calls `createFileTasks()` and `createDirectoryTasks()`, concatenates into single task array
+6. Clears `content` field from PreparedFile objects (memory optimization post-prompt-construction)
+7. Emits `plan:created` trace event with `fileCount`, `taskCount + 1` (+1 accounts for root CLAUDE.md synthesis task added later)
+8. Emits `phase:end` trace event with `planDurationMs` computed from `process.hrtime.bigint()` deltas
+9. Returns GenerationPlan object
 
-## Memory Management
+## Private Helpers
 
-After `createFileTasks()` embeds file content into prompts, `createPlan()` clears PreparedFile.content via `(file as { content: string }).content = ''` to release memory before returning the plan, relying on the runner to re-read files from disk during execution.
+**buildProjectStructure(files: PreparedFile[]): string** groups files by directory into `Map<string, string[]>` where keys are directories and values are basenames. Sorts directories alphabetically, formats as indented tree: `dirName/\n  file1\n  file2`. Used as `projectPlan` parameter in file prompts to provide bird's-eye codebase context.
+
+## Factory Function
+
+**createOrchestrator(config: Config, projectRoot: string, options?: { tracer?: ITraceWriter, debug?: boolean }): GenerationOrchestrator** instantiates GenerationOrchestrator with provided parameters. Thin wrapper enabling dependency injection from CLI commands.
 
 ## Trace Events
 
-GenerationOrchestrator emits `phase:start` (phase: 'plan-creation', taskCount, concurrency: 1), `plan:created` (planType: 'generate', fileCount, taskCount + 1 for root CLAUDE.md), and `phase:end` (phase: 'plan-creation', durationMs computed via `process.hrtime.bigint()`, tasksCompleted: 1, tasksFailed: 0).
+Emits `phase:start` with fields `{ type: 'phase:start', phase: 'plan-creation', taskCount, concurrency: 1 }` before planning begins. Emits `plan:created` with `{ type: 'plan:created', planType: 'generate', fileCount, taskCount }` after task array construction. Emits `phase:end` with `{ type: 'phase:end', phase: 'plan-creation', durationMs, tasksCompleted: 1, tasksFailed: 0 }` after plan completion. All emissions conditional on `this.tracer` being defined.
 
-## Dependency Integration
+## Memory Management Strategy
 
-**buildProjectStructure(files: PreparedFile[]): string** groups files by `path.dirname(relativePath)`, sorts directories and filenames, formats as indented tree (`dir/\n  file\n`), providing bird's-eye context for AI prompts.
+After `createFileTasks()` embeds file content into prompt strings, `createPlan()` zeroes out `content` field on PreparedFile objects via `(file as { content: string }).content = ''`. Comment indicates runner re-reads files from disk during execution, eliminating need to hold content in memory during pool execution phase. Prevents memory exhaustion when analyzing large codebases with high concurrency.
 
-Uses `buildFilePrompt()` from `./prompts/index.js`, `analyzeComplexity()` from `./complexity.js` (returns ComplexityMetrics), and `ITraceWriter` from `../orchestration/trace.js`.
+## Dependencies
+
+Imports `buildFilePrompt` from `./prompts/index.js` (prompt construction), `analyzeComplexity` and `ComplexityMetrics` from `./complexity.js` (directory depth + structural metrics), `Config` from `../config/schema.js` (Zod-validated YAML config), `DiscoveryResult` from `../types/index.js` (file discovery output), `ITraceWriter` from `../orchestration/trace.js` (NDJSON telemetry), `readFile` from `node:fs/promises` (file I/O), `path` from Node.js stdlib (path operations), `picocolors` as `pc` (debug output coloring).
+
+## Debug Output
+
+When `this.debug === true`, logs to stderr via `console.error(pc.dim(...))`: "Preparing files: reading and detecting types", "Analyzing complexity", "Complexity analysis: depth=N", "Generation plan: X files, Y tasks (Z directories)". Uses dim color formatting for visual separation from primary output.

@@ -1,26 +1,43 @@
 ---
-generated_at: 2026-02-09T13:19:12.515Z
+generated_at: 2026-02-09T14:10:04.714Z
 content_hash: 34836e7b21ee372f71361b50aaa9e8e19948e339aef640a828b1d1257beac09a
-purpose: are-session-end.js serves as a Claude Code session-end hook that spawns `are update` in the background when the sessi...
+purpose: are-session-end.js spawns a detached background subprocess executing `npx agents-reverse-engineer@latest update --qui...
 ---
-**are-session-end.js serves as a Claude Code session-end hook that spawns `are update` in the background when the session closes and uncommitted git changes exist.**
+**are-session-end.js spawns a detached background subprocess executing `npx agents-reverse-engineer@latest update --quiet` when the AI session ends and git working tree contains uncommitted changes.**
 
-## Hook Lifecycle
+## Exported Interface
 
-Executes automatically via Claude Code's session lifecycle integration. Checks two disable mechanisms: `ARE_DISABLE_HOOK` environment variable and `hook_enabled: false` in `.agents-reverse-engineer.yaml` config file. Exits silently (status 0) if disabled.
+None. Invoked as standalone script via Node.js shebang (`#!/usr/bin/env node`).
 
-## Git Change Detection
+## Execution Flow
 
-Uses `execSync('git status --porcelain')` to detect uncommitted changes. Exits early if no changes exist or if git is unavailable. This prevents unnecessary documentation updates when no code has changed since last run.
+1. Checks `process.env.ARE_DISABLE_HOOK === '1'` → exits immediately if set
+2. Reads `.agents-reverse-engineer.yaml` via `existsSync()` + `readFileSync()` → exits if file contains substring `'hook_enabled: false'` (no YAML parser)
+3. Executes `execSync('git status --porcelain', { encoding: 'utf-8' })` → exits silently if output empty (no changes) or command fails (non-git repo)
+4. Spawns detached child process via `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })` followed by `child.unref()` to allow parent process termination
 
-## Background Process Spawning
+## Integration Pattern
 
-Spawns `npx agents-reverse-engineer@latest update --quiet` via `spawn()` with `detached: true` and `stdio: 'ignore'`. Calls `child.unref()` to allow parent process (Claude session) to exit without waiting for update completion. This non-blocking design prevents session close delays.
+- **IDE hooks**: Registered as SessionEnd hook in `~/.claude/hooks/` for Claude Code, equivalent OpenCode plugin location `~/.config/opencode/plugins/`
+- **Detached spawn**: Uses `detached: true` + `unref()` pattern to prevent blocking session close; subprocess outlives parent
+- **Silent failures**: All error conditions (`git` unavailable, config read failure, no changes) exit with code 0 to avoid hook failure alerts
 
-## Dependencies
+## Disable Mechanisms
 
-Imports `execSync`, `spawn` from `child_process`, `existsSync`, `readFileSync` from `fs`. No external npm dependencies beyond Node.js stdlib. Requires `#!/usr/bin/env node` shebang for direct execution.
+- **Environment**: `ARE_DISABLE_HOOK=1` checked before any file I/O
+- **Config file**: Substring search for `'hook_enabled: false'` in `.agents-reverse-engineer.yaml` (intentionally avoids YAML parser dependency)
+- **No changes**: Exits before spawn if `git status --porcelain` returns empty output
 
-## Configuration Integration
+## Resource Management
 
-Reads `.agents-reverse-engineer.yaml` synchronously via `readFileSync()`. Uses simple string inclusion check (`config.includes('hook_enabled: false')`) rather than full YAML parsing for performance. Config file location is hardcoded as relative path.
+- **stdio: 'ignore'**: Suppresses subprocess stdout/stderr to prevent tty attachment
+- **detached: true**: Creates new process group (allows `kill(-pid)` semantics in child)
+- **child.unref()**: Removes subprocess from Node.js event loop reference count, allowing parent exit
+- **No timeout**: Subprocess runs indefinitely; relies on ARE's internal timeout mechanisms (`timeoutMs` in config)
+
+## Related Files
+
+- `are-check-update.js`: SessionStart hook checking for ARE version updates
+- `opencode-are-session-end.js`: OpenCode plugin adapter exporting `AreSessionEnd()` factory
+- `src/cli/update.ts`: Incremental update command invoked by this hook
+- `src/update/orchestrator.ts`: Update workflow orchestrator with git diff integration

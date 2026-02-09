@@ -1,41 +1,37 @@
 ---
-generated_at: 2026-02-09T13:18:15.142Z
+generated_at: 2026-02-09T14:08:20.899Z
 content_hash: be5da3f84bcde292733c820cb325be1212baf0436f982f8fc9bf91c74db73382
-purpose: validator.ts detects phantom path references in AGENTS.md files by extracting path-like strings, resolving them again...
+purpose: validatePhantomPaths checks AGENTS.md files for path references that don't resolve to actual filesystem locations, ex...
 ---
-**validator.ts detects phantom path references in AGENTS.md files by extracting path-like strings, resolving them against the filesystem, and reporting paths that don't exist.**
+**validatePhantomPaths checks AGENTS.md files for path references that don't resolve to actual filesystem locations, extracting path strings via regex patterns and validating their existence relative to both the AGENTS.md directory and project root.**
 
-## Exported Interface
+## Exported Function
 
-- `checkPhantomPaths(agentsMdPath: string, content: string, projectRoot: string): PhantomPathInconsistency[]` - scans AGENTS.md content for path references, validates their existence, returns array of `PhantomPathInconsistency` objects for missing paths
+`checkPhantomPaths(agentsMdPath: string, content: string, projectRoot: string): PhantomPathInconsistency[]` extracts path-like strings from AGENTS.md content using three regex patterns, resolves each path relative to both the AGENTS.md directory and project root, applies `.js`→`.ts` fallback for TypeScript import conventions, and returns `PhantomPathInconsistency[]` for unresolved references with `type: 'phantom-path'`, `severity: 'warning'`, relative `agentsMdPath`, `description`, and `details` containing `referencedPath`, `resolvedTo`, and 120-character `context` snippet.
 
 ## Path Extraction Patterns
 
-`PATH_PATTERNS` defines three RegExp patterns:
-- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` - captures markdown link targets `[text](./path)`
-- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` - captures backtick-quoted paths like `` `src/foo/bar.ts` `` or `` `../foo/bar.js` ``
-- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` - captures prose-embedded paths following keywords "from", "in", "by", "via", "see"
+`PATH_PATTERNS` constant defines three regex patterns for extracting path references:
+- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` captures markdown link targets like `[text](./path)` or `[text](path)`
+- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` captures backtick-quoted paths like `` `src/foo/bar.ts` `` or `` `../foo/bar.js` ``
+- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` captures prose-embedded paths like "from src/foo/" or "in src/foo/bar.ts"
+
+`SKIP_PATTERNS` constant excludes non-file references matching `/node_modules/`, `/\.git\//`, `/^https?:/`, `/\{\{/` (template placeholders), `/\$\{/` (template literals), `/\*/` (glob patterns), `/\{[^}]*,[^}]*\}/` (brace expansion).
 
 ## Path Resolution Strategy
 
-`checkPhantomPaths` resolves each extracted path in two ways:
-1. `fromAgentsMd = path.resolve(agentsMdDir, rawPath)` - relative to AGENTS.md directory
-2. `fromRoot = path.resolve(projectRoot, rawPath)` - relative to project root for `src/` paths
+For each extracted path, `checkPhantomPaths` constructs four candidate resolutions:
+1. `path.resolve(agentsMdDir, rawPath)` resolves relative to AGENTS.md directory
+2. `path.resolve(projectRoot, rawPath)` resolves relative to project root for `src/` paths
+3. `.js`→`.ts` transformation of first candidate for TypeScript import convention
+4. `.js`→`.ts` transformation of second candidate
 
-For `.js` extensions, also attempts `.ts` variants (handles TypeScript import convention where `.ts` source imports as `.js`).
+`existsSync()` checks all candidates; failure on all four triggers `PhantomPathInconsistency` creation with `details.resolvedTo` showing first candidate path.
 
-`existsSync()` validates against all candidate paths; if none exist, creates `PhantomPathInconsistency` with `type: 'phantom-path'`, `severity: 'warning'`.
+## Deduplication and Context
 
-## Filtering Logic
+`seen` Set tracks `rawPath` strings to prevent duplicate reporting of same reference across multiple pattern matches. Context line extraction via `content.split('\n').find((l) => l.includes(rawPath))` provides 120-character trimmed snippet in `details.context` field for user diagnosis.
 
-`SKIP_PATTERNS` excludes non-file references:
-- `node_modules`, `.git/` - vendor/tooling paths
-- `https?:` - URLs
-- `\{\{`, `\${` - template placeholders/literals
-- `\*`, `\{[^}]*,[^}]*\}` - glob patterns and brace expansions
+## Integration Points
 
-Uses `seen` Set to deduplicate repeated path references within same file.
-
-## Error Context
-
-For each phantom path, extracts `contextLine` containing the reference (first matching line, trimmed to 120 chars) and includes in `PhantomPathInconsistency.details.context` for debugging.
+Returns `PhantomPathInconsistency[]` consumed by `src/quality/inconsistency/reporter.ts` for aggregation into `InconsistencyReport` and terminal output via `src/output/logger.ts`. Called from quality validation phase after Phase 2 (directory aggregation) completes. Type definition in `src/quality/types.ts` includes discriminated union with `type: 'phantom-path'`.

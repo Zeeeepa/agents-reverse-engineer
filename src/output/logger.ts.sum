@@ -1,36 +1,34 @@
 ---
-generated_at: 2026-02-09T13:18:51.133Z
+generated_at: 2026-02-09T14:09:36.716Z
 content_hash: d8d7ef7e66d133a389b91d83401f8f63fdcdc9e43d3c6bd39a37e9100f11a118
-purpose: logger.ts exports terminal logging utilities with configurable color output for ARE CLI operations.
+purpose: Terminal output logger providing colored console formatting for CLI discovery and generation operations.
 ---
-**logger.ts exports terminal logging utilities with configurable color output for ARE CLI operations.**
+**Terminal output logger providing colored console formatting for CLI discovery and generation operations.**
 
-## Exported Interfaces
+## Exported Types
 
 **Logger** interface defines six methods for CLI output:
 - `info(message: string): void` logs informational messages
 - `file(path: string): void` logs discovered files with green "+" prefix
-- `excluded(path: string, reason: string, filter: string): void` logs excluded files with dim "-" prefix and reason
-- `summary(included: number, excluded: number): void` logs discovery counts with bold/dim formatting
+- `excluded(path: string, reason: string, filter: string): void` logs excluded files with dim "-" prefix
+- `summary(included: number, excluded: number): void` logs discovery totals
 - `warn(message: string): void` logs warnings with yellow "Warning:" prefix
 - `error(message: string): void` logs errors with red "Error:" prefix
 
-**LoggerOptions** interface configures logger behavior via `colors: boolean` field (defaults true).
+**LoggerOptions** interface specifies `colors: boolean` flag to enable/disable ANSI color codes (defaults to true).
 
-**ColorFunctions** internal interface wraps five picocolors functions: `green`, `dim`, `red`, `bold`, `yellow`, each taking `(s: string) => string`.
+**ColorFunctions** internal interface defines five color methods (`green`, `dim`, `red`, `bold`, `yellow`) returning formatted strings.
 
 ## Factory Functions
 
-**createLogger(options: LoggerOptions): Logger** returns Logger instance using picocolors when `options.colors` is true, otherwise uses `noColor` identity functions. Output format follows CONTEXT.md specification: files use green "+", excluded files use dim "-" with reason, summaries use bold counts, warnings use yellow prefix, errors use red prefix.
+**createLogger(options: LoggerOptions): Logger** returns Logger implementation using picocolors when `options.colors` is true, otherwise uses identity functions via `noColor` constant. Output format follows CONTEXT.md specification with prefixed markers ("  +", "  -") and color-coded severity levels.
 
-**createSilentLogger(): Logger** returns Logger with all no-op methods for testing or programmatic usage.
-
-## Internal Constants
-
-**identity** function `(s: string): string` returns string unchanged for no-color mode.
-
-**noColor** constant provides ColorFunctions implementation where all methods use identity function.
+**createSilentLogger(): Logger** returns no-op Logger implementation with all methods assigned to empty arrow function `noop`, intended for testing or programmatic usage without console output.
 
 ## Dependencies
 
-Imports `picocolors` as `pc` for terminal color formatting when colors enabled.
+Imports `picocolors` as `pc` for terminal color formatting with zero-dependency ANSI escape code generation.
+
+## Implementation Pattern
+
+Uses conditional ColorFunctions assignment: `options.colors ? pc : noColor` where `noColor` constant provides identity transformations (`identity = (s: string): string => s`) for all five color methods. All Logger methods delegate to `console.log`, `console.warn`, or `console.error` with format strings constructed via ColorFunctions composition.

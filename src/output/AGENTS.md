@@ -2,22 +2,26 @@
 
 # src/output
 
-Terminal output formatting utilities for the ARE CLI, providing colored logging with consistent prefixes and formatting for file discovery, errors, warnings, and summaries.
+Terminal output abstraction providing colored console logging with conditional ANSI formatting for CLI operations.
 
 ## Contents
 
-### Core Logger API
+### Core Logger
 
-**[logger.ts](./logger.ts)** — Exports `createLogger(options: LoggerOptions): Logger` factory producing `Logger` instances with six methods (`info`, `file`, `excluded`, `summary`, `warn`, `error`) using picocolors for terminal formatting, plus `createSilentLogger(): Logger` for testing. `LoggerOptions.colors` toggles ANSI color output. `Logger.file(path)` uses green "+" prefix, `Logger.excluded(path, reason, filter)` uses dim "-", `Logger.warn(message)` uses yellow "Warning:", `Logger.error(message)` uses red "Error:", `Logger.summary(included, excluded)` uses bold/dim counts.
-
-## Usage Across CLI Commands
-
-**Discovery Output**: `src/cli/discover.ts` and `src/discovery/run.ts` call `logger.file(path)` for included files and `logger.excluded(path, reason, filter)` for filtered files, then `logger.summary(included, excluded)` for totals.
-
-**Generation Output**: `src/cli/generate.ts` and `src/orchestration/runner.ts` use `logger.info(message)` for phase progress, `logger.error(message)` for task failures.
-
-**Error Reporting**: `src/quality/inconsistency/reporter.ts` uses `logger.warn(message)` to surface inconsistencies detected by validators.
+**[logger.ts](./logger.ts)** — Exports `Logger` interface with six methods (`info`, `file`, `excluded`, `summary`, `warn`, `error`), factory function `createLogger(options: LoggerOptions)` returning picocolors-backed or no-color implementation based on `colors` boolean flag, and `createSilentLogger()` returning no-op implementation for testing. Uses `ColorFunctions` internal interface wrapping five picocolors methods (`green`, `dim`, `red`, `bold`, `yellow`), conditionally assigned to identity functions when colors disabled. All output delegates to `console.log`, `console.warn`, or `console.error` with prefixed markers ("  +", "  -") following CONTEXT.md format specification.
 
 ## Design Pattern
 
-Logger uses **dependency injection via factory pattern**: callers pass `LoggerOptions.colors` to `createLogger()`, which selects between picocolors functions and `noColor` identity functions. `ColorFunctions` interface wraps `green`, `dim`, `red`, `bold`, `yellow` functions from picocolors, enabling zero-overhead no-color mode via identity function substitution.
+**Conditional Color Injection** — Logger implementation receives `ColorFunctions` object at construction time, either picocolors methods or identity function wrappers (`(s: string): string => s`), enabling zero-overhead color stripping via functional composition rather than runtime conditionals per log call.
+
+## Dependencies
+
+- `picocolors` (imported as `pc`) — Zero-dependency ANSI escape code generator for terminal color formatting
+
+## Usage Context
+
+Consumed by:
+- `src/cli/discover.ts` — Logs file discovery results with `file()` and `excluded()` methods, prints summary via `summary()`
+- `src/cli/generate.ts` — Logs phase transitions and completion messages via `info()`
+- `src/orchestration/progress.ts` — Streaming progress reporter delegates to Logger methods for console output
+- `src/config/loader.ts` — Determines color flag from `output.colors` config field, passes to `createLogger()`

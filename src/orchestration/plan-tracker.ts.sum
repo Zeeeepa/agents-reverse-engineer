@@ -1,32 +1,40 @@
 ---
-generated_at: 2026-02-09T13:18:47.118Z
+generated_at: 2026-02-09T14:09:28.193Z
 content_hash: e162684d4e68559017b2915d2aa98f8c025b3e699aa5d84b58e7848c17f69da9
-purpose: PlanTracker maintains in-memory markdown content for GENERATION-PLAN.md and serializes concurrent checkbox updates vi...
+purpose: PlanTracker serializes concurrent checkbox updates to GENERATION-PLAN.md via promise-chain queueing to prevent file c...
 ---
-**PlanTracker maintains in-memory markdown content for GENERATION-PLAN.md and serializes concurrent checkbox updates via a promise chain to prevent file corruption during parallel Phase 1 generation.**
+**PlanTracker serializes concurrent checkbox updates to GENERATION-PLAN.md via promise-chain queueing to prevent file corruption during parallel Phase 1 worker completion.**
 
 ## Exported Class
 
-`PlanTracker` — tracks generation progress by updating markdown checkboxes in `.agents-reverse-engineer/GENERATION-PLAN.md`.
+**PlanTracker** — In-memory markdown tracker with serialized disk writes.
 
-```typescript
-constructor(projectRoot: string, initialMarkdown: string)
-```
-
-Creates instance with `planPath` set to `${projectRoot}/${CONFIG_DIR}/GENERATION-PLAN.md` and stores `initialMarkdown` in `content` field.
+Constructor signature: `constructor(projectRoot: string, initialMarkdown: string)`
+- Computes `planPath` as `{projectRoot}/.agents-reverse-engineer/GENERATION-PLAN.md` via `CONFIG_DIR` constant
+- Stores `initialMarkdown` in `content` property for fast in-memory updates
+- Initializes `writeQueue` as `Promise<void>` resolved chain for write serialization
 
 ## Public Methods
 
-`initialize(): Promise<void>` — writes initial `content` to disk at `planPath`, creating parent directory recursively via `mkdir()`. Swallows errors silently (non-critical operation).
+**initialize(): Promise<void>** — Creates parent directory recursively via `mkdir()` and writes initial plan file to disk. Non-critical operation: catches errors silently to allow generation to proceed without tracking.
 
-`markDone(itemPath: string): void` — replaces `- [ ] \`${itemPath}\`` with `- [x] \`${itemPath}\`` in `content`. Expects caller to pass exact path format: file (`src/cli/init.ts`), directory (`src/cli/AGENTS.md` with `/AGENTS.md` appended), or root doc (`CLAUDE.md`). Skips write if no replacement occurred. Appends `writeFile()` promise to `writeQueue` chain to serialize disk writes, swallowing errors.
+**markDone(itemPath: string): void** — Replaces `- [ ] \`${itemPath}\`` with `- [x] \`${itemPath}\`` in memory, then queues serialized write. Caller must provide exact markdown path format:
+- File tasks: `src/cli/init.ts`
+- Directory tasks: `src/cli/AGENTS.md` (caller appends `/AGENTS.md`)
+- Root doc tasks: `CLAUDE.md`
 
-`flush(): Promise<void>` — awaits `writeQueue` to ensure all pending writes complete before caller exits.
+Returns early if regex replacement produces no change (no match found). Chains `writeFile()` call onto `writeQueue` promise to serialize concurrent updates from pool workers. Catches write errors silently (non-critical tracking).
+
+**flush(): Promise<void>** — Awaits `writeQueue` to complete all pending writes. Call before exiting generation to ensure final state persists.
 
 ## Concurrency Pattern
 
-Uses promise chain serialization via `writeQueue` field initialized to `Promise.resolve()`. Each `markDone()` call chains `.then(() => writeFile(...))` onto previous promise, preventing concurrent writes from Phase 1 worker pool from corrupting file content. Similar pattern used in `TraceWriter` for NDJSON trace logs.
+Uses promise-chain serialization: `this.writeQueue = this.writeQueue.then(() => writeFile(...))`. Each `markDone()` call appends to chain, ensuring writes execute sequentially despite concurrent Phase 1 worker completions. Prevents race conditions where multiple workers completing simultaneously corrupt file via interleaved write operations.
 
 ## Integration Points
 
-Instantiated by `executeGenerate()` in `src/generation/executor.ts` with initial markdown from plan builder. Worker threads call `markDone()` after completing Phase 1 file analysis tasks. Called from `executeUpdate()` in `src/update/orchestrator.ts` for incremental updates.
+Instantiated in `src/generation/executor.ts` or `src/orchestration/runner.ts` at start of `executeGenerate()`. Receives initial markdown from plan generation step. Workers call `markDone()` after successful task completion. Final `flush()` call before returning ensures all updates persisted.
+
+## Related Modules
+
+Shares serialization pattern with `TraceWriter` (`src/orchestration/trace.ts`) for NDJSON event emission. Both use promise chaining to serialize concurrent writes from worker pool.

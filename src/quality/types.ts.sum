@@ -1,24 +1,112 @@
 ---
-generated_at: 2026-02-09T13:18:58.796Z
+generated_at: 2026-02-09T14:09:53.879Z
 content_hash: cf3a2e38893eba8c064f647e2325adb2358162304275fc28ae3760811fbab6fe
-purpose: Defines TypeScript types for ARE's quality analysis subsystem: inconsistency detection variants (CodeDocInconsistency...
+purpose: Defines discriminated union types for quality validation inconsistencies (code-vs-doc, code-vs-code, phantom-path) an...
 ---
-**Defines TypeScript types for ARE's quality analysis subsystem: inconsistency detection variants (CodeDocInconsistency, CodeCodeInconsistency, PhantomPathInconsistency) and structured InconsistencyReport output.**
+**Defines discriminated union types for quality validation inconsistencies (code-vs-doc, code-vs-code, phantom-path) and structured reporting schemas used across the quality analysis pipeline.**
 
-## Exported Types
+## Type Hierarchy
 
-**InconsistencySeverity**: Type alias for `'info' | 'warning' | 'error'` severity levels.
+**InconsistencySeverity** — String literal union `'info' | 'warning' | 'error'` used to classify issue importance across all inconsistency types.
 
-**CodeDocInconsistency**: Interface representing mismatches between source code exports and `.sum` documentation content. Contains `type: 'code-vs-doc'`, `severity: InconsistencySeverity`, `filePath: string`, `sumPath: string`, `description: string`, and nested `details` object with `missingFromDoc: string[]` (exported symbols absent from docs), `missingFromCode: string[]` (documented symbols absent from exports), and optional `purposeMismatch?: string`.
+**Inconsistency** — Discriminated union `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` enabling type-safe pattern matching via the `type` discriminator field.
 
-**CodeCodeInconsistency**: Interface representing cross-file inconsistencies (duplicate exports, pattern violations). Contains `type: 'code-vs-code'`, `severity: InconsistencySeverity`, `files: string[]`, `description: string`, and `pattern: string` (e.g., `'duplicate-export'`).
+## Code-vs-Doc Inconsistency
 
-**PhantomPathInconsistency**: Interface representing unresolved path references in `AGENTS.md` files. Contains `type: 'phantom-path'`, `severity: InconsistencySeverity`, `agentsMdPath: string`, `description: string`, and nested `details` object with `referencedPath: string` (phantom path as written), `resolvedTo: string` (resolution base: project root or AGENTS.md directory), and `context: string` (containing line text).
+**CodeDocInconsistency** — Detects misalignment between exported symbols in source files and their mentions in `.sum` documentation.
 
-**Inconsistency**: Discriminated union type combining `CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` for pattern matching on `type` field.
+```typescript
+interface CodeDocInconsistency {
+  type: 'code-vs-doc';
+  severity: InconsistencySeverity;
+  filePath: string;           // Source file path
+  sumPath: string;            // Corresponding .sum file path
+  description: string;
+  details: {
+    missingFromDoc: string[];      // Exports not in .sum
+    missingFromCode: string[];     // .sum mentions not in exports
+    purposeMismatch?: string;      // Contradictory purpose statement
+  };
+}
+```
 
-**InconsistencyReport**: Interface representing structured analysis output. Contains `metadata` object (`timestamp: string`, `projectRoot: string`, `filesChecked: number`, `durationMs: number`), `issues: Inconsistency[]` array, and `summary` object with counts (`total`, `codeVsDoc`, `codeVsCode`, `phantomPaths`, `errors`, `warnings`, `info`).
+Consumed by `src/quality/inconsistency/code-vs-doc.ts` validator which extracts exports via regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` and verifies substring presence in `.sum` content.
 
-## Role in Quality Subsystem
+## Code-vs-Code Inconsistency
 
-This file defines the data contracts consumed by `src/quality/inconsistency/reporter.ts` for formatting output and by individual validators (`code-vs-doc.ts`, `code-vs-code.ts`, `src/quality/phantom-paths/validator.ts`) that detect specific inconsistency patterns. The discriminated union pattern on `Inconsistency.type` enables type-safe handling of heterogeneous validation results.
+**CodeCodeInconsistency** — Detects duplicate exports or conflicting patterns across multiple source files.
+
+```typescript
+interface CodeCodeInconsistency {
+  type: 'code-vs-code';
+  severity: InconsistencySeverity;
+  files: string[];           // Conflicting file paths
+  description: string;
+  pattern: string;           // Detection pattern (e.g., 'duplicate-export')
+}
+```
+
+Consumed by `src/quality/inconsistency/code-vs-code.ts` validator which aggregates exports per directory into `Map<symbol, string[]>` to identify cross-file duplicates.
+
+## Phantom Path Inconsistency
+
+**PhantomPathInconsistency** — Detects unresolvable file/directory references in `AGENTS.md` documentation.
+
+```typescript
+interface PhantomPathInconsistency {
+  type: 'phantom-path';
+  severity: InconsistencySeverity;
+  agentsMdPath: string;      // AGENTS.md containing reference
+  description: string;
+  details: {
+    referencedPath: string;  // Path as written in doc
+    resolvedTo: string;      // Resolution attempt (root or AGENTS.md dir)
+    context: string;         // Surrounding text line
+  };
+}
+```
+
+Consumed by `src/quality/phantom-paths/validator.ts` which extracts paths via three regex patterns (markdown links, backtick-quoted paths, prose-embedded paths) and resolves via `existsSync()` with `.ts`/`.js` fallback.
+
+## Reporting Schema
+
+**InconsistencyReport** — Aggregates validation results with metadata and summary statistics.
+
+```typescript
+interface InconsistencyReport {
+  metadata: {
+    timestamp: string;       // ISO 8601
+    projectRoot: string;
+    filesChecked: number;
+    durationMs: number;
+  };
+  issues: Inconsistency[];   // All detected inconsistencies
+  summary: {
+    total: number;
+    codeVsDoc: number;       // Count by type
+    codeVsCode: number;
+    phantomPaths: number;
+    errors: number;          // Count by severity
+    warnings: number;
+    info: number;
+  };
+}
+```
+
+Produced by `src/quality/inconsistency/reporter.ts` and consumed by `src/generation/orchestrator.ts` to display quality metrics in progress output and `.agents-reverse-engineer/progress.log`.
+
+## Integration Points
+
+Exports consumed by:
+- `src/quality/index.ts` — Re-exports all quality types for module boundary
+- `src/quality/inconsistency/reporter.ts` — Constructs `InconsistencyReport` from validator results
+- `src/generation/orchestrator.ts` — Reads `InconsistencyReport.summary` for post-generation quality display
+- `src/orchestration/progress.ts` — Formats summary counts for ETA and streaming progress output
+
+## Design Patterns
+
+**Discriminated Union** — The `type` field enables exhaustive pattern matching via TypeScript's control flow analysis without runtime type checks.
+
+**Structured Details** — Each inconsistency type embeds domain-specific context in the `details` field (e.g., `missingFromDoc` arrays, `referencedPath` strings) avoiding untyped metadata bags.
+
+**Severity Stratification** — The `InconsistencySeverity` enum separates informational findings from actionable errors, enabling filtered reporting and fail-fast behaviors.

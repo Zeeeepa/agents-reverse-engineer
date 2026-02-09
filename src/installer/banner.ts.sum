@@ -1,37 +1,34 @@
 ---
-generated_at: 2026-02-09T13:18:32.416Z
+generated_at: 2026-02-09T14:09:06.003Z
 content_hash: a85a81a5afe711c4f046f4362150ce8f01007cd33a3258f53fc4543bd88730fb
-purpose: banner.ts provides ASCII banner display, version retrieval, styled terminal output helpers, and post-installation ins...
+purpose: banner.ts provides terminal output formatting for the ARE installer via ASCII art rendering, help text generation, an...
 ---
-**banner.ts provides ASCII banner display, version retrieval, styled terminal output helpers, and post-installation instructions for the ARE installer.**
-
-## Exported Constants
-
-- `VERSION: string` — package version extracted by `getVersion()`, falls back to `'unknown'` on error
+**banner.ts provides terminal output formatting for the ARE installer via ASCII art rendering, help text generation, and styled console messages using picocolors.**
 
 ## Exported Functions
 
-### Banner and Help Display
+**displayBanner()** renders ASCII art "ARE" logo in green via `pc.green()` with version string from `VERSION` constant and tagline "AI-friendly codebase documentation".
 
-- `displayBanner(): void` — prints green ASCII art "ARE" logo with `VERSION` and tagline using `picocolors` (`pc.green`, `pc.dim`)
-- `showHelp(): void` — prints usage documentation including `--runtime`, `-g/--global`, `-l/--local`, `-u/--uninstall`, `--force`, `-q/--quiet`, `-h/--help` flags with examples
+**showHelp()** outputs usage documentation including runtime flags (`--runtime claude|opencode|gemini|all`), location flags (`-g|--global`, `-l|--local`), operational flags (`-u|--uninstall`, `--force`, `-q|--quiet`), and example invocations with descriptions.
 
-### Styled Message Helpers
+**showSuccess(msg: string)** prefixes message with green checkmark `✓` via `pc.green()`.
 
-- `showSuccess(msg: string): void` — prints message with green checkmark prefix (`pc.green('✓')`)
-- `showError(msg: string): void` — prints message with red X prefix (`pc.red('✗')`)
-- `showWarning(msg: string): void` — prints message with yellow exclamation prefix (`pc.yellow('!')`)
-- `showInfo(msg: string): void` — prints message with cyan arrow prefix (`pc.cyan('>')`)
+**showError(msg: string)** prefixes message with red X `✗` via `pc.red()`.
 
-### Post-Installation Guidance
+**showWarning(msg: string)** prefixes message with yellow exclamation `!` via `pc.yellow()`.
 
-- `showNextSteps(runtime: string, filesCreated: number): void` — prints installation summary with step-by-step workflow: `/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean` and GitHub docs link
+**showInfo(msg: string)** prefixes message with cyan arrow `>` via `pc.cyan()`.
 
-## Internal Implementation
+**showNextSteps(runtime: string, filesCreated: number)** displays post-install instructions listing seven ARE commands (`/are-help`, `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`) with GitHub documentation link.
 
-- `getVersion(): string` — resolves `package.json` path via `import.meta.url`, `fileURLToPath`, `dirname`, and `join`, reads version field with `readFileSync`, returns `'unknown'` on error
+## Exported Constants
+
+**VERSION** contains package version extracted via `getVersion()` from `../../package.json` using `fileURLToPath(import.meta.url)` for ESM path resolution, falls back to `'unknown'` on read failure.
 
 ## Dependencies
 
-- `picocolors` (`pc`) for terminal color styling
-- Node.js built-ins: `fs.readFileSync`, `path.{dirname, join}`, `url.fileURLToPath`
+Imports `readFileSync` from `fs`, `dirname`/`join` from `path`, `fileURLToPath` from `url`, and default export `pc` from `picocolors` for terminal color codes.
+
+## Design Pattern
+
+Uses picocolors functional color API (`pc.green()`, `pc.red()`, `pc.yellow()`, `pc.cyan()`, `pc.dim()`, `pc.bold()`) for ANSI escape code generation without chaining methods, enabling conditional color application based on TTY detection.

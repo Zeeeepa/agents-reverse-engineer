@@ -1,51 +1,62 @@
 ---
-generated_at: 2026-02-09T13:18:18.317Z
+generated_at: 2026-02-09T14:08:49.437Z
 content_hash: 787eac676eca6402f9981c174edd6821e9ff2bae0ed51b3970dc7018800513b7
-purpose: Implements the `generate` CLI command, which discovers files, plans AI-driven documentation generation, resolves an A...
+purpose: generate.ts implements the CLI generate command that orchestrates the three-phase documentation generation pipeline: ...
 ---
-**Implements the `generate` CLI command, which discovers files, plans AI-driven documentation generation, resolves an AI backend, and executes a three-phase pipeline (file analysis → directory AGENTS.md → root documents) via CommandRunner with optional dry-run mode.**
+**generate.ts implements the CLI generate command that orchestrates the three-phase documentation generation pipeline: file discovery, AI-driven analysis via concurrent worker pools, and hierarchical document synthesis.**
 
 ## Exported Interface
 
-```typescript
-export interface GenerateOptions {
-  dryRun?: boolean;
-  concurrency?: number;
-  failFast?: boolean;
-  debug?: boolean;
-  trace?: boolean;
-}
+**generateCommand(targetPath: string, options: GenerateOptions): Promise<void>**
+- Main entry point for `/are-generate` CLI command
+- Coordinates discovery, planning, backend resolution, AI analysis execution, and telemetry finalization
+- Exits with code 0 (success), 1 (partial failure), or 2 (total failure) based on `RunSummary.filesProcessed` and `RunSummary.filesFailed`
 
-export async function generateCommand(
-  targetPath: string,
-  options: GenerateOptions
-): Promise<void>
-```
+**GenerateOptions**
+- `dryRun?: boolean` — Shows execution plan summary without spawning AI subprocesses
+- `concurrency?: number` — Overrides `config.ai.concurrency` for worker pool size
+- `failFast?: boolean` — Stops pipeline on first task failure
+- `debug?: boolean` — Enables verbose logging with AI prompts and subprocess details
+- `trace?: boolean` — Writes NDJSON trace events to `.agents-reverse-engineer/traces/`
 
 ## Execution Flow
 
-`generateCommand` orchestrates five sequential steps: (1) loads config via `loadConfig`, (2) discovers files via `discoverFiles`, (3) creates `GenerationPlan` via `createOrchestrator().createPlan()`, (4) resolves AI backend via `resolveBackend(createBackendRegistry(), config.ai.backend)`, (5) executes via `CommandRunner.executeGenerate(buildExecutionPlan(plan, absolutePath))`. The `tracer` from `createTraceWriter` is threaded through all operations via `CommandRunOptions.tracer`.
+1. **Initialization**: Creates `TraceWriter` via `createTraceWriter()`, loads config via `loadConfig()`, instantiates `Logger`
+2. **Discovery**: Calls `discoverFiles()` to produce `FilterResult` with `included[]` and `excluded[]` file paths
+3. **Planning**: Calls `createOrchestrator().createPlan()` to generate `GenerationPlan` with tasks, complexity metrics, file counts
+4. **Dry-run fork**: If `options.dryRun`, calls `buildExecutionPlan()` to compute phase breakdown (file tasks, directory tasks, root tasks), prints summary via `formatPlan()`, exits without AI calls
+5. **Backend resolution**: Calls `resolveBackend()` from `createBackendRegistry()` to detect installed AI CLI (Claude Code, Gemini, OpenCode), exits with code 2 if `CLI_NOT_FOUND` error
+6. **AI service setup**: Instantiates `AIService` with backend, timeout, retry config, model override, sets debug mode, configures subprocess log directory when `trace=true`
+7. **Execution**: Creates `CommandRunner` with `aiService`, concurrency, failFast, tracer, `ProgressLog`, calls `runner.executeGenerate(executionPlan)` to run three-phase pipeline
+8. **Finalization**: Calls `aiService.finalize()` to write telemetry run log, `progressLog.finalize()`, `tracer.finalize()`, `cleanupOldTraces()` if tracing enabled
+9. **Exit code logic**: Returns 2 if zero files succeeded with failures, 1 if partial failures, 0 if all succeeded
 
-## Dry-Run Mode
+## Integration Points
 
-When `options.dryRun` is true, `buildExecutionPlan` constructs `ExecutionPlan` showing `fileTasks.length`, `directoryTasks.length`, `rootTasks.length`, and estimated AI call count without invoking `AIService`. The `formatPlan` helper displays `GenerationPlan.files.length`, `GenerationPlan.tasks.length`, and `GenerationPlan.complexity.fileCount` + `complexity.directoryDepth`.
+- **Discovery module**: Imports `discoverFiles()` from `src/discovery/run.ts`, passes `tracer` and `debug` options
+- **Orchestrator**: Imports `createOrchestrator()` from `src/generation/orchestrator.ts`, converts `FilterResult` to `DiscoveryResult` format
+- **Executor**: Imports `buildExecutionPlan()` from `src/generation/executor.ts` to compute `ExecutionPlan` with `fileTasks[]`, `directoryTasks[]`, `rootTasks[]`, `directoryFileMap`
+- **AI backend registry**: Imports `createBackendRegistry()`, `resolveBackend()`, `getInstallInstructions()` from `src/ai/index.ts`
+- **CommandRunner**: Imports from `src/orchestration/index.ts`, delegates to `runner.executeGenerate()` for pool-based execution
+- **Telemetry**: Imports `ProgressLog`, `createTraceWriter`, `cleanupOldTraces` from `src/orchestration/index.ts`
 
-## Backend Resolution and Error Handling
+## Error Handling
 
-`resolveBackend` throws `AIServiceError` with `code: 'CLI_NOT_FOUND'` when no AI CLI is detected. The command catches this, prints `getInstallInstructions(registry)`, and exits with code 2. The `AIService` constructor accepts `backend`, `timeoutMs`, `maxRetries`, `model`, and `telemetry.keepRuns` from resolved config.
+- **Backend not found**: Catches `AIServiceError` with `code === 'CLI_NOT_FOUND'`, prints `getInstallInstructions()` help text, exits with code 2
+- **Execution failures**: Relies on `CommandRunner.executeGenerate()` to handle task failures, propagates `RunSummary` for exit code computation
+- **Dry-run bypass**: Skips all AI calls and telemetry when `options.dryRun === true`
 
-## Concurrency and Progress Tracking
+## Trace and Progress Logging
 
-Concurrency defaults to `config.ai.concurrency` unless overridden by `options.concurrency`. `ProgressLog.create(absolutePath)` writes real-time progress to `.agents-reverse-engineer/progress.log` for `tail -f` monitoring. When `options.trace` is true, `aiService.setSubprocessLogDir()` enables subprocess output capture alongside NDJSON trace events.
+- **Trace file**: Created via `createTraceWriter(absolutePath, options.trace ?? false)`, logs events during discovery, planning, execution phases
+- **Progress log**: Created via `ProgressLog.create(absolutePath)`, writes human-readable output to `.agents-reverse-engineer/progress.log` for `tail -f` monitoring
+- **Subprocess logs**: When `trace=true`, calls `aiService.setSubprocessLogDir()` to capture stdout/stderr from AI CLI subprocesses in timestamped directory
+- **Cleanup**: Calls `cleanupOldTraces()` to enforce retention policy (keeps 500 most recent trace files)
 
-## Exit Codes
+## Output Formatting
 
-Exit code 2 when `summary.filesProcessed === 0 && summary.filesFailed > 0` (total failure). Exit code 1 when `summary.filesFailed > 0` (partial failure). Exit code 0 when all files succeed or no files were processed. Calls `process.exit(2)` for CLI-not-found errors.
+**formatPlan(plan: GenerationPlan): string**
+- Renders `GenerationPlan` as multi-line summary with file count, task count, complexity metrics (file count, directory depth)
+- Called before dry-run fork to display plan preview
 
-## Resource Management
-
-Calls `aiService.finalize(absolutePath)` to write telemetry run log, `progressLog.finalize()`, `tracer.finalize()`, and `cleanupOldTraces(absolutePath)` to purge old trace files when `options.trace` is enabled. All async cleanup happens before exit code determination.
-
-## Debug Mode
-
-When `options.debug` is true, logs `backend.name`, `backend.cliCommand`, `config.ai.model` via `pc.dim`, and calls `aiService.setDebug(true)` to enable subprocess prompt/response logging. The `debug` flag propagates to `loadConfig`, `discoverFiles`, and `createOrchestrator` via options parameter.
+**Dry-run summary**: Prints phase breakdown with `pc.cyan()` color formatting for counts, `pc.dim()` for file paths, shows estimated AI call count without executing

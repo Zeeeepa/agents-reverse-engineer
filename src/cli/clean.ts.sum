@@ -1,43 +1,47 @@
 ---
-generated_at: 2026-02-09T13:18:15.274Z
+generated_at: 2026-02-09T14:08:45.555Z
 content_hash: 6632cd3ce8671181e7aecae242f25345ffa0351e4e81efefd82c9b04a55865c9
-purpose: cleanCommand() deletes all generated ARE documentation artifacts (*.sum, AGENTS.md, CLAUDE.md, GENERATION-PLAN.md) wi...
+purpose: Implements `are clean` command to delete generated documentation artifacts (`.sum`, `AGENTS.md`, `CLAUDE.md`, `GENERA...
 ---
-**cleanCommand() deletes all generated ARE documentation artifacts (*.sum, AGENTS.md, CLAUDE.md, GENERATION-PLAN.md) with dry-run support and user-authored file preservation.**
+**Implements `are clean` command to delete generated documentation artifacts (`.sum`, `AGENTS.md`, `CLAUDE.md`, `GENERATION-PLAN.md`) with dry-run support and restoration of user-authored `AGENTS.local.md` files.**
 
 ## Exported Interface
 
 ```typescript
-interface CleanOptions {
-  dryRun: boolean;  // Preview deletions without executing
+export interface CleanOptions {
+  dryRun: boolean;
 }
 
-async function cleanCommand(
+export async function cleanCommand(
   targetPath: string,
   options: CleanOptions
 ): Promise<void>
 ```
 
-## Artifact Discovery Strategy
+## Core Algorithm
 
-cleanCommand() uses fast-glob (fg.glob) to discover files in parallel via Promise.all across three patterns: `**/*.sum`, `**/AGENTS.md`, `**/AGENTS.local.md`. All globs ignore `**/node_modules/**` and `**/.git/**` directories, use absolute paths, and set `dot: true` for hidden file matching.
+`cleanCommand()` orchestrates a five-stage cleanup pipeline: (1) validates `targetPath` via `access()` with `constants.R_OK`, (2) discovers artifacts via three parallel `fg.glob()` calls for `**/*.sum`, `**/AGENTS.md`, `**/AGENTS.local.md` patterns with `node_modules` and `.git` exclusions, (3) filters `AGENTS.md` files by reading content and checking for `GENERATED_MARKER` presence to distinguish ARE-generated docs from user-authored SDK documentation, (4) checks single-file artifacts (`CLAUDE.md` at project root, `.agents-reverse-engineer/GENERATION-PLAN.md`) via `access()` with `constants.F_OK`, (5) executes deletion via `unlink()` for matched files and restoration via `rename()` for `AGENTS.local.md → AGENTS.md` mappings.
 
-AGENTS.md files undergo content filtering—only files containing GENERATED_MARKER from `src/generation/writers/agents-md.js` are added to generatedAgentsFiles, while user-authored AGENTS.md files populate skippedAgentsFiles to prevent accidental deletion.
+## File Discovery Strategy
 
-Single-file artifacts (CLAUDE.md at project root, .agents-reverse-engineer/GENERATION-PLAN.md) are checked via access() with constants.F_OK and pushed to singleFiles array if present.
+Uses `fast-glob` library with absolute paths and dot-file inclusion via `{ absolute: true, onlyFiles: true, dot: true }`. Skips vendor directories via `ignore: ['**/node_modules/**', '**/.git/**']` pattern. Separates glob queries into three parallel batches (`sumFiles`, `agentsFiles`, `localAgentsFiles`) to enable independent progress tracking and filtering logic.
 
-## Deletion and Restoration Logic
+## User Content Preservation
 
-In non-dry-run mode, cleanCommand() executes unlink() on all files in the combined allFiles array (sumFiles + generatedAgentsFiles + singleFiles), incrementing deleted counter and logging errors via logger.error() for failed deletions.
+Reads each `AGENTS.md` candidate with `readFile(file, 'utf-8')` and applies substring search for `GENERATED_MARKER` (imported from `src/generation/writers/agents-md.ts`). User-authored files lacking the marker accumulate in `skippedAgentsFiles[]` array and appear in "Preserving user-authored AGENTS.md:" console section. This prevents deletion of SDK documentation or manually maintained directory overviews.
 
-AGENTS.local.md restoration reverses the rename operation from generation phase: for each localAgentsFiles entry, rename() moves it to path.join(path.dirname(localFile), 'AGENTS.md'), restoring user-defined documentation that was temporarily moved during generation.
+## Dry-Run Mode
 
-## Error Handling and Exit Codes
+When `options.dryRun === true`, displays all matched files with relative path formatting via `path.relative(resolvedPath, absPath)` but skips `unlink()` and `rename()` operations. Emits yellow-colored warning `'Dry run — no files were changed.'` via `pc.yellow()` from `picocolors`. Returns early before deletion loop.
 
-cleanCommand() validates targetPath existence via access() with constants.R_OK, exiting with process.exit(1) for ENOENT (directory not found) or EACCES/EPERM (permission denied) errors. Unhandled errors propagate via throw.
+## Error Handling
 
-## Output and Logging
+Catches `ENOENT` (directory not found) and `EACCES`/`EPERM` (permission denied) error codes during initial `access()` check and calls `logger.error()` followed by `process.exit(1)`. Deletion failures within the cleanup loop log per-file errors via `logger.error(\`Failed to delete ${relativePath(file)}: ${(err as Error).message}\`)` but continue processing remaining files. Restoration failures log similar per-file errors without aborting the batch.
 
-createLogger({ colors: true }) provides logger instance for all output. Dry-run mode displays "Files that would be deleted:" prefix, while actual mode shows deletion progress. Summary line uses pc.bold() for numeric counts and pc.green() for success messages, pc.yellow() for dry-run notifications.
+## Console Output Format
 
-relativePath() helper converts absolute paths to project-relative for user-friendly display via path.relative(resolvedPath, absPath).
+Emits multi-line summary with bold counts via `pc.bold(String(count))` pattern: `"X .sum file(s), Y AGENTS.md file(s), Z root doc(s), W AGENTS.local.md to restore"`. Final success message combines deletion and restoration counts: `pc.green(\`Deleted ${deleted} file(s), restored ${restored} AGENTS.local.md file(s).\`)`. Uses `createLogger({ colors: true })` from `src/output/logger.ts` for all output operations.
+
+## Integration with Generation Pipeline
+
+Cleanup operation reverses directory aggregation phase by deleting `AGENTS.md` files and restoring pre-generation backups (`AGENTS.local.md`). Single-file cleanup targets match root document synthesis phase outputs (`CLAUDE.md`) and planning artifacts (`GENERATION-PLAN.md`). Does not remove configuration directory (`.agents-reverse-engineer/`) or telemetry logs/traces.

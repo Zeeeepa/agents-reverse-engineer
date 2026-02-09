@@ -1,89 +1,46 @@
 ---
-generated_at: 2026-02-09T13:19:17.007Z
-content_hash: 56c6dae14255eda2bfbfbef430c0be338cd06ba354e48e29cacbe7bf56f28fdd
-purpose: UpdateOrchestrator coordinates incremental documentation updates by comparing content hashes from .sum file frontmatt...
+generated_at: 2026-02-09T14:10:11.291Z
+content_hash: e12473df086ec99a89ddbef7f84ffa9766f5e35ded335bfdc318fd153d1fb24b
+purpose: UpdateOrchestrator coordinates incremental documentation updates by comparing SHA-256 content hashes from `.sum` file...
 ---
-**UpdateOrchestrator coordinates incremental documentation updates by comparing content hashes from .sum file frontmatter against current file content, identifying changed files for re-analysis, cleaning up orphaned .sum files, and tracking affected directories for AGENTS.md regeneration.**
+**UpdateOrchestrator coordinates incremental documentation updates by comparing SHA-256 content hashes from `.sum` file YAML frontmatter against current file content, detecting changes without git diff, and tracking affected directories for `AGENTS.md` regeneration.**
 
-## Exported Types
+## Exported Interface
 
-**UpdatePlan** interface contains:
-- `filesToAnalyze: FileChange[]` - added or modified files requiring analysis
-- `filesToSkip: string[]` - unchanged files based on content hash matching
-- `cleanup: CleanupResult` - orphaned .sum files to delete
-- `affectedDirs: string[]` - directories needing AGENTS.md regeneration
-- `baseCommit: string` - base commit (unused in frontmatter mode, kept for compatibility)
-- `currentCommit: string` - current git commit hash
-- `isFirstRun: boolean` - true when no .sum files exist
+**`UpdateOrchestrator`** class orchestrates frontmatter-based change detection with constructor signature `(config: Config, projectRoot: string, options?: { tracer?: ITraceWriter; debug?: boolean })`. Exposes methods:
+- `checkPrerequisites(): Promise<void>` — validates git repository existence via `isGitRepo()`
+- `preparePlan(options?: UpdateOptions): Promise<UpdatePlan>` — discovers files, compares `content_hash` frontmatter against `computeContentHash()`, returns `UpdatePlan` with `filesToAnalyze: FileChange[]`, `filesToSkip: string[]`, `cleanup: CleanupResult`, `affectedDirs: string[]` sorted by depth descending
+- `close(): void` — no-op API compatibility stub (no database in frontmatter mode)
+- `recordFileAnalyzed()`, `removeFileState()`, `recordRun()`, `getLastRun()`, `isFirstRun()` — no-op/stub methods preserved for API compatibility with previous git-diff-based implementation
 
-## Exported Functions
+**`createUpdateOrchestrator(config, projectRoot, options?)`** factory function instantiates `UpdateOrchestrator`.
 
-**createUpdateOrchestrator**(config: Config, projectRoot: string, options?: { tracer?: ITraceWriter; debug?: boolean }): UpdateOrchestrator - factory function returning UpdateOrchestrator instance.
+**`UpdatePlan`** interface contains `filesToAnalyze: FileChange[]` (added/modified files), `filesToSkip: string[]` (unchanged via hash match), `cleanup: CleanupResult` (orphaned `.sum` files from `cleanupOrphans()`), `affectedDirs: string[]` (directories needing `AGENTS.md` regeneration), `baseCommit/currentCommit: string`, `isFirstRun: boolean` (true when `filesToSkip.length === 0`).
 
-## UpdateOrchestrator Class
+## Change Detection Algorithm
 
-Constructor accepts `config: Config`, `projectRoot: string`, and optional `tracer?: ITraceWriter` and `debug?: boolean`.
+**Hash-based comparison** replaces git diff: `readSumFile(sumPath)` extracts `contentHash` from YAML frontmatter, `computeContentHash(filePath)` calculates current SHA-256, mismatch triggers `filesToAnalyze.push({ path, status: 'modified' })`. Missing `.sum` files produce `status: 'added'`. Hash match adds file to `filesToSkip[]`.
 
-**checkPrerequisites**(): Promise<void> - validates git repository existence via `isGitRepo()`, throws Error if not a git repo.
+**Orphan cleanup** via `cleanupOrphans(projectRoot, deletedOrRenamed, dryRun)` removes `.sum` files for non-existent source files. Tracks `seenSumFiles` Set during discovery to identify stale artifacts.
 
-**preparePlan**(options: UpdateOptions = {}): Promise<UpdatePlan> - core orchestration method that:
-1. Emits `phase:start` trace event for `update-plan-creation`
-2. Calls `getCurrentCommit()` to retrieve current git commit
-3. Invokes `discoverFiles()` via `runDiscovery()` to find all source files
-4. Iterates through discovered files, reading each .sum file via `readSumFile()`
-5. Compares `computeContentHash()` result against `sumContent.contentHash` from frontmatter
-6. Populates `filesToAnalyze` with FileChange objects (status: 'added' or 'modified') for hash mismatches
-7. Populates `filesToSkip` for hash matches
-8. Calls `cleanupOrphans()` to identify orphaned .sum files
-9. Calls `getAffectedDirectories()` to determine which directories need AGENTS.md regeneration
-10. Emits `plan:created` and `phase:end` trace events
-11. Returns UpdatePlan with `isFirstRun` flag based on whether any files were skipped
+**Affected directories** computed via `getAffectedDirectories(filesToAnalyze)`, sorted by `split(path.sep).length` descending (deepest-first post-order traversal) for `AGENTS.md` regeneration from children to parents.
 
-**discoverFiles**(): Promise<string[]> - private method calling `runDiscovery()` and converting absolute paths to relative paths via `path.relative()`.
+## Trace Instrumentation
 
-**close**(): void - no-op in frontmatter mode (no database to close), kept for API compatibility.
+Emits `phase:start` event with `phase: 'update-plan-creation'` at `preparePlan()` entry, `plan:created` event with `planType: 'update'`, `fileCount`, `taskCount` (files + directories) after plan construction, `phase:end` event with `durationMs` from `process.hrtime.bigint()` nanosecond delta. Uses optional `ITraceWriter` from constructor options.
 
-**recordFileAnalyzed**(relativePath: string, contentHash: string, currentCommit: string): Promise<void> - no-op in frontmatter mode (hash stored in .sum frontmatter), kept for API compatibility.
+## File Discovery Integration
 
-**removeFileState**(relativePath: string): Promise<void> - no-op in frontmatter mode (.sum cleanup handled separately), kept for API compatibility.
+Calls `runDiscovery(projectRoot, config, { tracer, debug })` from `src/discovery/run.ts`, converts absolute paths to relative via `path.relative(projectRoot, f)` for consistent hash storage and comparison.
 
-**recordRun**(commitHash: string, filesAnalyzed: number, filesSkipped: number): Promise<number> - no-op returning 0, no run history in frontmatter mode, kept for API compatibility.
+## Git Prerequisite
 
-**getLastRun**(): Promise<undefined> - always returns undefined, no run history in frontmatter mode, kept for API compatibility.
+`checkPrerequisites()` throws `Error` if `isGitRepo()` returns false, despite frontmatter mode not requiring git for hash comparison. Requirement exists for `getCurrentCommit()` call that populates `UpdatePlan.currentCommit` (legacy compatibility field).
 
-**isFirstRun**(): Promise<boolean> - calls `preparePlan({ dryRun: true })` and returns `plan.isFirstRun`.
+## Debug Logging
 
-## Dependencies and Integration
+Conditional `console.error(pc.dim(...))` calls when `this.debug === true` report plan creation start, git commit SHA (7-char prefix), file discovery, change detection counts (`changed/unchanged/orphaned`), affected directory count.
 
-Imports `isGitRepo`, `getCurrentCommit`, `computeContentHash` from `../change-detection/index.js` for git and hash operations.
+## API Compatibility Stubs
 
-Imports `cleanupOrphans`, `getAffectedDirectories` from `./orphan-cleaner.js` for .sum file cleanup and directory tracking.
-
-Imports `readSumFile`, `getSumPath` from `../generation/writers/sum.js` to read frontmatter-based .sum files.
-
-Imports `discoverFiles as runDiscovery` from `../discovery/run.js` to find source files matching Config patterns.
-
-Imports `ITraceWriter` from `../orchestration/trace.js` for emitting trace events (`phase:start`, `phase:end`, `plan:created`).
-
-Imports `Config` from `../config/schema.js` and `UpdateOptions`, `CleanupResult` from `./types.js`.
-
-Uses `FileChange` type from `../change-detection/index.js` to represent file status ('added' or 'modified').
-
-## Change Detection Strategy
-
-Uses frontmatter-based detection rather than git diff - reads `content_hash` from each .sum file's YAML frontmatter, computes current content hash via `computeContentHash()`, and flags files with mismatched hashes for re-analysis. This approach works independently of git history, relying solely on stored hash metadata in .sum files.
-
-Tracks seen .sum files in `seenSumFiles` Set to enable orphan detection via `cleanupOrphans()`.
-
-## Trace Events
-
-Emits three trace event types:
-- `phase:start` with `phase: 'update-plan-creation'` at plan start
-- `plan:created` with `planType: 'update'`, `fileCount`, and `taskCount` after plan generation
-- `phase:end` with `phase: 'update-plan-creation'`, `durationMs`, `tasksCompleted`, `tasksFailed` at plan completion
-
-## Error Handling
-
-Wraps .sum file reading in try-catch - on read failure, adds file to `filesToSkip` array rather than throwing.
-
-Throws Error from `checkPrerequisites()` if `isGitRepo()` returns false.
+Multiple no-op methods (`recordFileAnalyzed`, `removeFileState`, `recordRun`, `getLastRun`) preserved from previous database-backed implementation. Comments indicate "no-op in frontmatter mode" and "kept for API compatibility". `close()` method exists but performs no cleanup.

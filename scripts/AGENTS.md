@@ -2,20 +2,20 @@
 
 # scripts
 
-Build automation scripts for pre-publish npm lifecycle hooks. Currently contains a single script that copies hook source files from `hooks/` to `hooks/dist/` for bundling in published packages.
+Build automation utilities for pre-publish hook file preparation. Contains a single ES module script that copies hook source files from `hooks/` to `hooks/dist/` during the npm publish lifecycle, ensuring IDE integration hooks are bundled in the distributed package.
 
 ## Contents
 
-### Build Scripts
+**[build-hooks.js](./build-hooks.js)** — Copies `.js` hook files from `hooks/` to `hooks/dist/` via `copyFileSync()`, invoked by `npm run build:hooks` during `prepublishOnly` lifecycle.
 
-**[build-hooks.js](./build-hooks.js)** — Copies hook source files (`are-check-update.js`, `are-session-end.js`, `opencode-are-check-update.js`, `opencode-are-session-end.js`) from `hooks/` to `hooks/dist/` for npm bundling. Invoked via `npm run build:hooks` or automatically during `npm run prepublishOnly`. Uses ESM path resolution (`fileURLToPath(import.meta.url)`) and synchronous file operations (`mkdirSync`, `readdirSync`, `copyFileSync`).
+## Build Integration
 
-## Execution Context
+`build-hooks.js` executes after TypeScript compilation via `npm run prepublishOnly` script chain. Resolves `projectRoot` using `dirname(fileURLToPath(import.meta.url))` for ES module compatibility. Creates output directory with `mkdirSync(recursive: true)` before copying files.
 
-Scripts run in Node.js environment during npm lifecycle phases. `build-hooks.js` executes before package publication to ensure hook files are included in the tarball. No transformation applied—hooks remain executable JavaScript.
+## File Selection
 
-## Integration Points
+Filters source directory with predicate `f.endsWith('.js') && f !== 'dist'` to process `are-check-update.js`, `are-session-end.js`, `opencode-are-check-update.js`, `opencode-are-session-end.js` while preventing recursion into output directory.
 
-- **npm lifecycle**: Triggered by `prepublishOnly` script in `package.json`
-- **Hook system**: Copies source files to `hooks/dist/` for inclusion in published package
-- **Dependencies**: Uses Node.js built-ins (`fs`, `path`, `url`) without external dependencies
+## Output Consumption
+
+Generated `hooks/dist/` directory consumed by `src/installer/operations.ts` during IDE command/hook installation for Claude Code, OpenCode, and Gemini CLI runtimes. Included in npm tarball via `package.json` files configuration.

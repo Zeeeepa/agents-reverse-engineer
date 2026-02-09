@@ -1,46 +1,57 @@
 ---
-generated_at: 2026-02-09T13:18:58.686Z
+generated_at: 2026-02-09T14:09:47.280Z
 content_hash: b7da2dd98aaa94c1463e5499788d94f552f76fe10bddcc2d61a5c3387118c770
-purpose: trace.ts implements an append-only NDJSON tracing system for debugging task and subprocess lifecycle events during co...
+purpose: src/orchestration/trace.ts implements append-only NDJSON trace event emission for debugging concurrent task/subproces...
 ---
-**trace.ts implements an append-only NDJSON tracing system for debugging task and subprocess lifecycle events during concurrent file analysis.**
+**src/orchestration/trace.ts implements append-only NDJSON trace event emission for debugging concurrent task/subprocess lifecycles across worker pools.**
 
 ## Exported Types
 
-**TraceEvent**: Discriminated union of 15 event types: `PhaseStartEvent`, `PhaseEndEvent`, `WorkerStartEvent`, `WorkerEndEvent`, `TaskPickupEvent`, `TaskDoneEvent`, `TaskStartEvent`, `SubprocessSpawnEvent`, `SubprocessExitEvent`, `RetryEvent`, `DiscoveryStartEvent`, `DiscoveryEndEvent`, `FilterAppliedEvent`, `PlanCreatedEvent`, `ConfigLoadedEvent`. Each event extends `TraceEventBase` with `seq: number`, `ts: string`, `pid: number`, `elapsedMs: number`.
+**ITraceWriter** — Public interface for trace emission with two methods: `emit(event: TraceEventPayload): void` appends a trace event with auto-populated base fields (seq, ts, pid, elapsedMs), `finalize(): Promise<void>` flushes pending writes and closes file handle, `readonly filePath: string` exposes absolute path to trace file (empty string for NullTraceWriter).
 
-**TraceEventPayload**: Type alias using `DistributiveOmit<TraceEvent, BaseKeys>` to strip auto-populated fields (`seq`, `ts`, `pid`, `elapsedMs`) from event payloads before emission.
+**TraceEvent** — Discriminated union of 14 event types sharing TraceEventBase fields (seq, ts, pid, elapsedMs):
+- PhaseStartEvent (`type: 'phase:start'`, phase, taskCount, concurrency)
+- PhaseEndEvent (`type: 'phase:end'`, phase, durationMs, tasksCompleted, tasksFailed)
+- WorkerStartEvent (`type: 'worker:start'`, workerId, phase)
+- WorkerEndEvent (`type: 'worker:end'`, workerId, phase, tasksExecuted)
+- TaskPickupEvent (`type: 'task:pickup'`, workerId, taskIndex, taskLabel, activeTasks)
+- TaskDoneEvent (`type: 'task:done'`, workerId, taskIndex, taskLabel, durationMs, success, error?, activeTasks)
+- TaskStartEvent (`type: 'task:start'`, taskLabel, phase)
+- SubprocessSpawnEvent (`type: 'subprocess:spawn'`, childPid, command, taskLabel)
+- SubprocessExitEvent (`type: 'subprocess:exit'`, childPid, command, taskLabel, exitCode, signal, durationMs, timedOut)
+- RetryEvent (`type: 'retry'`, attempt, taskLabel, errorCode)
+- DiscoveryStartEvent (`type: 'discovery:start'`, targetPath)
+- DiscoveryEndEvent (`type: 'discovery:end'`, filesIncluded, filesExcluded, durationMs)
+- FilterAppliedEvent (`type: 'filter:applied'`, filterName, filesMatched, filesRejected)
+- PlanCreatedEvent (`type: 'plan:created'`, planType, fileCount, taskCount)
+- ConfigLoadedEvent (`type: 'config:loaded'`, configPath, model, concurrency)
 
-**ITraceWriter**: Public interface exposing `emit(event: TraceEventPayload): void`, `finalize(): Promise<void>`, and `readonly filePath: string`.
+**TraceEventPayload** — Type alias `DistributiveOmit<TraceEvent, BaseKeys>` strips auto-populated fields (seq, ts, pid, elapsedMs) from TraceEvent for emit() call sites.
 
 ## Exported Functions
 
-**createTraceWriter(projectRoot: string, enabled: boolean): ITraceWriter**: Factory returning `NullTraceWriter` when `enabled` is false (zero overhead), otherwise returns `TraceWriter` writing to `.agents-reverse-engineer/traces/trace-{timestamp}.ndjson`.
+**createTraceWriter(projectRoot: string, enabled: boolean): ITraceWriter** — Factory returning NullTraceWriter when enabled=false for zero overhead, otherwise returns TraceWriter appending to `.agents-reverse-engineer/traces/trace-{timestamp}.ndjson` with ISO timestamp sanitized (colons/dots replaced by hyphens).
 
-**cleanupOldTraces(projectRoot: string, keepCount: number = 500): Promise<number>**: Removes old trace files from `.agents-reverse-engineer/traces/`, keeping only the `keepCount` most recent files sorted lexicographically by ISO timestamp. Returns count of deleted files. Mirrors pattern from `src/ai/telemetry/cleanup.ts`.
+**cleanupOldTraces(projectRoot: string, keepCount: number = 500): Promise<number>** — Deletes old trace files from `.agents-reverse-engineer/traces/`, keeping keepCount most recent files sorted by lexicographic ISO timestamp, returns deleted file count, tolerates missing directory via ENOENT check.
 
 ## Implementation Classes
 
-**NullTraceWriter**: No-op implementation with empty `emit()` and `finalize()` methods, `filePath` returns empty string. Used when `--trace` flag is absent.
+**NullTraceWriter** — No-op implementation with empty emit()/finalize() methods and empty filePath string, used when `--trace` flag absent to eliminate runtime overhead.
 
-**TraceWriter**: Real implementation using promise-chain serialization pattern (same as `PlanTracker` from `src/orchestration/plan-tracker.ts`). Fields: `seq` (monotonic counter), `nodePid` (process.pid), `startHr` (process.hrtime.bigint() anchor), `writeQueue` (promise chain), `fd` (FileHandle | null). `emit()` auto-populates `seq`, `ts` (ISO 8601), `pid`, `elapsedMs` (high-resolution delta from `startHr`), serializes to JSON line, enqueues write via `writeQueue`. `finalize()` awaits `writeQueue` then closes `fd`.
-
-## Event Categories
-
-**Phase lifecycle**: `phase:start` (includes `taskCount`, `concurrency`), `phase:end` (includes `durationMs`, `tasksCompleted`, `tasksFailed`).
-
-**Worker lifecycle**: `worker:start` (includes `workerId`, `phase`), `worker:end` (includes `tasksExecuted`).
-
-**Task lifecycle**: `task:pickup` (includes `taskIndex`, `taskLabel`, `activeTasks`), `task:done` (includes `durationMs`, `success`, optional `error`, `activeTasks`), `task:start` (non-pool tasks).
-
-**Subprocess lifecycle**: `subprocess:spawn` (includes `childPid`, `command`, `taskLabel`), `subprocess:exit` (includes `exitCode`, `signal`, `durationMs`, `timedOut`).
-
-**Orchestration events**: `retry` (includes `attempt`, `errorCode`), `discovery:start`/`end`, `filter:applied`, `plan:created`, `config:loaded`.
+**TraceWriter** — Real implementation maintaining seq counter starting at 0, nodePid from process.pid, startHr from `process.hrtime.bigint()` for elapsedMs calculation, writeQueue promise chain for serialized appends, fd FileHandle opened lazily on first emit(). The emit() method enriches partial payload with seq++, `new Date().toISOString()`, nodePid, elapsedMs computed via `Number(process.hrtime.bigint() - startHr) / 1_000_000`, serializes to `JSON.stringify(event) + '\n'`, chains write via `this.writeQueue = this.writeQueue.then(async () => {...})` pattern, opens fd via `open(filePath, 'a')` on first write after creating parent directory, swallows write errors with empty catch (trace loss acceptable). The finalize() method awaits writeQueue then closes fd if open.
 
 ## Concurrency Safety
 
-TraceWriter uses promise-chain serialization to handle concurrent writes from multiple pool workers. Each `emit()` call chains onto `writeQueue`, ensuring NDJSON lines appear in emission order despite concurrent execution. Write errors are caught and ignored (trace loss is acceptable for non-critical debugging data).
+Uses promise-chain serialization pattern identical to PlanTracker (src/orchestration/plan-tracker.ts) where writeQueue chains each append operation, ensuring NDJSON line order matches emission order despite concurrent worker pool calls. The pattern `this.writeQueue = this.writeQueue.then(async () => {...}).catch(() => {})` prevents unhandled promise rejections while maintaining serialization.
+
+## Output Format
+
+Writes append-only NDJSON to `.agents-reverse-engineer/traces/trace-{ISO-timestamp}.ndjson` where each line is a complete JSON object with mandatory base fields (seq monotonic per-run, ts ISO 8601, pid Node.js parent process, elapsedMs high-resolution delta from startHr) plus event-specific discriminated fields.
 
 ## Type System Pattern
 
-**DistributiveOmit<T, K>**: Custom utility type `T extends unknown ? Omit<T, K> : never` that correctly distributes across union members, solving issue where TypeScript's built-in `Omit<Union, Keys>` fails on discriminated unions. Used to strip base fields from `TraceEvent` union to produce `TraceEventPayload`.
+Uses DistributiveOmit helper type `T extends unknown ? Omit<T, K> : never` to correctly strip base fields across TraceEvent union members, avoiding standard `Omit<Union, Keys>` which fails to distribute over discriminated unions (documented in MEMORY.md under "Key Learnings").
+
+## Integration Points
+
+Threaded through CommandRunOptions.tracer field (see src/orchestration/types.ts) and consumed by pool workers (src/orchestration/pool.ts), AIService subprocess spawning (src/ai/service.ts), and phase runners (src/generation/orchestrator.ts, src/update/orchestrator.ts). Cleanup invoked by CLI commands post-execution alongside telemetry cleanup (src/ai/telemetry/cleanup.ts pattern).

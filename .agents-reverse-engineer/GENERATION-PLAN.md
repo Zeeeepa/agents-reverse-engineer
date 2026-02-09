@@ -71,6 +71,11 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/change-detection/index.ts`
 - [x] `src/change-detection/types.ts`
 
+### Depth 2: src/config/ (3 files)
+- [x] `src/config/defaults.ts`
+- [x] `src/config/loader.ts`
+- [x] `src/config/schema.ts`
+
 ### Depth 2: src/cli/ (7 files)
 - [x] `src/cli/clean.ts`
 - [x] `src/cli/discover.ts`
@@ -79,11 +84,6 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/cli/init.ts`
 - [x] `src/cli/specify.ts`
 - [x] `src/cli/update.ts`
-
-### Depth 2: src/config/ (3 files)
-- [x] `src/config/defaults.ts`
-- [x] `src/config/loader.ts`
-- [x] `src/config/schema.ts`
 
 ### Depth 2: src/discovery/ (3 files)
 - [x] `src/discovery/run.ts`
@@ -147,14 +147,14 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/update/orphan-cleaner.ts`
 - [x] `src/update/types.ts`
 
+### Depth 1: docs/ (1 files)
+- [x] `docs/INPUT.md`
+
 ### Depth 1: hooks/ (4 files)
 - [x] `hooks/are-check-update.js`
 - [x] `hooks/are-session-end.js`
 - [x] `hooks/opencode-are-check-update.js`
 - [x] `hooks/opencode-are-session-end.js`
-
-### Depth 1: docs/ (1 files)
-- [x] `docs/INPUT.md`
 
 ### Depth 1: scripts/ (1 files)
 - [x] `scripts/build-hooks.js`
@@ -184,8 +184,8 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `.github/workflows/AGENTS.md`
 - [x] `src/ai/AGENTS.md`
 - [x] `src/change-detection/AGENTS.md`
-- [x] `src/cli/AGENTS.md`
 - [x] `src/config/AGENTS.md`
+- [x] `src/cli/AGENTS.md`
 - [x] `src/discovery/AGENTS.md`
 - [x] `src/generation/AGENTS.md`
 - [x] `src/imports/AGENTS.md`
@@ -199,8 +199,8 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/update/AGENTS.md`
 
 ### Depth 1
-- [x] `hooks/AGENTS.md`
 - [x] `docs/AGENTS.md`
+- [x] `hooks/AGENTS.md`
 - [x] `scripts/AGENTS.md`
 
 ### Depth 0

@@ -1,22 +1,21 @@
 ---
-generated_at: 2026-02-09T13:18:26.360Z
+generated_at: 2026-02-09T14:09:03.111Z
 content_hash: 92cb6f83a396d75b45e8243e85d7068562a116a565a2c74363b0943063d5b27a
-purpose: Barrel module re-exporting static import analysis utilities for dependency tracking and documentation generation.
+purpose: src/imports/index.ts re-exports import extraction functions and types from the imports analysis module.
 ---
-**Barrel module re-exporting static import analysis utilities for dependency tracking and documentation generation.**
+**src/imports/index.ts re-exports import extraction functions and types from the imports analysis module.**
 
-## Exported Symbols
+## Exported Functions
 
-- `extractImports`: Function for analyzing import statements in a single source file
-- `extractDirectoryImports`: Function for aggregating imports across multiple files in a directory
-- `formatImportMap`: Function for serializing import data structures into human-readable format
-- `ImportEntry`: Type representing a single import statement (source module, imported symbols, import type)
-- `FileImports`: Type representing all imports for a single file
+- `extractImports(filePath: string, fileContent: string): FileImports` — Extracts import statements from a single file, returning parsed import metadata
+- `extractDirectoryImports(directoryPath: string, filePaths: string[]): Map<string, FileImports>` — Aggregates import statements across multiple files in a directory
+- `formatImportMap(importMap: Map<string, FileImports>): string` — Converts import metadata map into human-readable string format for inclusion in directory-level prompts
+
+## Exported Types
+
+- `ImportEntry` — Represents a single import statement with source module and imported symbols
+- `FileImports` — Container for all import statements extracted from a file
 
 ## Module Role
 
-This barrel module serves as the public API boundary for the imports subsystem within the ARE tool. The actual implementation resides in `./extractor.js` and `./types.js`, following the pattern of separating interface definitions from implementation logic. The imports subsystem enables ARE to track cross-file dependencies when generating AGENTS.md documentation, allowing the AI to understand coupling between modules.
-
-## Integration Context
-
-The import extraction functions are consumed by `src/generation/orchestrator.ts` during the documentation generation phase to populate dependency graphs and identify integration points between source files. The `formatImportMap` output appears in generated `.sum` files to provide AI assistants with explicit module dependency information.
+This barrel export consolidates the import analysis subsystem used in Phase 2 (directory aggregation) of the three-phase documentation pipeline. The `extractDirectoryImports()` function is called by directory prompt builders to generate import maps that appear in AGENTS.md synthesis prompts, providing dependency context for AI analysis. Implementation logic resides in `extractor.ts` and type definitions in `types.ts`.

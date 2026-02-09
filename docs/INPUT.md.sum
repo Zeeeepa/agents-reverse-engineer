@@ -1,30 +1,30 @@
 ---
-generated_at: 2026-02-09T13:19:22.176Z
+generated_at: 2026-02-09T14:10:00.402Z
 content_hash: 71675547e7ed7dc5b1c708febebf0e954ac52c258471feb19766f9b2e6dc5bec
-purpose: INPUT.md defines the original project vision for agents-reverse-engineer, documenting the brownfield documentation au...
+purpose: INPUT.md defines the original product vision for agents-reverse-engineer as a brownfield documentation tool using Rec...
 ---
-**INPUT.md defines the original project vision for agents-reverse-engineer, documenting the brownfield documentation automation tool that generates AGENTS.md files via recursive language model execution.**
+**INPUT.md defines the original product vision for agents-reverse-engineer as a brownfield documentation tool using Recursive Language Model (RLM) algorithm to generate AI assistant documentation through bottom-up directory traversal.**
 
-## Document Type
+## Vision Statement
 
-INPUT.md is a requirements and vision document (not executable code), outlining the conceptual design for the agents-reverse-engineer CLI tool before implementation.
+Documents the inception rationale: streamlining brownfield project documentation to provide agents with clear codebase overviews, enabling easier long-term maintenance alongside complementary tools (SpecKit, BMAD, GSD).
 
-## Core Workflow Description
+## Core Feature Requirements
 
-The Recursive Language Model (RLM) algorithm builds a project structure tree, executes at leaf nodes (files), generates `{filename}.sum` summaries for each file, then recursively generates AGENTS.md at each directory level from leaf to root, working backward through the tree structure.
+Specifies RLM execution pattern: build project structure tree, process leaf files first (generate `{filename}.sum` summaries), aggregate directory-level documentation recursively backward to root, produce `AGENTS.md` per directory with optional supplementary files (`ARCHITECTURE.md`, `STRUCTURE.md`, `STACK.md`, `INTEGRATIONS.md`, `INFRASTRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `PATTERNS.md`, `CONCERNS.md`).
 
-## Generated Artifact Types
+## Multi-Platform Command Interface
 
-AGENTS.md files at each directory level describe current directory content and sub-structure. Related reference documents include ARCHITECTURE.md, STRUCTURE.md, STACK.md, INTEGRATIONS.md, INFRASTRUCTURE.md, CONVENTIONS.md, TESTING.md, PATTERNS.md, and CONCERNS.md. The tool also generates CLAUDE.md files.
+Requires Claude Code command integration and equivalent alternatives for other LLM agent tools, with session-end hooks for incremental update of impacted files.
 
-## Integration Targets
+## Research Directive
 
-Compatible with Claude Code, OpenCode, and other LLM agent tools. Complementary tools referenced: SpecKit (https://github.com/github/spec-kit), BMAD (https://github.com/bmad-code-org/BMAD-METHOD), and Get Shit Done/GSD (https://github.com/glittercowboy/get-shit-done).
+Instructs detailed analysis of GSD and BMAD methodologies, focusing on brownfield project approaches, repository structure patterns, special commands, and codebase implementation details to inform ARE's architecture.
 
-## Command Interface
+## Usage Examples
 
-Primary commands: `/are-generate` and `/are-update`. Session hooks enable automatic documentation updates for impacted files at session end (see `are-session-end.js` and `opencode-are-session-end.js` in hooks/ directory).
+Demonstrates two primary commands: `/are-generate` (full documentation generation) and `/are-update` (incremental updates).
 
-## Architectural Inspiration
+## Relationship to Implementation
 
-Project structure and brownfield project approach derived from GSD methodology with elements from BMAD, as noted in the "Research" section directing analysis of both codebases for brownfield handling patterns and special commands.
+This specification document preceded implementation of the three-phase pipeline (`src/generation/orchestrator.ts`), post-order directory traversal (`getAffectedDirectories()`, depth-based sorting), file summary generation (`.sum` files via `writeSumFile()`), directory aggregation (`AGENTS.md` via `writeAgentsMd()`), and root document synthesis (`CLAUDE.md`, `GEMINI.md`, `OPENCODE.md` via `src/integration/generate.ts`).

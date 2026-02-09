@@ -1,24 +1,32 @@
 ---
-generated_at: 2026-02-09T13:18:21.271Z
+generated_at: 2026-02-09T14:08:54.154Z
 content_hash: 4c45840b650bc80b1f64e7a9fdcb91facda8d7364bf0159ba9453de1df0fcb92
-purpose: types.ts defines the core interfaces for the file discovery pipeline: FileFilter for exclusion logic, FilterResult fo...
+purpose: Defines core TypeScript interfaces for the file discovery system: FileFilter for composable exclusion predicates, Fil...
 ---
-**types.ts defines the core interfaces for the file discovery pipeline: FileFilter for exclusion logic, FilterResult for discovery outcomes, ExcludedFile for exclusion tracking, and WalkerOptions for directory traversal configuration.**
+**Defines core TypeScript interfaces for the file discovery system: FileFilter for composable exclusion predicates, FilterResult for discovery outcomes, ExcludedFile for rejection tracking, and WalkerOptions for directory traversal configuration.**
 
-## Exported Interfaces
+## Exported Types
 
-**FileFilter** - Synchronous or asynchronous predicate interface for excluding files during discovery. Contains `name: string` for filter identification and `shouldExclude(path: string, stats?: Stats): Promise<boolean> | boolean` for exclusion logic. Implemented by GitignoreFilter, BinaryFilter, VendorFilter, and CustomPatternFilter.
+**FileFilter** — Interface for discovery pipeline filters with `name: string` property and `shouldExclude(path: string, stats?: Stats): Promise<boolean> | boolean` method. Supports both synchronous and asynchronous exclusion predicates. Implemented by GitignoreFilter, BinaryFilter, VendorFilter, CustomPatternFilter.
 
-**ExcludedFile** - Record structure with `path: string` (absolute path), `reason: string` (human-readable exclusion cause), and `filter: string` (name of excluding filter). Used for tracking which filter rejected which file.
+**ExcludedFile** — Record with `path: string` (absolute path), `reason: string` (human-readable explanation), `filter: string` (name of excluding filter). Used for logging and telemetry of rejected files.
 
-**FilterResult** - Discovery outcome container with `included: string[]` (files passing all filters) and `excluded: ExcludedFile[]` (rejected files with metadata). Returned by filter chain execution.
+**FilterResult** — Discovery outcome containing `included: string[]` (files passing all filters) and `excluded: ExcludedFile[]` (rejected files with metadata). Returned by filter chain execution in `src/discovery/run.ts`.
 
-**WalkerOptions** - Configuration for directory traversal with `cwd: string` (absolute root path), optional `followSymlinks?: boolean` (default false per CONTEXT.md), and optional `dot?: boolean` (default true to include dotfiles).
+**WalkerOptions** — Directory traversal configuration with `cwd: string` (absolute root path), `followSymlinks?: boolean` (default false per symlink skip policy), `dot?: boolean` (default true to include dotfiles). Consumed by walker in `src/discovery/walker.ts`.
+
+## Design Patterns
+
+**Strategy Pattern** — FileFilter interface enables composable filter chain where each filter applies independent exclusion logic. Filters execute sequentially during discovery, short-circuiting on first exclusion match.
+
+**Filter Chain Composition** — Multiple FileFilter implementations combine via array traversal in `src/discovery/run.ts`, with ExcludedFile tracking which filter rejected each path for debugging and telemetry.
+
+## Integration Points
+
+**File Stats Usage** — Optional `stats?: Stats` parameter in `shouldExclude()` enables size-based filtering (BinaryFilter uses `maxFileSize` threshold) without forcing all filters to stat files.
+
+**Async Support** — Return type `Promise<boolean> | boolean` allows filters to perform I/O (GitignoreFilter reads `.gitignore` files, BinaryFilter reads file headers) while supporting synchronous implementations (VendorFilter uses string matching).
 
 ## Dependencies
 
-Imports `Stats` from `node:fs` for file metadata in `shouldExclude()` and `WalkerOptions`.
-
-## Design Pattern
-
-Strategy pattern via FileFilter interface enables composable filter chains where each filter independently decides exclusion based on different criteria (gitignore rules, binary detection, vendor paths, custom patterns).
+Imports `Stats` from `node:fs` for file metadata access. No other dependencies — pure type definitions consumed across discovery module (`src/discovery/walker.ts`, `src/discovery/run.ts`, `src/discovery/filters/`).

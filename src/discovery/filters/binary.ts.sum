@@ -1,31 +1,30 @@
 ---
-generated_at: 2026-02-09T13:17:44.076Z
+generated_at: 2026-02-09T14:07:59.311Z
 content_hash: 0413cc0407abd16929f8e47ccef5f2f7a1ba233c05fce4b56e6da03dabba5981
-purpose: binary.ts implements extension-based and content-based binary file detection for FileFilter integration, excluding bi...
+purpose: createBinaryFilter() implements two-phase binary file detection (extension-based fast path, content analysis fallback...
 ---
-**binary.ts implements extension-based and content-based binary file detection for FileFilter integration, excluding binary files and oversized files from documentation generation.**
+**createBinaryFilter() implements two-phase binary file detection (extension-based fast path, content analysis fallback) with configurable size limits for file discovery filtering.**
 
-## Exported Symbols
+## Exported Functions
 
-- `BINARY_EXTENSIONS: Set<string>` — Readonly set of 80+ known binary extensions (.png, .jpg, .zip, .exe, .pdf, .woff, .db, .pyc, .wasm, etc.) used for fast-path exclusion without content analysis
-- `BinaryFilterOptions` — Configuration interface with `maxFileSize?: number` (default 1MB) and `additionalExtensions?: string[]` for extending binary extension set
-- `createBinaryFilter(options?: BinaryFilterOptions): FileFilter` — Factory function returning FileFilter with `name: 'binary'` and `shouldExclude(absolutePath: string): Promise<boolean>` method
+**createBinaryFilter(options?: BinaryFilterOptions): FileFilter** — Factory function that constructs a FileFilter instance rejecting binary files and oversized files. Fast path checks file extension against BINARY_EXTENSIONS set (91 entries), slow path invokes `isBinaryFile(absolutePath)` from `isbinaryfile` library for unknown extensions. Returns object with `name: 'binary'` and async `shouldExclude(absolutePath: string): Promise<boolean>` method. File size check via `fs.stat(absolutePath).size > maxFileSize` precedes content analysis. Defaults to `maxFileSize = 1048576` (1MB). Supports `additionalExtensions` array for custom binary types (normalized to include leading dot).
 
-## Detection Strategy
+## Exported Constants
 
-createBinaryFilter implements two-phase detection:
-1. Fast path: `path.extname()` check against combined `binaryExtensions` Set (BINARY_EXTENSIONS + additionalExtensions)
-2. Slow path: For unknown extensions, calls `isBinaryFile(absolutePath)` from isbinaryfile package after `fs.stat()` size check
-3. Size threshold: Files exceeding `maxFileSize` (default DEFAULT_MAX_FILE_SIZE = 1048576 bytes) excluded before content analysis
+**BINARY_EXTENSIONS: Set<string>** — Hardcoded set of 91 file extensions known to be binary, organized into categories: images (.png, .jpg, .jpeg, .gif, .bmp, .ico, .webp, .svg, .tiff, .tif, .psd, .raw, .heif, .heic), archives (.zip, .tar, .gz, .rar, .7z, .bz2, .xz, .tgz), executables (.exe, .dll, .so, .dylib, .bin, .msi, .app, .dmg), media (.mp3, .mp4, .wav, .avi, .mov, .mkv, .flac, .ogg, .webm, .m4a, .aac, .wma, .wmv, .flv), binary documents (.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .odt, .ods, .odp), fonts (.woff, .woff2, .ttf, .eot, .otf), compiled bytecode (.class, .pyc, .pyo, .o, .obj, .a, .lib, .wasm), databases (.db, .sqlite, .sqlite3, .mdb), and miscellaneous (.ico, .icns, .cur, .deb, .rpm, .jar, .war, .ear). Used as authoritative reference for extension-based exclusion without content inspection.
+
+## Types
+
+**BinaryFilterOptions** — Configuration interface with optional `maxFileSize?: number` (file size threshold in bytes, default 1048576) and `additionalExtensions?: string[]` (custom binary extensions merged into BINARY_EXTENSIONS).
+
+## Integration Points
+
+Implements `FileFilter` interface from `../types.js` requiring `name: string` and `shouldExclude(absolutePath: string): Promise<boolean>`. Consumed by filter composition pipeline in `src/discovery/filters/index.ts`. Depends on `isbinaryfile` library for content-based binary detection and Node.js `fs.promises.stat()` for file metadata. Extension normalization via `path.extname(absolutePath).toLowerCase()` ensures case-insensitive matching.
 
 ## Error Handling
 
-shouldExclude returns true (exclude) on fs.stat() or isBinaryFile() errors, treating unreadable files as binary to prevent processing failures downstream.
+Catch block in `shouldExclude()` returns `true` (exclude) for any `fs.stat()` or `isBinaryFile()` errors, treating unreadable files as binary. No error differentiation between ENOENT, EACCES, or content analysis failures.
 
-## Extension Normalization
+## Performance Strategy
 
-createBinaryFilter normalizes additionalExtensions by prepending '.' if missing (`ext.startsWith('.') ? ext : '.${ext}'`) and lowercases all extensions via `path.extname().toLowerCase()` before Set lookup.
-
-## Integration with FileFilter
-
-Implements FileFilter interface from `../types.js`, providing `name` property for filter identification and async `shouldExclude` predicate for use in discovery.walker file filtering pipeline.
+Two-phase detection minimizes I/O overhead: extension lookup via `Set.has()` O(1) operation bypasses file system access for 91 known types. Content analysis via `isBinaryFile()` only invoked for unknown extensions after size check passes. Size check (`stats.size > maxFileSize`) gates expensive binary content heuristics.

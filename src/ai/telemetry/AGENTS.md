@@ -2,42 +2,28 @@
 
 # src/ai/telemetry
 
-Manages telemetry log lifecycle: accumulates per-call AI statistics in memory via `TelemetryLogger`, persists completed run logs as JSON files via `writeRunLog`, and enforces retention limits via `cleanupOldLogs`. All logs written to `.agents-reverse-engineer/logs/` with ISO timestamp filenames (`run-2026-02-07T12-00-00-000Z.json`).
+Serializes per-call AI service metrics to timestamped JSON run logs with automatic retention enforcement via lexicographic file deletion.
 
 ## Contents
 
-### Core Components
+**[cleanup.ts](./cleanup.ts)** — `cleanupOldLogs(projectRoot, keepCount)` deletes oldest `run-*.json` files beyond retention threshold via lexicographic sort (relies on ISO 8601 filename timestamps for chronological ordering), returns deletion count, silently succeeds when logs directory missing (ENOENT).
 
-**[cleanup.ts](./cleanup.ts)** — `cleanupOldLogs(projectRoot, keepCount)` deletes run logs exceeding retention count, sorting by filename (newest first) and removing oldest entries. Returns deleted file count or 0 if logs directory missing.
+**[logger.ts](./logger.ts)** — `TelemetryLogger` accumulates `TelemetryEntry[]` in memory with `addEntry()`, computes aggregates via `getSummary()` (totalInputTokens/totalOutputTokens/totalCacheReadTokens/totalCacheCreationTokens/totalDurationMs/totalCalls/errorCount/totalFilesRead/uniqueFilesRead), mutates last entry via `setFilesReadOnLastEntry(filesRead)` after AI service attaches file metadata, serializes via `toRunLog()` with current endTime.
 
-**[logger.ts](./logger.ts)** — `TelemetryLogger` accumulates `TelemetryEntry` objects during CLI execution. Key methods: `addEntry()` appends entries, `setFilesReadOnLastEntry()` attaches file metadata post-hoc, `getSummary()` recomputes uncached totals (`totalInputTokens`, `totalCacheReadTokens`, `errorCount`, `uniqueFilesRead`), `toRunLog()` finalizes `RunLog` with `runId`, timestamps, cloned entries, and computed summary.
+**[run-log.ts](./run-log.ts)** — `writeRunLog(projectRoot, runLog)` sanitizes `runLog.startTime` ISO timestamp by replacing `:` and `.` with `-` for cross-platform filename safety, writes pretty-printed JSON to `.agents-reverse-engineer/logs/run-${safeTimestamp}.json`, returns absolute path.
 
-**[run-log.ts](./run-log.ts)** — `writeRunLog(projectRoot, runLog)` creates logs directory if missing, sanitizes ISO timestamp to filesystem-safe filename by replacing `:` and `.` with `-`, writes pretty-printed JSON, returns absolute path.
+## Integration with AI Service
 
-## Data Flow
+`AIService` in `src/ai/service.ts` instantiates `TelemetryLogger` once per CLI command execution (runId from timestamp), invokes `addEntry()` after each subprocess call with per-invocation metrics (tokens, latency, optional error), calls `setFilesReadOnLastEntry()` when command runner attaches `FileRead[]` metadata (path/sizeBytes/linesRead), finalizes via `toRunLog()` at CLI termination, passes result to `writeRunLog()` for disk persistence, triggers `cleanupOldLogs(keepRuns)` post-write to enforce `config.yaml` retention limit (default 50).
 
-1. **Initialization**: CLI command creates `TelemetryLogger(runId)` at run start, capturing `startTime`
-2. **Accumulation**: `AIService` calls `addEntry(entry)` after each AI backend invocation; command runner may call `setFilesReadOnLastEntry()` to attach `FileRead[]` metadata to most recent entry
-3. **Persistence**: On command completion, `toRunLog()` produces final `RunLog` with computed `summary`, `writeRunLog()` serializes to `.agents-reverse-engineer/logs/run-<timestamp>.json`
-4. **Cleanup**: `cleanupOldLogs()` prunes old logs based on `keepCount` retention policy
+## File Lifecycle
+
+**Write**: Run completion triggers `writeRunLog()` → creates `.agents-reverse-engineer/logs/` via `fs.mkdir({recursive:true})` → serializes `RunLog` with 2-space JSON indentation → returns absolute path for caller logging.
+
+**Cleanup**: Post-write invokes `cleanupOldLogs(keepCount)` → reads directory → filters `run-*.json` via regex → sorts lexicographically ascending → reverses for newest-first → slices beyond threshold → unlinks via `fs.unlink()` → returns deletion count.
+
+**Retention assumptions**: Lexicographic sort correctness depends on ISO 8601 timestamp filenames (e.g., `run-2026-02-09T14-30-45-123Z.json`) where alphabetical ordering matches chronological ordering.
 
 ## Type Dependencies
 
-All modules import `TelemetryEntry`, `RunLog`, `FileRead` from `../types.js` (`src/ai/types.ts`). These types define the telemetry data schema captured by AI service calls.
-
-## Constants
-
-`LOGS_DIR` constant `.agents-reverse-engineer/logs` defined in both `cleanup.ts` and `run-log.ts`, specifying the relative path for all telemetry log storage within the project root.
-
-## Integration Points
-
-- **AIService** (`src/ai/service.ts`): calls `logger.addEntry()` after each `runSubprocess()` invocation to record token counts, duration, errors
-- **Command Runners** (`src/cli/*.ts`): instantiate `TelemetryLogger`, pass to orchestrators, finalize with `writeRunLog()`, optionally invoke `cleanupOldLogs()` based on retention config
-- **Tracing System** (`src/orchestration/trace.ts`): separate NDJSON event stream in `.agents-reverse-engineer/traces/`, distinct from run logs but complementary for debugging
-
-## Design Notes
-
-- `TelemetryLogger.getSummary()` recomputes totals on every call without caching to reflect real-time state during run
-- `uniqueFilesRead` uses `Set<string>` for path deduplication across all entries
-- `setFilesReadOnLastEntry()` exists because file metadata attachment happens asynchronously after subprocess completion
-- `cleanupOldLogs()` returns 0 silently when logs directory missing (ENOENT), enabling idempotent cleanup without premature directory creation
+Imports `TelemetryEntry`, `RunLog`, `FileRead` from `../types.js`. `TelemetryEntry` contains per-call fields (inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, durationMs, optional error, filesRead array). `RunLog` contains runId (string), startTime (ISO string), endTime (ISO string), entries (TelemetryEntry[]), summary (nine aggregate numeric fields). `FileRead` contains path (string), sizeBytes (number), linesRead (number) for file access tracking.

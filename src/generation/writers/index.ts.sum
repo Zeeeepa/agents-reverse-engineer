@@ -1,23 +1,22 @@
 ---
-generated_at: 2026-02-09T13:17:43.800Z
+generated_at: 2026-02-09T14:08:06.723Z
 content_hash: c67fdb8a7cbf2059c4a63cf8ab6f62c235724007d0288b1c4b0d3b97c532aaaa
-purpose: Barrel module exporting file-level documentation writers (writeSumFile, readSumFile, getSumPath, sumFileExists, SumFi...
+purpose: Re-exports public interfaces from `sum.ts` and `agents-md.ts` to provide centralized access to file-level summary wri...
 ---
-**Barrel module exporting file-level documentation writers (writeSumFile, readSumFile, getSumPath, sumFileExists, SumFileContent) from sum.js and directory-level documentation writer (writeAgentsMd) from agents-md.js.**
+**Re-exports public interfaces from `sum.ts` and `agents-md.ts` to provide centralized access to file-level summary writers and directory-level aggregation writers used in the three-phase generation pipeline.**
 
 ## Exported Symbols
 
-- `writeSumFile`: function for writing `.sum` file documentation (file-level summaries)
-- `readSumFile`: function for reading existing `.sum` files
-- `getSumPath`: utility for resolving `.sum` file paths given a source file path
-- `sumFileExists`: predicate checking existence of `.sum` file for a given source file
-- `SumFileContent`: type representing the structure of parsed `.sum` file contents
-- `writeAgentsMd`: function for generating `AGENTS.md` directory-level documentation
+From `sum.ts`:
+- `writeSumFile(filePath: string, content: SumFileContent, sumPath: string): Promise<void>` — writes `.sum` file with YAML frontmatter containing `generated_at`, `content_hash` (SHA-256), `purpose`, optional `critical_todos`, `related_files`
+- `readSumFile(sumPath: string): Promise<SumFileContent>` — parses existing `.sum` file from YAML frontmatter plus markdown body
+- `getSumPath(filePath: string): string` — computes `.sum` file path by appending `.sum` extension to source file path
+- `sumFileExists(filePath: string): Promise<boolean>` — checks if `.sum` file exists for given source file via `fs.access()`
+- `SumFileContent` type — discriminated union with frontmatter fields plus `summary: string` body content
 
-## Module Role
+From `agents-md.ts`:
+- `writeAgentsMd(dirPath: string, content: string): Promise<void>` — writes directory-level `AGENTS.md` with generation marker comment, preserves existing `AGENTS.md` by renaming to `AGENTS.local.md` and prepending above generated content
 
-Centralizes access to the two-tier documentation writers used in the three-phase generation pipeline: sum.js handles atomic file-level summaries written during concurrent Phase 1, while agents-md.js handles directory-level AGENTS.md aggregation during post-order Phase 2.
+## Integration Role
 
-## Integration Context
-
-Consumed by `src/generation/orchestrator.ts` during the generation workflow and by `src/update/orchestrator.ts` during incremental updates. The sum.js exports support both writing new summaries and reading existing ones for change detection via `src/change-detection/detector.ts`.
+This barrel module serves as the public API boundary for Phase 1 (file analysis) and Phase 2 (directory aggregation) output operations within `src/generation/orchestrator.ts`, exposing only the minimal writer surface needed by the concurrent worker pool (`pool.ts`) and post-order directory traversal logic.

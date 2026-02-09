@@ -1,18 +1,25 @@
 ---
-generated_at: 2026-02-09T13:18:24.498Z
+generated_at: 2026-02-09T14:08:58.481Z
 content_hash: 170a8dbec49b601e218709256527ba0dbfa43f1f69e0aac7a6e7e3f9370fcb86
-purpose: types.ts defines TypeScript interfaces for the documentation generation pipeline, specifying the contract between fil...
+purpose: Defines TypeScript interfaces for the three-phase documentation generation pipeline: `AnalysisResult` for Phase 1 fil...
 ---
-**types.ts defines TypeScript interfaces for the documentation generation pipeline, specifying the contract between file analysis (populated by LLM) and downstream processing stages.**
+**Defines TypeScript interfaces for the three-phase documentation generation pipeline: `AnalysisResult` for Phase 1 file analysis output, `SummaryMetadata` for extracted file metadata, and `SummaryOptions` for controlling summary generation behavior.**
 
-## Exported Interfaces
+## Exported Types
 
-**AnalysisResult** represents the output of LLM-driven file analysis, containing two properties: `summary: string` (generated documentation text) and `metadata: SummaryMetadata` (structured extraction).
+**`AnalysisResult`** — Represents the output of Phase 1 file analysis, populated by LLM subprocess calls via `AIService.call()`. Contains two properties:
+- `summary: string` — Generated summary text written to `.sum` files
+- `metadata: SummaryMetadata` — Structured metadata extracted during analysis
 
-**SummaryMetadata** captures structured information extracted during analysis: `purpose: string` (primary file purpose), `criticalTodos?: string[]` (security/breaking issues only), and `relatedFiles?: string[]` (tightly coupled file dependencies).
+**`SummaryMetadata`** — Structured metadata extracted from source files during analysis, written to `.sum` file YAML frontmatter alongside `generated_at` and `content_hash`. Contains:
+- `purpose: string` — Primary purpose statement for the file (mandatory)
+- `criticalTodos?: string[]` — Optional array of security/breaking issues only (not general TODOs)
+- `relatedFiles?: string[]` — Optional array of tightly coupled sibling file paths
 
-**SummaryOptions** configures summary generation behavior with `targetLength: 'short' | 'standard' | 'detailed'` (output verbosity control) and `includeCodeSnippets: boolean` (code inclusion flag).
+**`SummaryOptions`** — Configuration for controlling summary generation output format. Contains:
+- `targetLength: 'short' | 'standard' | 'detailed'` — Target verbosity level for generated summaries
+- `includeCodeSnippets: boolean` — Whether to embed code examples in output
 
-## Integration Point
+## Integration Points
 
-AnalysisResult serves as the boundary type between AI analysis subprocess (which populates these fields via host communication) and the generation orchestrator (which consumes them to build .sum files and AGENTS.md documentation). SummaryMetadata.relatedFiles drives cross-reference link generation in agents-md writer, while criticalTodos surfaces high-priority issues in final documentation.
+Referenced by `src/generation/executor.ts` for Phase 1 concurrent file analysis tasks, consumed by `src/generation/writers/sum.ts` for `.sum` file serialization with YAML frontmatter, and used by prompt builders in `src/generation/prompts/builder.ts` for configuring LLM analysis requests.

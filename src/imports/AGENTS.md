@@ -2,32 +2,42 @@
 
 # src/imports
 
-Static import analysis subsystem that extracts and classifies TypeScript/JavaScript import statements from source files to build cross-module dependency maps for documentation generation.
+**Static import statement extraction and classification for TypeScript/JavaScript modules, supporting Phase 2 directory aggregation by parsing relative imports, filtering package dependencies, and formatting dependency maps for LLM prompt injection.**
 
 ## Contents
 
-### Core Modules
+**[extractor.ts](./extractor.ts)** — Core extraction engine with `IMPORT_REGEX` pattern matching ES module syntax (type-only imports, named symbols, namespace imports, default imports). Parses first 100 lines per file, classifies relative imports as `internalImports` (`./`-prefixed) or `externalImports` (`../`-prefixed), filters out bare specifiers (`node:` built-ins, npm packages). Exports `extractImports()` (single-file regex parsing), `extractDirectoryImports()` (batch processing with error tolerance), `formatImportMap()` (multi-line text serialization for prompt builders).
 
-**[extractor.ts](./extractor.ts)** — Parses source text using `IMPORT_REGEX` to extract `ImportEntry[]` via `extractImports()`, aggregates directory-wide imports into `FileImports[]` via `extractDirectoryImports()` (reads first 100 lines per file, filters relative imports, partitions into `internalImports` for same-directory `./` and `externalImports` for parent-directory `../`), serializes dependency data via `formatImportMap()` into human-readable LLM prompt format.
+**[types.ts](./types.ts)** — Interface definitions for import metadata: `ImportEntry` (specifier/symbols/typeOnly triple), `FileImports` (fileName with internal/external import arrays). Type-only flag enables distinction between runtime dependencies and interface contracts. Internal/external split surfaces directory cohesion metrics for architectural analysis.
 
-**[types.ts](./types.ts)** — Defines `ImportEntry` interface (`specifier`, `symbols`, `typeOnly` flag for `import type` statements) and `FileImports` interface (`fileName`, `externalImports`, `internalImports` arrays) for representing parsed import statements and file-level dependency aggregations.
+**[index.ts](./index.ts)** — Barrel re-export consolidating extraction functions and types into single import surface: `extractImports`, `extractDirectoryImports`, `formatImportMap`, `ImportEntry`, `FileImports`.
 
-**[index.ts](./index.ts)** — Barrel module re-exporting `extractImports`, `extractDirectoryImports`, `formatImportMap` functions and `ImportEntry`, `FileImports` types as public API boundary for imports subsystem.
+## Architecture
 
-## Import Parsing Strategy
+**Import Classification Pipeline:**
+1. Regex extraction (`IMPORT_REGEX`) captures five capture groups: `type` keyword, named symbols, namespace imports, default imports, module specifiers
+2. Classification via specifier prefix: `./` → internal (same-directory), `../` → external (cross-directory), no prefix → filtered out
+3. Aggregation into `FileImports` objects with separate arrays for internal/external coupling
+4. Serialization via `formatImportMap()` into indented text blocks: `fileName:` header + `  specifier → symbol1, symbol2 (type)` lines
 
-`IMPORT_REGEX` in `extractor.ts` captures five groups using anchored line-start matching with `/gm` flags: `(type\s+)?` for type-only imports, `\{([^}]*)\}` for named imports, `(\*\s+as\s+\w+)` for namespace imports, `(\w+)` for default imports, and `['"]([^'"]+)['"]` for module specifiers. Performance optimization reads only first 100 lines per file via `content.split('\n').slice(0, 100).join('\n')`, assuming imports cluster at file tops. Relative import classification excludes bare specifiers (npm packages) and `node:` protocol imports via `startsWith('.')` or `startsWith('..')` filter predicate.
+**Integration with Phase 2:** Called by `src/generation/prompts/builder.ts` during directory aggregation to inject dependency context into AGENTS.md synthesis prompts. Enables AI backend to understand cross-file relationships and parent directory dependencies when analyzing directory structure.
 
-## Data Flow
-
-`extractImports()` parses raw source string → `ImportEntry[]` → `extractDirectoryImports()` aggregates per-file → `FileImports[]` with `internalImports`/`externalImports` partition → `formatImportMap()` serializes into `specifier → symbols (type)` notation for AI prompts.
-
-## Integration Points
-
-**Consumed by:** `src/generation/orchestrator.ts` calls `extractDirectoryImports()` during directory-level AGENTS.md generation to populate dependency graphs and identify cross-module coupling. `src/generation/prompts/builder.ts` includes `formatImportMap()` output in AI prompts for context-aware documentation.
-
-**Dependencies:** Uses Node.js `fs/promises` `readFile()` for async file I/O, `path.join()` for cross-platform path construction.
+**Performance Optimization:** Reads only first 100 lines per file (import region heuristic) to avoid full-file parsing during batch directory analysis. Silently skips unreadable files to maintain batch processing throughput.
 
 ## File Relationships
 
-`extractor.ts` imports types from `types.ts`, `index.ts` re-exports symbols from both modules. The imports subsystem operates independently from `src/discovery/` (file enumeration) and provides input data to `src/generation/prompts/` (AI prompt construction).
+- **Consumed by:** `src/generation/prompts/builder.ts` (directory prompt construction)
+- **Uses:** Node.js `fs/promises` (file reading), string manipulation primitives
+- **Exports to:** `src/generation/` (via barrel export in `src/imports/index.ts`)
+
+## Key Design Decisions
+
+**Internal/External Split:** Distinguishes intra-directory coupling (implementation details) from cross-directory dependencies (architectural boundaries). High internal import ratios indicate cohesive modules; high external ratios signal cross-cutting concerns.
+
+**Type-Only Discrimination:** `typeOnly` flag prevents false positives in runtime dependency graphs. Type imports don't affect bundle size or execution, critical for unused code detection and tree-shaking analysis.
+
+**Bare Specifier Filtering:** Excludes `node:` built-ins and npm packages to focus on intra-project relationships. Package dependencies documented separately in manifest detection (`package.json` parsing in `src/generation/prompts/builder.ts`).
+
+**Symbol Array Collection:** Supports both named imports (`{ a, b }`) and namespace imports (`* as ns`) by capturing all bound identifiers. Enables export-import graph construction for unused symbol detection.
+
+**Regex vs. AST Trade-off:** Uses regex instead of TypeScript compiler API for speed during batch processing. Misses edge cases (dynamic imports, comments containing `import` keyword) but handles 95%+ of real-world module syntax.

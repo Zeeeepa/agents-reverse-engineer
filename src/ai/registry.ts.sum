@@ -1,39 +1,40 @@
 ---
-generated_at: 2026-02-09T13:18:16.195Z
+generated_at: 2026-02-09T14:08:16.994Z
 content_hash: 2d34e579c6cc1815d9b994620523f38af82f9433fe179141efd6ccd6ec98d779
-purpose: registry.ts manages AI backend registration, auto-detection, and resolution for selecting Claude, Gemini, or OpenCode...
+purpose: Backend registry, factory, and auto-detection system that manages AIBackend instances, selects CLI backends via auto-...
 ---
-**registry.ts manages AI backend registration, auto-detection, and resolution for selecting Claude, Gemini, or OpenCode CLI adapters at runtime.**
+**Backend registry, factory, and auto-detection system that manages AIBackend instances, selects CLI backends via auto-detection or explicit request, and provides actionable error messages when no CLI is found.**
 
-## Exported Classes
+## Exported Types and Classes
 
-**BackendRegistry** stores `AIBackend` instances keyed by `backend.name` in insertion order (determines auto-detection priority). Exports three methods:
-- `register(backend: AIBackend): void` - adds backend to internal `Map<string, AIBackend>`
-- `get(name: string): AIBackend | undefined` - retrieves backend by name
-- `getAll(): AIBackend[]` - returns all backends in registration order
+**BackendRegistry** class manages AIBackend instances with insertion-order preservation for auto-detection priority.
 
-## Factory Function
+- `register(backend: AIBackend): void` — adds backend to registry keyed by `backend.name` property
+- `get(name: string): AIBackend | undefined` — retrieves backend by name (e.g., "claude", "gemini", "opencode")
+- `getAll(): AIBackend[]` — returns all backends in registration order (Claude > Gemini > OpenCode)
 
-**createBackendRegistry(): BackendRegistry** instantiates and populates a `BackendRegistry` with `ClaudeBackend`, `GeminiBackend`, and `OpenCodeBackend` in priority order (Claude first, OpenCode last).
+## Factory and Detection Functions
 
-## Auto-Detection
+**createBackendRegistry(): BackendRegistry** instantiates pre-populated registry with ClaudeBackend, GeminiBackend, OpenCodeBackend in priority order.
 
-**detectBackend(registry: BackendRegistry): Promise<AIBackend | null>** iterates `registry.getAll()` and calls `backend.isAvailable()` on each, returning the first available backend or `null` if none found. Priority follows registration order: Claude > Gemini > OpenCode.
+**detectBackend(registry: BackendRegistry): Promise<AIBackend | null>** iterates `registry.getAll()` calling `isAvailable()` on each backend, returning first available CLI or `null` if none found.
 
-## Resolution Logic
+**resolveBackend(registry: BackendRegistry, requested: string | 'auto'): Promise<AIBackend>** performs explicit selection or auto-detection:
+- `'auto'` mode: calls `detectBackend()`, throws `AIServiceError` with code `CLI_NOT_FOUND` and install instructions via `getInstallInstructions()` if nothing available
+- Specific name: calls `registry.get()`, checks `backend.isAvailable()`, throws `CLI_NOT_FOUND` with install instructions if unavailable or unknown
 
-**resolveBackend(registry: BackendRegistry, requested: string | 'auto'): Promise<AIBackend>** implements two-path logic:
-- If `requested === 'auto'`: calls `detectBackend()`, throws `AIServiceError` with code `CLI_NOT_FOUND` and formatted install instructions via `getInstallInstructions()` if none available
-- If `requested` is a backend name: calls `registry.get(requested)`, validates with `backend.isAvailable()`, throws `AIServiceError` if not registered or CLI not on PATH
+**getInstallInstructions(registry: BackendRegistry): string** concatenates `backend.getInstallInstructions()` from all registered backends, formatted for error messages.
 
-**getInstallInstructions(registry: BackendRegistry): string** concatenates `backend.getInstallInstructions()` output from all registered backends with double-newline separators for error message formatting.
+## Integration Points
 
-## Dependencies
+Imports AIBackend interface and AIServiceError from `./types.js`, concrete backend implementations from `./backends/claude.js`, `./backends/gemini.js`, `./backends/opencode.js`.
 
-Imports `AIBackend` interface and `AIServiceError` from `./types.js`, concrete adapters `ClaudeBackend`, `GeminiBackend`, `OpenCodeBackend` from `./backends/` directory. Uses `execFile()` child process checks (implicitly via `backend.isAvailable()`) to detect CLI presence on PATH.
+Used by `AIService` in `src/ai/service.ts` during initialization to resolve backend configuration.
 
 ## Error Handling
 
-Throws `AIServiceError('CLI_NOT_FOUND', message)` in two scenarios:
-1. Auto-detection finds no available backend - message includes multi-line install instructions from all backends
-2. Explicit backend requested but not available - message includes backend-specific `cliCommand` and install instructions
+Throws AIServiceError with code `CLI_NOT_FOUND` in two scenarios:
+1. Auto-detection finds no available CLI (includes multi-line install instructions for all backends)
+2. Explicitly requested backend not registered or CLI not found on PATH (includes single-backend install instructions)
+
+Error messages match template from RESEARCH.md for consistency across documentation.
