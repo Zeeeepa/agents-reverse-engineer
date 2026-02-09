@@ -1,0 +1,22 @@
+---
+generated_at: 2026-02-09T14:25:18.727Z
+content_hash: d9caa33615b771069b778e0f5f27babaff43c440b86055ccf94e42c0751b0632
+purpose: getVersion() reads package.json from parent directory and returns semantic version string or "unknown" fallback on er...
+---
+**getVersion() reads package.json from parent directory and returns semantic version string or "unknown" fallback on error.**
+
+## Public Interface
+
+```typescript
+export function getVersion(): string
+```
+
+Returns semantic version string (e.g., "0.4.8") from `package.json` in parent directory relative to compiled output location, or `"unknown"` if file read/parse fails.
+
+## Implementation Details
+
+Uses `import.meta.url` → `fileURLToPath()` → `dirname()` to compute `__dirname` equivalent in ES module context. Resolves `packagePath` via `join(__dirname, '..', 'package.json')` assuming compilation output in `dist/` directory with `package.json` at project root. Reads file synchronously via `readFileSync()`, parses JSON, extracts `.version` field with `|| 'unknown'` fallback for missing field. Catches all errors (ENOENT, JSON parse failures) and returns `"unknown"`.
+
+## Integration Points
+
+Consumed by `src/cli/index.ts` for `--version` flag output and installer version tracking. Used by `hooks/are-check-update.js` for comparing local installation version against npm registry response.

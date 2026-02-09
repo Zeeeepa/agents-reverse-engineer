@@ -1,65 +1,68 @@
 ---
-generated_at: 2026-02-09T14:09:40.048Z
-content_hash: 4a5107766627829bab96cbea5651382b846fd508544a3c043d367b7abf39a2b9
-purpose: types.ts defines the shared type contracts for the orchestration module: task results from AI analysis calls, aggrega...
+generated_at: 2026-02-09T14:25:32.169Z
+content_hash: 6ac4e72fce4d5bde875f091b195d159ef667222d8c871b9f30b1d4b4eb838126
+purpose: Defines shared TypeScript interfaces for orchestration components: FileTaskResult for per-file AI call metrics, RunSu...
 ---
-**types.ts defines the shared type contracts for the orchestration module: task results from AI analysis calls, aggregated run summaries with token/cost metrics, progress events for streaming UI updates, and command execution options.**
+**Defines shared TypeScript interfaces for orchestration components: FileTaskResult for per-file AI call metrics, RunSummary for aggregated command statistics, ProgressEvent for real-time task updates, and CommandRunOptions for execution configuration.**
 
 ## Exported Types
 
-**FileTaskResult** — outcome of processing a single file through AI analysis, produced by command runner for aggregation into run summaries:
-- `path: string` — relative path to source file
-- `success: boolean` — AI call completion status
-- `tokensIn: number` — non-cached input tokens consumed
-- `tokensOut: number` — output tokens generated
-- `cacheReadTokens: number` — cached input tokens consumed
-- `cacheCreationTokens: number` — tokens written to cache
-- `durationMs: number` — wall-clock duration
-- `model: string` — model identifier used
-- `error?: string` — failure message if unsuccessful
+**FileTaskResult** — Per-file AI analysis outcome carrying:
+- `path: string` — Relative source file path
+- `success: boolean` — AI call success indicator
+- `tokensIn: number` — Non-cached input tokens consumed
+- `tokensOut: number` — Output tokens generated
+- `cacheReadTokens: number` — Cache read input tokens
+- `cacheCreationTokens: number` — Cache creation input tokens
+- `durationMs: number` — Wall-clock duration in milliseconds
+- `model: string` — Model identifier used
+- `error?: string` — Optional error message on failure
 
-**RunSummary** — aggregated metrics for entire command execution (generate/update), combines per-file FileTaskResult data:
-- `filesProcessed: number` — successful file count
-- `filesFailed: number` — failed file count
-- `filesSkipped: number` — skipped file count (dry-run)
-- `totalCalls: number` — AI subprocess invocations
-- `totalInputTokens: number` — sum of tokensIn across calls
-- `totalOutputTokens: number` — sum of tokensOut across calls
-- `totalCacheReadTokens: number` — sum of cache reads
-- `totalCacheCreationTokens: number` — sum of cache writes
-- `totalDurationMs: number` — aggregate wall-clock time
-- `errorCount: number` — total errors encountered
-- `retryCount: number` — total retry attempts
-- `totalFilesRead: number` — file read count across all AI calls
-- `uniqueFilesRead: number` — deduplicated file read count by path
-- `inconsistenciesCodeVsDoc?: number` — count from quality validation
-- `inconsistenciesCodeVsCode?: number` — duplicate export detections
-- `phantomPaths?: number` — unresolved path references in AGENTS.md
-- `inconsistencyReport?: InconsistencyReport` — full validation report (undefined when checks disabled)
+**RunSummary** — Aggregated command execution statistics containing:
+- `version: string` — agents-reverse-engineer version
+- `filesProcessed: number` — Successfully processed file count
+- `filesFailed: number` — Failed file count
+- `filesSkipped: number` — Skipped file count (dry-run scenarios)
+- `totalCalls: number` — Sum of AI calls made
+- `totalInputTokens: number` — Cumulative input tokens across calls
+- `totalOutputTokens: number` — Cumulative output tokens across calls
+- `totalCacheReadTokens: number` — Cumulative cache read tokens
+- `totalCacheCreationTokens: number` — Cumulative cache creation tokens
+- `totalDurationMs: number` — Total wall-clock duration
+- `errorCount: number` — Error count
+- `retryCount: number` — Retry attempt count
+- `totalFilesRead: number` — Total file reads across calls
+- `uniqueFilesRead: number` — Deduplicated file read count
+- `inconsistenciesCodeVsDoc?: number` — Optional code-vs-doc inconsistency count
+- `inconsistenciesCodeVsCode?: number` — Optional code-vs-code inconsistency count
+- `phantomPaths?: number` — Optional phantom path reference count
+- `inconsistencyReport?: InconsistencyReport` — Optional full inconsistency report from quality checks
 
-**ProgressEvent** — streaming event emitted by command runner to progress reporter for real-time UI updates:
-- `type: 'start' | 'done' | 'error' | 'dir-done' | 'root-done'` — event discriminator
-- `filePath: string` — source file or directory path
-- `index: number` — zero-based task position in current phase
-- `total: number` — total tasks in current phase
-- `durationMs?: number` — wall-clock duration (on 'done' events)
-- `tokensIn?: number` — input tokens (on 'done' events)
-- `tokensOut?: number` — output tokens (on 'done' events)
-- `model?: string` — model identifier (on 'done' events)
-- `error?: string` — failure message (on 'error' events)
+**ProgressEvent** — Real-time task update discriminated by `type` field:
+- `type: 'start' | 'done' | 'error' | 'dir-done' | 'root-done'` — Event discriminator
+- `filePath: string` — File or directory path
+- `index: number` — Zero-based task index in current phase
+- `total: number` — Total tasks in current phase
+- `durationMs?: number` — Optional duration for `'done'` events
+- `tokensIn?: number` — Optional input tokens for `'done'` events
+- `tokensOut?: number` — Optional output tokens for `'done'` events
+- `model?: string` — Optional model identifier for `'done'` events
+- `error?: string` — Optional error message for `'error'` events
 
-**CommandRunOptions** — execution configuration merged from config.yaml defaults and CLI flags:
-- `concurrency: number` — worker pool size for parallel AI calls
-- `failFast?: boolean` — abort on first task failure
-- `debug?: boolean` — emit verbose subprocess logging
-- `dryRun?: boolean` — preview operations without writes
-- `tracer?: ITraceWriter` — NDJSON trace event writer (NullTraceWriter when --trace disabled)
-- `progressLog?: ProgressLog` — file-based progress mirror for tail -f monitoring
+**CommandRunOptions** — Execution control configuration combining config file defaults and CLI overrides:
+- `concurrency: number` — Maximum concurrent AI calls
+- `failFast?: boolean` — Stop on first error flag
+- `debug?: boolean` — Enable prompt logging flag
+- `dryRun?: boolean` — Preview-only mode flag
+- `tracer?: ITraceWriter` — Trace writer for NDJSON event logging (NullTraceWriter when disabled)
+- `progressLog?: ProgressLog` — File-based progress output for `tail -f` monitoring
 
 ## Integration Points
 
-Imports `InconsistencyReport` from `../quality/index.js` for RunSummary.inconsistencyReport field, `ProgressLog` from `./progress.js` for CommandRunOptions.progressLog, and `ITraceWriter` from `./trace.js` for CommandRunOptions.tracer.
+Imports `InconsistencyReport` from `../quality/index.js` for RunSummary.inconsistencyReport field. Imports `ProgressLog` from `./progress.js` for CommandRunOptions.progressLog field. Imports `ITraceWriter` from `./trace.js` for CommandRunOptions.tracer field.
 
-## Usage Pattern
+Used by `src/orchestration/pool.ts` (worker pool consumes CommandRunOptions, emits FileTaskResult), `src/orchestration/runner.ts` (command runner emits ProgressEvent, produces RunSummary), and `src/orchestration/progress.ts` (progress reporter consumes ProgressEvent).
 
-FileTaskResult instances flow from runner → pool → summary aggregation. ProgressEvent instances stream from runner → ProgressReporter for console UI and progress.log writes. CommandRunOptions threads through CLI command entry points → orchestrator → pool → AIService for consistent configuration.
+## Design Pattern
+
+Contract interfaces for orchestration layer following dependency inversion principle: high-level modules (runner, pool) depend on abstractions (these interfaces) rather than concrete implementations. Enables testability via mock implementations and loose coupling between orchestration components.

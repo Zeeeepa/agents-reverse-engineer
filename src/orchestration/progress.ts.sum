@@ -1,58 +1,48 @@
 ---
-generated_at: 2026-02-09T14:09:40.584Z
-content_hash: 42bc71afc0291d90fce6c22fab2e4b0092ad72e8638a0b72f11d3f01be14355e
-purpose: ProgressReporter streams real-time file/directory analysis progress to console and optional log file with ETA calcula...
+generated_at: 2026-02-09T14:25:46.489Z
+content_hash: c129325fa41c4f2e6b88188dde1cc731f4ca8446e1efa863699cf9f1ae71447d
+purpose: ProgressReporter streams real-time build log output with ETA calculation via moving-average completion times, emittin...
 ---
-**ProgressReporter streams real-time file/directory analysis progress to console and optional log file with ETA calculation via moving average of completion times, using picocolors formatting and atomic console.log output to prevent concurrent worker corruption.**
+**ProgressReporter streams real-time build log output with ETA calculation via moving-average completion times, emitting colored console lines for file/directory/root task events (start/done/error), mirroring output to `.agents-reverse-engineer/progress.log` via ProgressLog for `tail -f` monitoring in buffered environments, and printing RunSummary at end-of-run with token/file/error aggregates.**
 
 ## Exported Classes
 
-**ProgressLog** mirrors console output to `.agents-reverse-engineer/progress.log` as plain text (ANSI-stripped) using promise-chain serialization pattern for concurrent-safe writes from pool workers.
+**ProgressLog**
+- `static create(projectRoot: string): ProgressLog` — Returns ProgressLog instance writing to `<projectRoot>/.agents-reverse-engineer/progress.log`
+- `write(line: string): void` — Appends ANSI-stripped line to progress log file via promise-chain serialization (same pattern as TraceWriter), creating parent directory and opening FileHandle in truncate mode ('w') on first write, swallowing write errors (non-critical telemetry)
+- `async finalize(): Promise<void>` — Flushes pending writes via `writeQueue` promise chain and closes `fd` FileHandle
 
-- `constructor(filePath: string)` — creates instance with file path
-- `static create(projectRoot: string): ProgressLog` — constructs ProgressLog at `projectRoot/.agents-reverse-engineer/progress.log`
-- `write(line: string): void` — queues line write (opens file in 'w' mode on first call, swallows errors)
-- `finalize(): Promise<void>` — flushes queue and closes FileHandle
+**ProgressReporter**
+- `constructor(totalFiles: number, totalDirectories: number = 0, progressLog?: ProgressLog)` — Initializes reporter tracking `totalFiles`/`totalDirectories` task counts, optional ProgressLog for file mirroring, records `startTime` timestamp
+- `onFileStart(filePath: string): void` — Increments `started` counter, emits `[X/Y] ANALYZING path` line via `console.log` and `progressLog.write()` with ANSI stripping
+- `onFileDone(filePath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens = 0, cacheCreationTokens = 0): void` — Increments `completed`, appends `durationMs` to `completionTimes` sliding window (max `windowSize=10`), emits `[X/Y] DONE path Xs in/out tok model ~ETA` with `pc.green('DONE')` status
+- `onFileError(filePath: string, error: string): void` — Increments `failed`, emits `[X/Y] FAIL path error` with `pc.red('FAIL')` status
+- `onDirectoryStart(dirPath: string): void` — Increments `dirStarted`, emits `[dir X/Y] ANALYZING dirPath/AGENTS.md` with `pc.cyan('ANALYZING')` status
+- `onDirectoryDone(dirPath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens = 0, cacheCreationTokens = 0): void` — Increments `dirCompleted`, appends `durationMs` to `dirCompletionTimes` sliding window, emits `[dir X/Y] DONE dirPath/AGENTS.md Xs in/out tok model ~ETA` with `pc.blue('DONE')` status
+- `onRootDone(docPath: string): void` — Emits `[root] DONE docPath` with `pc.blue('DONE')` status for root document completion
+- `printSummary(summary: RunSummary): void` — Computes elapsed time from `startTime`, emits multi-line summary block showing `version`, `filesProcessed`, `filesFailed`, `filesSkipped`, `totalCalls`, `totalInputTokens + totalCacheReadTokens + totalCacheCreationTokens` (in), `totalOutputTokens` (out), `totalFilesRead`, `uniqueFilesRead`, `totalTime`, `errorCount`, `retryCount` with conditional coloring (green for success, red for errors, yellow for warnings)
 
-**ProgressReporter** tracks file/directory processing state and emits formatted progress lines with counters, timing, token counts, model labels, and ETA estimates.
+## Exported Functions
 
-- `constructor(totalFiles: number, totalDirectories: number = 0, progressLog?: ProgressLog)` — initializes reporter with task counts and optional file logger
-- `onFileStart(filePath: string): void` — logs `[X/Y] ANALYZING path` in cyan
-- `onFileDone(filePath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens = 0, cacheCreationTokens = 0): void` — logs `[X/Y] DONE path Xs in/out tok model ~ETA` in green, records completion time for moving average
-- `onFileError(filePath: string, error: string): void` — logs `[X/Y] FAIL path error` in red
-- `onDirectoryStart(dirPath: string): void` — logs `[dir X/Y] ANALYZING dirPath/AGENTS.md` in cyan
-- `onDirectoryDone(dirPath: string, durationMs: number, tokensIn: number, tokensOut: number, model: string, cacheReadTokens = 0, cacheCreationTokens = 0): void` — logs `[dir X/Y] DONE dirPath/AGENTS.md` in blue with ETA
-- `onRootDone(docPath: string): void` — logs `[root] DONE docPath` in blue
-- `printSummary(summary: RunSummary): void` — outputs multi-line summary with filesProcessed, filesFailed, filesSkipped, totalCalls, token counts (input/output/cacheRead/cacheCreation), totalFilesRead, uniqueFilesRead, elapsed time, errorCount, retryCount
+**stripAnsi(str: string): string**
+- Removes ANSI escape sequences via regex `/\x1b\[[0-9;]*m/g` for plain-text output to progress log file
 
-## ETA Calculation Algorithm
+## ETA Calculation Strategy
 
-ProgressReporter maintains two sliding windows (completionTimes[], dirCompletionTimes[]) with windowSize=10 for moving average calculation.
+`formatETA()` private method computes estimated time remaining via moving average of last N entries in `completionTimes` array (minimum 2 samples required), multiplying average duration by `totalFiles - completed - failed` remaining task count, formatting as `~12s remaining` or `~2m 30s remaining` with `pc.dim()` styling. `formatDirectoryETA()` applies identical logic to `dirCompletionTimes` window for directory task estimates.
 
-- `formatETA(): string` — computes file task ETA from avg(completionTimes) * (totalFiles - completed - failed), returns empty string if fewer than 2 completions, formats as `~Xs` or `~Xm Ys remaining`
-- `formatDirectoryETA(): string` — computes directory task ETA from avg(dirCompletionTimes) * (totalDirectories - dirCompleted), same formatting rules
+## Console Output Format Patterns
 
-Both methods push durationMs to respective arrays on task completion, shift oldest when array exceeds windowSize.
+File events use `[X/Y]` counter prefix showing `completed + failed` out of `totalFiles`. Directory events use `[dir X/Y]` counter showing `dirCompleted` out of `totalDirectories`. Root events use `[root]` prefix without counters. Status keywords colored via `picocolors`: cyan for ANALYZING, green for file DONE, blue for directory/root DONE, red for FAIL. Token counts formatted as `totalIn/out tok` where `totalIn = tokensIn + cacheReadTokens + cacheCreationTokens`.
 
-## Token Aggregation
+## ProgressLog Design Rationale
 
-onFileDone and onDirectoryDone compute totalIn as `tokensIn + cacheReadTokens + cacheCreationTokens` for display, showing complete prompt cache accounting (non-cached, cache read, cache creation tokens).
+Enables real-time progress monitoring via `tail -f .agents-reverse-engineer/progress.log` when CLI runs inside buffered environments like Claude Code's Bash tool where stdout interleaving causes corrupted output. Strips ANSI codes via `stripAnsi()` before writing. Uses promise-chain serialization pattern (`writeQueue = writeQueue.then(...)`) to handle concurrent writes from multiple pool workers safely, matching TraceWriter architecture. File handle opened in truncate mode ('w') on first write to prevent appending across runs.
 
-## ANSI Stripping
+## RunSummary Integration
 
-`stripAnsi(str: string): string` removes escape sequences via regex `/\x1b\[[0-9;]*m/g` for plain-text log output, preserving content structure while removing picocolors formatting.
-
-## State Management
-
-ProgressReporter tracks six counters: started, completed, failed (files); dirStarted, dirCompleted (directories); plus startTime timestamp for elapsed calculation in printSummary.
-
-## Integration Pattern
-
-Used in src/orchestration/runner.ts and src/update/orchestrator.ts: instantiate ProgressReporter with counts, call onFileStart/onFileDone/onFileError from pool worker callbacks, call onDirectoryStart/onDirectoryDone from sequential directory generators, call onRootDone from root document generator, call printSummary(RunSummary) after pipeline completion, then progressLog.finalize().
+`printSummary()` consumes RunSummary interface (from `src/orchestration/types.ts`) containing aggregated telemetry: `version` (ARE version string), `filesProcessed`/`filesFailed`/`filesSkipped` counts, `totalCalls` (AI service invocations), token counts with cache breakdown, `totalFilesRead`/`uniqueFilesRead` (source file deduplication tracking), `errorCount`, `retryCount`. Formats elapsed time as `(Date.now() - startTime) / 1000` seconds with 1 decimal precision.
 
 ## Dependencies
 
-- `node:fs/promises` (open, mkdir, FileHandle) for file I/O
-- `node:path` for log file path construction
-- `picocolors` for terminal color formatting (cyan, green, red, blue, dim, bold)
-- `RunSummary` type from `./types.js` for summary aggregation structure
+Imports `open`, `mkdir` from `node:fs/promises` for async file I/O, `FileHandle` type for fd property typing, `path` module for dirname/join operations, `picocolors` as `pc` for ANSI color functions (`dim`, `cyan`, `green`, `blue`, `red`, `bold`), `RunSummary` type from `./types.js` for summary parameter validation.

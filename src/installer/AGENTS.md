@@ -2,62 +2,95 @@
 
 # src/installer/
 
-**Orchestrates npx-based installation workflows for deploying ARE commands and session hooks to Claude Code, OpenCode, and Gemini runtime directories with support for global (~/.claude) and local (.claude) locations, interactive TTY prompts, and settings.json hook registration.**
+npx orchestration module copying ARE command templates and session lifecycle hooks to runtime-specific directories (`.claude`, `.opencode`, `.gemini`) with interactive prompts, environment-aware path resolution, settings.json hook registration, and reversible uninstallation workflows.
 
 ## Contents
 
 ### Entry Points
 
-**[index.ts](./index.ts)** — Main orchestrator exposing `runInstaller()` which parses CLI flags via `parseInstallerArgs()`, routes to `runInstall()` or `runUninstall()` based on `InstallerArgs.uninstall`, aggregates `InstallerResult[]` from operations, and re-exports all installer subsystem types/functions for external consumption.
+**[index.ts](./index.ts)** — Installer orchestrator exporting `runInstaller()` (main workflow), `parseInstallerArgs()` (CLI flag parser), `runInstall()`/`runUninstall()` (mode routing), `determineLocation()`/`determineRuntimes()` (argument normalization), `displayInstallResults()`/`displayUninstallResults()` (output formatting). Handles dual-mode operation: interactive TTY via `selectRuntime()`/`selectLocation()` from prompts.ts, non-interactive CI via flag validation (`--runtime`, `-g`/`-l` requirements). Aggregates per-runtime `InstallerResult[]` from `installFiles()`/`uninstallFiles()`, calls `verifyInstallation()`, invokes `showNextSteps()` banner.
 
-**[operations.ts](./operations.ts)** — Core installation logic implementing `installFiles()` which copies command templates via `getTemplatesForRuntime()`, writes hook files to `hooks/` or `plugins/` subdirectories, registers hooks in settings.json via `registerClaudeHooks()`/`registerGeminiHooks()`, adds bash command permissions via `registerPermissions()`, writes `ARE-VERSION` file via `writeVersionFile()`.
+### Core Installation Logic
 
-**[uninstall.ts](./uninstall.ts)** — Reverses installation via `uninstallFiles()` which deletes command templates, removes hook entries from settings.json via `unregisterClaudeHooks()`/`unregisterGeminiHooks()`, strips permissions via `unregisterPermissions()`, cleans empty directories via `cleanupEmptyDirs()`, handles legacy Gemini `.md`/`.toml` cleanup via `cleanupLegacyGeminiFiles()`.
+**[operations.ts](./operations.ts)** — Implements `installFiles()` (template/hook copying), `verifyInstallation()` (file existence check), `registerHooks()` (settings.json hook insertion), `registerPermissions()` (bash command auto-approval), `writeVersionFile()` (ARE-VERSION tracking). Delegates to `installFilesForRuntime()` for per-runtime execution: calls `getTemplatesForRuntime()` from `src/integration/templates.ts`, writes command files via `ensureDir()` + `writeFileSync()`, reads bundled hooks from `hooks/dist/` via `getBundledHookPath()`/`readBundledHook()`, invokes `registerClaudeHooks()`/`registerGeminiHooks()` for settings.json mutation. Defines `ARE_HOOKS` (SessionStart/SessionEnd hook registry), `ARE_PLUGINS` (OpenCode plugin mappings), `ARE_PERMISSIONS` (bash command patterns).
 
-### Supporting Modules
+**[uninstall.ts](./uninstall.ts)** — Reverses installation via `uninstallFiles()` (template/hook deletion), `unregisterHooks()` (settings.json cleanup), `unregisterPermissions()` (permission removal), `deleteConfigFolder()` (`.agents-reverse-engineer` deletion). Implements `uninstallFilesForRuntime()` mirroring `operations.ts` logic: removes files via `unlinkSync()`, filters hook arrays via `getHookPatterns()` command matching, triggers `cleanupEmptyDirs()` recursive pruning, calls `cleanupLegacyGeminiFiles()` for old `.md`/`.toml` formats. Uses `ARE_HOOKS`, `ARE_PLUGIN_FILENAMES`, `ARE_PERMISSIONS` constants for symmetrical install/uninstall.
 
-**[paths.ts](./paths.ts)** — Path resolution exposing `getRuntimePaths()` which returns `RuntimePaths` with environment overrides (`CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`), `resolveInstallPath()` joining project root with local config dirs, `isRuntimeInstalledLocally()`/`isRuntimeInstalledGlobally()` existence checks via `stat()`.
+### Path Resolution
 
-**[prompts.ts](./prompts.ts)** — Interactive selection implementing `selectRuntime()`/`selectLocation()` routing to `arrowKeySelect()` for TTY raw mode navigation (up/down/return keypresses with `\x1b[${n}A` cursor repositioning) or `numberedSelect()` for non-interactive fallback (readline integer input), `isInteractive()` checking `process.stdin.isTTY`, `cleanupRawMode()` restoring terminal state on exit/SIGINT.
+**[paths.ts](./paths.ts)** — Exports `getRuntimePaths()` (runtime-to-directory mapping with env overrides: `CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`), `resolveInstallPath()` (absolute path for global/local installs), `getSettingsPath()` (settings.json location), `isRuntimeInstalledLocally()`/`isRuntimeInstalledGlobally()` (installation detection via `stat()` directory checks), `getInstalledRuntimes()` (filter `getAllRuntimes()` by local presence). Returns `RuntimePaths` with `{ global: string, local: string, settingsFile: string }` fields. Uses `os.homedir()` and `path.join()` for cross-platform compatibility.
 
-**[types.ts](./types.ts)** — Type definitions including `Runtime` union (`'claude' | 'opencode' | 'gemini' | 'all'`), `Location` union (`'global' | 'local'`), `InstallerArgs` with CLI flags (runtime/global/local/uninstall/force/help/quiet), `InstallerResult` with `filesCreated`/`filesSkipped`/`errors`/`hookRegistered`/`versionWritten`, `RuntimePaths` with global/local/settingsFile paths.
+### User Interaction
 
-**[banner.ts](./banner.ts)** — Terminal output utilities providing `displayBanner()` ASCII art rendering, `showHelp()` usage documentation, `showSuccess()`/`showError()`/`showWarning()`/`showInfo()` with colored prefixes (`✓`/`✗`/`!`/`>` via picocolors), `showNextSteps()` listing seven ARE commands, `VERSION` constant from package.json via `fileURLToPath(import.meta.url)`.
+**[prompts.ts](./prompts.ts)** — Implements `selectRuntime()` (choose claude/opencode/gemini/all), `selectLocation()` (global/local), `confirmAction()` (yes/no) via `selectOption<T>()` generic router. Calls `arrowKeySelect()` for TTY environments (raw mode with `readline.emitKeypressEvents()`, ANSI cursor control, cyan highlighting via `picocolors`), `numberedSelect()` for non-TTY (numbered list + readline question). Provides `isInteractive()` predicate checking `process.stdin.isTTY`. Manages terminal state via `cleanupRawMode()` (restore cooked mode on exit/SIGINT), `rawModeActive` flag preventing leaked raw mode.
+
+### Display Utilities
+
+**[banner.ts](./banner.ts)** — Exports `displayBanner()` (7-line green ASCII "ARE" logo with version from `getVersion()`), `showHelp()` (usage text with flags: `--runtime`, `-g`/`-l`, `-u`, `--force`, `-q`, `-h`), `showSuccess()`/`showError()`/`showWarning()`/`showInfo()` (colored symbol-prefixed messages ✓ ✗ ! >), `showNextSteps()` (post-install workflow: 7 commands `/are-help` → `/are-init` → `/are-discover` → `/are-generate` → `/are-update` → `/are-specify` → `/are-clean`, GitHub docs link). All functions write directly to `console.log()` via `picocolors` formatting.
+
+### Type Definitions
+
+**[types.ts](./types.ts)** — Defines `Runtime` (`'claude' | 'opencode' | 'gemini' | 'all'`), `Location` (`'global' | 'local'`), `InstallerArgs` (CLI flags: `runtime?`, `global`, `local`, `uninstall`, `force`, `help`, `quiet`), `InstallerResult` (operation outcome with `success`, `runtime`, `location`, `filesCreated[]`, `filesSkipped[]`, `errors[]`, `hookRegistered?`, `versionWritten?`), `RuntimePaths` (path config: `global`, `local`, `settingsFile`). Used across installer subsystem for type-safe argument passing and result aggregation.
 
 ## Architecture
 
-### Dual-Mode Operation
+**Workflow Phases:**
 
-Interactive TTY mode invokes `arrowKeySelect()` which enables raw mode via `process.stdin.setRawMode(true)`, listens for keypress events, renders cyan-highlighted selection with ANSI cursor control, resolves on `'return'` key. Non-interactive mode invokes `numberedSelect()` which prints numbered list, reads integer input via readline, validates range, rejects promise on parse failure. Mode detection via `isInteractive()` checking `process.stdin.isTTY`.
+1. **Argument Parsing** — `parseInstallerArgs()` converts CLI flags to `InstallerArgs`, validates `--runtime` against `['claude', 'opencode', 'gemini', 'all']`, defaults `uninstall: false`.
 
-### Hook Registration Strategy
+2. **Mode Selection** — `runInstaller()` checks `args.help` → `showHelp()` + exit, detects interactive via `isInteractive()`, prompts via `selectRuntime()`/`selectLocation()` for missing values, enforces non-interactive flag requirements (`--runtime` + location flag).
 
-`registerClaudeHooks()` parses existing settings.json as `SettingsJson`, initializes `hooks.SessionStart`/`hooks.SessionEnd` arrays if missing, appends `HookEvent` objects containing `{ type: 'command', command: 'node <runtimeDir>/hooks/<filename>' }` for each `ARE_HOOKS` entry not matching existing commands via substring search, writes JSON with 2-space indent. `registerGeminiHooks()` follows identical logic but uses flat `GeminiHook` objects with name/type/command fields. `registerPermissions()` merges `ARE_PERMISSIONS` bash patterns into `permissions.allow` array for auto-approval of `npx agents-reverse-engineer@latest` commands and `tail`/`rm` operations on progress.log.
+3. **Runtime Expansion** — `determineRuntimes()` expands `'all'` to `['claude', 'opencode', 'gemini']` via `getAllRuntimes()`, wraps single runtime.
 
-### Uninstall Reversal
+4. **Installation** — `runInstall()` per runtime: calls `installFiles()` → `installFilesForRuntime()` → writes templates via `getTemplatesForRuntime()` + `ensureDir()` + `writeFileSync()`, reads bundled hooks via `getBundledHookPath()`/`readBundledHook()`, registers hooks via `registerClaudeHooks()`/`registerGeminiHooks()` settings.json mutation, adds permissions via `registerPermissions()`, writes `ARE-VERSION` via `writeVersionFile()`. Verifies via `verifyInstallation()` file existence checks. Displays via `displayInstallResults()` aggregating counts.
 
-`uninstallFilesForRuntime()` mirrors installation by extracting template paths via `.split('/').slice(1).join('/')` to strip runtime prefix, deleting via `unlinkSync()`, calling `unregisterHooks()`/`unregisterPermissions()` which filter settings.json arrays to remove entries matching `getHookPatterns()` (includes current and legacy command formats), cleaning empty structures, triggering recursive empty directory cleanup via `cleanupEmptyDirs()` stopping at runtime roots (`.claude`, `.opencode`, `.gemini`). `deleteConfigFolder()` removes `.agents-reverse-engineer` directory for local installations only via `rmSync()` with `recursive: true`.
+5. **Uninstallation** — `runUninstall()` per runtime: calls `uninstallFiles()` → `uninstallFilesForRuntime()` → deletes templates/hooks via `unlinkSync()`, unregisters hooks via `unregisterClaudeHooks()`/`unregisterGeminiHooks()` array filtering, removes permissions via `unregisterPermissions()`, cleans empty directories via `cleanupEmptyDirs()`, deletes legacy formats via `cleanupLegacyGeminiFiles()`. Removes `.agents-reverse-engineer` via `deleteConfigFolder()` for local installs. Displays via `displayUninstallResults()`.
 
-### Template Integration
+**Settings.json Mutation:**
 
-`operations.ts` and `uninstall.ts` both import `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` from `../integration/templates.js` for runtime-specific command definitions. Templates contain `name`, `path` (destination with runtime prefix), and `content` fields. Operations module writes files via `ensureDir()` + `writeFileSync()`, uninstall module deletes via `unlinkSync()` after path stripping.
+Claude Code uses `SettingsJson` schema with `hooks: { SessionStart: HookEvent[], SessionEnd: HookEvent[] }` where `HookEvent = { hooks: SessionHook[] }` and `SessionHook = { type: 'command', command: string }`. Hook commands formatted as `node <runtimeDir>/hooks/<filename>`.
+
+Gemini uses `GeminiSettingsJson` with flatter `hooks: { SessionStart: GeminiHook[], SessionEnd: GeminiHook[] }` where `GeminiHook = { name, type: 'command', command }`.
+
+Both implementations use JSON parse-modify-stringify cycle preserving unknown fields via `[key: string]: unknown` index signature.
+
+**Path Resolution Strategy:**
+
+`getRuntimePaths()` applies environment overrides: `CLAUDE_CONFIG_DIR` overrides `~/.claude`, `OPENCODE_CONFIG_DIR` overrides `XDG_CONFIG_HOME/opencode` or `~/.config/opencode`, `GEMINI_CONFIG_DIR` overrides `~/.gemini`. `resolveInstallPath()` returns global path for `location === 'global'`, joins `projectRoot` + local path for `location === 'local'`.
+
+**Terminal State Management:**
+
+`arrowKeySelect()` enables raw mode via `process.stdin.setRawMode(true)`, registers `keypress` listener handling `up`/`down`/`return`/`Ctrl+C`, renders via ANSI escape codes (`\x1b[${n}A` cursor up, `\x1b[2K` clear line), highlights selected with `pc.cyan()`. `cleanupRawMode()` restores cooked mode via `setRawMode(false)` + `pause()`, registered on `process.on('exit')` and `process.on('SIGINT')` to prevent leaked raw mode.
+
+**Bundled Hook Strategy:**
+
+`getBundledHookPath()` resolves via `fileURLToPath(import.meta.url)` + `../../hooks/dist/${hookName}` relative to `dist/installer/operations.js` location. Hooks populated by `npm run build:hooks` during `prepublishOnly`. Claude/Gemini write to `<basePath>/hooks/<filename>`, OpenCode writes to `<basePath>/plugins/<destFilename>`.
+
+## Integration Points
+
+**Depends on:**
+- `src/integration/templates.ts` — `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` for command file templates
+- `src/version.ts` — `getVersion()` for package version display in banner and ARE-VERSION file
+- `picocolors` — Color formatting for terminal output
+- `readline` — Keypress events and question interface
+
+**Consumed by:**
+- `src/cli/index.ts` — Invokes installer via npx entry point
+- IDE runtimes — Read installed commands/hooks from `.claude/`, `.opencode/`, `.gemini/` directories
+
+**Produces:**
+- Command templates at `<basePath>/commands/<name>/<filename>` or `<basePath>/skills/<name>/<filename>` (Claude)
+- Hook files at `<basePath>/hooks/<filename>` (Claude/Gemini)
+- Plugin files at `<basePath>/plugins/<filename>` (OpenCode)
+- `ARE-VERSION` file at `<basePath>/ARE-VERSION` tracking installed package version
+- Mutated `settings.json` with registered hooks and bash permissions
 
 ## Configuration Constants
 
-**ARE_HOOKS** (operations.ts, uninstall.ts) — Defines `HookDefinition[]` with `event: 'SessionStart' | 'SessionEnd'` and `filename` fields (currently empty array, both hooks commented out due to issues). Must match between modules for symmetrical install/uninstall.
+**ARE_HOOKS** (operations.ts, uninstall.ts) — `HookDefinition[]` registry defining SessionStart/SessionEnd hooks with filenames `are-check-update.js`, `are-session-end.js`. Currently empty in operations.ts (both entries commented out), defined in uninstall.ts for cleanup.
 
-**ARE_PLUGINS** (operations.ts) — Defines `PluginDefinition[]` mapping `srcFilename` (bundled hooks with `opencode-` prefix) to `destFilename` (target in `.opencode/plugins/`), currently contains `opencode-are-check-update.js` → `are-check-update.js`.
+**ARE_PLUGINS** (operations.ts) — `PluginDefinition[]` mapping OpenCode bundled hooks (`opencode-are-check-update.js`) to target filenames (`are-check-update.js` in `.opencode/plugins/`). Session-end plugin commented out.
 
-**ARE_PERMISSIONS** (operations.ts, uninstall.ts) — Defines bash command patterns for Claude Code auto-approval: `npx agents-reverse-engineer@latest` with subcommands (init/discover/generate/update/clean), `tail -5`/`rm -f` for `.agents-reverse-engineer/progress.log`. Must match between modules.
+**ARE_PERMISSIONS** (operations.ts, uninstall.ts) — `string[]` bash command patterns auto-approved in Claude Code: `npx agents-reverse-engineer@latest <cmd>` (init/discover/generate/update/clean), `tail -5 .agents-reverse-engineer/progress.log`, `rm -f .agents-reverse-engineer/progress.log`.
 
-## File Relationships
-
-`index.ts` depends on `operations.ts` (`installFiles`, `verifyInstallation`), `uninstall.ts` (`uninstallFiles`, `deleteConfigFolder`), `paths.ts` (`getRuntimePaths`, `getAllRuntimes`, `resolveInstallPath`), `prompts.ts` (`selectRuntime`, `selectLocation`, `isInteractive`), `banner.ts` (display functions, VERSION). `operations.ts` and `uninstall.ts` share dependency on `paths.ts` for path resolution, `types.ts` for shared interfaces, `../integration/templates.js` for template arrays. `prompts.ts` imports types from `types.ts` for type-safe selection return values. `banner.ts` reads package.json via ESM `import.meta.url` resolution with `fileURLToPath()`.
-
-## Result Aggregation Pattern
-
-`InstallerResult.filesCreated` tracks successfully written files during install, repurposed to track deleted files during uninstall. `InstallerResult.hookRegistered` indicates hook registration success during install, repurposed to indicate hook unregistration during uninstall. `InstallerResult.filesSkipped` tracks existing files skipped without `--force` flag during install, non-existent files during uninstall. `InstallerResult.errors` accumulates error strings from file operation failures or JSON parsing errors.
-
-## Terminal State Management
-
-`prompts.ts` maintains module-level `rawModeActive` flag for cleanup coordination. `cleanupRawMode()` restores terminal via `process.stdin.setRawMode(false)` and `process.stdin.pause()` when `rawModeActive && process.stdin.isTTY`, registered on `process.on('exit')` and `process.on('SIGINT')` to prevent raw mode leakage on interrupt or normal exit. `arrowKeySelect()` wraps raw mode setup in try/catch calling `cleanupRawMode()` before rethrowing to prevent terminal corruption.
+**CONFIG_DIR** (uninstall.ts) — Set to `.agents-reverse-engineer`, matches `src/config/loader.ts`.
