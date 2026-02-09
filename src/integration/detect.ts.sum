@@ -1,27 +1,24 @@
 ---
-generated_at: 2026-02-09T17:45:18.937Z
+generated_at: 2026-02-09T21:29:23.776Z
 content_hash: f2c64d262c35364a46b10b33f9d740d89cb81adccc17d12081bd23269592cea1
-purpose: detectEnvironments() and hasEnvironment() identify which AI coding assistant environments (Claude Code, OpenCode, Aid...
+purpose: detectEnvironments() discovers AI coding assistant installations by checking for Claude Code (`.claude/` or `CLAUDE.m...
 ---
-**detectEnvironments() and hasEnvironment() identify which AI coding assistant environments (Claude Code, OpenCode, Aider) exist in a project by checking for their configuration directories and marker files.**
+**detectEnvironments() discovers AI coding assistant installations by checking for Claude Code (`.claude/` or `CLAUDE.md`), OpenCode (`.opencode/`), and Aider (`.aider.conf.yml` or `.aider/`) configuration artifacts.**
 
 ## Exported Functions
 
-**detectEnvironments(projectRoot: string): DetectedEnvironment[]**
-Returns array of all detected AI assistant environments in the given project root. Checks for Claude Code (`.claude/` directory OR `CLAUDE.md` file), OpenCode (`.opencode/` directory), and Aider (`.aider.conf.yml` file OR `.aider/` directory). Returns `DetectedEnvironment[]` with `type`, `configDir`, and `detected: true` fields.
+`detectEnvironments(projectRoot: string): DetectedEnvironment[]` returns array of detected AI assistant environments by testing existence of configuration directories and files via `existsSync()`. Checks Claude Code markers (`.claude` directory OR `CLAUDE.md` file), OpenCode marker (`.opencode` directory), and Aider markers (`.aider.conf.yml` file OR `.aider` directory). Each detected environment produces `DetectedEnvironment` object with `type`, `configDir`, and `detected: true` properties.
 
-**hasEnvironment(projectRoot: string, type: EnvironmentType): boolean**
-Returns true if the specified `EnvironmentType` ('claude' | 'opencode' | 'aider') is present in the project. Delegates to `detectEnvironments()` and filters results.
+`hasEnvironment(projectRoot: string, type: EnvironmentType): boolean` returns true if specified environment type exists in project root. Delegates to `detectEnvironments()` and tests result array via `some()` predicate matching `env.type === type`.
 
 ## Detection Logic
 
-detectEnvironments() uses `existsSync()` from `node:fs` to check for:
-- **Claude Code**: `path.join(projectRoot, '.claude')` OR `path.join(projectRoot, 'CLAUDE.md')`
-- **OpenCode**: `path.join(projectRoot, '.opencode')`
-- **Aider**: `path.join(projectRoot, '.aider.conf.yml')` OR `path.join(projectRoot, '.aider')`
+Claude detection uses dual-path OR logic: `.claude/` directory existence OR `CLAUDE.md` file existence both trigger detection with `configDir: '.claude'` in result. OpenCode requires `.opencode/` directory existence. Aider uses dual-path OR logic: `.aider.conf.yml` file existence OR `.aider/` directory existence both trigger detection with `configDir: '.aider'` in result.
 
-All detected environments return `configDir` values: `'.claude'`, `'.opencode'`, or `'.aider'`.
+## Path Resolution
 
-## Type Imports
+All checks use `path.join(projectRoot, relativePath)` for absolute path construction passed to `existsSync()`. No recursive traversal or parent directory scanning—only direct children of `projectRoot` tested.
 
-Imports `DetectedEnvironment` and `EnvironmentType` from `./types.js`. `EnvironmentType` discriminates the `type` field returned in detection results.
+## Type Dependencies
+
+Imports `DetectedEnvironment` interface and `EnvironmentType` union type from `./types.js`. `EnvironmentType` expected to constrain values `'claude' | 'opencode' | 'aider'` based on detection logic branches.

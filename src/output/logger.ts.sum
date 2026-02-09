@@ -1,48 +1,42 @@
 ---
-generated_at: 2026-02-09T17:45:43.345Z
+generated_at: 2026-02-09T21:29:52.450Z
 content_hash: d8d7ef7e66d133a389b91d83401f8f63fdcdc9e43d3c6bd39a37e9100f11a118
-purpose: logger.ts provides terminal output formatting with optional picocolors styling, exporting createLogger() and createSi...
+purpose: Terminal logging interface with picocolors-based output formatting for CLI progress reporting, file discovery, and er...
 ---
-**logger.ts provides terminal output formatting with optional picocolors styling, exporting createLogger() and createSilentLogger() factories for CLI messages.**
+**Terminal logging interface with picocolors-based output formatting for CLI progress reporting, file discovery, and error messages.**
 
-## Exported Interfaces
+## Exported Types
 
-**Logger** defines six methods for CLI output:
-- `info(message: string): void` — informational messages
-- `file(path: string): void` — discovered file paths
-- `excluded(path: string, reason: string, filter: string): void` — excluded files with reasoning
-- `summary(included: number, excluded: number): void` — discovery count summary
-- `warn(message: string): void` — warning messages
-- `error(message: string): void` — error messages
+`Logger` interface defines six output methods: `info(message: string): void` for general messages, `file(path: string): void` for discovered files, `excluded(path: string, reason: string, filter: string): void` for skipped files with justification, `summary(included: number, excluded: number): void` for discovery totals, `warn(message: string): void` for warnings, `error(message: string): void` for errors.
 
-**LoggerOptions** configures logger instances:
-- `colors: boolean` — enables/disables ANSI color codes (default true)
+`LoggerOptions` interface specifies `colors: boolean` configuration (defaults to `true` per JSDoc).
+
+`ColorFunctions` internal interface wraps five picocolors methods: `green`, `dim`, `red`, `bold`, `yellow`, each accepting `string` and returning `string`.
 
 ## Factory Functions
 
-**createLogger(options: LoggerOptions): Logger** constructs color-aware logger writing to console.log/warn/error with picocolors formatting when `options.colors === true`:
-- `file()` outputs `green("  +") + " " + path`
-- `excluded()` outputs `dim("  -") + " " + path + dim(" (reason: filter)")`
-- `summary()` outputs `bold("Discovered N files") + dim(" (M excluded)")`
-- `warn()` outputs `yellow("Warning: ") + message`
-- `error()` outputs `red("Error: ") + message`
-- `info()` outputs plain `message`
+`createLogger(options: LoggerOptions): Logger` returns configured logger instance. When `options.colors` is `true`, assigns `picocolors` to `ColorFunctions` variable `c`; when `false`, assigns `noColor` identity function wrapper. Implements output format specification:
+- `file`: renders `c.green('  +') + ' ' + path`
+- `excluded`: renders `c.dim('  -') + ' ' + path + c.dim(\` (\${reason}: \${filter})\`)`
+- `summary`: renders `c.bold(\`\\nDiscovered \${included} files\`) + c.dim(\` (\${excluded} excluded)\`)`
+- `warn`: renders `c.yellow('Warning: ') + message` via `console.warn()`
+- `error`: renders `c.red('Error: ') + message` via `console.error()`
 
-**createSilentLogger(): Logger** returns no-op Logger instance with all methods bound to empty function, used for testing or programmatic usage suppressing output.
+`createSilentLogger(): Logger` returns no-op logger for testing. Creates `noop = (): void => {}` and assigns to all six Logger methods.
 
-## Color System
+## Color Mode Abstraction
 
-**ColorFunctions** interface abstracts picocolors API with five transform methods: `green`, `dim`, `red`, `bold`, `yellow`. When `options.colors === false`, logger uses **noColor** object mapping all transforms to **identity(s: string): string** pass-through function preserving original strings unchanged.
+`noColor` constant implements `ColorFunctions` with `identity` function for all five color methods. `identity` function returns input string unchanged: `(s: string): string => s`.
+
+Conditional logic `options.colors ? pc : noColor` enables compile-time type safety for color-enabled/disabled paths without runtime string inspection.
 
 ## Output Format Specification
 
-Logger implements CONTEXT.md human-readable format with specific prefixes and styling:
-- Discovered files: `"  +"` prefix in green
-- Excluded files: `"  -"` prefix dimmed with parenthetical reason
-- Summary line: bold count followed by dimmed exclusion count
-- Warnings: `"Warning: "` prefix in yellow
-- Errors: `"Error: "` prefix in red
+References CONTEXT.md for human-readable format rules:
+- File discovery prefixes: `  +` (green) for included, `  -` (dim) for excluded
+- Summary format: bold count + dim excluded count with leading newline
+- Error/warning prefixes: `Error:` (red), `Warning:` (yellow)
 
-## Dependencies
+## Integration Points
 
-Imports `picocolors` as `pc` for ANSI color code generation. No other external dependencies beyond Node.js built-in `console` object.
+Consumed by CLI commands (discover, generate, update) for terminal progress reporting. Used by `src/discovery/run.ts` for file enumeration logging and `src/orchestration/progress.ts` for phase execution updates.

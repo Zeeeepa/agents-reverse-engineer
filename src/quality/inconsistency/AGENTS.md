@@ -2,49 +2,42 @@
 
 # src/quality/inconsistency
 
-Detects and reports three categories of code-documentation discrepancies: exported symbols missing from `.sum` summaries (code-vs-doc), duplicate exports across files (code-vs-code), and unresolvable path references in `AGENTS.md` (phantom-paths).
+**Detects three classes of code-documentation drift: code-vs-doc (exports missing from .sum files), code-vs-code (duplicate symbol exports within directory scope), and phantom-paths (broken file references in AGENTS.md), aggregating findings into structured InconsistencyReport objects with plain-text CLI formatting.**
 
 ## Contents
 
-### Validators
+### Detection Modules
 
-**[code-vs-doc.ts](./code-vs-doc.ts)** — Exports `extractExports()` (regex-based identifier extraction via `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`) and `checkCodeVsDoc()` (compares source exports against `SumFileContent.summary` via substring matching, returns `CodeDocInconsistency` with `missingFromDoc` array or `null`).
+**[code-vs-doc.ts](./code-vs-doc.ts)** — `extractExports()` extracts identifiers from TypeScript/JavaScript source via regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`, `checkCodeVsDoc()` compares extracted symbols against SumFileContent.summary substring presence, returns CodeDocInconsistency with `missingFromDoc[]` when exports absent from documentation.
 
-**[code-vs-code.ts](./code-vs-code.ts)** — Exports `checkCodeVsCode()` aggregating exports across scoped file groups into `Map<symbol, paths[]>`, returns `CodeCodeInconsistency[]` for symbols appearing in multiple files with `pattern: 'duplicate-export'`.
+**[code-vs-code.ts](./code-vs-code.ts)** — `checkCodeVsCode()` aggregates exports via `Map<string, string[]>` across scoped file group, returns CodeCodeInconsistency array flagging symbols exported from multiple files with `pattern: 'duplicate-export'` sentinel, relies on caller to enforce per-directory scoping.
 
-**[reporter.ts](./reporter.ts)** — Exports `buildInconsistencyReport()` (aggregates `Inconsistency[]` into `InconsistencyReport` with per-type/per-severity summary counts) and `formatReportForCli()` (renders plain text output with severity tags `[ERROR]`, `[WARN]`, `[INFO]` and type-discriminated path formatting).
-
-## Validation Strategy
-
-**Code-vs-Doc:** Regex extraction from source followed by case-sensitive substring search in `.sum` summary text. Does not use AST analysis, yielding false negatives for destructured/namespace/dynamic exports and prose mentions unrelated to API surface.
-
-**Code-vs-Code:** Symbol-name deduplication across per-directory file groups. Caller must scope input to prevent false positives from legitimate cross-directory symbol reuse (e.g., multiple `index.ts` files exporting `Config`).
-
-**Phantom Paths:** Not implemented in this directory. Handled by `../phantom-paths/validator.ts` which extracts markdown links, backtick paths, and prose-embedded paths from `AGENTS.md`, resolves via `existsSync()` with `.ts`/`.js` fallback.
+**[reporter.ts](./reporter.ts)** — `buildInconsistencyReport()` aggregates Inconsistency discriminated union into InconsistencyReport with summary counts across type/severity dimensions, `formatReportForCli()` renders plain-text output without picocolors dependency for testability.
 
 ## File Relationships
 
-`code-vs-code.ts` imports `extractExports()` from `code-vs-doc.ts` for symbol extraction reuse. `reporter.ts` consumes discriminated union `Inconsistency` (from `../types.ts`) unifying `CodeDocInconsistency`, `CodeCodeInconsistency`, and `PhantomPathInconsistency`. Orchestrator in `../index.ts` invokes validators and passes results to `buildInconsistencyReport()` → `formatReportForCli()` pipeline.
+code-vs-code.ts imports `extractExports()` from code-vs-doc.ts for shared regex-based export extraction. Both detection modules return type-specific inconsistency objects (CodeDocInconsistency, CodeCodeInconsistency) consumed by reporter.ts via Inconsistency discriminated union. Reporter aggregates findings from both modules into unified InconsistencyReport structure with metadata (timestamp, projectRoot, filesChecked, durationMs) and typed summary counts.
 
 ## Behavioral Contracts
 
-**Export extraction pattern:** `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` matches line-start whitespace, `export` keyword, optional `default`, declaration keyword (`function`/`class`/`const`/`let`/`var`/`type`/`interface`/`enum`), captures identifier `(\w+)`.
-
-**CLI output format:**
+### Export Extraction Regex
+```regex
+/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm
 ```
-=== Inconsistency Report ===
-Checked 42 files in 150ms
-Found 3 issue(s)
+Captures identifiers from `export function`, `export const`, `export default class`, `export type`, `export interface`, `export enum`. Misses destructured exports (`export const { foo, bar } = obj`), namespace exports (`export * as ns`), re-exports (`export { foo } from './other'`), dynamic exports (`module.exports`), multi-line declarations.
 
-[ERROR] Documentation out of sync: 2 exports undocumented
-  File: src/foo/bar.ts
+### Inconsistency Type Discriminants
+- `code-vs-doc`: requires `filePath`, `sumPath`, `details.missingFromDoc[]`
+- `code-vs-code`: requires `files[]`, `pattern: 'duplicate-export'`
+- `phantom-path`: requires `agentsMdPath`, `details.referencedPath`
 
-[WARN] Symbol "Config" exported from 2 files
-  Files: src/config/a.ts, src/config/b.ts
-```
+### Severity Levels
+Mapped to CLI tags: `'error'` → `'[ERROR]'`, `'warning'` → `'[WARN]'`, `'info'` → `'[INFO]'`
 
-Human-readable severity tags followed by description and type-specific paths (code-vs-doc shows `filePath`, code-vs-code shows `files.join(', ')`, phantom-path shows `agentsMdPath` and `details.referencedPath`).
+## Detection Limitations
 
-## Known Limitations
+**code-vs-doc**: Substring matching (`sumText.includes(e)`) yields false negatives when identifier appears in prose unrelated to API surface. No AST analysis or semantic validation.
 
-Regex-based extraction misses destructured exports (`export const { foo } = obj`), namespace exports (`export * as Utils from './utils'`), dynamic exports (`export { [computedName]: value }`), re-exports with renaming (`export { foo as bar } from './mod'`). No AST analysis to distinguish intentional duplication (interface/implementation pairs, test fixtures) from architectural violations. Substring matching yields false negatives when prose mentions symbols in non-API contexts.
+**code-vs-code**: Name-only comparison without AST analysis cannot distinguish intentional duplication (facade pattern, barrel exports, interface/implementation pairs) from unintended collisions. Requires caller-enforced per-directory scoping to prevent false positives across module boundaries.
+
+**Shared**: Regex-based extraction misses complex export patterns (destructured, namespace, dynamic). Both modules operate as pure heuristics without AI service calls.

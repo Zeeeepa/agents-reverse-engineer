@@ -1,38 +1,28 @@
 ---
-generated_at: 2026-02-09T17:45:04.544Z
+generated_at: 2026-02-09T21:28:55.435Z
 content_hash: c9e1640f6cab122c45bb91f9b8b1b4fa241b6cde4df7c05f08be030c428e0cc1
-purpose: `collector.ts` exports `collectAgentsDocs()` and `collectAnnexFiles()` for recursive traversal of the project tree to...
+purpose: collector.ts provides recursive directory traversal functions to collect all `AGENTS.md` and `.annex.md` files from a...
 ---
-**`collector.ts` exports `collectAgentsDocs()` and `collectAnnexFiles()` for recursive traversal of the project tree to aggregate `AGENTS.md` and `.annex.md` files into sorted arrays of relative paths and content.**
+**collector.ts provides recursive directory traversal functions to collect all `AGENTS.md` and `.annex.md` files from a project tree, returning sorted arrays of relative paths and content while skipping vendor/build/meta directories.**
 
 ## Exported Functions
 
-**`collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>`**
-Recursively walks `projectRoot` starting from the top level, collecting all files named exactly `AGENTS.md`. Returns `AgentsDocs` array sorted alphabetically by `relativePath` (computed via `path.relative(projectRoot, filePath)`). Skips directories in `SKIP_DIRS` set. Gracefully handles permission-denied errors by catching exceptions from `readdir()` and `readFile()`, silently omitting unreadable entries.
+`collectAgentsDocs(projectRoot: string): Promise<AgentsDocs>` recursively walks the directory tree starting from `projectRoot`, collects all files named exactly `AGENTS.md`, reads their content via `readFile(filePath, 'utf-8')`, and returns an array of `{ relativePath, content }` objects sorted alphabetically by `relativePath` using `localeCompare()`. Skips directories in `SKIP_DIRS` set and gracefully handles permission errors by catching and ignoring exceptions from `readdir()` and `readFile()`.
 
-**`collectAnnexFiles(projectRoot: string): Promise<AgentsDocs>`**
-Recursively walks `projectRoot` collecting all files ending with `.annex.md` (matched via `entry.name.endsWith('.annex.md')`). Uses identical skip logic and error handling as `collectAgentsDocs()`. Returns `AgentsDocs` array sorted alphabetically by `relativePath`.
+`collectAnnexFiles(projectRoot: string): Promise<AgentsDocs>` uses identical traversal logic to `collectAgentsDocs()` but collects files ending with `.annex.md` instead of exact-match `AGENTS.md`. Tests file names with `entry.name.endsWith('.annex.md')` and returns the same `AgentsDocs` structure sorted alphabetically.
 
 ## Type Definitions
 
-**`AgentsDocs`**
-Type alias for `Array<{ relativePath: string; content: string }>`. Represents a collection of documentation files with their project-relative paths and UTF-8 text content.
+`AgentsDocs` is an exported type alias for `Array<{ relativePath: string; content: string }>` representing collected documentation files with their project-relative paths and text content.
 
 ## Directory Exclusion
 
-**`SKIP_DIRS`**
-Immutable `Set` containing 13 directory names skipped during traversal: `'node_modules'`, `'.git'`, `'.agents-reverse-engineer'`, `'vendor'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`, `'.cargo'`, `'.gradle'`. Applied in `entry.isDirectory() && !SKIP_DIRS.has(entry.name)` guard.
+`SKIP_DIRS` is a `Set<string>` constant containing 13 directory names to exclude during traversal: `'node_modules'`, `'.git'`, `'.agents-reverse-engineer'`, `'vendor'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`, `'.cargo'`, `'.gradle'`. Both collection functions check `SKIP_DIRS.has(entry.name)` before recursing into subdirectories.
 
-## Traversal Algorithm
+## Traversal Pattern
 
-Both functions use nested `async function walk(currentDir: string)` implementing depth-first recursive traversal:
-1. Call `readdir(currentDir, { withFileTypes: true })` to get `Dirent[]` entries
-2. For each entry, if directory and not in `SKIP_DIRS`, recurse into `path.join(currentDir, entry.name)`
-3. For file entries, check name match condition (`entry.name === 'AGENTS.md'` or `entry.name.endsWith('.annex.md')`)
-4. Read file via `readFile(filePath, 'utf-8')`, push `{ relativePath, content }` to `results[]`
-5. Catch and ignore all exceptions (both at directory and file level)
-6. After traversal completes, sort `results` via `results.sort((a, b) => a.relativePath.localeCompare(b.relativePath))`
+Both functions use internal async `walk(currentDir: string): Promise<void>` closures that call `readdir(currentDir, { withFileTypes: true })` to obtain `Dirent` objects, iterate over entries, recurse on directories not in `SKIP_DIRS` via `walk(path.join(currentDir, entry.name))`, and collect matching files by pushing `{ relativePath: path.relative(projectRoot, filePath), content }` into the `results` array. Final sorting happens after traversal completes via `results.sort((a, b) => a.relativePath.localeCompare(b.relativePath))`.
 
-## Integration Points
+## Error Handling
 
-Consumed by Phase 3 root document synthesis in `src/generation/orchestrator.ts` to aggregate all `AGENTS.md` files into unified corpus for `CLAUDE.md`/`GEMINI.md`/`OPENCODE.md` generation. The `collectAnnexFiles()` function supports annex references mentioned in documentation pipeline (large string constants extracted to companion `.annex.md` files).
+Both functions wrap `readdir()` calls in try-catch blocks that return early on exception (permission denied or inaccessible directories). File read operations wrap `readFile()` in try-catch blocks that skip unreadable files silently without logging. No error propagation occurs—all failures are suppressed to ensure partial collection succeeds.

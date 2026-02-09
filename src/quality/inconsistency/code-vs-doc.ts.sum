@@ -1,26 +1,29 @@
 ---
-generated_at: 2026-02-09T17:44:19.349Z
+generated_at: 2026-02-09T21:28:05.404Z
 content_hash: 20526dbcc3fa83bca2efb8a76027db019b8944ad212cf781c189935bfced0410
-purpose: Extracts exported identifiers from TypeScript/JavaScript source and detects code-vs-doc inconsistencies by comparing ...
+purpose: code-vs-doc.ts detects documentation drift by comparing exported identifiers from TypeScript/JavaScript source files ...
 ---
-**Extracts exported identifiers from TypeScript/JavaScript source and detects code-vs-doc inconsistencies by comparing exports against `.sum` file content.**
+**code-vs-doc.ts detects documentation drift by comparing exported identifiers from TypeScript/JavaScript source files against their corresponding .sum file content, flagging symbols that exist in code but are undocumented.**
 
 ## Exported Functions
 
-**`extractExports(sourceContent: string): string[]`**
-Extracts exported identifier names from TypeScript/JavaScript source using regex pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`. Matches export declarations including `export function`, `export class`, `export const`, `export default class`, etc. Ignores re-exports, commented lines, and non-exported declarations. Returns array of exported symbol names.
+**extractExports(sourceContent: string): string[]** — Extracts exported identifier names from TypeScript/JavaScript source using regex pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`. Captures identifiers from export declarations including `export function`, `export const`, `export default class`, `export type`, `export interface`, and `export enum`. Returns array of identifier strings, ignoring re-exports, comments, and non-exported declarations.
 
-**`checkCodeVsDoc(sourceContent: string, sumContent: SumFileContent, filePath: string): CodeDocInconsistency | null`**
-Compares source exports against `.sum` documentation content via case-sensitive substring matching. Detects `missingFromDoc` inconsistencies (symbols exported in source but absent from `sumContent.summary` text). Returns `CodeDocInconsistency` with `type: 'code-vs-doc'`, `severity: 'warning'`, `filePath`, `sumPath`, `description`, and `details: { missingFromDoc, missingFromCode }`. Returns `null` when all exports appear in summary text.
+**checkCodeVsDoc(sourceContent: string, sumContent: SumFileContent, filePath: string): CodeDocInconsistency | null** — Compares exports extracted via `extractExports()` against `sumContent.summary` text using case-sensitive substring matching. Returns `CodeDocInconsistency` with `type: 'code-vs-doc'` and `severity: 'warning'` when exports are missing from documentation. Populates `details.missingFromDoc` with undocumented export names and `details.missingFromCode` as empty array (legacy field). Returns `null` when all exports appear in `.sum` text.
 
-## Dependencies
+## Type Dependencies
 
-Imports `SumFileContent` from `../../generation/writers/sum.js` for parsed `.sum` file structure and `CodeDocInconsistency` from `../types.js` for inconsistency report format.
+Consumes `SumFileContent` from `../../generation/writers/sum.js` providing `summary: string` field for substring search. Returns `CodeDocInconsistency` from `../types.js` with discriminated union fields: `type`, `severity`, `filePath`, `sumPath`, `description`, and `details: { missingFromDoc: string[], missingFromCode: string[] }`.
 
-## Validation Strategy
+## Detection Strategy
 
-Uses regex-based export extraction combined with substring search in summary text. Does not perform AST analysis, so misses complex export patterns (destructured, namespace, dynamic exports). Substring matching yields false negatives when prose mentions symbols in non-API contexts. The `missingFromCode` array is always empty (legacy field from removed `publicInterface` schema).
+Uses heuristic substring presence check: `sumText.includes(e)` determines whether export identifier `e` appears anywhere in `.sum` markdown content. False negatives occur when identifier appears in prose unrelated to API surface (e.g., "the function exports data"). No AST analysis or semantic validation performed.
 
-## Behavioral Contracts
+## Regex Limitations
 
-Export extraction pattern: `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` matches line-start whitespace, `export` keyword, optional `default`, declaration keyword, and captures identifier `(\w+)`.
+Pattern `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` misses:
+- Destructured exports: `export const { foo, bar } = obj`
+- Namespace exports: `export * as ns from './mod'`
+- Re-exported identifiers: `export { foo } from './other'`
+- Dynamic exports: `module.exports = ...`
+- Multi-line declarations where export keyword and identifier span separate lines

@@ -2,46 +2,24 @@
 
 # src/output
 
-Terminal output formatting layer providing color-aware Logger interface for CLI messages with optional ANSI styling via picocolors.
+Terminal logging interface providing picocolors-based formatted output for CLI progress reporting, file discovery summaries, warnings, and errors with runtime color toggle support.
 
 ## Contents
 
-**[logger.ts](./logger.ts)** — Exports `createLogger(options)` factory constructing color-aware Logger instances writing to console.log/warn/error with picocolors-based ANSI formatting, `createSilentLogger()` returning no-op Logger for testing, `Logger` interface defining six output methods (info/file/excluded/summary/warn/error), and `LoggerOptions` schema controlling color enablement.
+### [logger.ts](./logger.ts)
+Exports `Logger` interface (6 methods: `info`, `file`, `excluded`, `summary`, `warn`, `error`), `createLogger(options: LoggerOptions)` factory with conditional color mode (`picocolors` vs identity passthrough), `createSilentLogger()` no-op factory for testing, and `LoggerOptions` configuration interface (`colors: boolean`). Implements format rules: file discovery prefixes (`  +` green for included, `  -` dim for excluded), bold summary counts with dim excluded counts, red `Error:` and yellow `Warning:` prefixes.
 
-## API Surface
+## Color Mode Abstraction
 
-**Logger interface:**
-- `info(message: string): void` — informational messages (plain text)
-- `file(path: string): void` — discovered file paths (`"  +" + path` in green)
-- `excluded(path: string, reason: string, filter: string): void` — excluded files (`"  -" + path + " (reason: filter)"` dimmed)
-- `summary(included: number, excluded: number): void` — discovery count summary (`"Discovered N files (M excluded)"` with bold/dim styling)
-- `warn(message: string): void` — warning messages (`"Warning: " + message` in yellow)
-- `error(message: string): void` — error messages (`"Error: " + message` in red)
-
-**Factory functions:**
-- `createLogger(options: LoggerOptions): Logger` — constructs color-aware logger respecting `options.colors` boolean flag
-- `createSilentLogger(): Logger` — returns no-op logger with all methods bound to empty function
-
-**Configuration:**
-- `LoggerOptions` — schema with single `colors: boolean` field controlling ANSI escape code emission
+`ColorFunctions` internal interface wraps `picocolors` methods (`green`, `dim`, `red`, `bold`, `yellow`). Conditional logic `options.colors ? pc : noColor` selects between `picocolors` and `noColor` identity wrapper. `noColor` constant implements all five color methods as `identity: (s: string): string => s` passthrough, enabling compile-time type safety for color-enabled/disabled code paths without runtime string inspection.
 
 ## Output Format Specification
 
-Logger implements CONTEXT.md-defined format with mandatory prefixes and styling:
-- Discovered files: `"  +"` prefix green-styled followed by space and path
-- Excluded files: `"  -"` prefix dimmed followed by path and parenthetical `(reason: filter)`
-- Summary line: bold `"Discovered N files"` followed by dimmed `" (M excluded)"`
-- Warnings: `"Warning: "` yellow-styled prefix
-- Errors: `"Error: "` red-styled prefix
-
-When `options.colors === false`, all picocolors transforms replaced with identity function via `noColor` object mapping `green`/`dim`/`red`/`bold`/`yellow` to pass-through.
+- **File discovery**: `c.green('  +') + ' ' + path` (included), `c.dim('  -') + ' ' + path + c.dim(` (${reason}: ${filter})`)` (excluded)
+- **Summary**: `c.bold(\`\nDiscovered ${included} files\`) + c.dim(` (${excluded} excluded)`)`
+- **Warnings**: `c.yellow('Warning: ') + message` via `console.warn()`
+- **Errors**: `c.red('Error: ') + message` via `console.error()`
 
 ## Integration Points
 
-Used by:
-- `src/discovery/run.ts` — `discoverFiles()` accepts Logger for real-time file discovery progress reporting
-- `src/cli/*.ts` — Command entry points construct logger via `createLogger({ colors: config.output.colors })` from loaded configuration
-- Test suites — `createSilentLogger()` suppresses output during programmatic invocation
-
-Imports:
-- `picocolors` (aliased `pc`) — ANSI color code generation library
+Consumed by CLI commands (`src/cli/discover.ts`, `src/cli/generate.ts`, `src/cli/update.ts`) for terminal progress reporting. Used by `src/discovery/run.ts` for file enumeration logging (`file()`, `excluded()`, `summary()` calls) and `src/orchestration/progress.ts` for phase execution updates (`info()`, `warn()` calls during pool orchestration).

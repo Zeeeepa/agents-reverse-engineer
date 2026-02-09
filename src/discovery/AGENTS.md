@@ -2,79 +2,55 @@
 
 # src/discovery
 
-**Gitignore-aware file discovery system executing four-stage filter chain (gitignore, vendor, binary, custom) over fast-glob traversal results with bounded-concurrency processing (30 workers), early-termination optimization, and per-filter telemetry tracking.**
+**Gitignore-aware file discovery pipeline using fast-glob directory traversal with composable four-stage filter chain (gitignore, vendor, binary, custom) and bounded-concurrency short-circuit evaluation, exposing `discoverFiles()` facade for all CLI commands.**
 
 ## Contents
 
-**[run.ts](./run.ts)** — `discoverFiles()` orchestrates filter chain construction via `createGitignoreFilter()`, `createVendorFilter()`, `createBinaryFilter()`, `createCustomFilter()`, invokes `walkDirectory()` with `followSymlinks` flag, delegates filtering to `applyFilters()` with trace/debug options.
+### Pipeline Orchestration
 
-**[types.ts](./types.ts)** — Defines `FileFilter` interface (`name: string`, `shouldExclude(): boolean|Promise<boolean>`), `FilterResult` with `included: string[]` and `excluded: ExcludedFile[]`, `WalkerOptions` for traversal config, `ExcludedFile` audit record.
+**[run.ts](./run.ts)** — `discoverFiles(root, config, options?)` facade composes `walkDirectory()` with four-stage filter chain: `createGitignoreFilter()` parses `.gitignore`, `createVendorFilter()` excludes `node_modules`/`.git`/`dist` via `config.exclude.vendorDirs`, `createBinaryFilter()` applies 96-extension allowlist + `isBinaryFile()` fallback with `config.options.maxFileSize` threshold, `createCustomFilter()` processes user glob patterns from `config.exclude.patterns`. Returns `FilterResult` with `included: string[]` and `excluded: Array<{file, reason, filter}>`. Exports `DiscoveryConfig` interface (structural subset of `Config`) and `DiscoverFilesOptions` (`tracer?: ITraceWriter`, `debug?: boolean`).
 
-**[walker.ts](./walker.ts)** — `walkDirectory()` wraps `fast-glob` with `absolute: true`, `onlyFiles: true`, `dot: true` (dotfiles), `followSymbolicLinks: false` (default), `ignore: ['**/.git/**']` hardcoded, `suppressErrors: true` (permission denied).
+**[walker.ts](./walker.ts)** — `walkDirectory(options)` wraps `fast-glob` with `absolute: true`, `onlyFiles: true`, `suppressErrors: true`, hardcoded `ignore: ['**/.git/**']`, and `followSymbolicLinks: options.followSymlinks ?? false`. Requires `WalkerOptions` with `cwd: string` root, optional `dot?: boolean` (default `true` for dotfiles), `followSymlinks?: boolean` (default `false`). Returns raw `string[]` file paths without filtering logic (deferred to filter chain).
 
-## Architecture
+**[types.ts](./types.ts)** — Defines `FileFilter` interface (`name: string`, `shouldExclude(path, stats?): boolean | Promise<boolean>`), `ExcludedFile` record (`path`, `reason`, `filter`), `FilterResult` (`included[]`, `excluded[]`), `WalkerOptions` (`cwd`, `followSymlinks?`, `dot?`).
 
-### Filter Chain Execution Model
+## Subdirectory
 
-**Composition**: `discoverFiles()` creates four filters in fixed order before applying to walked files. No in-walker filtering per module comment in `walker.ts`.
+**[filters/](./filters/)** — Five modules implementing `FileFilter` contract: `gitignore.ts` (`createGitignoreFilter()` async factory with `ignore` library), `binary.ts` (96-extension set + `isBinaryFile()` content analysis), `vendor.ts` (single-segment Set + path-pattern array matching), `custom.ts` (gitignore-style glob parsing), `index.ts` (`applyFilters()` with 30-worker bounded concurrency, short-circuit evaluation, `filter:applied` trace emission).
 
-**Orchestration**: `applyFilters()` (in `filters/index.ts`) spawns 30 workers sharing `files.entries()` iterator. Sequential filter evaluation per file with early termination on first `shouldExclude() === true`.
+## Filter Chain Architecture
 
-**Result Preservation**: Workers collect `{ index, file, excluded? }` tuples, sort by original index to maintain discovery order, segregate into `included`/`excluded` arrays.
+`discoverFiles()` instantiates filters in priority order (gitignore → vendor → binary → custom), passes to `applyFilters()` which runs filters sequentially per file until `shouldExclude()` returns `true`. Concurrency pool prevents file descriptor exhaustion during `isBinaryFile()` I/O. Filters receive absolute paths; gitignore/custom filters convert to relative via `path.relative()` before pattern matching.
 
-### Filter Order
+## Configuration Surface
 
-1. **Gitignore** — Async `.gitignore` parser via `ignore` library with relative path normalization
-2. **Vendor** — Third-party directories (`node_modules`, `.git`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`)
-3. **Binary** — Extension fast path (80+ extensions) → size threshold (1MB) → `isBinaryFile()` content analysis
-4. **Custom** — User glob patterns from `config.exclude.patterns` via `ignore` library
-
-### Decoupling Patterns
-
-**DiscoveryConfig Interface**: Structural subset type with `exclude: {vendorDirs, binaryExtensions, patterns}` and `options: {maxFileSize, followSymlinks}` allows `run.ts` to accept full `Config` object without circular dependency on `src/config/schema.ts`.
-
-**Factory Abstraction**: Filter creators (`createGitignoreFilter`, `createVendorFilter`, `createBinaryFilter`, `createCustomFilter`) return uniform `FileFilter` interface enabling chain composition.
-
-**Statistics Aggregation**: `applyFilters()` returns `Map<string, {matched, rejected}>` keyed by filter name for telemetry without coupling to filter implementations.
-
-## Behavioral Contracts
-
-### Binary Detection Thresholds
-
-- **Extension fast path**: 80+ extensions across images/archives/executables/media/documents/fonts/compiled/database
-- **Size threshold**: `DEFAULT_MAX_FILE_SIZE = 1048576` (1MB)
-- **Content analysis**: `isBinaryFile()` fallback for unknown extensions
-
-### Concurrency Limit
-
-`CONCURRENCY = 30` workers in `applyFilters()` prevents file descriptor exhaustion during I/O-heavy binary detection.
-
-### Vendor Directories
-
-`DEFAULT_VENDOR_DIRS`: `['node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target']`
-
-### Glob Configuration
-
-- `absolute: true` — returns full paths
-- `onlyFiles: true` — excludes directories
-- `dot: true` — includes dotfiles
-- `followSymbolicLinks: false` — default symlink handling
-- `ignore: ['**/.git/**']` — hardcoded `.git` exclusion
-
-### Path Normalization
-
-All filters use `path.relative(normalizedRoot, absolutePath)` before exclusion tests, with guards against `'..'` prefix or empty string.
-
-## Subdirectories
-
-**[filters/](./filters/)** — Five filter implementations: `gitignore.ts` (pattern matching via `ignore` library), `vendor.ts` (third-party directory detection), `binary.ts` (extension/size/content analysis), `custom.ts` (user glob patterns), `index.ts` (bounded-concurrency orchestrator with telemetry).
+- `config.exclude.vendorDirs: string[]` — directory names like `node_modules` (default 10 entries)
+- `config.exclude.binaryExtensions: string[]` — additional extensions beyond 96-entry `BINARY_EXTENSIONS` set
+- `config.exclude.patterns: string[]` — gitignore-style globs processed by `ignore` library
+- `config.options.maxFileSize: number` — binary detection threshold (default 1MB)
+- `config.options.followSymlinks: boolean` — symlink traversal toggle (default `false`)
 
 ## Integration Points
 
-**Consumed by**: `src/cli/discover.ts`, `src/cli/generate.ts`, `src/cli/update.ts` invoke `discoverFiles()` as single entry point.
+Consumed by `src/cli/discover.ts`, `src/cli/generate.ts`, `src/cli/update.ts` via `discoverFiles()` facade. Imports `ITraceWriter` from `../orchestration/trace.js` for `filter:applied` event emission. Filter factories depend on `ignore` library (gitignore parsing), `isbinaryfile` library (content analysis), `fast-glob` (directory traversal), `node:fs` (Stats objects).
 
-**Configuration surface**: `DiscoveryConfig` threaded from `src/config/schema.ts` YAML parsing with fields `exclude.vendorDirs`, `exclude.binaryExtensions`, `exclude.patterns`, `options.maxFileSize`, `options.followSymlinks`.
+## Behavioral Contracts
 
-**Telemetry integration**: Accepts `ITraceWriter` via `DiscoverFilesOptions.tracer`, emits `filter:applied` events with per-filter `filesMatched`/`filesRejected` counts.
+### Default Vendor Directories
+`DEFAULT_VENDOR_DIRS`: `node_modules`, `vendor`, `.git`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`
 
-**Debug output**: `options.debug` enables `console.error()` logging for filters with non-zero rejection counts.
+### Binary Extension Set
+96 extensions including: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.woff`, `.woff2`, `.ttf`, `.eot`, `.class`, `.pyc`, `.o`, `.obj`, `.db`, `.sqlite`, `.wasm` (full list in `filters/binary.ts`)
+
+### Concurrency Limit
+`applyFilters()` uses `CONCURRENCY = 30` workers via iterator-based pool pattern from `src/orchestration/pool.ts`
+
+### Trace Event Schema
+```typescript
+{
+  type: 'filter:applied',
+  filterName: string,
+  filesMatched: number,
+  filesRejected: number
+}
+```

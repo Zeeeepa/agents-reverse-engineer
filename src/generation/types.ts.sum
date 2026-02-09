@@ -1,52 +1,32 @@
 ---
-generated_at: 2026-02-09T17:45:08.856Z
+generated_at: 2026-02-09T21:29:08.586Z
 content_hash: 170a8dbec49b601e218709256527ba0dbfa43f1f69e0aac7a6e7e3f9370fcb86
-purpose: Defines TypeScript interfaces for the documentation generation pipeline's analysis results, metadata extraction, and ...
+purpose: Defines TypeScript interfaces for the three-phase documentation generation pipeline: `AnalysisResult` for Phase 1 fil...
 ---
-**Defines TypeScript interfaces for the documentation generation pipeline's analysis results, metadata extraction, and summary configuration.**
+**Defines TypeScript interfaces for the three-phase documentation generation pipeline: `AnalysisResult` for Phase 1 file analysis outputs, `SummaryMetadata` for extracted file metadata, and `SummaryOptions` for summary generation configuration.**
 
 ## Exported Types
 
-### AnalysisResult
-```typescript
-interface AnalysisResult {
-  summary: string;
-  metadata: SummaryMetadata;
-}
-```
-Represents the output from LLM-based file analysis, containing both the generated markdown summary text and structured metadata extracted during analysis.
+**`AnalysisResult`** — Return type for Phase 1 file analysis operations populated by LLM subprocess calls via `AIService.call()`. Contains two fields:
+- `summary: string` — Generated markdown summary text written to `.sum` file body
+- `metadata: SummaryMetadata` — Structured metadata written to YAML frontmatter
 
-### SummaryMetadata
-```typescript
-interface SummaryMetadata {
-  purpose: string;
-  criticalTodos?: string[];
-  relatedFiles?: string[];
-}
-```
-Encapsulates metadata extracted from source files during Phase 1 analysis. The `purpose` field stores the one-line purpose statement. The optional `criticalTodos` array contains only security or breaking issues (not general TODOs). The optional `relatedFiles` array lists tightly coupled sibling files.
+**`SummaryMetadata`** — Structured metadata extracted during file analysis and serialized as YAML frontmatter in `.sum` files. Fields:
+- `purpose: string` — Single-line file purpose statement (mandatory)
+- `criticalTodos?: string[]` — Optional array of security/breaking issues only (excludes routine TODOs)
+- `relatedFiles?: string[]` — Optional array of tightly coupled sibling file paths
 
-### SummaryOptions
-```typescript
-interface SummaryOptions {
-  targetLength: 'short' | 'standard' | 'detailed';
-  includeCodeSnippets: boolean;
-}
-```
-Configuration options for controlling summary generation behavior. The `targetLength` discriminated union determines verbosity levels. The `includeCodeSnippets` boolean flag controls whether code examples appear in output summaries.
+**`SummaryOptions`** — Configuration for summary generation behavior passed to prompt builders. Fields:
+- `targetLength: 'short' | 'standard' | 'detailed'` — Controls summary verbosity level
+- `includeCodeSnippets: boolean` — Toggles inclusion of code examples in generated summaries
 
 ## Integration Points
 
-These types are consumed by:
-- `src/generation/executor.ts` — Uses `AnalysisResult` as return type from `AIService.call()`
-- `src/generation/writers/sum.ts` — Serializes `SummaryMetadata` to YAML frontmatter in `.sum` files
-- `src/generation/prompts/builder.ts` — May consume `SummaryOptions` to tailor prompt instructions (implementation-dependent)
+Referenced by:
+- `src/generation/prompts/builder.ts` — Consumes `SummaryOptions` when constructing file analysis prompts
+- `src/generation/executor.ts` — Produces `AnalysisResult` from AI subprocess responses, validates against schema
+- `src/generation/writers/sum.ts` — Serializes `AnalysisResult.metadata` as YAML frontmatter via `yaml.stringify()`, writes `AnalysisResult.summary` as markdown body
 
-The `SummaryMetadata` structure directly maps to the YAML frontmatter schema documented in CLAUDE.md:
-```yaml
----
-purpose: [purpose field]
-critical_todos: [criticalTodos array]
-related_files: [relatedFiles array]
----
-```
+## Schema Constraints
+
+No runtime validation types exported (Zod schemas located elsewhere). `SummaryMetadata.purpose` is mandatory while `criticalTodos` and `relatedFiles` are optional arrays. Empty arrays should be omitted (undefined) rather than serialized as `[]` in YAML frontmatter.

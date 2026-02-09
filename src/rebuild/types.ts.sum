@@ -1,0 +1,48 @@
+---
+generated_at: 2026-02-09T21:30:17.844Z
+content_hash: 5b1698ed76278a6b3ff61dda2898cbe62bbc924fc7dd905473a7b32585dfb75b
+purpose: Defines Zod-validated checkpoint schema and TypeScript interfaces for the rebuild module's state persistence, unit pl...
+---
+**Defines Zod-validated checkpoint schema and TypeScript interfaces for the rebuild module's state persistence, unit planning, and execution results.**
+
+## Exported Types and Schema
+
+`RebuildCheckpointSchema` validates checkpoint JSON structure with fields:
+- `version` (string) — checkpoint format version
+- `createdAt` (string) — ISO 8601 creation timestamp
+- `updatedAt` (string) — ISO 8601 last update timestamp
+- `outputDir` (string) — absolute path to rebuild target directory
+- `specHashes` (Record<string, string>) — SHA-256 hashes of spec files for drift detection
+- `modules` (Record<string, ModuleStatus>) — per-module completion state with nested object schema:
+  - `status` (enum: `'pending' | 'done' | 'failed'`)
+  - `completedAt` (optional string) — ISO 8601 completion timestamp
+  - `error` (optional string) — error message for failed modules
+  - `filesWritten` (optional string[]) — relative paths of generated files
+
+`RebuildCheckpoint` type inferred from `RebuildCheckpointSchema` via `z.infer<>`, represents state persisted to `.rebuild-checkpoint` file inside output directory.
+
+`RebuildUnit` interface defines single rebuild work unit:
+- `name` (string) — derived from spec section heading
+- `specContent` (string) — spec section markdown content for AI prompt
+- `order` (number) — execution sequence from Build Plan phase numbering
+
+`RebuildPlan` interface defines full rebuild plan computed before execution:
+- `specFiles` (Array<{relativePath: string, content: string}>) — spec files read from `specs/` directory
+- `units` (RebuildUnit[]) — ordered rebuild units extracted from spec content
+- `outputDir` (string) — target directory for rebuilt project
+
+`RebuildResult` interface captures single unit execution outcome:
+- `unitName` (string) — name of rebuild unit
+- `success` (boolean) — whether rebuild succeeded
+- `filesWritten` (string[]) — relative paths within output directory
+- `tokensIn` (number) — input tokens consumed
+- `tokensOut` (number) — output tokens produced
+- `cacheReadTokens` (number) — cache read tokens
+- `cacheCreationTokens` (number) — cache creation tokens
+- `durationMs` (number) — execution duration in milliseconds
+- `model` (string) — AI model used for generation
+- `error` (optional string) — error message if rebuild failed
+
+## Checkpoint Persistence Pattern
+
+`RebuildCheckpoint` serializes to `.rebuild-checkpoint` JSON file enabling resume-on-failure workflow. `specHashes` field enables detection of spec file changes requiring re-execution. `modules` record maps unit names to status enums tracking completion state across interrupted runs.

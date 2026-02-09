@@ -1,33 +1,29 @@
 ---
-generated_at: 2026-02-09T17:45:23.475Z
+generated_at: 2026-02-09T21:29:24.893Z
 content_hash: 01bab7b9592390c583c058793bcf28fce57c72b8240bc084c0dbde7a8a9a5af1
-purpose: Defines TypeScript interfaces and discriminated union types for AI coding assistant environment detection (Claude Cod...
+purpose: Defines TypeScript interfaces for AI coding assistant environment detection and integration template generation acros...
 ---
-**Defines TypeScript interfaces and discriminated union types for AI coding assistant environment detection (Claude Code, OpenCode, Aider, Gemini) and integration template generation.**
+**Defines TypeScript interfaces for AI coding assistant environment detection and integration template generation across platforms (Claude Code, OpenCode, Gemini, Aider).**
 
-## Exported Types
+## Type Definitions
 
-### EnvironmentType
-Union type `'claude' | 'opencode' | 'aider' | 'gemini'` representing supported AI assistant platforms.
+**`EnvironmentType`** — String literal union type enumerating supported AI assistant platforms: `'claude' | 'opencode' | 'aider' | 'gemini'`.
 
-### DetectedEnvironment
-Interface describing environment detection results with properties:
-- `type: EnvironmentType` — Platform identifier
+**`DetectedEnvironment`** — Interface representing environment detection results with fields:
+- `type: EnvironmentType` — Detected AI assistant platform identifier
 - `configDir: string` — Configuration directory path (e.g., `.claude`, `.opencode`)
-- `detected: boolean` — Whether environment was found in project
+- `detected: boolean` — Boolean flag indicating whether environment was found in project
 
-### IntegrationTemplate
-Interface defining template structure for command files and hooks with properties:
-- `filename: string` — File name (e.g., `generate.md`)
+**`IntegrationTemplate`** — Interface representing a single integration file to be generated with fields:
+- `filename: string` — Base filename (e.g., `'generate.md'`)
 - `path: string` — Relative path from project root (e.g., `.claude/commands/ar/generate.md`)
-- `content: string` — Template content to write
+- `content: string` — Template content to write to filesystem
 
-### IntegrationResult
-Interface describing integration file generation outcome with properties:
-- `environment: EnvironmentType` — Platform that was configured
-- `filesCreated: string[]` — Successfully written file paths
-- `filesSkipped: string[]` — Paths skipped due to existing files
+**`IntegrationResult`** — Interface representing batch integration generation outcome with fields:
+- `environment: EnvironmentType` — Target AI assistant platform
+- `filesCreated: string[]` — Array of successfully written file paths
+- `filesSkipped: string[]` — Array of file paths skipped due to existing files
 
-## Integration with Module
+## Integration Points
 
-Consumed by `src/integration/detect.ts` for environment detection logic, `src/integration/generate.ts` for template instantiation, and `src/integration/templates.ts` for platform-specific content generation. Supports installer workflow in `src/installer/` for command/hook registration during `npx agents-reverse-engineer --runtime <env>` execution.
+Consumed by `src/integration/detect.ts` for environment detection logic and `src/integration/generate.ts` for template generation workflows. Used by `src/installer/operations.ts` to orchestrate IDE-specific command/hook installation. Referenced in `src/cli/init.ts` for initialization flows requiring platform-specific configuration.

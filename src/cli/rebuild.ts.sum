@@ -1,0 +1,108 @@
+---
+generated_at: 2026-02-09T21:29:02.859Z
+content_hash: 3878cf42f040a92b8cc227ddc77eb79ad503056d27aa0c3ce7765bda5fe8eed3
+purpose: rebuildCommand reconstructs a project from specification files via AI-driven code generation with checkpoint-based se...
+---
+**rebuildCommand reconstructs a project from specification files via AI-driven code generation with checkpoint-based session continuity, partitioning specs into ordered rebuild units, resolving AI backend, and orchestrating parallel module generation with progress tracking.**
+
+## Exported Interface
+
+### rebuildCommand
+```typescript
+async function rebuildCommand(
+  targetPath: string,
+  options: RebuildOptions,
+): Promise<void>
+```
+Entry point for `are rebuild` CLI command. Reads spec files from `specs/` directory in `targetPath`, partitions them via `partitionSpec()`, resolves AI backend through `createBackendRegistry()` and `resolveBackend()`, creates `AIService` with extended timeout (15min minimum), executes `executeRebuild()` orchestrator, finalizes telemetry/trace/progress log, and exits with status code (0=success, 1=partial failure, 2=total failure).
+
+### RebuildOptions
+```typescript
+interface RebuildOptions {
+  output?: string;      // Custom output directory (default: rebuild/)
+  force?: boolean;      // Wipe output directory and start fresh
+  dryRun?: boolean;     // Show plan without executing
+  concurrency?: number; // Override worker pool size
+  failFast?: boolean;   // Stop on first failure
+  debug?: boolean;      // Verbose subprocess logging
+  trace?: boolean;      // Enable NDJSON tracing
+  model?: string;       // Override AI model (defaults to "opus" for rebuild)
+}
+```
+
+## Workflow Phases
+
+### Dry-Run Mode
+When `options.dryRun` is true, displays rebuild plan without AI calls:
+- Logs spec file count, rebuild unit count, and output directory path
+- Iterates over `units` array printing `unit.order` and `unit.name`
+- Calls `CheckpointManager.load()` to detect existing checkpoint state
+- If checkpoint exists, reports completed vs. pending module counts via `checkpoint.getPendingUnits()`
+- Returns early without backend resolution or AI service initialization
+
+### Backend Resolution
+- Calls `createBackendRegistry()` to enumerate available AI CLIs (Claude, Gemini, OpenCode)
+- Calls `resolveBackend(registry, config.ai.backend)` with config backend preference (`'auto'` | `'claude'` | `'gemini'` | `'opencode'`)
+- Catches `AIServiceError` with `code: 'CLI_NOT_FOUND'`, prints `getInstallInstructions(registry)`, exits with code 2
+- Resolves effective model via priority: CLI `--model` flag > config override > opus default (upgrades sonnet to opus for rebuild)
+
+### AIService Configuration
+Creates `AIService` instance with:
+- `timeoutMs: Math.max(config.ai.timeoutMs, 900_000)` — enforces 15-minute minimum for large rebuild modules
+- `maxRetries: config.ai.maxRetries` — exponential backoff retry count
+- `model: effectiveModel` — resolved from CLI flag or config or "opus" default
+- `telemetry.keepRuns: config.ai.telemetry.keepRuns` — run log retention limit
+
+Enables optional features:
+- `aiService.setDebug(true)` when `options.debug` is true
+- `aiService.setSubprocessLogDir(logDir)` when `options.trace` is true, creates timestamped directory at `.agents-reverse-engineer/subprocess-logs/<ISO-timestamp>/`
+
+### Progress Tracking
+- Calls `ProgressLog.create(absolutePath)` to initialize `.agents-reverse-engineer/progress.log` writer
+- Logs rebuild header with ISO 8601 timestamp, project path, output directory, and unit count
+- Writes progress during `executeRebuild()` via injected `progressLog` parameter
+- Calls `progressLog.finalize()` after orchestrator completes
+
+### Rebuild Execution
+Calls `executeRebuild(aiService, absolutePath, options)` with:
+- `outputDir: options.output ?? path.join(absolutePath, 'rebuild')` — target directory for generated source files
+- `concurrency: options.concurrency ?? config.ai.concurrency` — worker pool size
+- `failFast: options.failFast` — abort-on-first-failure flag
+- `force: options.force` — wipe-and-restart flag
+- `debug: options.debug` — subprocess verbose logging flag
+- `tracer` — NDJSON trace writer instance from `createTraceWriter(absolutePath, options.trace)`
+- `progressLog` — stream writer for tail-monitored progress output
+
+Returns `RebuildResult` with `modulesProcessed`, `modulesSkipped`, `modulesFailed` counts.
+
+### Finalization
+Sequential cleanup:
+1. `aiService.finalize(absolutePath)` — writes run log to `.agents-reverse-engineer/logs/run-<timestamp>.json`, enforces retention via `cleanupOldLogs()`
+2. `progressLog.finalize()` — closes progress log file stream
+3. `tracer.finalize()` — closes NDJSON trace file stream
+4. `cleanupOldTraces(absolutePath)` if `options.trace` is true — enforces 500-trace retention limit
+
+### Exit Code Strategy
+- `process.exit(2)` if `modulesProcessed === 0 && modulesFailed > 0` (total failure, no progress)
+- `process.exit(1)` if `modulesFailed > 0` (partial failure, some modules succeeded)
+- Implicit exit code 0 if `modulesFailed === 0` (success)
+
+## Dependencies
+
+### External Imports
+- `picocolors` (aliased as `pc`) — terminal color formatting for dry-run output, summaries, and error messages
+- `node:path` — path resolution for `absolutePath`, `outputDir`, and subprocess log directory construction
+
+### Internal Imports
+- `src/config/loader.js` — `loadConfig()` for YAML config parsing with Zod validation
+- `src/ai/index.js` — `AIService`, `AIServiceError`, `createBackendRegistry`, `resolveBackend`, `getInstallInstructions` for backend abstraction
+- `src/orchestration/index.js` — `ProgressLog`, `createTraceWriter`, `cleanupOldTraces` for telemetry infrastructure
+- `src/rebuild/index.js` — `readSpecFiles`, `partitionSpec`, `CheckpointManager`, `executeRebuild` for rebuild orchestration
+
+## Design Patterns
+
+Uses **command pattern** with options object for CLI flag injection. Applies **early return pattern** for dry-run mode to avoid unnecessary backend resolution and AIService instantiation. Implements **defensive defaults** by upgrading sonnet model to opus for rebuild quality (rebuild benefits from best model unlike incremental updates).
+
+## Error Handling
+
+Catches `AIServiceError` with `code: 'CLI_NOT_FOUND'` during backend resolution, prints human-readable installation instructions via `getInstallInstructions(registry)`, exits with code 2 to distinguish "missing dependency" from "task failure". Rethrows all other errors to propagate unexpected failures to CLI error handler.

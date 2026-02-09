@@ -2,101 +2,241 @@
 
 # cli
 
-Command entry points implementing CLI argument parsing, command routing, and orchestration of AI-driven documentation generation workflows (init, discover, generate, update, clean, specify) via backend abstraction, concurrent execution pools, and incremental hash-based updates.
+Command-line interface layer parsing `process.argv`, routing to command handlers, managing shared flags (--debug, --trace, --dry-run, --concurrency, --model), and integrating ProgressLog/TraceWriter/AIService across init/discover/generate/update/specify/rebuild/clean workflows.
 
-## Commands
+## Command Entry Points
 
-### [clean.ts](./clean.ts)
-`cleanCommand(targetPath, {dryRun})` deletes `.sum`, `.annex.md`, `AGENTS.md` (marker-filtered), `CLAUDE.md`, `GENERATION-PLAN.md` via parallel `fast-glob` discovery, restores `AGENTS.local.md` → `AGENTS.md`, logs deletions/skips.
+**[index.ts](./index.ts)** — Main router parsing args via `parseArgs()`, dispatching to command handlers, handling `--version`/`--help` flags, launching interactive installer when invoked with no arguments or installer-specific flags (--runtime, -g, -l).
 
-### [discover.ts](./discover.ts)
-`discoverCommand(targetPath, {tracer, debug})` walks directory via `discoverFiles()` filter chain, writes file list to `progress.log`, generates `GENERATION-PLAN.md` via `buildExecutionPlan()` post-order traversal, emits `discovery:start`/`discovery:end` trace events.
+**[init.ts](./init.ts)** — `initCommand(root, { force? })` creates `.agents-reverse-engineer/config.yaml` via `writeDefaultConfig()`, exits with warning if config exists without `--force`, catches `EACCES`/`EPERM` with `process.exit(1)`.
 
-### [generate.ts](./generate.ts)
-`generateCommand(targetPath, {dryRun, concurrency, failFast, debug, trace})` orchestrates three-phase pipeline: concurrent `.sum` file analysis via `CommandRunner.executeGenerate()`, directory `AGENTS.md` aggregation, root document synthesis (`CLAUDE.md`/`GEMINI.md`/`OPENCODE.md`), exits with codes 0 (success), 1 (partial failure), 2 (total failure).
+**[discover.ts](./discover.ts)** — `discoverCommand(targetPath, { tracer?, debug? })` runs file discovery via `discoverFiles()`, writes included/excluded files to console and `.agents-reverse-engineer/GENERATION-PLAN.md` via `formatExecutionPlanAsMarkdown()`, emits `discovery:start/end` trace events.
 
-### [index.ts](./index.ts)
-CLI entry point with shebang `#!/usr/bin/env node`, implements `parseArgs()` flag parser supporting `--dry-run`, `--concurrency <n>`, `--fail-fast`, `--debug`, `--trace`, `--uncommitted`, `--force`, `--multi-file`, routes to command modules, triggers `runInstaller()` on install/uninstall/installer flags.
+**[generate.ts](./generate.ts)** — `generateCommand(targetPath, GenerateOptions)` orchestrates three-phase pipeline: discovers files → creates GenerationPlan via `createOrchestrator().createPlan()` → resolves AI backend → builds ExecutionPlan → executes via `CommandRunner.executeGenerate()` → finalizes telemetry/trace/progress, exits with codes 0 (success), 1 (partial failure), 2 (total failure/no CLI).
 
-### [init.ts](./init.ts)
-`initCommand(root, {force})` creates `.agents-reverse-engineer/config.yaml` via `writeDefaultConfig()`, checks `configExists()` to prevent overwrites unless `force` enabled, exits with code 1 on `EACCES`/`EPERM` permission errors.
+**[update.ts](./update.ts)** — `updateCommand(targetPath, UpdateCommandOptions)` prepares UpdatePlan via hash comparison, cleans orphaned `.sum`/`AGENTS.md` artifacts, analyzes changed files (Phase 1), regenerates `AGENTS.md` for `affectedDirs` (Phase 2), finalizes telemetry, exits with codes 0/1/2.
 
-### [specify.ts](./specify.ts)
-`specifyCommand(targetPath, {output, force, dryRun, multiFile, debug, trace})` synthesizes project specs from `AGENTS.md` corpus via `collectAgentsDocs()`, auto-generates missing docs via `generateCommand()`, invokes `AIService.call()` with 600s minimum timeout, writes via `writeSpec()` to `specs/SPEC.md` or custom path.
+**[specify.ts](./specify.ts)** — `specifyCommand(targetPath, SpecifyOptions)` synthesizes project spec from `AGENTS.md` corpus via AI, auto-invokes `generateCommand()` if docs missing, supports single/multi-file output (`--multi-file`), enforces 15min timeout and opus model default, exits with code 1 on `SpecExistsError` (conflicts), 2 on `CLI_NOT_FOUND`.
 
-### [update.ts](./update.ts)
-`updateCommand(targetPath, {uncommitted, dryRun, concurrency, failFast, debug, trace})` computes delta via SHA-256 hash comparison in `preparePlan()`, cleans orphaned artifacts, regenerates `.sum` for changed files via `runner.executeUpdate()`, rebuilds `AGENTS.md` for `affectedDirs` sequentially, logs to `progress.log`.
+**[rebuild.ts](./rebuild.ts)** — `rebuildCommand(targetPath, RebuildOptions)` reconstructs project from specs via `partitionSpec()` + `executeRebuild()`, enforces 15min timeout and opus default, supports checkpoint-based resumption via `CheckpointManager.load()`, writes generated code to `rebuild/` (or custom `--output`), exits with codes 0/1/2.
 
-## Execution Patterns
+**[clean.ts](./clean.ts)** — `cleanCommand(targetPath, { dryRun })` removes `.sum`, `.annex.md`, generated `AGENTS.md` (via `GENERATED_MARKER` detection), `CLAUDE.md`, `GENERATION-PLAN.md`, restores `AGENTS.local.md` → `AGENTS.md`, logs deletion counts with picocolors formatting.
 
-**Dry-run mode** (`--dry-run`): clean/generate/update/specify commands display plans without filesystem writes or AI calls. generate shows file/directory/root counts with `buildExecutionPlan()`, specify estimates tokens via `Math.ceil(totalChars / 4) / 1000`.
+## Shared Option Types
 
-**Progress monitoring**: generate/update/specify create `ProgressLog.create(absolutePath)` writing to `.agents-reverse-engineer/progress.log` with ISO timestamps, file counts, task status. Enables `tail -f` real-time monitoring.
-
-**Trace emission** (`--trace`): generate/update/specify instantiate `createTraceWriter()` before config loading, pass `tracer` to all orchestrator calls, emit NDJSON events (`phase:start`/`end`, `worker:start`/`end`, `task:pickup`/`done`, `subprocess:spawn`/`exit`, `retry`), call `cleanupOldTraces()` after `tracer.finalize()`.
-
-**Backend resolution**: generate/update/specify call `createBackendRegistry()`, `resolveBackend(registry, config.ai.backend)`, catch `AIServiceError` with `code === 'CLI_NOT_FOUND'`, print `getInstallInstructions(registry)`, exit with code 2.
-
-**AI service lifecycle**: generate/update/specify instantiate `AIService(backend, {timeoutMs, maxRetries, model, telemetry.keepRuns})`, call `setDebug(true)` if `--debug`, call `setSubprocessLogDir()` if `--trace`, invoke via `aiService.call()` or `runner.executeGenerate()`/`runner.executeUpdate()`, finalize via `aiService.finalize(absolutePath)` writing run logs to `.agents-reverse-engineer/logs/`.
-
-**Installer routing**: index.ts triggers `runInstaller()` on three conditions: (1) zero args (interactive mode), (2) installer flags (`--global`, `--local`, `--runtime`, `--force`) without command, (3) explicit `install`/`uninstall` command. Passes `parseInstallerArgs(args)` with `uninstall: true` for uninstall command.
-
-## Exit Code Strategy
-
-**generate/update**:
-- Code 2: total failure (`filesProcessed === 0 && filesFailed > 0`) or CLI not found
-- Code 1: partial failure (`filesFailed > 0` with some success)
-- Code 0: full success (`filesFailed === 0`)
-
-**specify**:
-- Code 2: `CLI_NOT_FOUND` error from `resolveBackend()`
-- Code 1: `SpecExistsError` (output exists without `--force`) or empty docs after auto-generation
-- Code 0: successful write
-
-**init**:
-- Code 1: `EACCES`/`EPERM` permission error or write failure
-- Code 0: config created successfully
-
-**clean**: No explicit exit codes (relies on thrown errors).
-
-## File Relationships
-
-- index.ts imports all command modules, routes via switch statement on `command` string
-- generate.ts imports `discoverFiles()` from `../discovery/run.js`, `createOrchestrator()` from `../generation/orchestrator.js`, `buildExecutionPlan()` from `../generation/executor.js`, `AIService` from `../ai/index.js`, `CommandRunner` from `../orchestration/index.js`
-- update.ts imports `createUpdateOrchestrator()` from `../update/index.js`, `buildDirectoryPrompt()` from `../generation/prompts/index.js`, `writeAgentsMd()` from `../generation/writers/agents-md.js`
-- specify.ts imports `collectAgentsDocs()` from `../generation/collector.js`, `buildSpecPrompt()` from `../specify/index.js`, calls `generateCommand()` from `./generate.js` for auto-generation fallback
-- clean.ts imports `GENERATED_MARKER` from `../generation/writers/agents-md.js` for user-authored AGENTS.md detection
-- discover.ts imports `formatExecutionPlanAsMarkdown()` from `../generation/executor.js` for `GENERATION-PLAN.md` rendering
-- init.ts imports `configExists()`, `writeDefaultConfig()` from `../config/loader.js`
-
-## Behavioral Contracts
-
-**Argument parsing** (index.ts `parseArgs()`):
-- Flags starting with `--` populate `flags: Set<string>` or `values: Map<string, string>` if next arg lacks `--` prefix
-- Short flags expanded: `-h` → `help`, `-g` → `global`, `-l` → `local`, `-V` → `version`
-- First non-flag arg becomes `command`, subsequent populate `positional: string[]`
-
-**Token estimation** (specify.ts dry-run):
+**GenerateOptions** (`generate.ts`, `rebuild.ts` reuses subset):
 ```typescript
-estimatedTokensK = Math.ceil(totalChars / 4) / 1000
+{
+  dryRun?: boolean;       // Show plan without AI calls
+  concurrency?: number;   // Worker pool size (1-10)
+  failFast?: boolean;     // Abort on first failure
+  debug?: boolean;        // Verbose subprocess logging
+  trace?: boolean;        // NDJSON trace emission
+  model?: string;         // Override AI model
+}
 ```
 
-**Plan formatting** (update.ts `formatPlan()`):
-- Status markers: `+` (added, green), `R` (renamed, blue), `M` (modified, yellow), `=` (unchanged, dim)
-- First run: `plan.isFirstRun === true` → suggests `are generate`
-- Empty plan: all counts zero → "No changes detected since last run"
-
-**Cleanup patterns** (clean.ts):
-- Parallel `fast-glob` with patterns: `**/*.sum`, `**/*.annex.md`, `**/AGENTS.md`, `**/AGENTS.local.md`
-- Ignore patterns: `['**/node_modules/**', '**/.git/**']`
-- Marker detection: `content.includes(GENERATED_MARKER)` where `GENERATED_MARKER = '<!-- Generated by agents-reverse-engineer -->'`
-
-**Telemetry summary** (specify.ts):
+**UpdateCommandOptions** (`update.ts`):
 ```typescript
-summaryLine = `Tokens: ${totalInputTokens} in / ${totalOutputTokens} out | Duration: ${(totalDurationMs/1000).toFixed(1)}s | Output: ${outputPath}`
+{
+  uncommitted?: boolean;  // Include staged+working changes
+  dryRun?: boolean;
+  concurrency?: number;
+  failFast?: boolean;
+  debug?: boolean;
+  trace?: boolean;
+  model?: string;
+}
 ```
 
-**Subprocess timeout override** (specify.ts):
+**SpecifyOptions** (`specify.ts`):
 ```typescript
-timeoutMs = Math.max(config.ai.timeoutMs, 600_000) // minimum 10 minutes
+{
+  output?: string;        // Custom spec file path (default: specs/SPEC.md)
+  force?: boolean;        // Overwrite existing files
+  dryRun?: boolean;
+  multiFile?: boolean;    // Split into per-directory specs
+  debug?: boolean;
+  trace?: boolean;
+  model?: string;
+}
 ```
+
+**RebuildOptions** (`rebuild.ts`):
+```typescript
+{
+  output?: string;        // Custom output directory (default: rebuild/)
+  force?: boolean;        // Wipe output dir and restart
+  dryRun?: boolean;
+  concurrency?: number;
+  failFast?: boolean;
+  debug?: boolean;
+  trace?: boolean;
+  model?: string;
+}
+```
+
+**CleanOptions** (`clean.ts`):
+```typescript
+{
+  dryRun?: boolean;       // Preview deletions without filesystem writes
+}
+```
+
+## Argument Parsing Protocol
+
+`parseArgs(args: string[])` in `index.ts` returns `{ command, positional, flags, values }`:
+- **Long flags**: `--key value` → `values['key'] = 'value'`, `--flag` → `flags.add('flag')`
+- **Short flags**: `-V` → `flags.add('version')`, `-h` → `flags.add('help')`, `-g` → `flags.add('global')`, `-l` → `flags.add('local')`
+- **Command**: First non-flag argument
+- **Positional**: Subsequent non-flag arguments after command
+- **Values map**: `--concurrency 3`, `--output ./spec.md`, `--model sonnet`, `--runtime claude`
+- **Installer detection**: `hasInstallerFlags(flags, values)` checks for `global`, `local`, `force`, or `runtime` value
+
+## Model Resolution Strategy
+
+**generate/update**: `options.model ?? config.ai.model` — CLI flag overrides config, no hardcoded default.
+
+**specify/rebuild**: `options.model ?? (config.ai.model === 'sonnet' ? 'opus' : config.ai.model)` — upgrades sonnet → opus for quality-critical synthesis, respects explicit opus/haiku config.
+
+## Progress Tracking Infrastructure
+
+All commands (except `init`, `clean`) create `ProgressLog.create(absolutePath)` writing to `.agents-reverse-engineer/progress.log`:
+- **Header format**: `=== ARE <Command> (${ISO-8601}) ===\nProject: ${absolutePath}\n...`
+- **Real-time monitoring**: `tail -f .agents-reverse-engineer/progress.log`
+- **Phase boundaries**: `=== Phase 1: File Analysis ===`, `=== Phase 2: Directory AGENTS.md ===`
+- **Task progress**: `[worker-0] Analyzing src/foo.ts (ETA: 2m 15s)`
+- **Summary line**: `Tokens: 12345 in / 6789 out | Duration: 45s | Exit: 0`
+- **Finalization**: `await progressLog.finalize()` before exit
+
+## Trace Integration
+
+When `--trace` flag present:
+- `createTraceWriter(absolutePath, true)` creates `.agents-reverse-engineer/traces/trace-<ISO-timestamp>.ndjson` writer
+- Threads `tracer` through `loadConfig()`, `discoverFiles()`, `createOrchestrator()`, `CommandRunner()`, `AIService()`
+- Emits events: `phase:start/end`, `worker:start/end`, `task:pickup/done`, `subprocess:spawn/exit`, `retry`
+- Auto-populated fields: `seq` (monotonic), `ts` (ISO 8601), `pid`, `elapsedMs`
+- Finalization: `await tracer.finalize()` + `cleanupOldTraces(absolutePath)` keeps 500 most recent traces
+
+## Backend Resolution Flow
+
+All commands except `init`, `discover`, `clean`:
+1. `createBackendRegistry()` → enumerates installed CLIs (Claude, Gemini, OpenCode)
+2. `resolveBackend(registry, config.ai.backend)` → throws `AIServiceError` with `code: 'CLI_NOT_FOUND'` if none found
+3. Catch block → `getInstallInstructions(registry)` prints installation commands, `process.exit(2)` (distinct from task failure code 1)
+
+## AIService Configuration
+
+Instantiation pattern (from `generate.ts`, `update.ts`, `specify.ts`, `rebuild.ts`):
+```typescript
+const aiService = new AIService(backend, {
+  timeoutMs: Math.max(config.ai.timeoutMs, 900_000), // 15min min for specify/rebuild
+  maxRetries: config.ai.maxRetries,
+  model: effectiveModel,
+  telemetry: { keepRuns: config.ai.telemetry.keepRuns }
+});
+
+if (options.debug) {
+  aiService.setDebug(true);
+  console.error(pc.dim(`[debug] Backend: ${backend.name}`));
+  console.error(pc.dim(`[debug] Model: ${effectiveModel}`));
+}
+
+if (options.trace) {
+  const logDir = path.join(absolutePath, '.agents-reverse-engineer', 'subprocess-logs', timestamp);
+  aiService.setSubprocessLogDir(logDir);
+  console.error(pc.dim(`[debug] Subprocess logs: ${logDir}`));
+}
+```
+
+## Finalization Sequence
+
+Standard cleanup before exit (from `generate.ts`, `update.ts`, `specify.ts`, `rebuild.ts`):
+```typescript
+await aiService.finalize(absolutePath);  // Write run log, enforce retention
+await progressLog.finalize();            // Close progress.log stream
+await tracer.finalize();                 // Close trace NDJSON stream
+if (options.trace) {
+  cleanupOldTraces(absolutePath);        // Keep 500 most recent traces
+}
+```
+
+## Exit Code Conventions
+
+- **0**: Success (all tasks completed or no tasks to process)
+- **1**: Partial failure (some tasks succeeded, some failed) OR file conflict (specify/clean) OR first-run detection (update)
+- **2**: Total failure (no tasks succeeded, only failures) OR AI CLI not found
+
+## Dry-Run Behavior
+
+**generate.ts**: Builds `ExecutionPlan` via `buildExecutionPlan()`, logs file/directory/root task counts, returns without AI backend resolution.
+
+**update.ts**: Prepares `UpdatePlan` via `orchestrator.preparePlan({ includeUncommitted, dryRun: true })`, logs changed files with status markers (M=modified, +=added, R=renamed), cleanup actions (deleted `.sum`, empty dir `AGENTS.md`), affected directories, returns without AI calls.
+
+**specify.ts**: Collects `AGENTS.md` + annex files, estimates tokens via `totalChars / 4 / 1000`, logs counts with cyan styling, warns if input exceeds 150K tokens or docs missing, returns without backend resolution.
+
+**rebuild.ts**: Reads specs via `readSpecFiles()`, partitions via `partitionSpec()`, loads checkpoint via `CheckpointManager.load()`, logs unit count and checkpoint status (completed vs. pending modules), returns without AIService instantiation.
+
+**clean.ts**: Discovers artifacts via `fast-glob` (`.sum`, `.annex.md`, `AGENTS.md`, `AGENTS.local.md`), filters via `GENERATED_MARKER` substring search, logs deletion preview with picocolors formatting (yellow warning "Dry run — no files were changed"), returns without `unlink()` calls.
+
+## Error Handling Patterns
+
+**Directory access errors** (all commands):
+```typescript
+await access(resolvedPath, constants.R_OK);
+// Catches ENOENT → 'Directory not found: ${path}', exit 1
+// Catches EACCES/EPERM → 'Permission denied: ${path}', exit 1
+```
+
+**Config load errors** (all commands except `init`):
+```typescript
+const config = await loadConfig(absolutePath, { tracer, debug });
+// Throws on invalid YAML or schema validation failure
+// Caught by top-level try/catch in index.ts main()
+```
+
+**Backend resolution errors** (generate/update/specify/rebuild):
+```typescript
+try {
+  backend = resolveBackend(registry, config.ai.backend);
+} catch (err) {
+  if (err instanceof AIServiceError && err.code === 'CLI_NOT_FOUND') {
+    console.error(pc.red('No AI CLI found...'));
+    console.error(getInstallInstructions(registry));
+    process.exit(2);
+  }
+  throw err;
+}
+```
+
+**File conflict errors** (specify):
+```typescript
+try {
+  await writeSpec(...);
+} catch (err) {
+  if (err instanceof SpecExistsError) {
+    await progressLog.finalize();
+    console.error(pc.red(err.message));
+    process.exit(1);
+  }
+  throw err;
+}
+```
+
+## Dependencies
+
+**External**: `picocolors` (as `pc`), `node:path`, `node:fs/promises` (`access`, `readFile`, `rename`, `unlink`, `mkdir`, `readdir`), `node:fs` (`constants.F_OK/R_OK`).
+
+**Internal**:
+- **Config**: `src/config/loader.ts` (loadConfig, configExists, writeDefaultConfig, CONFIG_DIR, CONFIG_FILE)
+- **Discovery**: `src/discovery/run.ts` (discoverFiles)
+- **Generation**: `src/generation/orchestrator.ts` (createOrchestrator, GenerationPlan), `src/generation/executor.ts` (buildExecutionPlan, formatExecutionPlanAsMarkdown), `src/generation/collector.ts` (collectAgentsDocs, collectAnnexFiles), `src/generation/writers/agents-md.ts` (writeAgentsMd, GENERATED_MARKER), `src/generation/prompts/index.ts` (buildDirectoryPrompt)
+- **AI**: `src/ai/index.ts` (AIService, AIServiceError, createBackendRegistry, resolveBackend, getInstallInstructions)
+- **Orchestration**: `src/orchestration/index.ts` (CommandRunner, ProgressLog, ProgressReporter, createTraceWriter, cleanupOldTraces), `src/orchestration/trace.ts` (ITraceWriter)
+- **Update**: `src/update/index.ts` (createUpdateOrchestrator, UpdatePlan)
+- **Specify**: `src/specify/index.ts` (buildSpecPrompt, writeSpec, SpecExistsError)
+- **Rebuild**: `src/rebuild/index.ts` (readSpecFiles, partitionSpec, CheckpointManager, executeRebuild)
+- **Installer**: `src/installer/index.ts` (runInstaller, parseInstallerArgs)
+- **Output**: `src/output/logger.ts` (createLogger)
+- **Version**: `src/version.ts` (getVersion)
+- **Types**: `src/types/index.ts` (DiscoveryResult)

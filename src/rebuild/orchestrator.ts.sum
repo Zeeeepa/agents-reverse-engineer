@@ -1,0 +1,63 @@
+---
+generated_at: 2026-02-09T21:30:17.926Z
+content_hash: 3f0dc0bb7bce2589d55b03cc8321f6ff0e9abbf90abc02d9e98336c506dfc9e2
+purpose: orchestrator.ts orchestrates the rebuild pipeline by partitioning spec files into ordered groups (RebuildUnit[]), exe...
+---
+**orchestrator.ts orchestrates the rebuild pipeline by partitioning spec files into ordered groups (RebuildUnit[]), executing them sequentially by order value with concurrent AI-driven file generation within each group via runPool, accumulating export signatures as built context for subsequent groups, and managing checkpoint persistence for resumability.**
+
+## Exported Interface
+
+**executeRebuild(aiService: AIService, projectRoot: string, options: RebuildExecutionOptions): Promise<{ modulesProcessed: number; modulesFailed: number; modulesSkipped: number }>**
+Main pipeline executor that reads specs via `readSpecFiles()`, partitions via `partitionSpec()`, loads/creates checkpoint via `CheckpointManager.load()`, groups units by `order` field, processes each order group sequentially while running units within each group concurrently via `runPool()`, accumulates built context from generated files, and returns summary counts.
+
+**RebuildExecutionOptions**
+Configuration interface with fields:
+- `outputDir: string` — absolute path to output directory
+- `concurrency: number` — max concurrent AI calls within each order group
+- `failFast?: boolean` — abort on first failure
+- `force?: boolean` — wipe output directory and start fresh
+- `debug?: boolean` — enable verbose debug logging
+- `tracer?: ITraceWriter` — trace writer for concurrency debugging
+- `progressLog?: ProgressLog` — progress log for tail -f monitoring
+
+## Rebuild Pipeline Stages
+
+**Stage 1: Spec Loading and Partitioning**
+Calls `readSpecFiles(projectRoot)` to load `.md` spec files from `specs/` directory, then `partitionSpec(specFiles)` to extract RebuildUnit objects with `name`, `order`, `outPath`, `dependencies`, `specContent` fields.
+
+**Stage 2: Checkpoint Management**
+Invokes `CheckpointManager.load(outputDir, specFiles, unitNames)` returning `{ manager, isResume }`. If `isResume === true`, logs count of already-complete modules via `checkpoint.getPendingUnits()`. Calls `checkpoint.initialize()` to write `.rebuild-checkpoint.json` to disk. Filters units via `checkpoint.isDone(unit.name)` to build `pendingUnits[]` array, increments `modulesSkipped` for completed units.
+
+**Stage 3: Order Group Execution**
+Groups pendingUnits by `unit.order` value into `Map<number, RebuildUnit[]>`, sorts keys ascending via `[...orderGroups.keys()].sort((a, b) => a - b)`. For each orderValue sequentially:
+1. Emits `tracer.emit({ type: 'phase:start', phase: 'rebuild-order-${orderValue}', taskCount, concurrency })`
+2. Creates pool tasks mapping each unit to async function calling `buildRebuildPrompt(unit, fullSpec, builtContext)` → `aiService.call()` → `parseModuleOutput(response.text)` → `writeFile()` for each parsed file → `checkpoint.markDone(unit.name, filesWritten)` → returns RebuildResult
+3. Calls `runPool(groupTasks, { concurrency, failFast, tracer, phaseLabel, taskLabels }, onCompleteCallback)`
+4. onComplete callback increments `modulesProcessed`/`modulesFailed`, calls `reporter.onFileDone()` or `reporter.onFileError()`, invokes `checkpoint.markFailed(unitName, errorMsg)` on failure
+5. Emits `tracer.emit({ type: 'phase:end', phase, durationMs, tasksCompleted, tasksFailed })`
+
+**Stage 4: Context Accumulation**
+After each order group completes, reads all `filesWrittenInGroup` via `readFile(path.join(outputDir, filePath))`, skips non-source files (`.md`, `.json`, `.yml`), appends content to `builtContext` string with `// === ${filePath} ===` delimiter. If `builtContext.length > BUILT_CONTEXT_LIMIT` (100,000 chars), splits by `\n// === ` delimiter, keeps recent sections in full, truncates older sections to first `TRUNCATED_HEAD_LINES` (20) lines with `// ... (truncated)` marker.
+
+**Stage 5: Finalization**
+Calls `checkpoint.flush()` to persist final state, returns summary object with `modulesProcessed`, `modulesFailed`, `modulesSkipped` counts.
+
+## Progress Reporting
+
+Creates `ProgressReporter(pendingUnits.length, 0, progressLog)` for streaming output. Calls `reporter.onFileStart(unit.name)` before AI call, `reporter.onFileDone(unitName, durationMs, tokensIn, tokensOut, model, cacheReadTokens, cacheCreationTokens)` on success, `reporter.onFileError(unitName, errorMsg)` on failure. All progress events mirrored to `progressLog.write()` for `tail -f` monitoring.
+
+## Dependencies
+
+Imports `runPool` and `ProgressReporter` from `../orchestration/index.js`, `CheckpointManager` from `./checkpoint.js`, `readSpecFiles` and `partitionSpec` from `./spec-reader.js`, `parseModuleOutput` from `./output-parser.js`, `buildRebuildPrompt` from `./prompts.js`, `AIService` and `AIResponse` from `../ai/` types. Uses `writeFile`, `mkdir`, `readFile`, `rm` from `node:fs/promises` for disk I/O.
+
+## Error Handling
+
+Throws if `parseModuleOutput()` returns empty Map: `"AI produced no files for unit "${unit.name}". Response may have used unexpected format."` Pool failures captured in runPool onComplete callback with `result.error?.message ?? 'Unknown error'`, logged via `checkpoint.markFailed()` and `reporter.onFileError()`. Non-critical errors during context accumulation (unreadable files) silently skipped via try-catch.
+
+## Configuration Constants
+
+**BUILT_CONTEXT_LIMIT = 100_000**
+Character threshold before truncating older group context to prevent unbounded memory growth.
+
+**TRUNCATED_HEAD_LINES = 20**
+Number of lines kept from truncated files (typically imports + type declarations) when context exceeds limit.

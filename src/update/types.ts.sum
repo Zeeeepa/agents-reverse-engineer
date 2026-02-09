@@ -1,35 +1,24 @@
 ---
-generated_at: 2026-02-09T17:46:03.960Z
+generated_at: 2026-02-09T21:30:25.729Z
 content_hash: 7c45f747a3c815a11629fab142997544da6ffc1f850dce8a181dc9a6b8fe78d4
-purpose: Defines TypeScript interfaces for incremental update workflow including change results, cleanup tracking, progress ca...
+purpose: Defines TypeScript interfaces for incremental update workflow results, options, and progress callbacks.
 ---
-**Defines TypeScript interfaces for incremental update workflow including change results, cleanup tracking, progress callbacks, and dry-run configuration.**
+**Defines TypeScript interfaces for incremental update workflow results, options, and progress callbacks.**
 
-## Exported Interfaces
+## Exported Types
 
-`CleanupResult` tracks orphan cleanup outcomes with two fields:
-- `deletedSumFiles: string[]` — paths of removed `.sum` files
-- `deletedAgentsMd: string[]` — paths of removed `AGENTS.md` files from empty directories
+**CleanupResult** — Result of orphan cleanup operation with `deletedSumFiles: string[]` (removed `.sum` files) and `deletedAgentsMd: string[]` (removed `AGENTS.md` files from empty directories).
 
-`UpdateOptions` configures update command behavior:
-- `includeUncommitted?: boolean` — merge staged and working directory changes into detection
-- `dryRun?: boolean` — preview changes without writing files
+**UpdateOptions** — Configuration for update command with `includeUncommitted?: boolean` (include staged + working directory changes) and `dryRun?: boolean` (preview mode without file writes).
 
-`UpdateResult` aggregates update execution outcomes:
-- `analyzedFiles: string[]` — files regenerated due to added/modified status
-- `skippedFiles: string[]` — files with matching `content_hash` in frontmatter
-- `cleanup: CleanupResult` — orphan deletion summary
-- `regeneratedDirs: string[]` — directories whose `AGENTS.md` was rewritten
-- `baseCommit: string` — git SHA at update start
-- `currentCommit: string` — git SHA at update end
-- `dryRun: boolean` — whether execution was preview-only
+**UpdateResult** — Comprehensive update execution result containing `analyzedFiles: string[]` (added/modified files), `skippedFiles: string[]` (unchanged files), `cleanup: CleanupResult` (orphan deletion summary), `regeneratedDirs: string[]` (directories with rebuilt `AGENTS.md`), `baseCommit: string` (git SHA at start), `currentCommit: string` (git SHA at end), and `dryRun: boolean` (execution mode flag).
 
-`UpdateProgress` provides lifecycle callbacks for streaming progress:
-- `onFileStart?: (path: string, status: 'analyzing' | 'skipping') => void` — invoked before processing file
-- `onFileDone?: (path: string, status: 'analyzed' | 'skipped' | 'error') => void` — invoked after file completion
-- `onCleanup?: (path: string, type: 'sum' | 'agents-md') => void` — invoked when orphan deleted
-- `onDirRegenerate?: (path: string) => void` — invoked when directory `AGENTS.md` regenerated
+**UpdateProgress** — Progress callback interface with optional handlers: `onFileStart?: (path: string, status: 'analyzing' | 'skipping') => void` (file processing start), `onFileDone?: (path: string, status: 'analyzed' | 'skipped' | 'error') => void` (file processing completion), `onCleanup?: (path: string, type: 'sum' | 'agents-md') => void` (orphan file deletion), `onDirRegenerate?: (path: string) => void` (directory aggregation).
 
 ## Dependencies
 
-Imports `FileChange` from `../change-detection/types.js` to represent added/modified/deleted/renamed file states with `status` discriminator and optional `oldPath` for renames.
+Imports `FileChange` from `../change-detection/types.js` to represent git-based file modifications (used in orchestrator implementations, not directly exposed in this type module).
+
+## Design Pattern
+
+Status discriminators use string literal unions (`'analyzing' | 'skipping'`, `'analyzed' | 'skipped' | 'error'`, `'sum' | 'agents-md'`) for type-safe progress event routing and UI rendering in streaming progress reporter.

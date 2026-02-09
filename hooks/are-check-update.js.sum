@@ -1,62 +1,65 @@
 ---
-generated_at: 2026-02-09T17:46:14.552Z
+generated_at: 2026-02-09T21:30:33.321Z
 content_hash: 44cb7417cb816bca726cea3efc185fddb34ac17f60bc8f7326c1cc3281349a1b
-purpose: are-check-update.js spawns detached background process to check npm registry for agents-reverse-engineer updates, cac...
+purpose: are-check-update.js spawns a detached background process that queries npm for the latest agents-reverse-engineer vers...
 ---
-**are-check-update.js spawns detached background process to check npm registry for agents-reverse-engineer updates, caches result to ~/.claude/cache/are-update-check.json for SessionStart hook consumption.**
+**are-check-update.js spawns a detached background process that queries npm for the latest agents-reverse-engineer version, compares it against installed version from ARE-VERSION files, and writes update availability status to ~/.claude/cache/are-update-check.json.**
 
-## Execution Model
+## Execution Context
 
-Shebang `#!/usr/bin/env node` enables direct execution. Spawns detached child process via `spawn(process.execPath, ['-e', scriptString], { stdio: 'ignore', detached: true, windowsHide: true })` followed by `child.unref()` to allow parent process exit without blocking. Background process runs asynchronously, parent exits immediately after spawn.
+Invoked by SessionStart hook in Claude Code runtime. Runs once per session as non-blocking background check. Executable via shebang `#!/usr/bin/env node`.
 
-## Version File Resolution
+## Cache Management
 
-Checks two ARE-VERSION file locations in priority order:
-1. `projectVersionFile = join(cwd, '.claude', 'ARE-VERSION')` — local project install
-2. `globalVersionFile = join(homeDir, '.claude', 'ARE-VERSION')` — global npm install
-
-Background process reads first existing file via `readFileSync(versionFile, 'utf8').trim()`, defaults to `'0.0.0'` if neither exists.
-
-## Update Check Logic
-
-Background child process executes `execSync('npm view agents-reverse-engineer version', { encoding: 'utf8', timeout: 10000, windowsHide: true })` to query npm registry for latest published version. Compares against installed version from ARE-VERSION file via inequality check `installed !== latest`. Timeout enforced at 10000ms to prevent indefinite hangs on network failures.
-
-## Cache File Format
-
-Writes JSON object to `cacheFile` (path: `~/.claude/cache/are-update-check.json`) with structure:
+Writes JSON to `~/.claude/cache/are-update-check.json` with schema:
 ```javascript
 {
-  update_available: boolean,  // true if latest !== installed
+  update_available: boolean,  // true if installed !== latest
   installed: string,          // version from ARE-VERSION file or '0.0.0'
-  latest: string,             // npm registry version or 'unknown' on error
-  checked: number             // Unix timestamp (seconds) via Math.floor(Date.now() / 1000)
+  latest: string,             // npm registry version or 'unknown'
+  checked: number             // Unix timestamp (seconds)
 }
 ```
 
-Cache directory created via `mkdirSync(cacheDir, { recursive: true })` if not exists.
+Creates cache directory via `mkdirSync(cacheDir, { recursive: true })` if missing at `~/.claude/cache/`.
 
-## Error Handling
+## Version Resolution
 
-Try-catch blocks in background process isolate failures:
-- Version file read failure defaults `installed` to `'0.0.0'`
-- npm registry query failure sets `latest` to `null`, then `'unknown'` in result object
-- Network timeout (10000ms) throws caught exception, triggers unknown fallback
+Prioritizes project-local ARE-VERSION over global:
+1. `.claude/ARE-VERSION` in current working directory (`process.cwd()`)
+2. `~/.claude/ARE-VERSION` in home directory (`homedir()`)
 
-No error propagation to parent process — all failures silently degrade to cached result with `update_available: false`.
+Falls back to `'0.0.0'` if neither file exists.
 
-## Integration Points
+## Background Execution Pattern
 
-Called by SessionStart hook (`~/.claude/hooks/session-start/are-check-update.js` symlink). Session initialization triggers check once per session. Cache file consumed by ARE CLI or future session-start handlers to display update notifications without blocking session startup.
+Uses detached spawn to prevent blocking:
+```javascript
+spawn(process.execPath, ['-e', scriptString], {
+  stdio: 'ignore',
+  detached: true,
+  windowsHide: true,
+}).unref()
+```
 
-## Platform Compatibility
+Child process executes inline script via `-e` flag performing npm query and cache write. Parent process exits immediately after spawn without waiting for completion.
 
-`windowsHide: true` flag in both `spawn()` and `execSync()` suppresses console window creation on Windows. `process.execPath` resolves to Node.js binary path across platforms (Linux/macOS/Windows). Uses `homedir()` and `join()` for cross-platform path resolution.
+## npm Registry Query
 
-## Dependencies
+Executes `npm view agents-reverse-engineer version` via `execSync()` with:
+- `encoding: 'utf8'` for string output
+- `timeout: 10000` (10 second limit)
+- `windowsHide: true` to suppress console window on Windows
+- Catches errors silently, sets `latest: 'unknown'` on failure
 
-- `fs`: `existsSync`, `mkdirSync`, `readFileSync`, `writeFileSync`
-- `os`: `homedir`
-- `path`: `join`
-- `child_process`: `spawn`, `execSync`
+## File System Operations
 
-No external npm dependencies — relies solely on Node.js built-in modules.
+**Imports:** `existsSync`, `mkdirSync`, `readFileSync`, `writeFileSync` from `fs`; `homedir` from `os`; `join` from `path`; `spawn`, `execSync` from `child_process`.
+
+**Constants:**
+- `cacheDir` = `~/.claude/cache`
+- `cacheFile` = `~/.claude/cache/are-update-check.json`
+- `projectVersionFile` = `<cwd>/.claude/ARE-VERSION`
+- `globalVersionFile` = `~/.claude/ARE-VERSION`
+
+No exports — script executes immediately on load.

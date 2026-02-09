@@ -1,36 +1,32 @@
 ---
-generated_at: 2026-02-09T17:46:10.034Z
+generated_at: 2026-02-09T21:30:32.448Z
 content_hash: ca54d510ba9e5a5a6c0918f7fc45a080d51cfb24c929540b6f38fa342fa6a753
-purpose: orphan-cleaner.ts removes stale `.sum`, `.annex.md`, and `AGENTS.md` files after source file deletions or renames dur...
+purpose: orphan-cleaner.ts deletes stale `.sum` files, `.annex.md` files, and `AGENTS.md` files when source files are deleted ...
 ---
-**orphan-cleaner.ts removes stale `.sum`, `.annex.md`, and `AGENTS.md` files after source file deletions or renames during incremental updates.**
+**orphan-cleaner.ts deletes stale `.sum` files, `.annex.md` files, and `AGENTS.md` files when source files are deleted or renamed, ensuring documentation artifacts match the current codebase structure.**
 
 ## Exported Functions
 
-**`cleanupOrphans(projectRoot: string, changes: FileChange[], dryRun: boolean = false): Promise<CleanupResult>`** — orchestrates orphan cleanup by processing deleted and renamed files from `changes` array, deleting corresponding `.sum` and `.annex.md` files via `deleteIfExists()`, collecting affected directories via `path.dirname()` traversal, invoking `cleanupEmptyDirectoryDocs()` for each affected directory, and returning `CleanupResult` with `deletedSumFiles` and `deletedAgentsMd` arrays.
+**`cleanupOrphans(projectRoot: string, changes: FileChange[], dryRun: boolean = false): Promise<CleanupResult>`** — Deletes `.sum` and `.annex.md` files for deleted or renamed source files, then removes `AGENTS.md` from directories that no longer contain source files. Processes `FileChange` entries with `status === 'deleted'` or `status === 'renamed'`, adding their paths (or `oldPath` for renames) to cleanup queue. Returns `CleanupResult` containing `deletedSumFiles[]` and `deletedAgentsMd[]` arrays with relative paths of removed files.
 
-**`cleanupEmptyDirectoryDocs(dirPath: string, dryRun: boolean = false): Promise<boolean>`** — reads directory entries via `readdir()`, determines if directory contains source files by filtering out hidden files (starting with `.`), `.sum` and `.annex.md` extensions, and entries in `GENERATED_FILES` set, deletes `AGENTS.md` via `deleteIfExists()` if no source files remain, returns `true` if deletion occurred.
+**`cleanupEmptyDirectoryDocs(dirPath: string, dryRun: boolean = false): Promise<boolean>`** — Checks if directory contains any source files by reading entries via `readdir()`, filtering out hidden files (starting with `.`), `.sum` files, `.annex.md` files, and entries in `GENERATED_FILES` set. Returns `true` if `AGENTS.md` was deleted, `false` otherwise. Used to remove directory-level documentation when no source files remain.
 
-**`getAffectedDirectories(changes: FileChange[]): Set<string>`** — extracts unique directory paths requiring `AGENTS.md` regeneration by iterating `changes` array (skipping `status === 'deleted'` entries), walking parent directories via repeated `path.dirname()` calls until reaching `.` or absolute path, collecting all parent paths into `Set<string>`, including root directory `.`.
+**`getAffectedDirectories(changes: FileChange[]): Set<string>`** — Extracts parent directory paths from non-deleted `FileChange` entries by walking up via `path.dirname()` until reaching root (`.`). Skips changes with `status === 'deleted'` since deleted files don't require directory doc regeneration. Returns `Set<string>` of relative directory paths that need `AGENTS.md` regeneration during incremental updates.
+
+## Private Implementation
+
+**`deleteIfExists(filePath: string, dryRun: boolean): Promise<boolean>`** — Calls `stat()` to check file existence, then `unlink()` if not in dry-run mode. Returns `true` if file existed (regardless of actual deletion), `false` if `stat()` throws. Swallows all errors via empty catch block.
+
+**`GENERATED_FILES`** — `Set` containing `'AGENTS.md'` and `'CLAUDE.md'`, used by `cleanupEmptyDirectoryDocs()` to distinguish generated documentation from source files during directory emptiness checks.
 
 ## Cleanup Logic
 
-**Deletion trigger paths:** Extracts `change.path` for `status === 'deleted'` and `change.oldPath` for `status === 'renamed'` into `pathsToClean` array. For each path, constructs `.sum` path via `path.join(projectRoot, \`${relativePath}.sum\`)` and `.annex.md` path via `path.join(projectRoot, \`${relativePath}.annex.md\`)`, appends relative suffix (`.sum` or `.annex.md`) to `result.deletedSumFiles` on successful deletion.
+**Deletion triggers:** For each `FileChange` with `status === 'deleted'`, constructs `.sum` and `.annex.md` paths via `path.join(projectRoot, \`${relativePath}.sum\`)`. For `status === 'renamed'` changes, targets `oldPath` instead of `path` to remove artifacts at previous location.
 
-**Directory emptiness criteria:** `cleanupEmptyDirectoryDocs()` considers directory empty if no entries pass filter: not starting with `.`, not ending with `.sum` or `.annex.md`, not contained in `GENERATED_FILES` set (`['AGENTS.md', 'CLAUDE.md']`). Deletes `AGENTS.md` only when zero source files remain.
+**Directory cleanup strategy:** Collects affected directories via `path.dirname()` of each cleaned path, skipping root directory (`.`). For each affected directory, calls `cleanupEmptyDirectoryDocs()` to remove `AGENTS.md` if no source files remain. Source file detection excludes hidden files (`entry.startsWith('.')`) + `.sum` + `.annex.md` + `GENERATED_FILES` entries.
 
-**Affected directory traversal:** `getAffectedDirectories()` walks upward from each changed file's `path.dirname()` until `dir === '.'` or `path.isAbsolute(dir)` returns `true`, ensuring all intermediate directories and root (`.`) appear in returned `Set<string>`.
+**Dry-run support:** When `dryRun === true`, skips `unlink()` calls but still executes `stat()` checks and returns `true` for would-be deletions. Used for preview mode in update workflow.
 
-## File System Operations
+## Integration Context
 
-**`deleteIfExists(filePath: string, dryRun: boolean): Promise<boolean>`** — internal helper calling `stat()` to verify file existence, executing `unlink()` if `dryRun === false`, returning `true` on successful deletion or when file exists in dry-run mode, returning `false` on stat error (file does not exist). All file system errors caught and interpreted as nonexistence.
-
-## Types
-
-**`FileChange`** — imported from `../change-detection/types.js`, discriminated union with `status: 'added' | 'modified' | 'deleted' | 'renamed'`, `path: string`, optional `oldPath?: string` (present when `status === 'renamed'`).
-
-**`CleanupResult`** — imported from `./types.js`, object shape `{ deletedSumFiles: string[], deletedAgentsMd: string[] }` accumulating relative paths of deleted artifacts.
-
-## Constants
-
-**`GENERATED_FILES`** — `Set<string>` containing `'AGENTS.md'` and `'CLAUDE.md'`, used by `cleanupEmptyDirectoryDocs()` to exclude generated documentation files from source file detection, preventing false positives when determining directory emptiness.
+Invoked by `src/update/orchestrator.ts` after change detection to remove stale artifacts before regenerating modified files. Paired with `getAffectedDirectories()` to compute which directories need `AGENTS.md` regeneration during Phase 2 of incremental update workflow. Return value `CleanupResult` logged to `.agents-reverse-engineer/progress.log` for user visibility into cleanup operations.

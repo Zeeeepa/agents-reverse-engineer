@@ -1,0 +1,41 @@
+---
+generated_at: 2026-02-09T21:30:00.088Z
+content_hash: 6057b7be30b73f997e39dda41f4ae9cdd146142169573822fdbf8845fd96018f
+purpose: `src/rebuild/index.ts` re-exports all public types, schemas, functions, and classes for the rebuild pipeline through ...
+---
+**`src/rebuild/index.ts` re-exports all public types, schemas, functions, and classes for the rebuild pipeline through a barrel export pattern.**
+
+## Exported Types
+
+- **`RebuildCheckpoint`** — Type representing a rebuild checkpoint state from `./types.js`
+- **`RebuildUnit`** — Type representing a unit of work in the rebuild process from `./types.js`
+- **`RebuildPlan`** — Type representing a complete rebuild execution plan from `./types.js`
+- **`RebuildResult`** — Type representing the outcome of a rebuild operation from `./types.js`
+
+## Exported Schemas
+
+- **`RebuildCheckpointSchema`** — Zod schema for validating `RebuildCheckpoint` structures from `./types.js`
+
+## Exported Functions
+
+- **`readSpecFiles(specPath: string): Promise<...>`** — Reads specification files from the given path from `./spec-reader.js`
+- **`partitionSpec(...): ...`** — Partitions a specification into rebuild units from `./spec-reader.js`
+- **`parseModuleOutput(...): ...`** — Parses AI-generated module output into structured data from `./output-parser.js`
+- **`buildRebuildPrompt(...): string`** — Constructs prompts for the rebuild AI subprocess from `./prompts.js`
+- **`executeRebuild(options: RebuildExecutionOptions): Promise<RebuildResult>`** — Orchestrates the complete rebuild pipeline execution from `./orchestrator.js`
+
+## Exported Classes
+
+- **`CheckpointManager`** — Manages checkpoint persistence and recovery for incremental rebuild progress from `./checkpoint.js`
+
+## Exported Constants
+
+- **`REBUILD_SYSTEM_PROMPT`** — System prompt string template for rebuild AI interactions from `./prompts.js`
+
+## Exported Type Aliases
+
+- **`RebuildExecutionOptions`** — Type alias for options passed to `executeRebuild()` from `./orchestrator.js`
+
+## Module Organization
+
+This barrel export aggregates the rebuild pipeline's public interface across six internal modules: type definitions (`types.js`), specification parsing (`spec-reader.js`), AI output parsing (`output-parser.js`), checkpoint management (`checkpoint.js`), prompt engineering (`prompts.js`), and orchestration logic (`orchestrator.js`). Consumers import from this index file rather than individual submodules to access rebuild functionality.

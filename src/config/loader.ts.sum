@@ -1,42 +1,58 @@
 ---
-generated_at: 2026-02-09T17:45:06.341Z
+generated_at: 2026-02-09T21:28:57.768Z
 content_hash: b88ba8e0344a276d9eebeb8fef362508e570ea4c538f1d6a2af9a3ef507b8340
-purpose: loadConfig() loads and validates `.agents-reverse-engineer/config.yaml` configuration via Zod schema, returns default...
+purpose: loadConfig() orchestrates YAML configuration parsing from `.agents-reverse-engineer/config.yaml` with Zod schema vali...
 ---
-**loadConfig() loads and validates `.agents-reverse-engineer/config.yaml` configuration via Zod schema, returns defaults when file absent, throws ConfigError on validation failure, emits config:loaded trace events, and writeDefaultConfig() generates annotated YAML with comment blocks explaining exclusion patterns, discovery options, and AI service settings.**
+**loadConfig() orchestrates YAML configuration parsing from `.agents-reverse-engineer/config.yaml` with Zod schema validation, ConfigError-wrapped failure reporting, default fallback, and optional trace emission via ITraceWriter.**
 
 ## Exported Functions
 
 **loadConfig(root: string, options?: { tracer?: ITraceWriter; debug?: boolean }): Promise<Config>**
-Reads `config.yaml` from `path.join(root, CONFIG_DIR, CONFIG_FILE)` where `CONFIG_DIR = '.agents-reverse-engineer'` and `CONFIG_FILE = 'config.yaml'`. Parses YAML via `parse()` from `yaml` library, validates against `ConfigSchema` from `./schema.js`. Returns `Config` object with defaults applied via `ConfigSchema.parse(raw)`. Throws `ConfigError` wrapping `ZodError` with formatted issue paths like `"ai.concurrency: Expected number"`. Returns `ConfigSchema.parse({})` defaults when file not found (`ENOENT`). Emits `config:loaded` trace event with `configPath`, `model`, `concurrency` fields via `options?.tracer?.emit()`. Logs debug output with `pc.dim()` colored messages showing model and concurrency when `options?.debug` true.
+Loads configuration from `{root}/.agents-reverse-engineer/config.yaml` by reading file content, parsing YAML via `parse()`, validating against ConfigSchema via `ConfigSchema.parse(raw)`, and returning validated Config object. On ENOENT error, returns default Config from `ConfigSchema.parse({})`. On ZodError, extracts `issue.path` and `issue.message` fields to construct multi-line error report wrapped in ConfigError. Emits `'config:loaded'` trace event with `configPath`, `model`, `concurrency` fields when tracer provided. Logs debug output with `pc.dim()` formatting when `options.debug` enabled.
 
 **configExists(root: string): Promise<boolean>**
-Returns true if `path.join(root, CONFIG_DIR, CONFIG_FILE)` accessible via `access(configPath, constants.F_OK)`, false on exception.
+Checks existence of configuration file at `{root}/.agents-reverse-engineer/config.yaml` via `access(configPath, constants.F_OK)`. Returns true if file accessible, false if ENOENT caught.
 
 **writeDefaultConfig(root: string): Promise<void>**
-Creates `.agents-reverse-engineer/` directory via `mkdir(configDir, { recursive: true })`, writes `config.yaml` with multi-line comment blocks sectioned by `# ============================================================================` dividers. Injects `DEFAULT_EXCLUDE_PATTERNS`, `DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS` from `./defaults.js` as YAML list items. Calls `yamlScalar(value)` to quote patterns containing regex chars `[*{}\[\]?,:#&!|>'"%@\`]` with backslash-escaped double quotes. Embeds `DEFAULT_MAX_FILE_SIZE` and `getDefaultConcurrency()` numeric defaults directly in YAML comment text like `# Default: ${DEFAULT_MAX_FILE_SIZE} (1MB)`. Contains commented-out `# concurrency: ${getDefaultConcurrency()}` line showing override syntax.
-
-## Error Handling
-
-**ConfigError** extends Error with `filePath: string` and optional `cause?: Error` properties, sets `name = 'ConfigError'`. Constructor signature: `(message: string, filePath: string, cause?: Error)`. Thrown for three failure modes: ZodError validation with formatted issue list joined by `\n`, YAML parse errors re-wrapped with message prefix `"Failed to parse ${configPath}: ${err.message}"`, and propagated ConfigError instances re-thrown as-is without wrapping.
-
-## Trace Integration
-
-Emits `config:loaded` event via `options?.tracer?.emit()` with payload shape `{ type: 'config:loaded', configPath: string, model: string | null, concurrency: number }`. Event emitted twice per loadConfig() call: once after successful parse with relative path `path.relative(root, configPath)`, once for defaults with literal string `'(defaults)'` as configPath. Trace events logged even when `options?.debug` false.
-
-## YAML Serialization
+Creates `.agents-reverse-engineer/` directory via `mkdir(configDir, { recursive: true })` and writes `config.yaml` with commented YAML template. Content includes sections for `exclude.patterns`, `exclude.vendorDirs`, `exclude.binaryExtensions`, `options.followSymlinks`, `options.maxFileSize`, `output.colors`, `ai.backend`, `ai.model`, `ai.timeoutMs`, `ai.maxRetries`, `ai.concurrency`, `ai.telemetry.keepRuns`. Applies DEFAULT_EXCLUDE_PATTERNS, DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE constants from defaults module. Calls `yamlScalar()` on pattern values to escape YAML special characters.
 
 **yamlScalar(value: string): string**
-Tests input against `/[*{}\[\]?,:#&!|>'"%@\`]/` pattern matching YAML metacharacters (asterisk for alias, braces/brackets for flow collections, question/colon for mappings, hash for comments, ampersand for anchor, pipe/angle for block scalars, quotes/percent/at/backtick for string edge cases). Returns double-quoted string with backslash escapes for literal backslashes `replace(/\\/g, '\\\\')` and double quotes `replace(/"/g, '\\"')` when pattern matches. Returns unquoted string for simple values.
+Quotes string values containing YAML special characters matching regex `/[*{}\[\]?,:#&!|>'"%@`]/`. Escapes backslashes (`\\`) and double-quotes (`\"`) when quoting applied. Returns unmodified value when no special characters detected.
 
-## Configuration File Structure
+## ConfigError Class
 
-Generated YAML contains five comment-delimited sections: FILE & DIRECTORY EXCLUSIONS (patterns, vendorDirs, binaryExtensions arrays), DISCOVERY OPTIONS (followSymlinks boolean, maxFileSize number), OUTPUT FORMATTING (colors boolean), AI SERVICE CONFIGURATION (backend/model strings, timeoutMs/maxRetries/concurrency numbers, telemetry.keepRuns number). Each array rendered as YAML list with `- ` prefix and 4-space indentation. Vendor directories and binary extensions interpolated without yamlScalar() quoting. Exclude patterns passed through yamlScalar() due to glob wildcards like `*.log` and `temp/**`. Concurrency line commented out with `# concurrency: ${getDefaultConcurrency()}` showing override example but defaulting to auto-detection when absent.
+**ConfigError extends Error** with additional properties `filePath: string` and `cause?: Error`. Constructor accepts `message`, `filePath`, optional `cause`. Sets `name` property to `'ConfigError'`.
 
-## Debug Output
+## Constants
 
-Console writes via `console.error()` with `pc.dim()` gray formatting when `options?.debug` true. Emits two messages per load: `"[debug] Config loaded from: ${path.relative(root, configPath)}"` or `"[debug] Config file not found, using defaults"` for file status, then `"[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}"` for parsed values. Debug output follows trace emission to maintain event ordering.
+**CONFIG_DIR = '.agents-reverse-engineer'** — Directory name for configuration storage.
+
+**CONFIG_FILE = 'config.yaml'** — Configuration filename.
 
 ## Dependencies
 
-Imports `readFile`, `writeFile`, `mkdir`, `access` from `node:fs/promises` for async file I/O. Imports `constants` from `node:fs` for `F_OK` flag. Uses `path.join()` and `path.relative()` from `node:path`. Parses YAML via `parse()` and `stringify()` from `yaml` package (stringify unused in current implementation). Validates with `ZodError` from `zod`. Colors via `pc` (picocolors alias). Imports `ConfigSchema` and `Config` type from `./schema.js`, defaults from `./defaults.js` (`DEFAULT_VENDOR_DIRS`, `DEFAULT_BINARY_EXTENSIONS`, `DEFAULT_MAX_FILE_SIZE`, `DEFAULT_EXCLUDE_PATTERNS`, `getDefaultConcurrency`), `ITraceWriter` from `../orchestration/trace.js`.
+Imports `readFile`, `writeFile`, `mkdir`, `access` from `node:fs/promises` for file I/O. Imports `constants` from `node:fs` for F_OK flag. Imports `parse` and `stringify` from `yaml` library. Imports ZodError from `zod` for validation error handling. Imports `pc` from `picocolors` for terminal formatting. Imports ConfigSchema and Config type from `./schema.js`. Imports DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS, getDefaultConcurrency from `./defaults.js`. Imports ITraceWriter from `../orchestration/trace.js`.
+
+## Error Handling Strategy
+
+loadConfig() distinguishes three error cases via instanceof checks and `(err as NodeJS.ErrnoException).code` inspection:
+1. ENOENT errors trigger default config return via `ConfigSchema.parse({})`
+2. ZodError instances map `err.issues[]` to formatted validation report and wrap in ConfigError
+3. Existing ConfigError instances re-thrown without modification
+4. All other errors wrapped in ConfigError with YAML parse failure message
+
+## Trace Event Contract
+
+Emits trace event with type `'config:loaded'` containing fields:
+- `configPath: string` — Relative path from root or literal `'(defaults)'`
+- `model: string` — Value from `config.ai.model`
+- `concurrency: number` — Value from `config.ai.concurrency`
+
+## Template Generation Pattern
+
+writeDefaultConfig() constructs YAML content via template literals with embedded array mapping:
+```typescript
+vendorDirs:
+${DEFAULT_VENDOR_DIRS.map((dir) => `    - ${dir}`).join('\n')}
+```
+Produces indented YAML list items with 4-space prefix. Uses `yamlScalar()` wrapper for patterns array to escape glob special characters like `*`.

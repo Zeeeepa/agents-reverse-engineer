@@ -1,46 +1,67 @@
 ---
-generated_at: 2026-02-09T17:46:07.476Z
+generated_at: 2026-02-09T21:30:28.277Z
 content_hash: 71675547e7ed7dc5b1c708febebf0e954ac52c258471feb19766f9b2e6dc5bec
-purpose: INPUT.md documents the original project vision and Recursive Language Model (RLM) algorithm specification that define...
+purpose: INPUT.md defines the original vision and requirements specification for the agents-reverse-engineer project, establis...
 ---
-**INPUT.md documents the original project vision and Recursive Language Model (RLM) algorithm specification that defines agents-reverse-engineer's three-phase brownfield documentation strategy.**
+**INPUT.md defines the original vision and requirements specification for the agents-reverse-engineer project, establishing the Recursive Language Model (RLM) algorithm for brownfield documentation generation via post-order traversal of project trees.**
 
 ## Vision Statement
 
-Describes agents-reverse-engineer as a lightweight tool for generating `AGENTS.md`, `CLAUDE.md`, and platform-specific documentation from brownfield codebases. Compatible with Claude Code, OpenCode, and other agent tools. Created to provide agents with clear codebase overviews for long-term maintenance.
+The document establishes agents-reverse-engineer as a lightweight tool to reverse engineer brownfield projects and generate `AGENTS.md`, `CLAUDE.md`, and platform-specific documentation compatible with Claude Code, OpenCode, and other agent tools. Born from the need to streamline brownfield project documentation, providing agents with clear codebase overviews for long-term maintenance.
 
-## Inspirational Projects
+## Recursive Language Model Algorithm
 
-References three complementary tools for integration context:
-- **SpecKit**: https://github.com/github/spec-kit — GitHub's specification toolkit
-- **BMAD**: https://github.com/bmad-code-org/BMAD-METHOD — BMAD methodology framework
-- **Get Shit Done (GSD)**: https://github.com/glittercowboy/get-shit-done — GSD workflow system
+The RLM algorithm executes as follows:
 
-Instructs detailed analysis of GSD and BMAD approaches to brownfield projects, repository structure patterns, special commands, and implementation details via codebase inspection.
+1. Build complete project structure tree via directory traversal
+2. Start execution at first leaf node (file level)
+3. Analyze each file and generate `{filename}.sum` summary files
+4. When all leaf files in a directory are summarized, analyze the directory and generate `AGENTS.md` plus supplementary files if needed
+5. Continue recursively backward until reaching project root
 
-## Feature Requirements
+This post-order traversal ensures child summaries exist before parent directory analysis, enabling bottom-up documentation synthesis where directory docs can reference already-generated file summaries and subdirectory `AGENTS.md` files.
 
-**Command execution:**
-- Implement RLM algorithm via Claude Code commands or platform-specific alternatives for other LLM agent tools
+## Directory Documentation Schema
 
-**Session lifecycle:**
-- Hook mechanism on session end to update impacted files automatically
+Each `AGENTS.md` file describes current directory content and substructure. May reference supplementary documentation:
 
-**Directory documentation:**
-- Generate `AGENTS.md` in every project directory describing current directory content and substructure
-- Support references to specialized documentation: `ARCHITECTURE.md`, `STRUCTURE.md`, `STACK.md`, `INTEGRATIONS.md`, `INFRASTRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `PATTERNS.md`, `CONCERNS.md`
+- `ARCHITECTURE.md` — System design and component relationships
+- `STRUCTURE.md` — Directory organization rationale
+- `STACK.md` — Technology stack and dependencies
+- `INTEGRATIONS.md` — External service integrations
+- `INFRASTRUCTURE.md` — Deployment and runtime configuration
+- `CONVENTIONS.md` — Coding standards and naming patterns
+- `TESTING.md` — Test strategy and frameworks
+- `PATTERNS.md` — Design patterns and architectural idioms
+- `CONCERNS.md` — Known issues and technical debt
 
-## RLM Algorithm Specification
+## Required Features
 
-**Execution flow:**
-1. Build project structure tree via directory traversal
-2. Execute analysis starting at first leaf node, proceeding recursively backward (post-order traversal)
-3. **File-level analysis**: Generate `{filename}.sum` summary file for each source file leaf
-4. **Directory-level synthesis**: When all leaves in directory are summarized, analyze directory and generate `AGENTS.md` plus additional referenced documentation files if needed
-5. **Root convergence**: Continue recursive aggregation until project root is reached
+- Command execution using Recursive Language Model with Claude Code or alternative LLM agent tools (commands for Claude, available alternatives for others)
+- Session-end hook for incremental updates of impacted files
+- Generation of `AGENTS.md` in every project directory
+- Multi-platform support: Claude Code, OpenCode, and other agent tools
 
-## CLI Commands
+## Usage Commands
 
-Defines two primary user-facing commands:
-- `/are-generate` — Full documentation generation from scratch
-- `/are-update` — Incremental update of impacted files
+```bash
+/are-generate  # Full documentation generation via RLM
+/are-update    # Incremental update of changed files
+```
+
+## Research References
+
+Document references two methodologies for analysis:
+
+- **GSD (Get Shit Done)**: https://github.com/glittercowboy/get-shit-done
+- **BMAD**: https://github.com/bmad-code-org/BMAD-METHOD
+
+Recommends analyzing repository structure (primarily GSD, partially BMAD), brownfield project approaches, special commands, and codebase implementation details.
+
+## Complementary Tooling
+
+Designed for workflow integration with:
+
+- **SpecKit**: https://github.com/github/spec-kit
+- **BMAD**: https://github.com/bmad-code-org/BMAD-METHOD  
+- **Get Shit Done (GSD)**: https://github.com/glittercowboy/get-shit-done

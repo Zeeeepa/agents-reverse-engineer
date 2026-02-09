@@ -1,21 +1,24 @@
 ---
-generated_at: 2026-02-09T17:45:08.341Z
+generated_at: 2026-02-09T21:29:10.112Z
 content_hash: 92cb6f83a396d75b45e8243e85d7068562a116a565a2c74363b0943063d5b27a
-purpose: Barrel export module re-exporting import extraction functionality from `extractor.ts` and type definitions from `type...
+purpose: Barrel module exporting static import analysis functions and types for dependency graph construction.
 ---
-**Barrel export module re-exporting import extraction functionality from `extractor.ts` and type definitions from `types.ts`.**
+**Barrel module exporting static import analysis functions and types for dependency graph construction.**
 
-## Exported Functions
+## Exported Symbols
 
-- `extractImports` — Extracts import statements from a single source file
-- `extractDirectoryImports` — Aggregates imports across all files within a directory
-- `formatImportMap` — Formats collected import data into human-readable map representation
-
-## Exported Types
-
-- `ImportEntry` — Represents a single import statement with source module and imported identifiers
-- `FileImports` — Container type associating a file path with its array of ImportEntry records
+- `extractImports` — Function analyzing TypeScript/JavaScript source text to extract import declarations with source module paths
+- `extractDirectoryImports` — Function aggregating imports across all source files in a directory, returning structured import maps
+- `formatImportMap` — Function converting parsed import data structures into human-readable markdown formatted output
+- `ImportEntry` — Type representing single import statement with source module path and imported symbols
+- `FileImports` — Type representing all imports within a single file, mapping file paths to ImportEntry arrays
 
 ## Integration Points
 
-This module serves as the public API surface for the `src/imports/` subsystem, consumed by `src/generation/prompts/builder.ts` during Phase 2 directory aggregation to construct import maps included in directory-level AGENTS.md prompts via `extractDirectoryImports()`.
+Re-exports from `./extractor.js` and `./types.js` provide public API surface for import analysis consumed by:
+- `src/generation/prompts/builder.ts` — Includes import maps in file analysis prompts via `extractDirectoryImports()` calls
+- `src/generation/prompts/templates.ts` — Directory aggregation prompts reference import relationships for understanding module coupling
+
+## Module Organization
+
+Follows barrel pattern: centralizes exports from implementation module (`extractor.js`) and type definitions (`types.js`) for single import point. Consumers import via `import { extractImports } from './imports/index.js'` rather than deep file references.

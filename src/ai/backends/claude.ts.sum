@@ -1,87 +1,38 @@
 ---
-generated_at: 2026-02-09T17:44:06.859Z
+generated_at: 2026-02-09T21:27:56.449Z
 content_hash: 9c98c917fde849284a46f0ed20bbef87a30caf8e94be8578b8d689ff92618f2d
 purpose: ClaudeBackend implements AIBackend interface for Claude Code CLI, providing PATH detection via isCommandOnPath(), arg...
 ---
-**ClaudeBackend implements AIBackend interface for Claude Code CLI, providing PATH detection via isCommandOnPath(), argument construction with permission bypass flags, JSON response parsing with Zod validation against ClaudeResponseSchema, and installation instructions.**
+**ClaudeBackend implements AIBackend interface for Claude Code CLI, providing PATH detection via isCommandOnPath(), argument construction with bypass permissions, and JSON response parsing with Zod schema validation.**
 
-## Exported Interface
+## Exported Symbols
 
-`ClaudeBackend` class implements `AIBackend` interface with:
-- `name: 'claude'` — Backend identifier string
-- `cliCommand: 'claude'` — Executable name for PATH lookup
-- `isAvailable(): Promise<boolean>` — Delegates to `isCommandOnPath('claude')`
-- `buildArgs(options: AICallOptions): string[]` — Constructs CLI arguments array
-- `parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse` — Parses JSON output into normalized response
-- `getInstallInstructions(): string` — Returns npm install command for `@anthropic-ai/claude-code`
+**isCommandOnPath(command: string): Promise<boolean>** — Splits `process.env.PATH` by platform delimiter, checks each directory for file matching command name, on Windows iterates `process.env.PATHEXT` extensions (`.exe`, `.cmd`, `.bat`), uses `fs.stat()` instead of `fs.access()` for cross-platform compatibility without Unix execute bits.
 
-`isCommandOnPath(command: string): Promise<boolean>` exported function splits `process.env.PATH` by platform delimiter, iterates through directories, checks file existence via `fs.stat()` (not `fs.access()` for cross-platform compatibility), handles Windows `PATHEXT` environment variable for extension variants (`.exe`, `.cmd`, `.bat`).
+**ClaudeBackend** — Implements `AIBackend` interface with properties `name: 'claude'`, `cliCommand: 'claude'`, methods `isAvailable()`, `buildArgs()`, `parseResponse()`, `getInstallInstructions()`.
 
-## CLI Arguments Construction
+## ClaudeBackend Methods
 
-`buildArgs()` returns fixed arguments array:
-- `-p` — Non-interactive print mode
-- `--output-format json` — Structured JSON output
-- `--no-session-persistence` — Prevent session disk writes
-- `--permission-mode bypassPermissions` — Skip interactive permission prompts (PITFALLS.md §8)
+**isAvailable(): Promise<boolean>** — Delegates to `isCommandOnPath(this.cliCommand)` to verify `claude` binary exists on system PATH.
 
-Conditional arguments from `AICallOptions`:
-- `--model <model>` if `options.model` provided
-- `--system-prompt <systemPrompt>` if `options.systemPrompt` provided
-- `--max-turns <maxTurns>` if `options.maxTurns !== undefined`
+**buildArgs(options: AICallOptions): string[]** — Constructs argument array `['-p', '--output-format', 'json', '--no-session-persistence', '--permission-mode', 'bypassPermissions']`, appends `--model` if `options.model` present, appends `--system-prompt` if `options.systemPrompt` present, appends `--max-turns` converted to string if `options.maxTurns` defined, does NOT include prompt text (goes to stdin via `runSubprocess()`).
 
-Prompt text NOT included in args array — delivered to stdin via `runSubprocess()` wrapper.
+**parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse** — Finds first `{` character via `stdout.indexOf('{')` to handle non-JSON prefix text (upgrade notices per RESEARCH.md Pitfall 4), slices stdout from `jsonStart`, parses JSON and validates against `ClaudeResponseSchema`, extracts model name from first key of `parsed.modelUsage` object (fallback `'unknown'`), returns normalized `AIResponse` with `text: parsed.result`, `inputTokens: parsed.usage.input_tokens`, `outputTokens: parsed.usage.output_tokens`, `cacheReadTokens: parsed.usage.cache_read_input_tokens`, `cacheCreationTokens: parsed.usage.cache_creation_input_tokens`, `durationMs`, `exitCode`, `raw: parsed`, throws `AIServiceError` with code `PARSE_ERROR` if JSON object missing or schema validation fails.
 
-## Response Schema Validation
+**getInstallInstructions(): string** — Returns multiline string with npm install command `npm install -g @anthropic-ai/claude-code` and URL `https://code.claude.com`.
 
-`ClaudeResponseSchema` validated against Claude CLI v2.1.31 JSON output (see RESEARCH.md):
-```typescript
-{
-  type: 'result',
-  subtype: 'success' | 'error',
-  is_error: boolean,
-  duration_ms: number,
-  duration_api_ms: number,
-  num_turns: number,
-  result: string,
-  session_id: string,
-  total_cost_usd: number,
-  usage: {
-    input_tokens: number,
-    cache_creation_input_tokens: number,
-    cache_read_input_tokens: number,
-    output_tokens: number,
-  },
-  modelUsage: Record<string, {
-    inputTokens: number,
-    outputTokens: number,
-    cacheReadInputTokens: number,
-    cacheCreationInputTokens: number,
-    costUSD: number,
-  }>
-}
-```
+## JSON Schema Validation
 
-`parseResponse()` defensively finds first `{` character via `stdout.indexOf('{')` to handle non-JSON prefix text (upgrade notices per RESEARCH.md Pitfall 4). Extracts model name from first key in `modelUsage` object (defaults to `'unknown'`). Throws `AIServiceError` with code `PARSE_ERROR` if JSON missing or Zod validation fails.
+**ClaudeResponseSchema** — Zod schema validated against Claude CLI v2.1.31 JSON output format, defines object with `type: z.literal('result')`, `subtype: z.enum(['success', 'error'])`, `is_error: z.boolean()`, `duration_ms: z.number()`, `duration_api_ms: z.number()`, `num_turns: z.number()`, `result: z.string()`, `session_id: z.string()`, `total_cost_usd: z.number()`, nested `usage` object containing `input_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, `output_tokens` as numbers, `modelUsage: z.record(z.object({...}))` mapping model names to usage statistics with `inputTokens`, `outputTokens`, `cacheReadInputTokens`, `cacheCreationInputTokens`, `costUSD` fields.
 
-## PATH Detection Algorithm
+## CLI Argument Patterns
 
-`isCommandOnPath()` algorithm:
-1. Parse `process.env.PATH` with `path.delimiter` (`;` on Windows, `:` on Unix)
-2. Strip quote characters via `.replace(/["]+/g, '')`
-3. Parse `process.env.PATHEXT` on Windows for executable extensions (empty array on Unix defaults to `['']`)
-4. Nested loop: for each directory × extension, construct candidate path via `path.join(dir, command + ext)`
-5. Check `(await fs.stat(candidate)).isFile()` — returns `true` on first match, `false` if all candidates fail
+**Permission Mode** — `--permission-mode bypassPermissions` flag enables non-interactive execution by skipping permission prompts (documented in PITFALLS.md §8), required for subprocess operation without TTY.
 
-Uses `fs.stat()` instead of `fs.access(fs.constants.X_OK)` because Windows lacks Unix execute permission bits.
+**Session Persistence** — `--no-session-persistence` flag prevents writing session state to disk, appropriate for stateless documentation generation tasks.
 
-## Dependencies
+**Output Format** — `--output-format json` flag triggers structured JSON output instead of conversational text, enabling machine parsing with schema validation.
 
-- `node:fs/promises` — `fs.stat()` for PATH detection
-- `node:path` — `path.join()`, `path.delimiter` for cross-platform path manipulation
-- `zod` — `ClaudeResponseSchema` validation, `z.infer<>` type extraction
-- `../types.js` — `AIBackend`, `AICallOptions`, `AIResponse`, `AIServiceError` imports
+## Integration Dependencies
 
-## Integration Points
-
-`ClaudeBackend` consumed by `AIService` in `src/ai/service.ts` via backend registry. `runSubprocess()` in `src/ai/subprocess.ts` receives args from `buildArgs()` and stdout for `parseResponse()`. `isCommandOnPath()` utility reusable for other backend availability checks.
+Imports `AIBackend`, `AICallOptions`, `AIResponse` from `../types.js`, imports `AIServiceError` from `../types.js`, uses `runSubprocess()` from subprocess module (referenced in JSDoc but not imported here), follows backend adapter pattern where prompt goes to stdin and CLI arguments configure behavior.

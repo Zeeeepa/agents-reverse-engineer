@@ -1,14 +1,14 @@
 ---
-generated_at: 2026-02-09T17:44:14.052Z
+generated_at: 2026-02-09T21:27:59.585Z
 content_hash: 9035c23a19fe33c400b3ebf272ce357a54458443d60020d4cecf68adbd478548
-purpose: Barrel module re-exporting `checkPhantomPaths` validator function for phantom path resolution in generated AGENTS.md ...
+purpose: Re-exports `checkPhantomPaths` validator function from `./validator.js` as the public interface for phantom path dete...
 ---
-**Barrel module re-exporting `checkPhantomPaths` validator function for phantom path resolution in generated AGENTS.md documentation.**
+**Re-exports `checkPhantomPaths` validator function from `./validator.js` as the public interface for phantom path detection.**
 
 ## Exported Interface
 
-- `checkPhantomPaths` — Validates path references in AGENTS.md files by resolving them against the filesystem and reporting unresolved paths as `PhantomPathInconsistency` issues.
+Exports `checkPhantomPaths` function from `./validator.js` module, providing access to the phantom path validation subsystem that detects unresolvable file references in generated `AGENTS.md` documentation.
 
 ## Module Role
 
-Single export statement serving as public API surface for the `src/quality/phantom-paths/` subsystem. Implementation resides in `./validator.js` which extracts path-like strings from AGENTS.md via three regex patterns (markdown link targets, backtick-quoted paths, prose-embedded paths), resolves against AGENTS.md directory and project root with `.ts`/`.js` fallback, and reports unresolved references in `InconsistencyReport` format.
+Serves as the barrel export for the `src/quality/phantom-paths/` subsystem within the larger quality validation pipeline (`src/quality/index.ts`). This pattern centralizes the phantom path detection capability behind a single import point while keeping implementation details isolated in `validator.ts`.

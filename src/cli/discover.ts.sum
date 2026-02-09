@@ -1,69 +1,45 @@
 ---
-generated_at: 2026-02-09T17:45:00.102Z
+generated_at: 2026-02-09T21:28:42.085Z
 content_hash: 79c56b266e6a9cedc43be6fe15516e276874c36636d49eae53f0a6b6db41a2ca
-purpose: `discover.ts` executes the `are discover` command which walks the target directory applying gitignore/vendor/binary/c...
+purpose: Command entry point for `are discover` — walks directory tree with gitignore/vendor/binary/custom filters, writes dis...
 ---
-**`discover.ts` executes the `are discover` command which walks the target directory applying gitignore/vendor/binary/custom filters, writes discovered files to `progress.log`, generates `GENERATION-PLAN.md` with post-order directory traversal, and emits trace events for discovery lifecycle.**
+**Command entry point for `are discover` — walks directory tree with gitignore/vendor/binary/custom filters, writes discovered file list to console and `.agents-reverse-engineer/GENERATION-PLAN.md` with three-phase execution plan.**
 
 ## Exported Interface
 
-**`discoverCommand(targetPath: string, options: DiscoverOptions): Promise<void>`** — Main entry point for the `are discover` command. Resolves `targetPath` to absolute path (defaults to `process.cwd()`), loads configuration via `loadConfig()`, verifies directory accessibility, runs `discoverFiles()` discovery pipeline, logs included/excluded files to console and `ProgressLog`, creates `GenerationPlan` via `orchestrator.createPlan()`, builds `ExecutionPlan` via `buildExecutionPlan()`, formats as markdown via `formatExecutionPlanAsMarkdown()`, and writes to `.agents-reverse-engineer/GENERATION-PLAN.md`.
+**discoverCommand(targetPath: string, options: DiscoverOptions): Promise<void>**
+Resolves `targetPath` to absolute path (defaults to `process.cwd()`), loads config via `loadConfig()`, verifies path accessibility with `access(R_OK)`, runs `discoverFiles()` discovery pipeline, emits trace events (`discovery:start/end` with `filesIncluded`, `filesExcluded`, `durationMs`), logs included/excluded files to console via `createLogger()` and `ProgressLog.create()`, creates `GenerationPlan` via `createOrchestrator().createPlan()`, builds `ExecutionPlan` via `buildExecutionPlan()` with post-order traversal, formats as markdown via `formatExecutionPlanAsMarkdown()`, writes to `.agents-reverse-engineer/GENERATION-PLAN.md`, exits with code 1 on `ENOENT`/`EACCES`/`EPERM` errors or plan write failure.
 
-**`DiscoverOptions`** — Interface with optional `tracer?: ITraceWriter` for trace event emission and `debug?: boolean` flag for verbose output (defaults to `false`).
-
-## Workflow Steps
-
-1. **Path Resolution**: Converts `targetPath` to absolute via `path.resolve()`, falling back to `process.cwd()` if empty
-2. **Configuration Loading**: Calls `loadConfig(resolvedPath)` to load `.agents-reverse-engineer/config.yaml` or use defaults
-3. **Access Verification**: Uses `fs.access()` with `constants.R_OK` to verify directory readability, exits on `ENOENT`/`EACCES`/`EPERM` errors
-4. **Progress Log Initialization**: Creates `ProgressLog` via `ProgressLog.create(resolvedPath)` for tail monitoring, writes header with ISO 8601 timestamp
-5. **Discovery Execution**: Calls `discoverFiles(resolvedPath, config, { tracer, debug })` to run filter chain
-6. **Trace Emission**: Emits `discovery:start` before discovery, `discovery:end` after with `filesIncluded`/`filesExcluded`/`durationMs` fields using `process.hrtime.bigint()` for nanosecond precision
-7. **Result Logging**: Iterates `result.included` logging via `logger.file()` and `progressLog.write()` with relative paths, iterates `result.excluded` logging via `logger.excluded()` with `reason` and `filter` fields
-8. **Plan Generation**: Creates `DiscoveryResult` object wrapping `files` and `excluded` arrays, calls `createOrchestrator(config, resolvedPath)`, invokes `orchestrator.createPlan(discoveryResult)`, calls `buildExecutionPlan()` for post-order directory sorting, formats via `formatExecutionPlanAsMarkdown()`
-9. **Plan Persistence**: Creates `.agents-reverse-engineer/` directory via `mkdir({ recursive: true })`, writes markdown to `GENERATION-PLAN.md` via `writeFile()`, logs relative path via `logger.info()` and `progressLog.write()`
-10. **Finalization**: Calls `progressLog.finalize()` to flush buffered writes
-
-## Error Handling
-
-**Access Errors**: Catches `fs.access()` exceptions, pattern-matches `error.code` against `'ENOENT'`/`'EACCES'`/`'EPERM'`, logs via `logger.error()`, calls `process.exit(1)` for known codes, rethrows unknown errors.
-
-**Plan Write Errors**: Catches `writeFile()` exceptions, extracts `(err as Error).message`, logs via `logger.error()` and `progressLog.write()`, finalizes progress log, calls `process.exit(1)`.
-
-## Dependencies
-
-**Internal Modules**:
-- `../config/loader.js` — `loadConfig()` for YAML config loading
-- `../discovery/run.js` — `discoverFiles()` for filter chain execution
-- `../output/logger.js` — `createLogger()` for terminal output with picocolors
-- `../generation/orchestrator.js` — `createOrchestrator()` for generation plan creation
-- `../generation/executor.js` — `buildExecutionPlan()` and `formatExecutionPlanAsMarkdown()` for post-order traversal
-- `../orchestration/index.js` — `ProgressLog` for tail monitoring
-- `../types/index.js` — `DiscoveryResult` interface
-- `../orchestration/trace.js` — `ITraceWriter` interface
-
-**Node.js APIs**:
-- `node:path` — Path resolution and relative path computation
-- `node:fs/promises` — `access()`, `mkdir()`, `writeFile()` for async file I/O
-- `node:fs` — `constants.R_OK` for access mode flags
-- `picocolors` — Terminal color formatting via `pc.dim()`
+**DiscoverOptions**
+Interface with `tracer?: ITraceWriter` for trace emission, `debug?: boolean` for verbose output (defaults false).
 
 ## Trace Events
 
-**`discovery:start`** — Emitted before `discoverFiles()` with `targetPath: string` field.
+Emits `discovery:start` with `targetPath` at start, `discovery:end` with `filesIncluded`, `filesExcluded`, `durationMs` computed via `process.hrtime.bigint()` delta at completion.
 
-**`discovery:end`** — Emitted after `discoverFiles()` with `filesIncluded: number`, `filesExcluded: number`, `durationMs: number` fields. Duration computed via `process.hrtime.bigint()` nanosecond delta converted to milliseconds by dividing by `1_000_000`.
+## Progress Logging
 
-## Output Behavior
+Creates `ProgressLog` instance via `ProgressLog.create(resolvedPath)`, writes header `=== ARE Discover (${new Date().toISOString()}) ===`, logs each included file as `+ ${relativePath}`, each excluded file as `- ${relativePath} (${reason}: ${filter})`, summary `Discovered ${count} files (${excluded} excluded)`, plan creation status, finalizes with `await progressLog.finalize()`.
 
-**Console Logging**: Uses `logger.file()` for included paths, `logger.excluded(path, reason, filter)` for excluded paths, `logger.summary(includedCount, excludedCount)` for summary, `logger.info()` for plan creation, `logger.error()` for failures.
+## Output Format
 
-**Progress Log**: Mirrors console output to `.agents-reverse-engineer/progress.log` with prefix patterns: `+ ` for included files, `- ` for excluded files with parenthesized reason and filter.
+Console output via `createLogger()`:
+- `logger.file(relativePath)` for included files
+- `logger.excluded(relativePath, reason, filter)` for excluded files with reason/filter context
+- `logger.summary(includedCount, excludedCount)` for aggregate counts
+- `logger.info()` for status messages
+- `logger.error()` for fatal errors before `process.exit(1)`
 
-**Debug Output**: When `options.debug` is truthy, writes to `console.error()` with `pc.dim()` formatting for `[debug]` prefixed messages showing target path, file counts, and discovery completion.
+Debug output via `pc.dim()` when `options.debug` is true, writes `[debug] Discovering files in: ${path}` at start, `[debug] Discovery complete: ${included} included, ${excluded} excluded` at end.
 
-## Path Handling
+## Plan Generation Flow
 
-**Relative Path Computation**: Defines local `relativePath(absPath: string): string` helper using `path.relative(resolvedPath, absPath)` to convert absolute discovery results to project-relative paths for cleaner output.
+Constructs `DiscoveryResult` object with `files: result.included`, `excluded: result.excluded.map(e => ({ path, reason }))`, passes to `createOrchestrator(config, resolvedPath).createPlan()` yielding `GenerationPlan`, transforms via `buildExecutionPlan(generationPlan, resolvedPath)` to `ExecutionPlan`, formats via `formatExecutionPlanAsMarkdown()`, writes to `path.join(resolvedPath, '.agents-reverse-engineer', 'GENERATION-PLAN.md')` after `mkdir(configDir, { recursive: true })`.
 
-**Plan Path Construction**: Builds plan file path via `path.join(resolvedPath, '.agents-reverse-engineer', 'GENERATION-PLAN.md')`, computes relative path for logging via `path.relative(resolvedPath, planPath)`.
+## Error Handling
+
+Catches `access()` errors: `ENOENT` → `logger.error('Directory not found')` + exit 1, `EACCES`/`EPERM` → `logger.error('Permission denied')` + exit 1, re-throws other errors. Catches plan write errors: logs `Failed to write plan: ${msg}`, writes to progress log, finalizes, exits with code 1.
+
+## Dependencies
+
+Imports `loadConfig` from `../config/loader.js`, `discoverFiles` from `../discovery/run.js`, `createLogger` from `../output/logger.js`, `createOrchestrator` from `../generation/orchestrator.js`, `buildExecutionPlan`, `formatExecutionPlanAsMarkdown` from `../generation/executor.js`, `ProgressLog` from `../orchestration/index.js`, `DiscoveryResult` type from `../types/index.js`, `ITraceWriter` type from `../orchestration/trace.js`, `picocolors` as `pc`.

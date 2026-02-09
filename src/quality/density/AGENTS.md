@@ -2,25 +2,29 @@
 
 # src/quality/density
 
-Stub validation module for findability analysis (symbol presence in aggregated AGENTS.md), disabled after `SumFileContent.metadata.publicInterface` removal pending structured extraction re-implementation.
+Stub findability validation module, currently disabled after removal of structured `publicInterface` metadata from `.sum` file schema. Preserved for future re-implementation via post-processing symbol extraction.
 
 ## Contents
 
-**[validator.ts](./validator.ts)** — Exports `validateFindability(_agentsMdContent, _sumFiles)` returning empty `FindabilityResult[]` array; previously verified exported symbols from `.sum` files appeared in parent `AGENTS.md` via string matching, now disabled awaiting post-processing extraction support.
+### [validator.ts](./validator.ts)
+Exports `validateFindability()` stub returning empty `FindabilityResult[]` array and `FindabilityResult` interface defining validation outcome structure with `filePath`, `symbolsTested`, `symbolsFound`, `symbolsMissing`, `score` fields.
 
-## Implementation Status
+## Architecture
 
-`validateFindability()` signature preserved for future re-implementation but returns `[]` unconditionally. Original logic performed heuristic substring search to detect whether key symbols from source file summaries appeared in aggregated directory documentation. Disabled when `SumFileContent` schema removed structured `publicInterface` field (see `src/generation/writers/sum.ts`). Module retained to support future LLM-based or AST-based symbol extraction passes.
+**Validation Approach (Disabled):** Originally performed string-based substring matching to verify exported symbols from `.sum` files appeared in parent `AGENTS.md` content without LLM calls. Logic removed when `SumFileContent.metadata.publicInterface` field was deleted from schema.
 
-## Type Surface
+**Current State:** `validateFindability(_agentsMdContent: string, _sumFiles: Map<string, SumFileContent>)` unconditionally returns `[]` with parameters prefixed by underscores indicating unused status. Function signature retained for future structured extraction support via post-processing passes.
 
-`FindabilityResult` interface with fields:
-- `filePath: string` — validated `.sum` file path
-- `symbolsTested: string[]` — symbols checked for presence
-- `symbolsFound: string[]` — symbols located in AGENTS.md
-- `symbolsMissing: string[]` — symbols absent from AGENTS.md
-- `score: number` — ratio `symbolsFound.length / symbolsTested.length` (0-1 range)
+## Integration Points
 
-## Dependencies
+Consumed by `src/quality/index.ts` which aggregates quality validators (`validateCodeDocConsistency`, `validateCodeCodeConsistency`, `validatePhantomPaths`, `validateFindability`). Produces no findings in current implementation but return type `FindabilityResult[]` preserved in reporting pipeline.
 
-Imports `SumFileContent` type from `../../generation/writers/sum.js` for parameter type annotation. No runtime dependencies since function body returns empty array.
+**Type Dependencies:**
+- `SumFileContent` imported from `../../generation/writers/sum.js` (verified path)
+- `FindabilityResult` consumed by quality reporting aggregator
+
+## Behavioral Contracts
+
+**Return Value:** Always `[]` (empty array) indicating zero validation findings.
+
+**Score Calculation (Historical):** Ratio of `symbolsFound.length / symbolsTested.length` yielding `0.0` (no symbols) to `1.0` (all symbols present) when validation was active.

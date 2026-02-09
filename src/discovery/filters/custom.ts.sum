@@ -1,26 +1,29 @@
 ---
-generated_at: 2026-02-09T17:43:55.662Z
+generated_at: 2026-02-09T21:27:41.393Z
 content_hash: fb529e7928634e7d905de0768cd5e34fecc4318031610a43f56fc4f0e3fb38e9
-purpose: createCustomFilter() constructs a FileFilter that excludes files matching user-provided gitignore-style patterns via ...
+purpose: createCustomFilter() implements gitignore-style pattern matching for user-defined exclusion rules during file discovery.
 ---
-**createCustomFilter() constructs a FileFilter that excludes files matching user-provided gitignore-style patterns via the `ignore` library with relative path normalization.**
+**createCustomFilter() implements gitignore-style pattern matching for user-defined exclusion rules during file discovery.**
 
 ## Exported Interface
 
-`createCustomFilter(patterns: string[], root: string): FileFilter` — Returns a FileFilter named `'custom'` that checks absolute paths against gitignore-style exclusion patterns. Empty pattern array results in pass-through filter (excludes nothing).
+- **`createCustomFilter(patterns: string[], root: string): FileFilter`** — Constructs FileFilter that excludes paths matching gitignore-style patterns relative to root directory. Returns filter with `name: 'custom'` and `shouldExclude()` method. Empty patterns array bypasses all exclusion logic (returns false for all paths).
 
-## Pattern Matching Strategy
+## Pattern Matching Implementation
 
-Uses `ignore` library instance (`Ignore` type) initialized via `ignore()` factory. Patterns added via `ig.add(patterns)` bulk operation. Matching performed via `ig.ignores(relativePath)` against paths converted from absolute to relative using `path.relative(normalizedRoot, absolutePath)`.
+Uses `ignore` library to parse gitignore syntax. Creates `Ignore` instance via `ignore()`, adds patterns via `ig.add(patterns)`, evaluates paths via `ig.ignores(relativePath)`. Normalizes root via `path.resolve(root)` to ensure consistent absolute path comparison.
 
-## Path Normalization
+## Path Transformation Logic
 
-`normalizedRoot` computed via `path.resolve(root)` to canonicalize user-provided root. `shouldExclude()` converts absolute paths to relative before matching. Paths outside root (starting with `..`) or empty relative paths return `false` (not excluded) as guard against incorrect pattern application.
+Converts absolute paths to relative via `path.relative(normalizedRoot, absolutePath)` before pattern matching (ignore library requires relative paths). Bypasses exclusion for paths outside root hierarchy (relative path starts with `..`) or empty relative paths. Pattern evaluation only runs if `patterns.length > 0`.
 
-## Integration Point
+## Filter Contract Compliance
 
-Returns `FileFilter` interface from `../types.js` with `name: 'custom'` discriminator and `shouldExclude(absolutePath: string): boolean` predicate. Composable with other filters in `src/discovery/filters/index.ts` filter chain.
+Implements `FileFilter` interface from `../types.js` with required `name: 'custom'` property and `shouldExclude(absolutePath: string): boolean` method. Integrates with filter chain orchestrated by discovery walker.
 
-## Short-Circuit Behavior
+## Example Behavior
 
-`shouldExclude()` returns `false` early when `patterns.length === 0` (no patterns configured). Second early return when relative path is empty or starts with `'..'` prevents matching against files outside project root.
+Patterns `['*.log', 'tmp/**', 'secret.txt']` with root `/project`:
+- `/project/debug.log` → relative `debug.log` → matches `*.log` → returns `true`
+- `/project/src/app.ts` → relative `src/app.ts` → no match → returns `false`
+- `/other/file.log` → relative `../other/file.log` → outside root → returns `false`

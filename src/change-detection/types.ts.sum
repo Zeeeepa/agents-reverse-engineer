@@ -1,20 +1,24 @@
 ---
-generated_at: 2026-02-09T17:44:34.525Z
+generated_at: 2026-02-09T21:28:29.199Z
 content_hash: 78cff2ed3b8efd6a7641dbc57fffa5d8b41fc24da285f3d31326bfc74d582b82
-purpose: Defines TypeScript interfaces and types for git-based change detection, representing file changes, change detection r...
+purpose: Defines TypeScript interfaces and type aliases for git-based change detection workflows, enabling hash-based incremen...
 ---
-**Defines TypeScript interfaces and types for git-based change detection, representing file changes, change detection results, and configuration options.**
+**Defines TypeScript interfaces and type aliases for git-based change detection workflows, enabling hash-based incremental updates via status discrimination (`added`/`modified`/`deleted`/`renamed`) and uncommitted change inclusion.**
 
 ## Exported Types
 
-**ChangeType** — Union type `'added' | 'modified' | 'deleted' | 'renamed'` representing possible git diff statuses for files.
+**`ChangeType`** — String literal union discriminating file change status: `'added' | 'modified' | 'deleted' | 'renamed'`.
 
-**FileChange** — Interface with `path: string` (relative path, new path for renames), `status: ChangeType`, optional `oldPath?: string` (original path for renamed files). Represents individual file change detected from git diff.
+**`FileChange`** — Represents single file delta with `path: string` (new path for renames), `status: ChangeType`, and optional `oldPath?: string` (populated only when `status: 'renamed'`).
 
-**ChangeDetectionResult** — Interface aggregating `currentCommit: string`, `baseCommit: string`, `changes: FileChange[]`, `includesUncommitted: boolean`. Returned by change detection operations to describe what changed between commits.
+**`ChangeDetectionResult`** — Aggregates diff output with `currentCommit: string`, `baseCommit: string`, `changes: FileChange[]`, and `includesUncommitted: boolean` flag indicating working tree inclusion.
 
-**ChangeDetectionOptions** — Configuration interface with optional `includeUncommitted?: boolean` flag controlling whether staged and working directory changes merge into detection results.
+**`ChangeDetectionOptions`** — Configuration object with `includeUncommitted?: boolean` controlling whether `git status --porcelain` changes merge with `git diff` output.
 
 ## Integration Context
 
-Used by `src/change-detection/detector.ts` which implements git diff parsing via `simple-git` library. Supports `git diff --name-status -M` with rename detection (50% similarity threshold). The `FileChange.oldPath` field populated when `ChangeType` is `'renamed'`. Consumed by `src/update/orchestrator.ts` for incremental documentation updates via SHA-256 hash comparison against `.sum` frontmatter `content_hash` fields.
+Used by `src/update/orchestrator.ts` to compute `filesToAnalyze` (changes requiring `.sum` regeneration) vs `filesToSkip` (hash matches). The `oldPath` field enables orphan cleanup via `cleanupOrphans()` when files renamed via `git diff -M` (50% similarity threshold). The `includesUncommitted` flag determines whether session-end hooks (`are-session-end.js`) trigger auto-updates.
+
+## Discriminated Union Pattern
+
+`FileChange` uses `status` as discriminant where `oldPath` presence correlates with `status: 'renamed'`. Consumers check `change.status === 'renamed'` before accessing `change.oldPath` to avoid undefined errors.

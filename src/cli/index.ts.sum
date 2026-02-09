@@ -1,90 +1,131 @@
 ---
-generated_at: 2026-02-09T17:44:53.798Z
-content_hash: f0e637c7e8763bd45f0698a292161427c5f42d9a3820aecfdf74d9759b6fafc8
-purpose: CLI entry point orchestrating command routing, argument parsing, and installer invocation for the agents-reverse-engi...
+generated_at: 2026-02-09T21:28:47.206Z
+content_hash: 72733b5514bf26d7e776855a8af9e06f53bd5580dfbbebf5c28afe75110786b4
+purpose: CLI entry point dispatching install/uninstall/init/discover/generate/update/specify/rebuild/clean commands with flag ...
 ---
-**CLI entry point orchestrating command routing, argument parsing, and installer invocation for the agents-reverse-engineer tool.**
+**CLI entry point dispatching install/uninstall/init/discover/generate/update/specify/rebuild/clean commands with flag parsing, version display, and error handling.**
 
-## Exported Symbols
+## Command Routing
 
-No exported functions or types. This module executes immediately via shebang `#!/usr/bin/env node` and calls `main().catch()` at module scope.
+`main()` parses `process.argv.slice(2)` via `parseArgs()` and routes to command handlers:
 
-## Commands
+- `install` → `runInstaller()` with `parseInstallerArgs()`
+- `uninstall` → `runInstaller()` with `uninstall: true`
+- `init` → `initCommand(positional[0] || '.', { force })`
+- `clean` → `cleanCommand(positional[0] || '.', { dryRun })`
+- `discover` → `discoverCommand(positional[0] || '.', {})`
+- `generate` → `generateCommand(positional[0] || '.', GenerateOptions)`
+- `update` → `updateCommand(positional[0] || '.', UpdateCommandOptions)`
+- `specify` → `specifyCommand(positional[0] || '.', SpecifyOptions)`
+- `rebuild` → `rebuildCommand(positional[0] || '.', RebuildOptions)`
 
-Supports seven commands routed via switch statement in `main()`:
+No command with `args.length === 0` → launches interactive installer via `runInstaller({ global: false, local: false, uninstall: false, force: false, help: false, quiet: false })`.
 
-- `install` → `runInstaller()` with `parseInstallerArgs(args)`
-- `uninstall` → `runInstaller()` with `installerArgs.uninstall = true`
-- `init` → `initCommand(positional[0] || '.', { force })` from `./init.js`
-- `clean` → `cleanCommand(positional[0] || '.', cleanOpts)` from `./clean.js`
-- `discover` → `discoverCommand(positional[0] || '.', {})` from `./discover.js`
-- `generate` → `generateCommand(positional[0] || '.', options)` from `./generate.js`
-- `update` → `updateCommand(positional[0] || '.', options)` from `./update.js`
-- `specify` → `specifyCommand(positional[0] || '.', specifyOpts)` from `./specify.js`
+No command with installer flags (detected via `hasInstallerFlags()`) → direct installer invocation with `parseInstallerArgs(args)`.
 
 ## Argument Parsing
 
-`parseArgs(args: string[])` returns `{ command, positional, flags, values }` by iterating `process.argv.slice(2)`:
+`parseArgs(args: string[])` returns `{ command, positional, flags, values }`:
 
-- Flags starting with `--` populate `flags: Set<string>` or `values: Map<string, string>` if next arg is non-flag value
-- Short flags (`-h`, `-g`, `-l`, `-V`) expanded via character iteration with switch mapping (`-h` → `help`, `-g` → `global`, etc.)
-- First non-flag arg becomes `command`, subsequent non-flag args populate `positional: string[]`
+- **Long flags**: `--flag` or `--key value` patterns
+- **Short flags**: `-h` → `help`, `-g` → `global`, `-l` → `local`, `-V` → `version`
+- **Command**: first non-flag argument
+- **Positional**: subsequent non-flag arguments after command
+- **Values map**: stores `--key value` pairs (e.g., `--concurrency 3`, `--output ./spec.md`, `--model sonnet`)
+- **Flags set**: boolean flags without values (e.g., `--dry-run`, `--debug`, `--trace`, `--force`)
 
-## Installer Invocation Patterns
+`hasInstallerFlags(flags, values)` detects installer-related flags: `global`, `local`, `force`, or `runtime` value presence.
 
-Three patterns trigger installer:
+## Option Types
 
-1. **Interactive mode:** `args.length === 0` calls `runInstaller()` with all-false defaults
-2. **Direct flags without command:** `!command && hasInstallerFlags(flags, values)` passes `parseInstallerArgs(args)` to `runInstaller()`
-3. **Explicit install/uninstall command:** Passes `parseInstallerArgs(args)` to `runInstaller()`, setting `uninstall: true` for uninstall command
+**GenerateOptions** (from `./generate.js`):
+```typescript
+{
+  dryRun?: boolean;
+  concurrency?: number;
+  failFast?: boolean;
+  debug?: boolean;
+  trace?: boolean;
+  model?: string;
+}
+```
 
-`hasInstallerFlags()` returns true if `flags` contains `global`/`local`/`force` or `values` contains `runtime`.
+**UpdateCommandOptions** (from `./update.js`):
+```typescript
+{
+  uncommitted?: boolean;
+  dryRun?: boolean;
+  concurrency?: number;
+  failFast?: boolean;
+  debug?: boolean;
+  trace?: boolean;
+  model?: string;
+}
+```
 
-## Command Options
+**CleanOptions** (from `./clean.js`):
+```typescript
+{
+  dryRun?: boolean;
+}
+```
 
-`GenerateOptions` constructed from:
-- `dryRun: flags.has('dry-run')`
-- `concurrency: parseInt(values.get('concurrency')!, 10)` if present
-- `failFast: flags.has('fail-fast')`
-- `debug: flags.has('debug')`
-- `trace: flags.has('trace')`
+**SpecifyOptions** (from `./specify.js`):
+```typescript
+{
+  output?: string;
+  force?: boolean;
+  dryRun?: boolean;
+  multiFile?: boolean;
+  debug?: boolean;
+  trace?: boolean;
+  model?: string;
+}
+```
 
-`UpdateCommandOptions` adds `uncommitted: flags.has('uncommitted')` to `GenerateOptions` fields.
+**RebuildOptions** (from `./rebuild.js`):
+```typescript
+{
+  output?: string;
+  force?: boolean;
+  dryRun?: boolean;
+  concurrency?: number;
+  failFast?: boolean;
+  debug?: boolean;
+  trace?: boolean;
+  model?: string;
+}
+```
 
-`SpecifyOptions` constructed from:
-- `output: values.get('output')`
-- `force: flags.has('force')`
-- `dryRun: flags.has('dry-run')`
-- `multiFile: flags.has('multi-file')`
-- `debug: flags.has('debug')`
-- `trace: flags.has('trace')`
+## Global Flags
 
-`CleanOptions` contains only `dryRun: flags.has('dry-run')`.
+- `--version`, `-V` → `showVersion()` prints `agents-reverse-engineer v${VERSION}` and exits
+- `--help`, `-h` → `showHelp()` prints `USAGE` constant and exits (suppressed if installer flags present)
+- `--debug` → passed to command handlers for verbose subprocess logging
+- `--trace` → enables NDJSON trace output to `.agents-reverse-engineer/traces/`
+- `--dry-run` → preview mode without file writes (generate, update, specify, rebuild, clean)
+- `--fail-fast` → abort on first file analysis failure (generate, update, rebuild)
+- `--concurrency <n>` → worker pool size override (generate, update, rebuild)
+- `--model <name>` → AI model override (generate, update, specify, rebuild)
+- `--force` → overwrite existing files (init, install, specify, rebuild)
+- `--uncommitted` → include working tree changes (update only)
+- `--output <path>` → output destination (specify: spec file path, rebuild: output directory)
+- `--multi-file` → split specification into per-directory files (specify only)
 
-## Help and Version
+## Version Management
 
-`showHelp()` prints `USAGE` constant (multiline template with command list, option descriptions, examples) and calls `process.exit(0)`.
+`getVersion()` imported from `../version.js` returns package version string.
 
-`showVersion()` prints `agents-reverse-engineer v${VERSION}` via `getVersion()` from `../version.js` and exits.
+`showVersionBanner()` prints `agents-reverse-engineer v${VERSION}\n` before command execution.
 
-`showVersionBanner()` prints version without exiting, called before command routing.
-
-`showUnknownCommand(command: string)` prints error and suggests `are --help`, exits with code 1.
-
-## Global Flag Handling
-
-Version flag (`--version` or `-V`) triggers `showVersion()` before command routing.
-
-Help flag (`--help` or `-h`) triggers `showHelp()` only if no command present and no installer flags detected (prevents interference with `install --help`).
+`showVersion()` prints version and exits with code 0.
 
 ## Error Handling
 
-`main().catch((err: Error) => { console.error(\`Error: ${err.message}\`); process.exit(1); })` catches uncaught errors at top level.
+`showUnknownCommand(command)` prints error message referencing `are --help` and exits with code 1.
 
-## USAGE Constant
+`main().catch((err: Error) => ...)` catches uncaught errors, prints `Error: ${err.message}`, exits with code 1.
 
-Multiline string documenting:
-- Command signatures with `[path]` optional positional defaults to current directory
-- Install/uninstall options: `--runtime <name>`, `-g`/`--global`, `-l`/`--local`, `--force`
-- General options: `--debug`, `--trace`, `--dry-run`, `--output <path>`, `--multi-file`, `--concurrency <n>`, `--fail-fast`, `--uncommitted`, `--help`, `--version`
-- Examples showing installer, init, discover, generate with concurrency, update with uncommitted, specify with output/force
+## Usage Template
+
+`USAGE` constant defines help text with command summaries, option descriptions, and example invocations. Covers install/uninstall workflow with `--runtime` targeting (claude, opencode, gemini, all), global/local installation modes, and command-specific flags.

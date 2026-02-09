@@ -1,27 +1,27 @@
 ---
-generated_at: 2026-02-09T17:44:12.992Z
+generated_at: 2026-02-09T21:28:00.305Z
 content_hash: d949dd52d9e6602ba7336320be9efcdf5d23285444b295078fc01dc915d1c3c9
-purpose: validator.ts implements a disabled findability validation system that previously checked whether exported symbols fro...
+purpose: validator.ts implements stub findability validation for AGENTS.md symbol coverage, currently disabled after removal o...
 ---
-**validator.ts implements a disabled findability validation system that previously checked whether exported symbols from .sum files appeared in parent AGENTS.md content, now returning empty results after structured metadata removal.**
+**validator.ts implements stub findability validation for AGENTS.md symbol coverage, currently disabled after removal of structured `publicInterface` metadata from SumFileContent schema.**
 
-## Exported Interface
+## Exported Interfaces
 
-`FindabilityResult` represents validation output for a single .sum file with fields:
-- `filePath: string` — path to the validated .sum file
+`FindabilityResult` represents validation outcome for a single `.sum` file with fields:
+- `filePath: string` — path to validated `.sum` file
 - `symbolsTested: string[]` — symbol names checked for presence
-- `symbolsFound: string[]` — symbols located in AGENTS.md content
-- `symbolsMissing: string[]` — symbols absent from AGENTS.md
-- `score: number` — ratio of found to tested symbols (0-1 range)
+- `symbolsFound: string[]` — symbols found in AGENTS.md content
+- `symbolsMissing: string[]` — symbols absent from AGENTS.md content
+- `score: number` — ratio of found to tested symbols (0.0 to 1.0)
 
-## Exported Function
+## Exported Functions
 
-`validateFindability(_agentsMdContent: string, _sumFiles: Map<string, SumFileContent>): FindabilityResult[]` accepts AGENTS.md full text and a map of file paths to parsed `SumFileContent` objects, returns an empty array since the `publicInterface` field was removed from the `SumFileContent` schema. Function signature preserved for future re-implementation via post-processing passes that extract structured symbols.
+`validateFindability(_agentsMdContent: string, _sumFiles: Map<string, SumFileContent>): FindabilityResult[]` returns empty array `[]` unconditionally. Function signature preserved for future re-implementation via post-processing passes that extract structured symbols from `.sum` files. Parameters prefixed with underscore indicate unused status.
 
-## Implementation Status
+## Design Context
 
-Module retained as stub after `metadata.publicInterface` removal from `SumFileContent` schema (referenced in comment). Originally performed heuristic string-based symbol matching without LLM calls to verify that key exports from source files appeared in aggregated directory documentation. The `validateFindability` function signature remains to support future structured extraction support, but currently no validation logic executes.
+Module originally validated that exported symbols from `.sum` files appeared in parent `AGENTS.md` content via string-based substring matching (no LLM calls). Validation logic removed after `SumFileContent.metadata.publicInterface` field was deleted from schema (referenced in comment: "Previously relied on metadata.publicInterface which has been removed"). Retention rationale stated in comment: "This module is retained for future structured extraction support."
 
-## Dependencies
+## Integration Points
 
-Imports `SumFileContent` type from `../../generation/writers/sum.js` for the `_sumFiles` parameter type annotation.
+Imported by `src/quality/index.ts` which aggregates quality validators. `SumFileContent` type imported from `src/generation/writers/sum.ts`. Return type `FindabilityResult[]` consumed by quality reporting pipeline but produces no findings in current implementation.

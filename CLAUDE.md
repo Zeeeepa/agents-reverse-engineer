@@ -6,7 +6,7 @@
 
 agents-reverse-engineer (ARE) automates brownfield documentation for AI coding assistants by executing a three-phase pipeline that discovers source files, analyzes them concurrently via AI CLI subprocesses (Claude Code, Gemini, OpenCode), generates file summaries with YAML frontmatter containing SHA-256 content hashes, synthesizes directory-level documentation from bottom-up via post-order traversal, and produces root integration documents tailored to each AI platform.
 
-**Version**: 0.7.0  
+**Version**: 0.7.1  
 **License**: MIT (GeoloeG-IsT, 2026)  
 **Runtime**: Node.js ≥18.0.0 (ES modules)
 
@@ -92,6 +92,7 @@ Sequential execution (concurrency=1) generates `CLAUDE.md`, `GEMINI.md`, `OPENCO
     ├── orchestration/    # Worker pool, progress reporting, trace emission, plan tracking
     ├── output/           # Terminal logging with picocolors formatting
     ├── quality/          # Code-doc consistency validation and phantom path detection
+    ├── rebuild/          # AI-driven project reconstruction from specs
     ├── specify/          # Project specification synthesis from AGENTS.md corpus
     ├── types/            # Shared interfaces for discovery results
     └── update/           # Incremental update workflow with orphan cleanup
@@ -107,7 +108,7 @@ Sequential execution (concurrency=1) generates `CLAUDE.md`, `GEMINI.md`, `OPENCO
 | **src/discovery/** | Directory walker with filter chain: gitignore parsing via `ignore` library, binary detection (extension + content analysis), vendor directory exclusion (node_modules/.git/dist), custom glob patterns. |
 | **src/change-detection/** | Git diff parsing (`git diff --name-status -M`) with rename detection and SHA-256 content hashing for non-git workflows. Detects added/modified/deleted/renamed files, optionally merges uncommitted changes. |
 | **src/quality/** | Post-generation validators: regex-based export extraction vs. substring search in summaries (code-vs-doc), duplicate symbol detection (code-vs-code), path resolution via `existsSync()` (phantom-paths). |
-| **src/config/** | Zod schema validation for `.agents-reverse-engineer/config.yaml` with defaults for vendor directories (18 entries), exclude patterns (gitignore-style globs), binary extensions (26 types), AI backend config (concurrency/timeout/model/pricing). |
+| **src/config/** | Zod schema validation for `.agents-reverse-engineer/config.yaml` with defaults for vendor directories (10 entries), exclude patterns (gitignore-style globs), binary extensions (96 types), AI backend config (concurrency/timeout/model/pricing). |
 | **src/installer/** | npx install orchestrator supporting global (`~/.claude`) and local (`.claude`) installation modes with interactive prompts, platform-specific path resolution (environment overrides: `CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`), hook registration, permission setup. |
 | **hooks/** | Detached background processes for version checking (compares `npm view agents-reverse-engineer version` against `~/.claude/ARE-VERSION`) and session-end updates (spawns `npx agents-reverse-engineer@latest update --quiet` when `git status --porcelain` detects changes). |
 

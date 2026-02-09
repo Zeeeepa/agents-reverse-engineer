@@ -2,43 +2,86 @@
 
 # src/integration
 
-**Platform-specific AI assistant integration layer detecting Claude Code/OpenCode/Gemini/Aider environments, generating command template files with progress-monitoring patterns, deploying bundled session hooks, and enforcing skip-if-exists safety with force override.**
+**Platform-specific integration file generation for AI coding assistants (Claude Code, OpenCode, Gemini CLI, Aider) via environment detection, template materialization with frontmatter variants, and bundled hook deployment.**
 
 ## Contents
 
-### Environment Detection
+**[detect.ts](./detect.ts)** — `detectEnvironments(projectRoot)` scans for `.claude/`, `CLAUDE.md`, `.opencode/`, `.aider.conf.yml`, `.aider/`, `.gemini/` artifacts via `existsSync()` and returns `DetectedEnvironment[]` with `type`, `configDir`, `detected` fields. `hasEnvironment(projectRoot, type)` predicate tests for specific platform presence.
 
-**[detect.ts](./detect.ts)** — `detectEnvironments()` scans project root for `.claude/`, `.opencode/`, `.aider/`, `.gemini/` directories and `CLAUDE.md`/`.aider.conf.yml` marker files, returns `DetectedEnvironment[]` with `type`, `configDir`, `detected` fields. `hasEnvironment()` filters by `EnvironmentType`.
+**[generate.ts](./generate.ts)** — `generateIntegrationFiles(projectRoot, options)` orchestrates template generation with skip-if-exists behavior (unless `force=true`) and optional `dryRun` preview. Dispatches to platform-specific template getters via `getTemplatesForEnvironment()`, writes files via `writeFileSync()` after `ensureDir()` parent directory creation, copies bundled hooks from `hooks/dist/` for Claude via `readBundledHook('are-session-end.js')`, returns `IntegrationResult[]` with `filesCreated`/`filesSkipped` arrays.
 
-### File Generation Orchestration
-
-**[generate.ts](./generate.ts)** — `generateIntegrationFiles()` orchestrates template instantiation by detecting/overriding environments via `detectEnvironments()`, retrieving templates via `getTemplatesForEnvironment()`, writing command files with `ensureDir()` + `writeFileSync()`, deploying bundled hooks for Claude via `readBundledHook()` from `hooks/dist/are-session-end.js`, returns `IntegrationResult[]` with `filesCreated`/`filesSkipped` arrays. `GenerateOptions` supports `dryRun`, `force` (overwrite existing), and `environment` (bypass auto-detection).
-
-### Template Library
-
-**[templates.ts](./templates.ts)** — Exports `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` generating platform-specific command files for seven commands: `generate`, `update`, `init`, `discover`, `clean`, `specify`, `help`. Encapsulates `COMMANDS` object with markdown prompt content, `PLATFORM_CONFIGS` mapping `EnvironmentType` to `PlatformConfig` (command prefix, path structure, frontmatter rules), `buildTemplate()`/`buildGeminiToml()` factories performing placeholder substitution (`COMMAND_PREFIX`, `VERSION_FILE_PATH`). Command content patterns: background execution via `npx agents-reverse-engineer@latest`, progress polling with `.agents-reverse-engineer/progress.log` offset reads, `TaskOutput` checks with `block: false`, completion summaries with phase metrics.
-
-### Type Definitions
+**[templates.ts](./templates.ts)** — `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` generate command file arrays via `buildTemplate(platform, commandName, command)` with platform-specific paths (.claude/skills/are-{command}/SKILL.md, .opencode/commands/are-{command}.md, .gemini/commands/are-{command}.toml). `COMMANDS` constant defines seven commands: `generate`, `update`, `init`, `discover`, `clean`, `specify`, `rebuild`, `help`. `PLATFORM_CONFIGS` maps frontmatter schemas (Claude `name:` field, OpenCode `agent: build` directive, Gemini `description`/`prompt` TOML structure). `buildFrontmatter()` handles Markdown variants, `buildGeminiToml()` formats triple-quoted prompts. Placeholder substitution replaces `COMMAND_PREFIX` (`/are-`) and `VERSION_FILE_PATH` (.claude/ARE-VERSION, .opencode/ARE-VERSION, .gemini/ARE-VERSION).
 
 **[types.ts](./types.ts)** — `EnvironmentType` union (`'claude' | 'opencode' | 'aider' | 'gemini'`), `DetectedEnvironment` interface (`type`, `configDir`, `detected`), `IntegrationTemplate` interface (`filename`, `path`, `content`), `IntegrationResult` interface (`environment`, `filesCreated`, `filesSkipped`).
 
-## Platform Configuration
+## Architecture
 
-| Platform | Command Prefix | Path Pattern | Frontmatter | Version File |
-|----------|---------------|--------------|-------------|--------------|
-| **Claude** | `/are-` | `.claude/skills/are-{command}/SKILL.md` | `name: /are-{command}` | `.claude/ARE-VERSION` |
-| **OpenCode** | `/are-` | `.opencode/commands/are-{command}.md` | `agent: build` | `.opencode/ARE-VERSION` |
-| **Gemini** | `/are-` | `.gemini/commands/are-{command}.toml` | TOML `description`/`prompt` | `.gemini/ARE-VERSION` |
-| **Aider** | N/A | N/A (detection only) | N/A | N/A |
+### Environment Detection
 
-## Command Template Behavior
+`detectEnvironments()` applies existence checks via `path.join(projectRoot, relativePath)` → `existsSync()` for platform-specific markers:
+- Claude: `.claude/` directory OR `CLAUDE.md` file → `{ type: 'claude', configDir: '.claude', detected: true }`
+- OpenCode: `.opencode/` directory → `{ type: 'opencode', configDir: '.opencode', detected: true }`
+- Aider: `.aider.conf.yml` file OR `.aider/` directory → `{ type: 'aider', configDir: '.aider', detected: true }`
+- Gemini: `.gemini/` directory → `{ type: 'gemini', configDir: '.gemini', detected: true }`
 
-- **generate/update/specify**: 15s poll intervals, background execution via `run_in_background: true`, offset-based log tailing, three-phase progress reporting (discovery → file analysis → directory/root docs)
-- **discover**: 10s poll intervals, background execution, file count reporting
-- **init**: Synchronous execution, creates `.agents-reverse-engineer/config.yaml`
-- **clean**: Synchronous execution with STRICT RULES enforcing zero flag additions, deletion count reporting
-- **help**: Outputs command reference with platform-specific `COMMAND_PREFIX` placeholder substitution
+No recursive parent directory scanning—only direct children of `projectRoot` tested.
+
+### Template Generation Flow
+
+1. `generateIntegrationFiles()` receives `projectRoot` and optional `GenerateOptions` (`dryRun`, `force`, `environment`)
+2. If `options.environment` specified, constructs single-element array via `configDirMap: Record<EnvironmentType, string>` lookup (`claude` → `.claude`, `opencode` → `.opencode`, `aider` → `.aider`, `gemini` → `.gemini`)
+3. Otherwise calls `detectEnvironments(projectRoot)` to get auto-detected platforms
+4. For each environment, calls `getTemplatesForEnvironment(env.type)` to retrieve `IntegrationTemplate[]` from `templates.ts`
+5. Iterates templates, constructs `fullPath` via `path.join(projectRoot, template.path)`, writes file via `writeFileSync(fullPath, template.content, 'utf-8')` if not exists or `force=true`
+6. Special case for `claude` environment: after template processing, reads bundled hook via `getBundledHookPath('are-session-end.js')` → `readFileSync(hookPath, 'utf-8')`, writes to `.claude/hooks/are-session-end.js`
+7. Tracks created/skipped paths in `IntegrationResult` per environment
+
+### Platform Configuration Schema
+
+`PLATFORM_CONFIGS` defines variants for frontmatter generation and path construction:
+- **Claude**: Nested directory structure (.claude/skills/are-{command}/SKILL.md), frontmatter with `name: /are-{command}`, `versionFilePath: '.claude/ARE-VERSION'`
+- **OpenCode**: Flat file structure (.opencode/commands/are-{command}.md), frontmatter with `agent: build`, `versionFilePath: '.opencode/ARE-VERSION'`
+- **Gemini**: TOML format (.gemini/commands/are-{command}.toml), `description = "..."` and `prompt = """..."""` fields, `versionFilePath: '.gemini/ARE-VERSION'`
+- **Aider**: Returns empty array (no templates defined)
+
+`buildFrontmatter(platform, commandName, description)` emits Markdown frontmatter with conditional `name:` field (Claude only) and `agent: build` directive (OpenCode only). `buildGeminiToml(commandName, command)` formats TOML structure per Gemini CLI spec at https://geminicli.com/docs/cli/custom-commands/.
+
+### Command Template Structure
+
+`COMMANDS` constant defines command metadata with `description`, `argumentHint`, `content` fields for seven commands:
+
+- **`generate`**: Three-phase pipeline documentation (Discovery → File Analysis → Directory/Root Documents). Embeds background execution pattern with `run_in_background: true`, polling `.agents-reverse-engineer/progress.log` via Read tool with `offset` parameter, TaskOutput monitoring with `block: false`, completion summarization covering file counts, failures, inconsistency warnings. Flags: `--dry-run`, `--concurrency N`, `--fail-fast`, `--debug`, `--trace`.
+- **`update`**: Incremental change detection workflow with `--uncommitted` flag, hash-based comparison, orphan cleanup, affected directory regeneration. Monitoring pattern identical to `generate`.
+- **`discover`**: Enforces strict rule constraints: "Run ONLY this exact command: `npx agents-reverse-engineer@latest discover $ARGUMENTS`" with explicit prohibition against adding unlisted flags. Polls progress.log after 10-second delay.
+- **`clean`**: Mirrors `discover` strict rules pattern, deletes .sum/AGENTS.md/GENERATION-PLAN.md/CLAUDE.md artifacts with `--dry-run` preview.
+- **`specify`**: AGENTS.md collection → AI synthesis → specs/SPEC.md generation. Auto-runs `generate` if no AGENTS.md files exist. Flags: `--output <path>`, `--multi-file`, `--force`.
+- **`rebuild`**: Spec partitioning into ordered rebuild units, sequential inter-group/concurrent intra-group processing, context accumulation, ===FILE:=== delimited output parsing, exit code semantics (0=success, 1=partial failure, 2=total failure). Flags: `--output <path>`, `--force`, `--concurrency N`, `--fail-fast`.
+- **`help`**: Command reference with usage tables, configuration YAML example, generated file schemas (.sum frontmatter: `file_type`, `generated_at`, `content_hash`, `purpose`, `public_interface`, `dependencies`, `patterns`, `related_files`), workflow recipes, repository link https://github.com/GeoloeG-IsT/agents-reverse-engineer.
+
+`buildTemplate(platform, commandName, command)` materializes templates via placeholder substitution: `COMMAND_PREFIX` → `/are-`, `VERSION_FILE_PATH` → platform-specific version cache path from `PLATFORM_CONFIGS[platform].versionFilePath`.
+
+### Background Execution Pattern
+
+`generate`, `update`, `discover`, `specify`, `rebuild` templates embed consistent monitoring workflow:
+1. Display version via Read tool on `VERSION_FILE_PATH`
+2. Execute `npx agents-reverse-engineer@latest {command} $ARGUMENTS` with `run_in_background: true`
+3. Wait 10-15 seconds via `sleep N` in Bash
+4. Poll `.agents-reverse-engineer/progress.log` using Read tool with `offset` parameter for last ~20 lines
+5. Check TaskOutput with `block: false` for completion
+6. Repeat polling until background task finishes
+7. Read full background task output and summarize command-specific metrics
+
+Pattern includes explicit instruction: "Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)."
+
+## Bundled Hook Deployment
+
+`generateIntegrationFiles()` includes special-case logic for Claude environment: after template generation loop completes, calls `readBundledHook('are-session-end.js')` which resolves path via `getBundledHookPath(hookName)` using `fileURLToPath(import.meta.url)` to navigate from `dist/integration/` up two levels to project root, then into `hooks/dist/`. Throws `Error` with message `"Bundled hook not found: ${hookPath}"` if `existsSync(hookPath)` returns false. Writes hook content to `.claude/hooks/are-session-end.js` via `writeFileSync(fullHookPath, hookContent, 'utf-8')`. Hook files populated in `hooks/dist/` by `scripts/build-hooks.js` during `npm run build:hooks` step.
 
 ## Integration with Project
 
-Consumed by `src/installer/` for `npx agents-reverse-engineer --runtime <env>` workflow. `detectEnvironments()` validates presence before installation, `generateIntegrationFiles()` writes command files to `.claude/skills/`, `.opencode/commands/`, or `.gemini/commands/`. Bundled hook deployment via `hooks/dist/are-session-end.js` for Claude's SessionEnd lifecycle.
+Called by `src/installer/operations.ts` installer CLI commands to create IDE-specific command/hook files. Consumed by `src/cli/init.ts` initialization workflows requiring platform-specific configuration. Environment detection (`detectEnvironments()`) supports auto-discovery mode when `options.environment` undefined, enabling multi-platform batch generation (`npx agents-reverse-engineer --runtime all`). Single-environment targeting via `options.environment` parameter supports focused installs (`npx agents-reverse-engineer --runtime claude -g`).
+
+## Import Map
+
+- **Local**: `./detect.js` (`detectEnvironments`, `hasEnvironment`), `./templates.js` (`getClaudeTemplates`, `getOpenCodeTemplates`, `getGeminiTemplates`), `./types.js` (`EnvironmentType`, `DetectedEnvironment`, `IntegrationTemplate`, `IntegrationResult`)
+- **External**: `path` (Node.js), `fs` (`existsSync`, `mkdirSync`, `readFileSync`, `writeFileSync`), `url` (`fileURLToPath`), `../installer/paths.js` (referenced in integration context)

@@ -1,35 +1,70 @@
 ---
-generated_at: 2026-02-09T17:44:35.731Z
+generated_at: 2026-02-09T21:28:32.233Z
 content_hash: e060bb0cea93ea372937e4dc63e9d5c260e578633be16094c928f681af348f70
-purpose: detector.ts provides git-based change detection via simple-git and SHA-256 content hashing for incremental documentat...
+purpose: detector.ts implements Git-based change detection using simple-git and SHA-256 content hashing for incremental docume...
 ---
-**detector.ts provides git-based change detection via simple-git and SHA-256 content hashing for incremental documentation updates.**
+**detector.ts implements Git-based change detection using simple-git and SHA-256 content hashing for incremental documentation updates.**
 
 ## Exported Functions
 
-**isGitRepo(projectRoot: string): Promise<boolean>**  
-Calls `simpleGit(projectRoot).checkIsRepo()` to verify git repository presence.
+### isGitRepo
+```typescript
+async function isGitRepo(projectRoot: string): Promise<boolean>
+```
+Checks if `projectRoot` is inside a git repository by calling `simpleGit(projectRoot).checkIsRepo()`.
 
-**getCurrentCommit(projectRoot: string): Promise<string>**  
-Executes `git.revparse(['HEAD'])` returning trimmed HEAD commit hash.
+### getCurrentCommit
+```typescript
+async function getCurrentCommit(projectRoot: string): Promise<string>
+```
+Returns the current HEAD commit hash via `git.revparse(['HEAD'])` with trimmed whitespace.
 
-**getChangedFiles(projectRoot: string, baseCommit: string, options?: ChangeDetectionOptions): Promise<ChangeDetectionResult>**  
-Detects file changes between `baseCommit` and `HEAD` via `git diff --name-status -M`, parsing status codes `A` (added), `M` (modified), `D` (deleted), `R` (renamed with 50% similarity threshold). When `options.includeUncommitted` is true, merges uncommitted changes via `git.status()` reading `status.modified`, `status.deleted`, `status.not_added`, `status.staged` arrays. Returns `ChangeDetectionResult` containing `currentCommit`, `baseCommit`, `changes: FileChange[]`, `includesUncommitted: boolean`.
+### getChangedFiles
+```typescript
+async function getChangedFiles(
+  projectRoot: string,
+  baseCommit: string,
+  options: ChangeDetectionOptions = {}
+): Promise<ChangeDetectionResult>
+```
+Detects files changed between `baseCommit` and `HEAD` using `git diff --name-status -M` for rename detection with 50% similarity threshold. Parses diff output line-by-line splitting on tab characters to extract status codes and file paths. Maps git status codes to `FileChange` objects:
+- `A` → `{ status: 'added' }`
+- `M` → `{ status: 'modified' }`
+- `D` → `{ status: 'deleted' }`
+- `R<percentage>` → `{ status: 'renamed', oldPath }` (parts[1] is old path, parts[parts.length-1] is new path)
 
-**computeContentHash(filePath: string): Promise<string>**  
-Reads file via `readFile()`, computes SHA-256 hash via `createHash('sha256').update(content).digest('hex')`, returns hex-encoded hash string matching `.sum` YAML frontmatter `content_hash` field.
+When `options.includeUncommitted` is true, merges uncommitted changes from `git.status()`:
+- `status.modified` → modified files not staged
+- `status.deleted` → staged deletions
+- `status.not_added` → untracked files
+- `status.staged` → staged files
 
-**computeContentHashFromString(content: string): string**  
-Synchronous variant computing SHA-256 from in-memory string content, avoiding redundant disk reads when file content already loaded.
+Deduplicates changes using `changes.some(c => c.path === file)` check before appending uncommitted entries. Returns `ChangeDetectionResult` with `currentCommit`, `baseCommit`, `changes[]`, and `includesUncommitted` flag.
 
-## Change Detection Algorithm
+### computeContentHash
+```typescript
+async function computeContentHash(filePath: string): Promise<string>
+```
+Computes SHA-256 hash of file content at `filePath` (absolute path) by reading via `readFile()` and returning hex-encoded digest from `createHash('sha256').update(content).digest('hex')`.
 
-Parses `git diff` output with format `STATUS\tFILE` or `STATUS\tOLD\tNEW` for renames. Status codes map to `FileChange.status`: `'A'` → `'added'`, `'M'` → `'modified'`, `'D'` → `'deleted'`, `'R*'` → `'renamed'` with `oldPath` extracted from second tab-delimited field. Rename detection uses `-M` flag with implicit 50% similarity threshold.
+### computeContentHashFromString
+```typescript
+function computeContentHashFromString(content: string): string
+```
+Computes SHA-256 hash from in-memory `content` string using `createHash('sha256').update(content).digest('hex')`. Avoids redundant disk reads when file content is already loaded.
 
-## Uncommitted Change Merge Strategy
+## Dependencies
 
-When `includeUncommitted` enabled, calls `git.status()` and deduplicates against committed changes via `changes.some(c => c.path === file)` predicate. Adds `status.modified` as `'modified'`, `status.deleted` as `'deleted'`, `status.not_added` as `'added'`, `status.staged` as `'added'`. Prevents duplicate `FileChange` entries for files appearing in both committed diff and working tree status.
+Uses `simpleGit` from `simple-git` library for all git operations (`checkIsRepo`, `revparse`, `diff`, `status`). Uses `createHash` from `node:crypto` for SHA-256 digest computation. Uses `readFile` from `node:fs/promises` for async file content loading.
 
 ## Integration Points
 
-Consumed by `src/update/orchestrator.ts` to compute `filesToAnalyze` by comparing `computeContentHash()` results against `.sum` frontmatter `content_hash` values. Supports non-git workflows via `computeContentHash()` fallback when `isGitRepo()` returns false.
+Consumed by `src/update/orchestrator.ts` for incremental update workflow: reads `.sum` file `content_hash` from YAML frontmatter, compares against `computeContentHash()` result to determine if file needs regeneration. Supports non-git workflows via SHA-256 fallback (no git calls when `isGitRepo()` returns false).
+
+## Behavioral Contracts
+
+**Diff output parsing format:** `STATUS\tFILE` for add/modify/delete, `STATUS\tOLD\tNEW` for renames where STATUS is `R<percentage>` (e.g., `R100\told/path.ts\tnew/path.ts`).
+
+**Rename detection flag:** `-M` uses 50% similarity threshold (git default).
+
+**Deduplication strategy:** Linear `Array.some()` scan prevents duplicate entries when uncommitted changes overlap with committed changes.

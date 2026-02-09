@@ -1,0 +1,111 @@
+---
+generated_at: 2026-02-09T21:30:43.058Z
+content_hash: 491ad1961407942ae857412ef8c90c65b560372d324fc46c00f46bdf4368b986
+purpose: spec-reader.ts reads specification markdown files from `specs/` directory and partitions them into ordered `RebuildUn...
+---
+**spec-reader.ts reads specification markdown files from `specs/` directory and partitions them into ordered `RebuildUnit[]` arrays for incremental reconstruction workflows, extracting phase-level content from Build Plan sections with targeted context injection or falling back to top-level heading splits.**
+
+## Exported Functions
+
+### readSpecFiles
+
+```typescript
+async function readSpecFiles(
+  projectRoot: string
+): Promise<Array<{ relativePath: string; content: string }>>
+```
+
+Reads all `.md` files from `specs/` subdirectory, returning sorted array of `{ relativePath: 'specs/filename.md', content: string }` objects. Throws error with message `"No spec files found in specs/. Run \"are specify\" first."` if directory missing or empty. Uses `readdir()` for discovery, `readFile(..., 'utf-8')` for content loading, sorts filenames alphabetically via `.sort()`.
+
+### partitionSpec
+
+```typescript
+function partitionSpec(
+  specFiles: Array<{ relativePath: string; content: string }>
+): RebuildUnit[]
+```
+
+Converts spec file array into ordered `RebuildUnit[]` by concatenating contents and applying two extraction strategies: (1) `extractFromBuildPlan()` seeking `## Build Plan` or `## 9. Build Plan` with `### Phase N:` subsections, (2) `extractFromTopLevelHeadings()` splitting on `^## (.+)$` regex as fallback. Validates non-empty units, logs warnings via `console.error()` for empty sections, throws error if zero units extracted: `"Could not extract rebuild units from spec files. Expected either a \"## Build Plan\" section with \"### Phase N:\" subsections, or top-level \"## \" headings. Check your spec file format."`. Sorts output by `RebuildUnit.order` ascending.
+
+## Internal Extraction Functions
+
+### extractFromBuildPlan
+
+```typescript
+function extractFromBuildPlan(fullContent: string): RebuildUnit[]
+```
+
+Matches Build Plan section via regex `/^(## (?:\d+\.\s*)?Build Plan)\s*$/m`, extracts `### Phase (\d+):\s*(.+)$` subsections, detects **Change 2 format** presence via `/^\*\*Defines:\*\*|^Defines:/m` pattern to enable targeted API injection. Calls `extractSection()` to retrieve Architecture, Public API Surface, Data Structures, Behavioral Contracts sections. Calls `extractSubsections()` to parse `### ` headings within API/Data/Behavioral content. For phases in Change 2 format (with `Defines:`/`Consumes:` lists), invokes `findRelevantSubsections()` to filter API/Data/Behavioral subsections matching phase keywords, injecting only relevant content under headings `## Interfaces for This Phase`, `## Data Structures for This Phase`, `## Behavioral Contracts for This Phase`. Falls back to full `## Public API Surface` inclusion for older specs without Defines/Consumes lists (graceful degradation). Prepends Architecture and filtered API content to each phase's `RebuildUnit.specContent`. Returns empty array if no `## Build Plan` heading or no phases found.
+
+### extractFromTopLevelHeadings
+
+```typescript
+function extractFromTopLevelHeadings(fullContent: string): RebuildUnit[]
+```
+
+Fallback strategy matching all `^## (.+)$/gm` patterns, slicing content between consecutive headings. Assigns `RebuildUnit.order` as sequential position (1-indexed). Returns empty array if no headings found.
+
+### extractSubsections
+
+```typescript
+function extractSubsections(sectionContent: string): Map<string, string>
+```
+
+Parses section content into `Map<subsectionHeading, content>` by matching `^### (.+)$/gm` and slicing text between consecutive `### ` headings. Returns map with subsection heading text (trimmed) as keys and full content (including heading line) as values.
+
+### findRelevantSubsections
+
+```typescript
+function findRelevantSubsections(
+  phaseContent: string,
+  subsections: Map<string, string>
+): string | null
+```
+
+Extracts keywords from phase text via three sources: (1) `Defines:` list matching `/(?:\*\*Defines:\*\*|^Defines:)\s*(.+)/m`, (2) `Consumes:` list matching `/(?:\*\*Consumes:\*\*|^Consumes:)\s*(.+)/m`, (3) file path references via `/\b(?:src\/[\w\-./]+|[\w-]+\.(?:ts|js|py|rs|go))\b/g`. Splits Defines/Consumes on `[,;]` delimiters. Performs case-insensitive fuzzy matching: checks if subsection heading contains keyword, keyword contains heading, or individual words (length >3) from keyword appear in heading. Returns concatenated matched subsections joined with `\n\n`, or all subsections if no keywords found (fallback), or `null` if subsection map empty.
+
+### extractSection
+
+```typescript
+function extractSection(
+  fullContent: string,
+  sectionName: string
+): string | null
+```
+
+Extracts named section content between `## N. SectionName` or `## SectionName` heading and next `^## ` heading via regex `/^## (?:\\d+\\.\\s*)?${sectionName}\s*$/m`. Returns trimmed content string or `null` if heading not found or content empty.
+
+## Data Flow Integration
+
+Called by `orchestrator.ts` in `src/rebuild/` module during reconstruction workflow. `readSpecFiles()` locates spec markdown files generated by `are specify` command. `partitionSpec()` transforms concatenated spec content into executable units consumed by rebuild orchestrator's sequential phase execution. Each `RebuildUnit` contains `name` (e.g., `"Phase 3: Core Data Structures"`), `specContent` (phase description + context sections), `order` (numeric sequencing).
+
+## Behavioral Contracts
+
+**Build Plan phase extraction regex**: `/^### Phase (\d+):\s*(.+)$/gm` matches phase headings with capture groups for number and name.
+
+**Change 2 format detection pattern**: `/^\*\*Defines:\*\*|^Defines:/m` identifies specs using Defines/Consumes lists for targeted API injection.
+
+**Section heading pattern**: `/^## (?:\d+\.\s*)?${sectionName}\s*$/m` matches numbered or unnumbered section headings.
+
+**Subsection heading pattern**: `/^### (.+)$/gm` extracts all third-level headings for subsection parsing.
+
+**Keyword extraction from lists**: Split on `/[,;]/` delimiters, trim whitespace.
+
+**File path reference extraction**: `/\b(?:src\/[\w\-./]+|[\w-]+\.(?:ts|js|py|rs|go))\b/g` captures source file paths and module names from phase text.
+
+**Error messages**:
+- `"No spec files found in specs/. Run \"are specify\" first."` (directory missing or no .md files)
+- `"Could not extract rebuild units from spec files. Expected either a \"## Build Plan\" section with \"### Phase N:\" subsections, or top-level \"## \" headings. Check your spec file format."` (zero units after extraction)
+
+**Warning format**: `[warn] Skipping empty spec section: "${unit.name}"` logged via `console.error()` for units with empty trimmed content.
+
+## Context Injection Strategy
+
+**Change 2 format** (with Defines/Consumes lists): Injects only subsections matching phase keywords under section headings:
+- `## Interfaces for This Phase`
+- `## Data Structures for This Phase`
+- `## Behavioral Contracts for This Phase`
+
+**Legacy format** (no Defines/Consumes): Injects full `## Public API Surface` content for all phases (graceful degradation).
+
+**Always injected**: `## Architecture` section prepended to all phases regardless of format.

@@ -1,83 +1,66 @@
 ---
-generated_at: 2026-02-09T17:45:47.889Z
+generated_at: 2026-02-09T21:29:57.265Z
 content_hash: fdb4705e29e0d5786dff9ce35a4eea394d7080ae93f9e040dd41ad7bad4c2aab
-purpose: Removes installed ARE command files, hooks, plugins, permissions, and configuration directories with runtime-specific...
+purpose: uninstall.ts reverses installer operations by removing ARE command templates, hook files, VERSION markers, and settin...
 ---
-**Removes installed ARE command files, hooks, plugins, permissions, and configuration directories with runtime-specific cleanup strategies matching installation mirror logic.**
+**uninstall.ts reverses installer operations by removing ARE command templates, hook files, VERSION markers, and settings.json registrations for Claude/Gemini/OpenCode runtimes with directory cleanup and legacy artifact removal.**
 
 ## Exported Functions
 
-- `uninstallFiles(runtime: Runtime, location: Location, dryRun: boolean = false): InstallerResult[]` — Orchestrates uninstallation for single runtime or all runtimes via `getAllRuntimes()` iteration when `runtime === 'all'`, returning array of results
-- `unregisterHooks(basePath: string, runtime: Exclude<Runtime, 'all'>, dryRun: boolean): boolean` — Removes ARE hook entries from `settings.json` SessionStart/SessionEnd arrays, dispatches to `unregisterClaudeHooks()` or `unregisterGeminiHooks()` based on runtime, returns true if any hook removed
-- `unregisterPermissions(basePath: string, dryRun: boolean): boolean` — Filters `ARE_PERMISSIONS` array from `settings.json` permissions.allow, cleans up empty structures, returns true if changes made
-- `deleteConfigFolder(location: Location, dryRun: boolean): boolean` — Recursively deletes `.agents-reverse-engineer` directory via `rmSync()` with `recursive: true, force: true` only for `location === 'local'`
+**uninstallFiles(runtime: Runtime, location: Location, dryRun: boolean = false): InstallerResult[]** removes all ARE artifacts from specified runtime (or all runtimes if `runtime === 'all'`), returns array of `InstallerResult` objects where `filesCreated` repurposed to track deleted files and `hookRegistered` repurposed to indicate hook unregistration success.
 
-## Hook and Plugin Definitions
+**unregisterHooks(basePath: string, runtime: Exclude<Runtime, 'all'>, dryRun: boolean): boolean** removes ARE hook entries from `settings.json` at `basePath` by dispatching to `unregisterClaudeHooks()` or `unregisterGeminiHooks()` based on runtime, returns true if any hooks removed.
 
-- `ARE_HOOKS: HookDefinition[]` — Array of `{ event: 'SessionStart' | 'SessionEnd', filename: string }` pairs: `are-check-update.js` (SessionStart), `are-session-end.js` (SessionEnd)
-- `ARE_PLUGIN_FILENAMES: string[]` — OpenCode plugin filenames: `['are-check-update.js', 'are-session-end.js']`
-- `ARE_PERMISSIONS: string[]` — Bash command permission patterns: `'Bash(npx agents-reverse-engineer@latest init*)'`, `discover*`, `generate*`, `update*`, `clean*`
-- `CONFIG_DIR = '.agents-reverse-engineer'` — Configuration directory constant matching `config/loader.ts`
+**unregisterPermissions(basePath: string, dryRun: boolean): boolean** removes all `ARE_PERMISSIONS` entries from Claude Code `settings.json` permissions.allow array, cleans up empty permission structures, returns true if any permissions removed.
 
-## Runtime-Specific Uninstallation
+**deleteConfigFolder(location: Location, dryRun: boolean): boolean** deletes `.agents-reverse-engineer` directory via `rmSync({ recursive: true, force: true })` only when `location === 'local'`, returns true if folder existed and was deleted.
 
-`uninstallFilesForRuntime(runtime: Exclude<Runtime, 'all'>, location: Location, dryRun: boolean): InstallerResult` performs sequential cleanup:
+## Hook and Permission Constants
 
-1. **Command template removal**: Iterates `getTemplatesForRuntime()` output, extracts relative paths after runtime directory prefix, calls `unlinkSync()` on full paths constructed via `path.join(basePath, relativePath)`
-2. **Hook/plugin removal**: For Claude/Gemini, deletes files from `hooks/` subdirectory using `ARE_HOOKS` array; for OpenCode, deletes from `plugins/` using `ARE_PLUGIN_FILENAMES`
-3. **Settings.json modification**: Calls `unregisterHooks()` for all runtimes, additionally calls `unregisterPermissions()` for Claude only
-4. **Version file cleanup**: Deletes `ARE-VERSION` from basePath via `unlinkSync()`
-5. **Directory cleanup**: Invokes `cleanupAreSkillDirs()` for Claude skills format, `cleanupEmptyDirs()` for all runtimes, `cleanupLegacyGeminiFiles()` for Gemini
+**ARE_HOOKS: HookDefinition[]** defines two hook registrations: `{ event: 'SessionStart', filename: 'are-check-update.js' }` and `{ event: 'SessionEnd', filename: 'are-session-end.js' }`, must match `operations.ts` definitions.
 
-Returns `InstallerResult` with `filesCreated` repurposed to track deleted files, `filesSkipped` for nonexistent paths, `hookRegistered` repurposed to indicate hook unregistration success.
+**ARE_PLUGIN_FILENAMES: string[]** lists OpenCode plugin files: `['are-check-update.js', 'are-session-end.js']`.
 
-## Settings File Manipulation
+**ARE_PERMISSIONS: string[]** contains five Bash permission patterns for ARE commands (init/discover/generate/update/clean) formatted as `'Bash(npx agents-reverse-engineer@latest <command>*)'`.
 
-`unregisterClaudeHooks(basePath: string, dryRun: boolean): boolean` implements pattern-based filtering:
+**CONFIG_DIR: string** equals `'.agents-reverse-engineer'`, matches `config/loader.ts` constant.
 
-- Builds hook command patterns via `getHookPatterns('.claude')` including current format `node .claude/hooks/${filename}` and legacy `node hooks/${filename}`
-- Filters `settings.hooks.SessionStart` and `SessionEnd` arrays removing events whose `hooks[].command` matches patterns via `event.hooks?.some(h => hookPatterns.includes(h.command))`
-- Cleans empty arrays via `delete settings.hooks[eventType]`, empty hooks object via `delete settings.hooks`
-- Writes updated JSON via `writeFileSync()` with 2-space indentation
+## Settings.json Schema Types
 
-`unregisterGeminiHooks()` follows identical logic but operates on simpler `GeminiHook[]` arrays (direct `command` property without nested `hooks[]` structure) and uses `.gemini` runtime directory in patterns.
+**SettingsJson** interface models Claude Code settings structure with `hooks?: { SessionStart?: HookEvent[], SessionEnd?: HookEvent[] }`, `permissions?: { allow?: string[], deny?: string[] }`, and index signature for other fields.
 
-`unregisterPermissions()` filters `settings.permissions.allow` array via `!ARE_PERMISSIONS.includes(perm)`, removes empty `allow` array and `permissions` object structures.
+**HookEvent** wraps `hooks: SessionHook[]` array, where **SessionHook** defines `{ type: 'command', command: string }`.
 
-## Type Definitions
+**GeminiSettingsJson** uses simpler hook format with `hooks?: { SessionStart?: GeminiHook[], SessionEnd?: GeminiHook[] }`, where **GeminiHook** includes `name: string` field alongside `type` and `command`.
 
-- `SessionHook` — `{ type: 'command', command: string }` for Claude/Gemini hook registration
-- `HookEvent` — `{ hooks: SessionHook[] }` wrapper
-- `SettingsJson` — Claude settings schema with `hooks?: { SessionStart?: HookEvent[], SessionEnd?: HookEvent[] }`, `permissions?: { allow?: string[], deny?: string[] }`
-- `GeminiHook` — Simpler format `{ name: string, type: 'command', command: string }` without nested hooks array
-- `GeminiSettingsJson` — Gemini settings schema with `hooks?: { SessionStart?: GeminiHook[], SessionEnd?: GeminiHook[] }`
-- `HookDefinition` — `{ event: 'SessionStart' | 'SessionEnd', filename: string }`
+**HookDefinition** specifies `event: 'SessionStart' | 'SessionEnd'` and `filename: string` for ARE hook configuration.
 
-## Directory Cleanup Strategies
+## Uninstallation Logic
 
-`cleanupAreSkillDirs(skillsDir: string)` iterates `readdirSync()` output filtering entries via `entry.startsWith('are-')`, calls `cleanupEmptyDirs()` on each matching skill directory.
+**uninstallFilesForRuntime(runtime: Exclude<Runtime, 'all'>, location: Location, dryRun: boolean): InstallerResult** orchestrates removal sequence: fetches templates via `getTemplatesForRuntime()`, deletes command files by joining `basePath` with template path stripped of runtime prefix, removes hook files from `basePath/hooks/` for Claude/Gemini or plugin files from `basePath/plugins/` for OpenCode, calls `unregisterHooks()` and `unregisterPermissions()` for Claude global installs, deletes `ARE-VERSION` file, invokes directory cleanup helpers unless `dryRun === true`.
 
-`cleanupEmptyDirs(dirPath: string)` implements recursive bottom-up removal:
+**getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>)** switches on runtime to return `getClaudeTemplates()`, `getOpenCodeTemplates()`, or `getGeminiTemplates()` from `integration/templates.ts`.
 
-- Checks `readdirSync().length === 0` predicate
-- Calls `rmdirSync()` on empty directory
-- Recurses to parent via `path.dirname()` with terminal condition checking `baseName` against runtime roots: `.claude`, `.opencode`, `.gemini`, `.config`
+**getHookPatterns(runtimeDir: string): string[]** builds array of hook command strings by combining each `ARE_HOOKS` filename with current path format `node ${runtimeDir}/hooks/${filename}` and legacy format `node hooks/${filename}` for backward compatibility.
 
-`cleanupLegacyGeminiFiles(commandsDir: string)` removes obsolete formats:
+## Hook Unregistration
 
-- Deletes `are-*.md` files (pre-TOML Markdown format) via `entry.startsWith('are-') && entry.endsWith('.md')` predicate
-- Recursively deletes `.toml` files from nested `commands/are/` directory (old namespace structure), then removes empty `are/` directory
+**unregisterClaudeHooks(basePath: string, dryRun: boolean): boolean** loads `settings.json` from `basePath`, filters `hooks.SessionStart` and `hooks.SessionEnd` arrays to remove entries where any hook command matches `getHookPatterns('.claude')`, deletes empty event arrays and hooks object, writes updated JSON with 2-space indent via `JSON.stringify(settings, null, 2)` unless dry run, returns true if any hooks removed.
 
-## Template Resolution
+**unregisterGeminiHooks(basePath: string, dryRun: boolean): boolean** mirrors Claude logic but filters `GeminiHook[]` arrays directly by matching `h.command` against `getHookPatterns('.gemini')`, handles simpler schema without nested `event.hooks` structure.
 
-`getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>)` dispatches to integration layer functions:
+## Directory Cleanup
 
-- `'claude'` → `getClaudeTemplates()` from `src/integration/templates.ts`
-- `'opencode'` → `getOpenCodeTemplates()`
-- `'gemini'` → `getGeminiTemplates()`
+**cleanupAreSkillDirs(skillsDir: string): void** iterates entries in `skillsDir`, calls `cleanupEmptyDirs()` recursively on any directory name starting with `'are-'`, used for Claude skills format.
 
-Each returns array of template objects with `.path` property in format `.<runtime>/<subdir>/<filename>` requiring `.split('/').slice(1).join('/')` to extract relative installation path.
+**cleanupEmptyDirs(dirPath: string): void** recursively removes empty directories via `rmdirSync()`, walks up parent chain via `path.dirname()` until hitting non-empty directory or runtime root (`.claude`, `.opencode`, `.gemini`, `.config`), ignores errors from missing directories or permission issues.
+
+**cleanupLegacyGeminiFiles(commandsDir: string): void** removes legacy `are-*.md` files from flat commands directory (pre-TOML format), deletes old `.toml` files from nested `commands/are/` subdirectory (pre-flat structure), calls `cleanupEmptyDirs()` on are/ subdirectory after file deletion.
+
+## Integration Points
+
+Uses `resolveInstallPath()`, `getAllRuntimes()`, `getRuntimePaths()` from `./paths.js` for path resolution. Fetches command templates via `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` from `../integration/templates.js`. Returns `InstallerResult` type with runtime/location/filesCreated/filesSkipped/errors/hookRegistered fields defined in `./types.js`. Deletes config folder matching `CONFIG_DIR` constant from `config/loader.ts`. Must maintain symmetry with `operations.ts` hook/permission definitions to ensure complete uninstall.
 
 ## Error Handling
 
-All file system operations wrapped in try-catch blocks with errors collected into `InstallerResult.errors` array. Pattern: `catch (err) { errors.push(\`Failed to delete ${path}: ${err}\`) }`. Missing files tracked separately in `filesSkipped` array via `existsSync()` checks before deletion attempts. Directory cleanup operations silently ignore errors via empty catch blocks to handle permission issues and in-use directories.
+All filesystem operations wrapped in try-catch blocks that push error messages to `errors[]` array on failure. Missing `settings.json` or JSON parse failures return false from unregister functions. Directory cleanup helpers silently ignore errors via empty catch blocks. `rmSync()` uses `{ recursive: true, force: true }` options to handle missing paths gracefully. Dry run mode skips all write operations (`unlinkSync`, `writeFileSync`, `rmSync`) while still performing validation and tracking.

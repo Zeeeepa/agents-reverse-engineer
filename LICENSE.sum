@@ -1,40 +1,25 @@
 ---
-generated_at: 2026-02-09T17:46:20.253Z
+generated_at: 2026-02-09T21:30:38.771Z
 content_hash: d1466918414db67dbb0d230e53203cb4d8b01df54d267427a029d1494fc00406
-purpose: LICENSE declares MIT license grant for agents-reverse-engineer software, granting unrestricted usage, modification, a...
+purpose: LICENSE defines MIT License terms granting unrestricted usage, modification, and distribution rights for agents-rever...
 ---
-**LICENSE declares MIT license grant for agents-reverse-engineer software, granting unrestricted usage, modification, and distribution rights to all recipients.**
+**LICENSE defines MIT License terms granting unrestricted usage, modification, and distribution rights for agents-reverse-engineer project with liability disclaimer.**
 
 ## License Terms
 
-Grants permission without restriction for:
-- use
-- copy
-- modify
-- merge
-- publish
-- distribute
-- sublicense
-- sell
-
-of the Software and associated documentation files.
+Grants permissions without restriction:
+- Use, copy, modify, merge, publish, distribute, sublicense, sell
+- Applies to "Software" (this codebase and associated documentation files)
+- Requires copyright notice and permission notice inclusion in all copies or substantial portions
 
 ## Copyright Holder
 
 Copyright (c) 2026 GeoloeG-IsT
 
-## Warranty Disclaimer
+## Liability and Warranty
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+Software provided "AS IS" without warranty of any kind (express or implied). No warranties for MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, or NONINFRINGEMENT. Authors not liable for any claims, damages, or liabilities arising from the software.
 
-## Liability Waiver
+## Integration Context
 
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-## Inclusion Requirement
-
-This copyright notice and permission notice shall be included in all copies or substantial portions of the Software.
-
-## Legal Effect
-
-This is a standard MIT License text providing maximum permissiveness while disclaiming all warranties and liability. No exports, no executable code—purely a legal artifact required for npm package publication and downstream redistribution compliance.
+Referenced in `package.json` via `"license": "MIT"` field. Governs distribution via npm registry (publish workflow in `.github/workflows/publish.yml`). No programmatic parsing required—human-readable legal text only.

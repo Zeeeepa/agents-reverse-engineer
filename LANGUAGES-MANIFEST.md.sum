@@ -1,29 +1,33 @@
 ---
-generated_at: 2026-02-09T17:46:23.857Z
+generated_at: 2026-02-09T21:30:47.478Z
 content_hash: 6887e78721df5fe39e42f0d4515ab296cc48e536089ec8ca4b5916f7eddebed8
-purpose: LANGUAGES-MANIFEST.md enumerates package manifest file types across 25 programming language ecosystems with their ass...
+purpose: LANGUAGES-MANIFEST.md catalogues package manifest file patterns across 25 programming languages with support status i...
 ---
-**LANGUAGES-MANIFEST.md enumerates package manifest file types across 25 programming language ecosystems with their associated package managers and current support status in ARE's manifest detection system.**
+**LANGUAGES-MANIFEST.md catalogues package manifest file patterns across 25 programming languages with support status indicators for the ARE directory aggregation phase.**
 
-## Manifest Detection Coverage
+## Reference Table Structure
 
-The table documents 9 supported manifest types used by `extractDirectoryImports()` and directory aggregation prompts:
+The markdown table contains four columns: `Language`, `Manifest File(s)`, `Package Manager`, and `Supported`. Each row maps a language ecosystem to its dependency declaration files. The `Supported` column contains `✓` marks for languages currently handled by `detectManifestFiles()` in the directory aggregation phase (Phase 2).
 
-- **JavaScript/TypeScript**: `package.json` (npm/yarn/pnpm)
-- **Python**: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` (pip/poetry/pipenv)
-- **Go**: `go.mod` (Go modules)
-- **Rust**: `Cargo.toml` (cargo)
+## Supported Manifest Detection
+
+Languages marked with `✓` in the `Supported` column correspond to patterns in `src/generation/prompts/builder.ts`:
+- **JavaScript/TypeScript**: `package.json` detected via npm/yarn/pnpm
+- **Python**: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` detected via pip/poetry/pipenv
+- **Go**: `go.mod` detected via go modules
+- **Rust**: `Cargo.toml` detected via cargo
+
+Additional detected patterns without explicit `✓` marks:
 - **Java**: `pom.xml` (Maven), `build.gradle` (Gradle)
 - **PHP**: `composer.json` (Composer)
-- **C/C++**: `CMakeLists.txt`, `Makefile` (CMake/Make)
+- **C/C++**: `CMakeLists.txt`, `Makefile` (CMake, make)
 
-Support checkmarks (✓) indicate manifest types actively detected during Phase 2 directory aggregation to include dependency/build configuration context in `AGENTS.md` generation prompts.
+The `detectManifestFiles()` function searches for exactly nine manifest types: `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `pom.xml`, `build.gradle`, `Gemfile`, `composer.json`, and `CMakeLists.txt`/`Makefile`. Discrepancies exist between the `✓` marks in this table and actual detection logic (e.g., Ruby `Gemfile` is detected but unmarked; Python `setup.py`/`Pipfile` are marked but not in the detection array).
 
-## Unsupported Ecosystems
+## Unsupported Languages
 
-The table lists 16 additional language ecosystems without current support:
-
-- **Ruby**: `Gemfile` (bundler)
+Languages without `✓` marks have documented manifest patterns but no active detection in the codebase:
+- **Ruby**: `Gemfile` (bundler) — detection exists but unmarked
 - **Kotlin**: `build.gradle.kts`, `build.gradle` (Gradle)
 - **C#/.NET**: `*.csproj`, `packages.config`, `*.fsproj` (NuGet)
 - **Swift**: `Package.swift` (Swift PM)
@@ -39,9 +43,12 @@ The table lists 16 additional language ecosystems without current support:
 - **Zig**: `build.zig.zon` (zig)
 - **Nim**: `*.nimble` (nimble)
 - **OCaml**: `dune-project`, `*.opam` (dune/opam)
+- **C/C++**: `conanfile.txt`, `vcpkg.json` (Conan/vcpkg) — `CMakeLists.txt` is detected
 
-Additional manifest support requires extending `src/generation/prompts/builder.ts` manifest detection logic and `src/generation/prompts/templates.ts` directory aggregation prompt to include discovered manifest content.
+## Integration with Directory Aggregation
 
-## Reference Source
+During Phase 2 directory aggregation (`buildDirectoryPrompt()` in `src/generation/prompts/builder.ts`), `detectManifestFiles()` scans the directory for manifest patterns and includes detected files in the AI prompt context. The prompt instructs the AI to recognize these files as dependency declarations and incorporate package information into the `AGENTS.md` directory summary.
 
-This table serves as specification document for cross-language manifest detection expansion. AI coding assistants implementing manifest-aware prompting should prioritize ecosystems marked with ✓ and treat unmarked entries as roadmap items requiring detection pattern additions to `extractDirectoryImports()` and conditional inclusion logic in directory aggregation prompt construction.
+This reference document serves as the canonical list for future manifest detection expansion. Adding support for additional languages requires:
+1. Updating the `COMMON_MANIFEST_FILES` array in `src/generation/prompts/builder.ts`
+2. Marking the language row with `✓` in this table

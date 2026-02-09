@@ -2,26 +2,39 @@
 
 # scripts
 
-Build automation scripts for npm lifecycle hooks, prepublishOnly hook asset preparation, and distribution artifact generation.
+**Build automation directory containing pre-publish hook file preparation script that copies session lifecycle hooks from `hooks/` to `hooks/dist/` for npm package distribution.**
 
 ## Contents
 
-### [build-hooks.js](./build-hooks.js)
-Copies hook source files from `hooks/` to `hooks/dist/` during `prepublishOnly` lifecycle. Filters `.js` files via `readdirSync()` + `endsWith('.js')` predicate, excludes `dist` directory itself, creates target via `mkdirSync(HOOKS_DIST, { recursive: true })`, performs per-file `copyFileSync()` from `HOOKS_SRC` to `HOOKS_DIST`. Invoked by `package.json` `prepublishOnly` script chain (`npm run build && npm run build:hooks`). Ensures session lifecycle hooks (are-check-update.js, are-session-end.js, opencode-are-check-update.js, opencode-are-session-end.js) exist in npm tarball for installer/operations.ts reference during global/local hook installation.
+### Build Scripts
 
-## Integration Points
+**[build-hooks.js](./build-hooks.js)** — Copies `.js` files from `hooks/` to `hooks/dist/`, invoked by `npm run prepublishOnly` to prepare session lifecycle hooks for npm tarball inclusion.
 
-**Package.json lifecycle:**
-- `prepublishOnly` script executes `npm run build:hooks` → invokes build-hooks.js
-- Runs after TypeScript compilation (`npm run build`) before `npm publish`
-- Ensures hooks/dist/ directory populated for tarball inclusion
+## Build Pipeline Integration
 
-**Hook installation workflow:**
-- `src/installer/operations.ts` references hooks/dist/ files during `installCommands()` execution
-- Supports both global (`~/.claude/hooks/`) and local (`.claude/hooks/`) installation modes
-- Platform-specific targets: Claude Code, OpenCode, Gemini via runtime detection
+`build-hooks.js` executes during npm publish workflow via `prepublishOnly` lifecycle hook defined in root `package.json`. The script ensures `hooks/dist/` contains all four session lifecycle hooks before `npm publish` bundles the package tarball:
 
-**File resolution:**
-- Computes `projectRoot` via `fileURLToPath(import.meta.url)` + double `dirname()` traversal
-- Resolves absolute paths via `join(projectRoot, 'hooks')` and `join(projectRoot, 'hooks', 'dist')`
-- Prevents relative path ambiguity in npm lifecycle context
+1. **are-check-update.js** — Claude/Gemini SessionStart hook for version checking
+2. **are-session-end.js** — Claude/Gemini SessionEnd hook for auto-update
+3. **opencode-are-check-update.js** — OpenCode plugin for version checking
+4. **opencode-are-session-end.js** — OpenCode plugin for session-end updates
+
+The copied files become the source for installer operations (`src/installer/operations.ts`) which deploy hooks to IDE configuration directories (`~/.claude/hooks/`, `~/.config/opencode/plugins/`, etc.).
+
+## Execution Flow
+
+1. Resolves project root via `fileURLToPath(import.meta.url)` → `path.dirname()` → `path.join(__dirname, '..')`
+2. Creates `hooks/dist/` via `mkdirSync(HOOKS_DIST, { recursive: true })` if directory missing
+3. Filters `readdirSync('hooks/')` for `.js` files, excluding `'dist'` directory itself
+4. Copies each file via `copyFileSync(src, dest)` where `src = 'hooks/<file>'` and `dest = 'hooks/dist/<file>'`
+5. Logs each operation: `"  Copied: ${file} -> hooks/dist/${file}"`
+6. Prints final count: `"Done. ${hookFiles.length} hook(s) built."`
+
+## Package.json Integration
+
+The root `package.json` declares:
+- **files**: `["hooks/dist"]` — includes `hooks/dist/` in npm tarball
+- **scripts.build:hooks**: `"node scripts/build-hooks.js"` — manual build command
+- **scripts.prepublishOnly**: `"npm run build && npm run build:hooks"` — automatic execution before `npm publish`
+
+CI/CD workflow (`.github/workflows/publish.yml`) runs `npm ci` which triggers `prepublishOnly`, ensuring `hooks/dist/` exists before registry upload with Sigstore-signed provenance attestation.

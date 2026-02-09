@@ -1,43 +1,40 @@
 ---
-generated_at: 2026-02-09T17:44:45.973Z
+generated_at: 2026-02-09T21:28:34.577Z
 content_hash: 7cd6a59c01b8ceab118bdfa490d0f4c10459672c0146d922cdc9923c8265ccef
-purpose: `init.ts` implements the `are init` CLI command that creates the `.agents-reverse-engineer/config.yaml` configuration...
+purpose: initCommand() creates `.agents-reverse-engineer/config.yaml` with documented defaults, warning if configuration alrea...
 ---
-**`init.ts` implements the `are init` CLI command that creates the `.agents-reverse-engineer/config.yaml` configuration file with documented defaults, performing existence checks to prevent accidental overwrites.**
+**initCommand() creates `.agents-reverse-engineer/config.yaml` with documented defaults, warning if configuration already exists unless `--force` overrides.**
 
-## Exported Function
+## Exported Interface
 
-### `initCommand(root: string, options?: { force?: boolean }): Promise<void>`
+```typescript
+async function initCommand(
+  root: string,
+  options?: { force?: boolean }
+): Promise<void>
+```
 
-Executes the `are init` command workflow:
-1. Resolves `root` to absolute path via `path.resolve()`
-2. Constructs `configPath` from `CONFIG_DIR` and `CONFIG_FILE` constants imported from `../config/loader.js`
-3. Checks `options?.force ?? false` to determine overwrite behavior
-4. Calls `configExists(resolvedRoot)` to detect existing configuration
-5. If config exists and `!force`, logs warning via `logger.warn()` with message `Config already exists at ${configPath}`
-6. If config missing or `force` enabled, calls `writeDefaultConfig(resolvedRoot)` to create YAML file
-7. Logs success via `logger.info()` with user guidance listing customizable fields: `exclude.patterns`, `ai.concurrency`, `ai.timeoutMs`, `ai.backend`
-8. Catches errors with errno code inspection: exits with `process.exit(1)` on `EACCES`/`EPERM` permission errors or other failures
+Resolves `root` to absolute path via `path.resolve()`, constructs `configPath` by joining `resolvedRoot`, `CONFIG_DIR`, and `CONFIG_FILE` constants from `../config/loader.js`. Checks existence via `configExists(resolvedRoot)` unless `options?.force` is true. Writes default configuration via `writeDefaultConfig(resolvedRoot)` when config missing or force flag set.
 
-## Dependencies
+## Logger Integration
 
-- `path.resolve()` and `path.join()` for path construction
-- `configExists()`, `writeDefaultConfig()`, `CONFIG_DIR`, `CONFIG_FILE` from `../config/loader.js` for configuration file operations
-- `createLogger({ colors: true })` from `../output/logger.js` for terminal output with ANSI formatting
+Creates logger via `createLogger({ colors: true })` for all output. Emits `logger.warn()` when config exists without force flag, `logger.info()` for creation success with customization instructions, `logger.error()` for failures.
 
 ## Error Handling Strategy
 
-Inspects `NodeJS.ErrnoException.code` property for errno classification:
-- `EACCES` or `EPERM` → permission denied error with directory write hint
-- Other errors → generic failure message with `error.message`
-- All error paths call `process.exit(1)` for non-zero exit code
+Catches `NodeJS.ErrnoException` and matches `error.code`:
+- `'EACCES'` or `'EPERM'` → logs permission denied message, suggests checking write permissions, calls `process.exit(1)`
+- Other codes → logs generic failure with `error.message`, calls `process.exit(1)`
 
-## User Guidance Content
+## User Guidance Messages
 
-Success message enumerates four customizable config sections with inline examples:
-- `exclude.patterns: Custom glob patterns to exclude`
-- `ai.concurrency: Parallel AI calls (1-20, default: auto)`
-- `ai.timeoutMs: Subprocess timeout (default: 300,000ms = 5 min)`
-- `ai.backend: AI backend (claude/gemini/opencode/auto)`
+On successful creation, emits configuration customization instructions via `logger.info()`:
+- `exclude.patterns` — custom glob patterns to exclude
+- `ai.concurrency` — parallel AI calls (1-20, default: auto)
+- `ai.timeoutMs` — subprocess timeout (default: 300,000ms = 5 min)
+- `ai.backend` — AI backend (claude/gemini/opencode/auto)
+- Final line references `README.md` for full configuration reference
 
-Final instruction references `README.md for full configuration reference`.
+## Dependencies
+
+Imports `configExists`, `writeDefaultConfig`, `CONFIG_DIR`, `CONFIG_FILE` from `../config/loader.js` for config file operations. Imports `createLogger` from `../output/logger.js` for terminal output with picocolors formatting.

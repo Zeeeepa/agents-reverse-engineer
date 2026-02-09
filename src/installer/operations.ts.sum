@@ -1,119 +1,80 @@
 ---
-generated_at: 2026-02-09T17:45:44.138Z
+generated_at: 2026-02-09T21:29:47.615Z
 content_hash: 40263a7bd78ebd3ee1c3d6a811dd894beca7932b0b3dc7aa460d8735c917aba2
-purpose: operations.ts implements file installation, verification, and settings.json hook/permission registration for ARE comm...
+purpose: operations.ts orchestrates file copying, settings.json hook registration, and permission configuration for IDE comman...
 ---
-**operations.ts implements file installation, verification, and settings.json hook/permission registration for ARE command/hook deployment across Claude Code, OpenCode, and Gemini CLI runtimes.**
+**operations.ts orchestrates file copying, settings.json hook registration, and permission configuration for IDE command/hook installation across Claude Code, Gemini CLI, and OpenCode runtimes.**
 
 ## Exported Functions
 
-`installFiles(runtime: Runtime, location: Location, options: InstallOptions): InstallerResult[]` — installs command templates and hook/plugin files for specified runtime ('claude' | 'opencode' | 'gemini' | 'all'), returns array of InstallerResult with filesCreated/filesSkipped/errors/hookRegistered/versionWritten status.
+**installFiles(runtime: Runtime, location: Location, options: InstallOptions): InstallerResult[]** — installs command templates and hooks for one or all runtimes, returning array of InstallerResult objects. When runtime='all', iterates getAllRuntimes() and calls installFilesForRuntime() for each. Otherwise returns single-element array from installFilesForRuntime().
 
-`verifyInstallation(files: string[]): { success: boolean; missing: string[] }` — checks existsSync() for each file path, returns verification status with missing file list.
+**verifyInstallation(files: string[]): { success: boolean; missing: string[] }** — checks existsSync() for each file path, returns missing array of non-existent files.
 
-`registerHooks(basePath: string, runtime: Exclude<Runtime, 'all'>, dryRun: boolean): boolean` — writes hook configuration to settings.json for Claude/Gemini, returns true if hooks added, false if already existed.
+**registerHooks(basePath: string, runtime: Exclude<Runtime, 'all'>, dryRun: boolean): boolean** — updates settings.json with SessionStart/SessionEnd hook registrations, returns true if any hook added. Routes to registerClaudeHooks() or registerGeminiHooks() based on runtime.
 
-`registerPermissions(settingsPath: string, dryRun: boolean): boolean` — adds ARE_PERMISSIONS bash command patterns to Claude Code settings.json permissions.allow array.
+**registerPermissions(settingsPath: string, dryRun: boolean): boolean** — adds ARE_PERMISSIONS array entries to settings.json permissions.allow for Claude Code, returns true if any permission added.
 
-`getPackageVersion(): string` — reads version field from package.json via import.meta.url resolution, returns 'unknown' on error.
+**getPackageVersion(): string** — reads package.json from `__dirname/../../package.json` via fileURLToPath(import.meta.url), returns version field or 'unknown'.
 
-`writeVersionFile(basePath: string, dryRun: boolean): void` — writes getPackageVersion() result to ARE-VERSION file in basePath.
+**writeVersionFile(basePath: string, dryRun: boolean): void** — writes getPackageVersion() result to `${basePath}/ARE-VERSION`.
 
-`formatInstallResult(result: InstallerResult): string[]` — generates human-readable lines showing runtime/location, created/skipped files, hook registration status, summary counts.
+**formatInstallResult(result: InstallerResult): string[]** — generates human-readable lines showing created/skipped files, hook registration status, summary counts.
 
 ## Exported Interfaces
 
-`InstallOptions { force: boolean; dryRun: boolean }` — controls file overwrite behavior and preview mode for install operations.
+**InstallOptions** — `{ force: boolean; dryRun: boolean }` controls overwrite behavior and preview mode.
 
-## Hook/Plugin Definitions
+## Internal Architecture
 
-`ARE_HOOKS: HookDefinition[]` — array defining SessionStart/SessionEnd hooks with filename/event/name mappings (currently empty - hooks disabled due to issues).
+**installFilesForRuntime(runtime: Exclude<Runtime, 'all'>, location: Location, options: InstallOptions): InstallerResult** — main worker function handling:
+1. Resolves basePath via resolveInstallPath()
+2. Fetches templates via getTemplatesForRuntime()
+3. Iterates templates, writes to `${basePath}/${relativePath}` after extracting path component past runtime directory (e.g., `commands/are/generate.md` from `.claude/commands/are/generate.md`)
+4. For claude/gemini: copies ARE_HOOKS entries from getBundledHookPath() to `${basePath}/hooks/`, then calls registerHooks() and optionally registerPermissions() for Claude
+5. For opencode: copies ARE_PLUGINS entries from srcFilename to `${basePath}/plugins/${destFilename}`, sets hookRegistered=true
+6. Calls writeVersionFile() if filesCreated.length > 0 and not dryRun
+7. Returns InstallerResult with success, filesCreated, filesSkipped, errors, hookRegistered, versionWritten
 
-`HookDefinition { event: 'SessionStart' | 'SessionEnd'; filename: string; name: string }` — hook metadata for Claude/Gemini format conversion.
+**getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>)** — switches on runtime to return getClaudeTemplates(), getOpenCodeTemplates(), or getGeminiTemplates() from `../integration/templates.js`.
 
-`ARE_PLUGINS: PluginDefinition[]` — array mapping OpenCode plugin source filenames (prefixed 'opencode-') to destination filenames in .opencode/plugins/ (are-check-update.js; are-session-end.js disabled).
+**getBundledHookPath(hookName: string): string** — constructs path from `__dirname/../../hooks/dist/${hookName}` where `__dirname` is derived via fileURLToPath(import.meta.url). Hooks bundled during npm prepublishOnly via build-hooks.js.
 
-`PluginDefinition { srcFilename: string; destFilename: string }` — source-to-destination mapping for OpenCode plugin installation.
+**readBundledHook(hookName: string): string** — reads hook content from getBundledHookPath(), throws Error if not found.
 
-## Settings.json Schema
+**ensureDir(filePath: string): void** — calls mkdirSync(path.dirname(filePath), { recursive: true }) if directory doesn't exist.
 
-`SettingsJson { hooks?: { SessionStart?: HookEvent[]; SessionEnd?: HookEvent[] }; permissions?: { allow?: string[]; deny?: string[] } }` — Claude Code settings.json structure with nested hooks arrays and permissions.
+## Hook Registration Formats
 
-`HookEvent { hooks: SessionHook[] }` — Claude format wraps hooks in nested array.
+**registerClaudeHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean** — parses settings.json as SettingsJson schema, ensures settings.hooks[event] exists for each ARE_HOOKS entry, appends HookEvent with nested hooks array containing `{ type: 'command', command: 'node ${runtimeDir}/hooks/${filename}' }`. Writes JSON with 2-space indentation.
 
-`SessionHook { type: 'command'; command: string }` — individual hook definition with command string.
+**registerGeminiHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean** — parses settings.json as GeminiSettingsJson schema, appends flat GeminiHook objects with name field to settings.hooks[event] arrays. Command format identical to Claude: `node ${runtimeDir}/hooks/${filename}`.
 
-`GeminiSettingsJson { hooks?: { SessionStart?: GeminiHook[]; SessionEnd?: GeminiHook[] } }` — Gemini CLI settings.json structure with flat hook arrays.
+**SettingsJson** — Claude Code schema with `hooks?: { SessionStart?: HookEvent[]; SessionEnd?: HookEvent[] }`, `permissions?: { allow?: string[]; deny?: string[] }`. HookEvent contains `hooks: SessionHook[]` where SessionHook is `{ type: 'command'; command: string }`.
 
-`GeminiHook { name: string; type: 'command'; command: string }` — Gemini format includes explicit name field.
+**GeminiSettingsJson** — simpler schema with `hooks?: { SessionStart?: GeminiHook[]; SessionEnd?: GeminiHook[] }` where GeminiHook is `{ name: string; type: 'command'; command: string }`.
 
-## Hook Registration Logic
+## Hook and Plugin Definitions
 
-`registerClaudeHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean` — loads settings.json via readFileSync(), merges ARE_HOOKS into nested HookEvent structure, writes JSON if addedAny=true, returns false if all hooks pre-existing.
+**ARE_HOOKS: HookDefinition[]** — currently empty array (both SessionStart and SessionEnd entries commented out due to "causing issues"). HookDefinition schema: `{ event: 'SessionStart' | 'SessionEnd'; filename: string; name: string }`. Intended entries:
+- `{ event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' }`
+- `{ event: 'SessionEnd', filename: 'are-session-end.js', name: 'are-session-end' }`
 
-`registerGeminiHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean` — loads settings.json, merges ARE_HOOKS into flat GeminiHook array structure, uses hookDef.name field for Gemini format.
+**ARE_PLUGINS: PluginDefinition[]** — OpenCode plugin mappings with one active entry and one commented. PluginDefinition schema: `{ srcFilename: string; destFilename: string }`. Active entry maps `opencode-are-check-update.js` → `are-check-update.js`. Commented entry maps `opencode-are-session-end.js` → `are-session-end.js`.
 
-Hook command pattern: `node ${runtimeDir}/hooks/${hookDef.filename}` where runtimeDir='.claude' or '.gemini'.
-
-Duplicate detection: checks existing hooks via `event.hooks?.some((h) => h.command === hookCommand)` for Claude, `hooks[event].some((h) => h.command === hookCommand)` for Gemini.
-
-## Permission Registration
-
-`ARE_PERMISSIONS: string[]` — bash command patterns for auto-allow:
-- `'Bash(npx agents-reverse-engineer@latest init*)'`
-- `'Bash(npx agents-reverse-engineer@latest discover*)'`
-- `'Bash(npx agents-reverse-engineer@latest generate*)'`
-- `'Bash(npx agents-reverse-engineer@latest update*)'`
-- `'Bash(npx agents-reverse-engineer@latest clean*)'`
-- `'Bash(rm -f .agents-reverse-engineer/progress.log*)'`
-- `'Bash(sleep *)'`
-
-Merges via `settings.permissions.allow.includes(perm)` check before push, writes settings.json if addedAny=true.
-
-## File Operations
-
-`installFilesForRuntime(runtime: Exclude<Runtime, 'all'>, location: Location, options: InstallOptions): InstallerResult` — resolves basePath via resolveInstallPath(), fetches templates via getTemplatesForRuntime(), writes command files, installs hooks/plugins based on runtime type, calls registerHooks()/registerPermissions() for Claude, writeVersionFile() on success.
-
-Template path extraction: splits template.path by '/' and slices first segment (runtime directory prefix) to get relativePath joined to basePath.
-
-File write flow: existsSync() skip check unless options.force=true, ensureDir() via mkdirSync recursive, writeFileSync() with UTF-8, error capture to errors[] array.
-
-Hook/plugin installation branches:
-- Claude/Gemini: iterate ARE_HOOKS, call readBundledHook(), write to basePath/hooks/, invoke registerHooks()
-- OpenCode: iterate ARE_PLUGINS, call readBundledHook(pluginDef.srcFilename), write to basePath/plugins/, set hookRegistered=true
-
-## Bundled Hook Resolution
-
-`getBundledHookPath(hookName: string): string` — resolves from dist/installer/operations.js up two levels to project root, then joins 'hooks/dist/' + hookName.
-
-`readBundledHook(hookName: string): string` — reads hook content via getBundledHookPath(), throws Error if !existsSync().
-
-Path navigation: uses fileURLToPath(import.meta.url) for ESM compatibility, dirname resolution via path.dirname(), relative join via `__dirname/../../../hooks/dist/`.
-
-## Template Retrieval
-
-`getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>)` — switch dispatches to getClaudeTemplates() | getOpenCodeTemplates() | getGeminiTemplates() from src/integration/templates.ts.
-
-## Utility Functions
-
-`ensureDir(filePath: string): void` — creates parent directory via mkdirSync({ recursive: true }) if !existsSync(dirname).
-
-## Integration Points
-
-Imports resolveInstallPath() and getAllRuntimes() from `./paths.js` for runtime-specific directory resolution.
-
-Imports getClaudeTemplates(), getOpenCodeTemplates(), getGeminiTemplates() from `../integration/templates.js` for command file content.
-
-Runtime type discriminated union: `Runtime = 'claude' | 'opencode' | 'gemini' | 'all'` determines installation target and hook format.
-
-Location type: `Location = 'global' | 'local'` controls base path resolution (e.g., ~/.claude vs ./.claude).
+**ARE_PERMISSIONS: string[]** — array of 7 bash command patterns for Claude Code auto-approval:
+- `Bash(npx agents-reverse-engineer@latest init*)`
+- `Bash(npx agents-reverse-engineer@latest discover*)`
+- `Bash(npx agents-reverse-engineer@latest generate*)`
+- `Bash(npx agents-reverse-engineer@latest update*)`
+- `Bash(npx agents-reverse-engineer@latest clean*)`
+- `Bash(rm -f .agents-reverse-engineer/progress.log*)`
+- `Bash(sleep *)`
 
 ## Error Handling
 
-Non-blocking errors: JSON parse failures in registerHooks() start with empty settings object, writeVersionFile() failures suppressed (non-fatal), ARE-VERSION write errors don't populate errors[] array.
+File write failures append to errors array with format `Failed to write ${fullPath}: ${err}` or `Failed to write hook ${hookPath}: ${err}`. Subsequent filesCreated filtering checks `errors.some((e) => e.includes(hookPath))` to prevent listing failed files as created. JSON parse failures in registerHooks/registerPermissions silently reset settings to empty object `{}`. Missing bundled hooks throw Error in readBundledHook(). Version file write failures non-fatal (caught without adding to errors). InstallerResult.success = errors.length === 0.
 
-Blocking errors: readBundledHook() throws if hook not found, file write failures push to errors[] and set success=false in InstallerResult.
+## File System Conventions
 
-## Dry-Run Mode
-
-When options.dryRun=true: skips writeFileSync() calls for templates/hooks/settings.json/ARE-VERSION, still populates filesCreated[] for preview output, sets versionWritten=false.
+Template paths contain runtime directory prefix (e.g., `.claude/commands/are/generate.md`). Relative path extraction via `template.path.split('/').slice(1).join('/')` removes first segment to yield `commands/are/generate.md`. Full installation path: `${basePath}/${relativePath}` where basePath from resolveInstallPath(runtime, location). Hook paths: `${basePath}/hooks/${filename}`. OpenCode plugin paths: `${basePath}/plugins/${destFilename}`. Settings path: `${basePath}/settings.json`. Version file: `${basePath}/ARE-VERSION`.

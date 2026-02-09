@@ -1,35 +1,28 @@
 ---
-generated_at: 2026-02-09T17:45:10.902Z
+generated_at: 2026-02-09T21:29:08.981Z
 content_hash: c69fb25302e6483d7c0631a9e0713db1fc96b2749658e0a77321e40da99e422e
-purpose: Defines TypeScript interfaces for representing import statements extracted from source files via static analysis.
+purpose: Defines TypeScript interfaces for representing import statement metadata extracted from source files, distinguishing ...
 ---
-**Defines TypeScript interfaces for representing import statements extracted from source files via static analysis.**
+**Defines TypeScript interfaces for representing import statement metadata extracted from source files, distinguishing between external module imports and internal same-directory imports.**
 
 ## Exported Types
 
 ### ImportEntry
 Represents a single import statement extracted from source code.
 
-**Properties:**
-- `specifier: string` — Raw import path as written in source (e.g., `'../ai/index.js'`)
-- `symbols: string[]` — Array of imported identifiers (e.g., `['AIService', 'AIResponse']`)
-- `typeOnly: boolean` — Discriminates TypeScript type-only imports (`import type { ... }`)
+**Fields:**
+- `specifier: string` — Raw import specifier as written in source (e.g., `'../ai/index.js'`, `'@anthropic-ai/sdk'`)
+- `symbols: string[]` — Array of imported symbol names (e.g., `['AIService', 'AIResponse']` from `import { AIService, AIResponse } from '...'`)
+- `typeOnly: boolean` — True for `import type` statements, false for value imports
 
 ### FileImports
-Aggregates all imports discovered in a single source file, partitioned by locality.
+Aggregates all imports from a single source file, partitioned by external vs internal origin.
 
-**Properties:**
-- `fileName: string` — Relative file path (e.g., `'runner.ts'`)
-- `externalImports: ImportEntry[]` — Imports from other modules or parent/sibling directories
-- `internalImports: ImportEntry[]` — Imports from same directory as the source file
+**Fields:**
+- `fileName: string` — Relative file path (e.g., `'runner.ts'`, `'src/ai/service.ts'`)
+- `externalImports: ImportEntry[]` — Imports from other modules (parent directories, npm packages, absolute paths)
+- `internalImports: ImportEntry[]` — Imports from same directory (e.g., `'./types.js'`, `'./helper.js'`)
 
-## Design Patterns
+## Usage Context
 
-**Locality-based partitioning:** The `externalImports`/`internalImports` separation supports dependency graph construction where internal imports indicate tight coupling within a directory module, while external imports reveal cross-module dependencies. This distinction is used by `src/generation/prompts/builder.ts` when constructing import maps for AI prompts during Phase 1 file analysis.
-
-## Integration Points
-
-Consumed by:
-- `src/imports/extractor.ts` — Parses TypeScript/JavaScript source via regex to produce `FileImports` instances
-- `src/generation/prompts/builder.ts` — Includes `externalImports` in file analysis prompts to provide dependency context
-- `src/generation/prompts/templates.ts` — Aggregates directory-level imports from child `FileImports` for `AGENTS.md` generation
+These types support the import analysis system (`src/imports/extractor.ts`) which feeds dependency information into directory-level `AGENTS.md` prompt construction via `extractDirectoryImports()`. The external/internal partition enables documentation to emphasize cross-module coupling while de-emphasizing sibling file imports within the same directory.

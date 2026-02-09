@@ -1,35 +1,35 @@
 ---
-generated_at: 2026-02-09T17:43:58.370Z
+generated_at: 2026-02-09T21:27:44.230Z
 content_hash: 2fa047b790395f27759310eeb2030fc6be107b28d9c21108f95a33119d53ab06
-purpose: GeminiBackend implements AIBackend interface as a stub adapter for the Gemini CLI, providing command detection and ar...
+purpose: GeminiBackend implements AIBackend interface as stub demonstrating extension pattern for Gemini CLI integration, curr...
 ---
-**GeminiBackend implements AIBackend interface as a stub adapter for the Gemini CLI, providing command detection and argument construction but throwing AIServiceError on response parsing until JSON output format stabilizes.**
+**GeminiBackend implements AIBackend interface as stub demonstrating extension pattern for Gemini CLI integration, currently throwing "not implemented" errors pending stable JSON output format.**
 
-## Implementation Status
+## Exports
 
-GeminiBackend is a non-functional stub demonstrating the extension pattern for future Gemini CLI integration. The `parseResponse()` method always throws `AIServiceError` with code `'SUBPROCESS_ERROR'` and message `'Gemini backend is not yet implemented. Use Claude backend.'` This deferred implementation awaits stable JSON output from the Gemini CLI (referenced as "RESEARCH.md Open Question 2" in module documentation).
+**GeminiBackend** class implementing AIBackend interface with properties:
+- `name: 'gemini'` — Backend identifier string
+- `cliCommand: 'gemini'` — CLI executable name
 
-## Exported Class
+## Public Interface
 
-`export class GeminiBackend implements AIBackend` provides:
+**isAvailable(): Promise<boolean>** checks if `gemini` CLI exists on PATH via `isCommandOnPath(this.cliCommand)` imported from `claude.ts`.
 
-- `readonly name = 'gemini'` — Backend identifier string used by AIBackendRegistry
-- `readonly cliCommand = 'gemini'` — Executable name for PATH resolution
+**buildArgs(_options: AICallOptions): string[]** returns CLI argument array `['-p', '--output-format', 'json']` based on documented Gemini CLI flags from RESEARCH.md. Prompt delivered via stdin through subprocess wrapper.
 
-## Public Methods
+**parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse** throws `AIServiceError` with code `'SUBPROCESS_ERROR'` and message `'Gemini backend is not yet implemented. Use Claude backend.'` Always fails—parser not implemented.
 
-`async isAvailable(): Promise<boolean>` delegates to `isCommandOnPath(this.cliCommand)` imported from `claude.ts` to detect `gemini` binary on system PATH.
-
-`buildArgs(_options: AICallOptions): string[]` constructs CLI argument array `['-p', '--output-format', 'json']` following documented Gemini CLI flags. The prompt is injected via stdin by the subprocess wrapper in `src/ai/subprocess.ts`. The `_options` parameter is unused in this stub implementation.
-
-`parseResponse(_stdout: string, _durationMs: number, _exitCode: number): AIResponse` unconditionally throws `AIServiceError` with `'SUBPROCESS_ERROR'` code, blocking actual response parsing until full implementation.
-
-`getInstallInstructions(): string` returns multiline installation guide string with NPM install command `npm install -g @anthropic-ai/gemini-cli` and GitHub repository URL `https://github.com/google-gemini/gemini-cli`.
+**getInstallInstructions(): string** returns multiline installation guidance:
+```
+Gemini CLI (experimental):
+  npm install -g @anthropic-ai/gemini-cli
+  https://github.com/google-gemini/gemini-cli
+```
 
 ## Dependencies
 
-Imports `AIBackend`, `AICallOptions`, `AIResponse`, and `AIServiceError` from `../types.js`. Imports `isCommandOnPath` utility from `./claude.js` for command detection logic.
+Imports `AIBackend`, `AICallOptions`, `AIResponse`, `AIServiceError` from `../types.js`. Imports `isCommandOnPath` utility from `./claude.js` for CLI detection.
 
-## Integration Points
+## Implementation Status
 
-Registered with AIBackendRegistry in `src/ai/registry.ts` alongside ClaudeBackend and OpenCodeBackend. The `isAvailable()` check determines backend auto-detection fallback order when `ai.backend: 'auto'` configured in `.agents-reverse-engineer/config.yaml`. Despite registration, any attempt to use this backend for actual AI calls will fail at response parsing phase.
+Stub backend demonstrating AIBackend extension contract. Full implementation deferred until Gemini CLI JSON output stabilizes (RESEARCH.md Open Question 2). Detection and argument building functional, response parsing unimplemented.

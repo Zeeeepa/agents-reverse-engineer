@@ -1,26 +1,26 @@
 ---
-generated_at: 2026-02-09T17:44:24.752Z
+generated_at: 2026-02-09T21:28:17.959Z
 content_hash: bb4f55c96ec0c37663c36e05b684a022be93a51f7fedfab85751ba88c5150446
-purpose: Exponential backoff retry wrapper for transient AI service failures with configurable predicates, timing multipliers,...
+purpose: retry.ts implements exponential backoff retry logic for transient AI service failures with jitter-based delay to prev...
 ---
-**Exponential backoff retry wrapper for transient AI service failures with configurable predicates, timing multipliers, and jitter-based delay randomization.**
+**retry.ts implements exponential backoff retry logic for transient AI service failures with jitter-based delay to prevent thundering herd scenarios.**
 
 ## Exported Functions
 
-`withRetry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T>` executes async function with exponential backoff retry logic. Returns result immediately on success. On transient failure matching `options.isRetryable` predicate, waits with exponential delay then retries up to `options.maxRetries` times. On permanent failure (`isRetryable` returns false), throws immediately without retrying. After exhausting all retries, throws last error. Delay formula: `min(baseDelayMs * multiplier^attempt, maxDelayMs) + jitter` where jitter is random value in [0, 500ms]. Invokes optional `options.onRetry(attempt, error)` callback before each delay.
+`withRetry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T>` executes an async function with exponential backoff retry on failure. Returns result immediately on success. On transient failure where `options.isRetryable(error)` returns true, waits with exponential backoff plus jitter (0-500ms random), then retries up to `options.maxRetries` times. On permanent failure where `isRetryable` returns false, throws immediately without retrying. After exhausting all retries, throws the last error. Delay formula: `min(baseDelayMs * multiplier^attempt, maxDelayMs) + jitter`.
 
 ## Exported Constants
 
-`DEFAULT_RETRY_OPTIONS` provides base retry configuration with `maxRetries: 3` (4 total attempts), `baseDelayMs: 1_000` (1 second base delay), `maxDelayMs: 8_000` (8 second cap), `multiplier: 2` (exponential doubling). Intentionally omits `isRetryable` and `onRetry` predicates requiring caller-specific implementation. Type satisfies `Omit<RetryOptions, 'isRetryable' | 'onRetry'>` for partial spread pattern.
+`DEFAULT_RETRY_OPTIONS` provides default retry configuration with `maxRetries: 3`, `baseDelayMs: 1_000`, `maxDelayMs: 8_000`, `multiplier: 2`. Does NOT include `isRetryable` or `onRetry` predicates since those are caller-specific. Type constraint: `Omit<RetryOptions, 'isRetryable' | 'onRetry'>`. Callers must spread these defaults and provide their own predicates.
 
-## Retry Flow Control
+## Retry Behavior
 
-Loop executes `attempt` from 0 to `options.maxRetries` inclusive. On catch block: throws immediately if `attempt === options.maxRetries` (exhausted) or `!options.isRetryable(error)` (permanent failure). Computes `exponentialDelay = baseDelayMs * Math.pow(multiplier, attempt)`, applies `cappedDelay = Math.min(exponentialDelay, maxDelayMs)`, adds `jitter = Math.random() * 500`, waits `delay = cappedDelay + jitter` via `setTimeout` promise wrapper. Invokes `options.onRetry?.(attempt + 1, error)` before waiting (attempt is 0-indexed, callback receives 1-indexed retry number).
+`withRetry` loops from `attempt = 0` to `options.maxRetries` inclusive (3 retries = 4 total attempts). On each iteration: attempts `fn()`, catches errors, checks `attempt === options.maxRetries` or `!options.isRetryable(error)` to determine if error is terminal (throws immediately), computes exponential delay as `options.baseDelayMs * Math.pow(options.multiplier, attempt)`, caps delay via `Math.min(exponentialDelay, options.maxDelayMs)`, adds jitter via `Math.random() * 500`, invokes `options.onRetry?.(attempt + 1, error)` notification callback, then awaits `setTimeout` promise before next iteration.
 
-## Integration Pattern
+## Integration Points
 
-Designed for `AIService.call()` wrapping `runSubprocess()` invocations. Caller provides `isRetryable` predicate matching rate limit error patterns in stderr (strings: "rate limit", "429", "too many requests", "overloaded"). Callback `onRetry` emits trace events via `ITraceWriter.emit('retry', ...)` for telemetry correlation with subprocess lifecycle events.
+Imports `RetryOptions` from `./types.js`. Used by `AIService` in `src/ai/service.ts` to wrap `runSubprocess()` calls with rate limit handling. Expects caller to provide `isRetryable` predicate matching stderr patterns ("rate limit", "429", "too many requests", "overloaded") and `onRetry` callback for telemetry/logging.
 
-## Jitter Strategy
+## Behavioral Contracts
 
-Adds uniform random jitter `Math.random() * 500` (0-500ms range) to prevent thundering herd when multiple workers hit same rate limit simultaneously. Jitter applied after exponential backoff and delay cap, not subject to `maxDelayMs` constraint.
+Jitter range: `Math.random() * 500` adds 0-500ms random delay to computed exponential backoff. Delay cap enforced via `Math.min(exponentialDelay, options.maxDelayMs)` before jitter addition. Default base delay: `1_000`ms (1 second). Default max delay: `8_000`ms (8 seconds). Default multiplier: `2` (delay doubles each attempt).

@@ -1,60 +1,47 @@
 ---
-generated_at: 2026-02-09T17:45:15.982Z
+generated_at: 2026-02-09T21:29:18.471Z
 content_hash: f2c9479d7a3584696151222359bc71431ab5cc330dfebf20efd1f361f7b4b07c
-purpose: extractor.ts extracts TypeScript/JavaScript import statements from source files via regex parsing and formats them as...
+purpose: extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files via regex parsing, pro...
 ---
-**extractor.ts extracts TypeScript/JavaScript import statements from source files via regex parsing and formats them as structured import maps for LLM prompt consumption.**
+**extractor.ts extracts and classifies TypeScript/JavaScript import statements from source files via regex parsing, producing structured import maps for LLM prompt integration with internal/external classification and type-only detection.**
 
 ## Exported Functions
 
-### extractImports
+**`extractImports(sourceContent: string): ImportEntry[]`**
+Parses source text via `IMPORT_REGEX` to extract import statements, returning array of `ImportEntry` objects with `specifier` (module path), `symbols` (imported identifiers), and `typeOnly` (boolean flag for `import type` syntax). Handles named imports (`{ Foo, Bar }`), namespace imports (`* as name`), and default imports. Strips alias syntax (`as alias`) from named imports via `.replace(/\s+as\s+\w+/, '')` to retain only source identifier.
 
-```typescript
-function extractImports(sourceContent: string): ImportEntry[]
-```
+**`extractDirectoryImports(dirPath: string, fileNames: string[]): Promise<FileImports[]>`**
+Reads first 100 lines of each file in `fileNames` array (optimization assuming imports at top), calls `extractImports()` on sliced content, filters for relative imports (starts with `.` or `..`), excludes `node:` builtins and npm bare specifiers, classifies as `internalImports` (same-directory via `./`) or `externalImports` (parent-directory via `../`), returns `FileImports[]` with `fileName`, `externalImports`, `internalImports` fields. Silently skips unreadable files via empty catch block.
 
-Parses source content using `IMPORT_REGEX` to extract all static import statements. Returns array of `ImportEntry` objects containing `specifier`, `symbols[]`, and `typeOnly` flag. Matches named imports (`{ Foo, Bar }`), namespace imports (`* as name`), and default imports. Strips `as` aliases from named symbols via `.replace(/\s+as\s+\w+/, '')`. Resets `IMPORT_REGEX.lastIndex = 0` before matching to ensure clean state.
+**`formatImportMap(fileImports: FileImports[]): string`**
+Transforms `FileImports[]` into structured text format for LLM prompts. Output pattern: `fileName:\n  specifier → symbol1, symbol2 (type)\n`. Type-only imports append ` (type)` suffix via `imp.typeOnly` check. Only includes files with non-empty `externalImports` arrays. Sections separated by double newlines.
 
-### extractDirectoryImports
+## Import Regex Pattern
 
-```typescript
-async function extractDirectoryImports(
-  dirPath: string,
-  fileNames: string[]
-): Promise<FileImports[]>
-```
+**`IMPORT_REGEX`** constant: `/^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm`
 
-Reads first 100 lines of each file in `fileNames` array (import region optimization), calls `extractImports()` on truncated content, classifies imports as `internal` (specifiers starting with `./`) or `external` (specifiers starting with `../`). Filters out bare package specifiers (npm modules) and `node:` built-ins. Returns `FileImports[]` containing `fileName`, `externalImports`, `internalImports` for files with relative imports. Silently skips unreadable files via empty catch block.
+Capture groups:
+- Group 1: `type` keyword for type-only imports (`import type`)
+- Group 2: Named imports between braces (`{ Foo, Bar }`)
+- Group 3: Namespace imports (`* as name`)
+- Group 4: Default imports (bare identifier)
+- Group 5: Module specifier (string after `from`)
 
-### formatImportMap
+Matches only lines starting with `import` (anchored with `^`) to avoid matching dynamic imports, comments, or string literals containing import syntax. Global + multiline flags (`gm`) enable `.exec()` iteration via `.lastIndex` reset.
 
-```typescript
-function formatImportMap(fileImports: FileImports[]): string
-```
+## Classification Strategy
 
-Converts `FileImports[]` into human-readable text block for LLM prompts. Groups external imports by file, appends `(type)` suffix for type-only imports. Output format: filename as header, indented specifier-symbol pairs (`  ../ai/index.js → AIService`). Only includes files with external imports (skips internal-only files).
+Relative imports categorized by specifier prefix:
+- **Internal**: Starts with `./` (same directory)
+- **External**: Starts with `../` (parent directory)
+- **Excluded**: Bare specifiers (npm packages like `'react'`) and `node:` protocol builtins
 
-## Regular Expression
-
-### IMPORT_REGEX
-
-```typescript
-const IMPORT_REGEX =
-  /^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm
-```
-
-Multiline regex matching static import statements at line start (`^import`). Capture groups: (1) `type` keyword for type-only imports, (2) named symbols between braces, (3) namespace import `* as name`, (4) default import identifier, (5) module specifier string. Uses `/gm` flags for global multiline matching. Does not match dynamic imports (`import()`) or imports inside comments/strings.
-
-## Import Classification Rules
-
-- **Internal imports**: Specifiers starting with `./` (same directory)
-- **External imports**: Specifiers starting with `../` (parent/sibling directories)
-- **Filtered out**: Bare specifiers (npm packages like `'react'`), `node:` built-ins (like `'node:fs'`)
+Filtering via `.filter(i => i.specifier.startsWith('.') || i.specifier.startsWith('..'))` before classification. Used in Phase 2 directory aggregation prompts via `src/generation/prompts/builder.ts` to show dependency relationships within `.sum` generation context.
 
 ## Performance Optimization
 
-Reads only first 100 lines of source files via `content.split('\n').slice(0, 100).join('\n')` before regex matching. Assumes all imports appear at top of file (standard ES module convention).
+Reads only first 100 lines per file via `content.split('\n').slice(0, 100).join('\n')` before parsing, assuming imports clustered at file top per convention. Trades completeness for speed in large codebases where imports after line 100 are rare edge cases. Full file content read via `readFile(filePath, 'utf-8')` but only import region substring passed to `extractImports()`.
 
 ## Integration Points
 
-Used by `src/generation/prompts/builder.ts` to construct import context for directory-level `AGENTS.md` generation. Provides dependency coupling information via `formatImportMap()` output embedded in AI prompts.
+Consumed by `src/generation/prompts/builder.ts` in `buildFilePrompt()` and `buildDirectoryPrompt()` to include import context in AI analysis prompts. Output of `formatImportMap()` embedded in prompt templates to inform LLM about cross-file dependencies when generating `.sum` summaries and `AGENTS.md` aggregations.

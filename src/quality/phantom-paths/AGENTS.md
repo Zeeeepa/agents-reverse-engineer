@@ -2,44 +2,49 @@
 
 # src/quality/phantom-paths
 
-Validates path references in `AGENTS.md` files by extracting path-like strings via regex patterns, resolving them against filesystem locations with TypeScript/JavaScript extension fallbacks, and reporting unresolved references as `PhantomPathInconsistency` objects in quality reports.
+Detects unresolvable file path references in generated `AGENTS.md` documentation through regex extraction, multi-strategy filesystem resolution with TypeScript/JavaScript extension fallback, and `PhantomPathInconsistency` issue reporting.
 
 ## Contents
 
-**[index.ts](./index.ts)** — Barrel export of `checkPhantomPaths` validator function.
+**[index.ts](./index.ts)** — Re-exports `checkPhantomPaths` from `validator.js` as barrel export for phantom path detection subsystem within parent `src/quality/` pipeline.
 
-**[validator.ts](./validator.ts)** — Extracts path references from `AGENTS.md` content using `PATH_PATTERNS` (markdown links, backtick-quoted paths, prose-embedded paths), resolves each path against `agentsMdDir` and `projectRoot` with `.ts`/`.js` extension fallback via `tryPaths[]`, filters excluded patterns (URLs, template literals, globs), and returns `PhantomPathInconsistency[]` array with deduplication via `seen` Set.
+**[validator.ts](./validator.ts)** — Implements `checkPhantomPaths(agentsMdPath, content, projectRoot)` scanning AGENTS.md text via `PATH_PATTERNS` regex array (markdown links, backtick-quoted paths, prose-embedded src/ references), attempts four-location resolution (agentsMdDir-relative, projectRoot-relative, .ts fallback for both), filters via `SKIP_PATTERNS` (node_modules, .git, URLs, template syntax, globs), extracts 120-char contextLine from content on resolution failure, deduplicates via Set, returns `PhantomPathInconsistency[]` with severity='warning', type='phantom-path', referencedPath, resolvedTo, contextLine details.
 
-## Path Extraction Patterns
+## Path Extraction Strategy
 
-`PATH_PATTERNS` captures three reference types:
-- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` — Markdown link targets
-- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` — Backtick-quoted paths with extensions
-- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` — Prose-embedded paths following contextual keywords
+`PATH_PATTERNS` contains three RegExp patterns:
+- Markdown link targets: `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` captures relative paths in link syntax
+- Backtick-quoted paths: `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` captures code-formatted paths starting with src/, ./, ../
+- Prose-embedded paths: `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` captures src/ paths following trigger keywords
 
-## Resolution Strategy
+`SKIP_PATTERNS` excludes seven non-file reference types: node_modules, .git, HTTP(S) URLs, template placeholders (`{{`, `${`), glob wildcards, brace expansion syntax.
 
-For each extracted path, `checkPhantomPaths()` attempts resolution in priority order:
+## Resolution Protocol
 
-1. Relative to `AGENTS.md` directory: `path.resolve(agentsMdDir, rawPath)`
-2. Relative to project root: `path.resolve(projectRoot, rawPath)`
-3. TypeScript convention fallback: append `.replace(/\.js$/, '.ts')` variants to `tryPaths[]` when `rawPath.endsWith('.js')`
+For each extracted path, `checkPhantomPaths` attempts `existsSync()` validation at four filesystem locations in sequence:
+1. `path.resolve(agentsMdDir, rawPath)` — relative to AGENTS.md parent directory
+2. `path.resolve(projectRoot, rawPath)` — relative to project root (handles absolute-style src/ paths)
+3. agentsMdDir-relative path with .js → .ts extension substitution
+4. projectRoot-relative path with .js → .ts extension substitution
 
-Validates existence via `existsSync()` on all candidate paths; returns `PhantomPathInconsistency` with `severity: 'warning'` when all attempts fail.
+Stops at first successful resolution; reports unresolved path as `PhantomPathInconsistency` with contextLine extracted via `lines.find((l) => l.includes(rawPath))`, trimmed and sliced to 120-char maximum.
 
-## Exclusion Patterns
+## Behavioral Contracts
 
-`SKIP_PATTERNS` filters non-file references before validation:
-- `/node_modules/`, `/\.git\//` — Dependency/VCS paths
-- `/^https?:/` — URLs
-- `/\{\{/`, `/\$\{/` — Template placeholders/literals
-- `/\*/`, `/\{[^}]*,[^}]*\}/` — Glob patterns/brace expansions
+**Path extraction patterns (validator.ts `PATH_PATTERNS`):**
+```javascript
+/\[(?:[^\]]*)\]\((\.[^)]+)\)/g
+/`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g
+/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi
+```
 
-## Inconsistency Reporting
-
-Each phantom path generates `PhantomPathInconsistency` containing:
-- `agentsMdPath` — Normalized via `path.relative(projectRoot, agentsMdPath)`
-- `description` — `"Phantom path reference: \"${rawPath}\" does not exist"`
-- `details.referencedPath` — Original extracted path
-- `details.resolvedTo` — Attempted resolution relative to project root
-- `details.context` — Containing line truncated to 120 characters
+**Skip filters (validator.ts `SKIP_PATTERNS`):**
+```javascript
+/node_modules/
+/\.git\//
+/^https?:/
+/\{\{/
+/\$\{/
+/\*/
+/\{[^}]*,[^}]*\}/
+```

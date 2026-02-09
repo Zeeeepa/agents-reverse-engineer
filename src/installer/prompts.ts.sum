@@ -1,40 +1,65 @@
 ---
-generated_at: 2026-02-09T17:45:31.895Z
+generated_at: 2026-02-09T21:29:29.535Z
 content_hash: 897dac2c7186b17ac9b4816a3e65206f5358e6b7fdcf0a5c440436462359236e
-purpose: Interactive prompt orchestrator for installer CLI providing TTY arrow-key selection with numbered fallback, raw mode ...
+purpose: prompts.ts provides interactive selection prompts for the installer with arrow-key navigation in TTY mode and numbere...
 ---
-**Interactive prompt orchestrator for installer CLI providing TTY arrow-key selection with numbered fallback, raw mode cleanup guarantees, and runtime/location/confirmation flows.**
+**prompts.ts provides interactive selection prompts for the installer with arrow-key navigation in TTY mode and numbered fallback for CI/non-interactive environments, using Node.js readline with raw mode cleanup via try/finally and process exit handlers.**
 
-## Exported Functions
+## Public Interface
 
-**isInteractive(): boolean** — Returns `true` if `process.stdin.isTTY === true`, otherwise `false` for CI/piped input detection.
+### Type Exports
 
-**selectOption<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Generic selector routing to `arrowKeySelect()` in TTY mode or `numberedSelect()` in non-interactive mode based on `isInteractive()` result.
+```typescript
+interface SelectOption<T> {
+  label: string;
+  value: T;
+}
+```
 
-**selectRuntime(mode: 'install' | 'uninstall' = 'install'): Promise<Runtime>** — Prompts for runtime selection with options: `'claude'`, `'opencode'`, `'gemini'`, `'all'`. Uses `selectOption<Runtime>()` with labels "Claude Code", "OpenCode", "Gemini CLI", "All runtimes".
+### Exported Functions
 
-**selectLocation(mode: 'install' | 'uninstall' = 'install'): Promise<Location>** — Prompts for location selection with options: `'global'` ("Global (~/.claude, ~/.config/opencode, etc.)"), `'local'` ("Local (./.claude, ./.opencode, etc.)"). Uses `selectOption<Location>()`.
+**isInteractive(): boolean** — Returns `process.stdin.isTTY === true` to detect interactive terminal vs CI/piped input.
 
-**confirmAction(message: string): Promise<boolean>** — Prompts for Yes/No confirmation using `selectOption<boolean>()` with labels "Yes" (`true`), "No" (`false`).
+**selectOption<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Generic option selector dispatching to `arrowKeySelect()` for TTY or `numberedSelect()` for non-TTY environments.
 
-## Internal Selection Implementations
+**selectRuntime(mode: 'install' | 'uninstall' = 'install'): Promise<Runtime>** — Prompts for runtime selection with options: `'claude'`, `'opencode'`, `'gemini'`, `'all'`. Passes mode to customize prompt text ("Select runtime to install:" vs "Select runtime to uninstall:").
 
-**arrowKeySelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Interactive arrow-key navigator using `readline.emitKeypressEvents()` + `process.stdin.setRawMode(true)`. Listens for keypress events: `'up'` decrements `selectedIndex` (clamped to `0`), `'down'` increments `selectedIndex` (clamped to `options.length - 1`), `'return'` resolves with `options[selectedIndex].value`. Renders prompt with `pc.bold()` and options with `pc.cyan('> ')` prefix for selected index. Uses ANSI escape sequences `\x1b[${n}A` (move cursor up), `\x1b[2K` (clear line), `\x1b[1B` (move cursor down) for re-rendering on navigation. Handles Ctrl+C via `key.ctrl && key.name === 'c'` check calling `cleanupRawMode()` + `process.exit(0)`. Always executes cleanup in try/catch wrapper.
+**selectLocation(mode: 'install' | 'uninstall' = 'install'): Promise<Location>** — Prompts for installation location with options: `'global'` (for `~/.claude`, `~/.config/opencode`) or `'local'` (for `./.claude`, `./.opencode`).
 
-**numberedSelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Non-interactive numbered fallback printing `pc.bold(prompt)` and options as `"  ${idx + 1}. ${opt.label}"`. Creates `readline.createInterface()` with stdin/stdout, prompts `'Enter number: '`, parses input via `parseInt(answer, 10)`, validates range `1-${options.length}`, resolves with `options[num - 1].value`. Rejects with `Error('Invalid selection: ${answer}. Expected 1-${options.length}')` on parse failure or out-of-range.
+**confirmAction(message: string): Promise<boolean>** — Displays confirmation prompt with "Yes"/"No" options returning true/false.
 
-## Raw Mode State Management
+## Interactive Terminal Handling
 
-**rawModeActive: boolean** — Module-level flag tracking `process.stdin.setRawMode(true)` state to prevent double-cleanup errors.
+**arrowKeySelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Private function enabling arrow key navigation (up/down/enter) via `readline.emitKeypressEvents()` and `process.stdin.setRawMode(true)`. Maintains `selectedIndex` state and re-renders option list with ANSI escape sequences: `\x1b[${n}A` (cursor up), `\x1b[2K` (clear line), `\x1b[1B` (cursor down). Selected option highlighted with `pc.cyan('> ')` prefix. Keypress handler responds to `key.name === 'up' | 'down' | 'return'` and `key.ctrl && key.name === 'c'` for graceful exit.
 
-**cleanupRawMode(): void** — Restores terminal by calling `process.stdin.setRawMode(false)` + `process.stdin.pause()` when `rawModeActive && process.stdin.isTTY`. Sets `rawModeActive = false`. Swallows exceptions during cleanup via empty catch block.
+**numberedSelect<T>(prompt: string, options: SelectOption<T>[]): Promise<T>** — Private fallback for non-TTY environments printing numbered list (1-indexed) and reading selection via `readline.createInterface()`. Validates input range `1 <= num <= options.length`, rejects with `Error('Invalid selection: ${answer}. Expected 1-${options.length}')` on invalid input.
 
-**Global exit handlers** — Registers `process.on('exit', cleanupRawMode)` and `process.on('SIGINT', ...)` with `cleanupRawMode()` + `process.exit(0)` to guarantee terminal restoration on process termination or Ctrl+C interruption.
+## Raw Mode Lifecycle Management
 
-## Type Definitions
+**rawModeActive: boolean** — Module-level state tracker ensuring cleanup even on error/interrupt.
 
-**SelectOption<T>** — Interface with `label: string` (display text) and `value: T` (resolved value). Used for generic option construction in `selectOption()`, `selectRuntime()`, `selectLocation()`, `confirmAction()`.
+**cleanupRawMode(): void** — Restores terminal state via `process.stdin.setRawMode(false)` and `process.stdin.pause()`, guarded by try/catch to ignore errors during cleanup. Sets `rawModeActive = false`.
+
+**Global handlers** — Registered via `process.on('exit', cleanupRawMode)` and `process.on('SIGINT', ...)` to ensure raw mode cleanup on process termination.
+
+**arrowKeySelect error handling** — Wraps raw mode setup in try/catch, calls `cleanupRawMode()` before re-throwing errors. Uses try/finally pattern implicitly via Promise resolution path.
 
 ## Dependencies
 
-Uses `node:readline` for `emitKeypressEvents()`, `createInterface()`, and raw mode stdin manipulation. Uses `picocolors` (`pc`) for `pc.bold()`, `pc.cyan()` terminal formatting. Imports `Runtime`, `Location` from `'./types.js'` for typed option values.
+Imports `readline` from Node.js stdlib for keypress events and interface creation, `picocolors` as `pc` for ANSI color formatting (`pc.cyan()`, `pc.bold()`), and types `Runtime`, `Location` from `./types.js`.
+
+## Behavioral Contracts
+
+**Prompt text patterns:**
+- Install mode: `"Select runtime to install:"`, `"Select installation location:"`
+- Uninstall mode: `"Select runtime to uninstall:"`, `"Select uninstallation location:"`
+
+**Runtime option labels:** `"Claude Code"`, `"OpenCode"`, `"Gemini CLI"`, `"All runtimes"` mapping to values `'claude'`, `'opencode'`, `'gemini'`, `'all'`.
+
+**Location option labels:** `"Global (~/.claude, ~/.config/opencode, etc.)"`, `"Local (./.claude, ./.opencode, etc.)"` mapping to values `'global'`, `'local'`.
+
+**ANSI escape sequences:**
+- Cursor movement: `\x1b[${n}A` (up n lines), `\x1b[1B` (down 1 line)
+- Line operations: `\x1b[2K` (clear entire line)
+
+**Keypress event matching:** Checks `key.name` against strings `'up'`, `'down'`, `'return'` and compound check `key.ctrl && key.name === 'c'` for interrupt handling.

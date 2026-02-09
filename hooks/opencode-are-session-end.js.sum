@@ -1,37 +1,36 @@
 ---
-generated_at: 2026-02-09T17:46:14.965Z
+generated_at: 2026-02-09T21:30:41.764Z
 content_hash: d96faaf817c7bc9d8b5ab3bd189a658f76e658213df6079f0cd895abe010f30c
-purpose: opencode-are-session-end.js exports `AreSessionEnd` async factory returning an OpenCode plugin that triggers `npx age...
+purpose: opencode-are-session-end.js exports `AreSessionEnd` async factory returning OpenCode plugin that triggers `npx agents...
 ---
-**opencode-are-session-end.js exports `AreSessionEnd` async factory returning an OpenCode plugin that triggers `npx agents-reverse-engineer@latest update --quiet` as a detached background process when `'session.deleted'` events fire, conditional on git working tree changes detected via `git status --porcelain`.**
+**opencode-are-session-end.js exports `AreSessionEnd` async factory returning OpenCode plugin that triggers `npx agents-reverse-engineer@latest update --quiet` as detached background process when `session.deleted` event fires if git working tree has uncommitted changes.**
 
-## Exported API
+## Exported Interface
 
-`AreSessionEnd` — async factory function returning OpenCode plugin object with `event['session.deleted']` handler. No parameters. Returns `Promise<{ event: { 'session.deleted': () => Promise<void> } }>`.
+`AreSessionEnd` — Async function returning plugin object with shape `{ event: { 'session.deleted': AsyncFunction } }`. No parameters. Plugin conforms to OpenCode event handler contract.
 
-## Event Handler Logic
+## Event Hook Behavior
 
-Handler checks two disable mechanisms before executing update:
-- Environment variable: exits if `process.env.ARE_DISABLE_HOOK === '1'`
-- Config file: reads `.agents-reverse-engineer.yaml` via `existsSync` + `readFileSync`, exits if `config.includes('hook_enabled: false')` (substring search, no YAML parser)
+`event['session.deleted']` handler executes four-stage gate sequence:
 
-Git change detection via `execSync('git status --porcelain', { encoding: 'utf-8' })` wrapped in try-catch. Returns early if `status.trim()` empty or if `execSync` throws (non-git repo or missing git binary).
+1. Environment gate: Returns early if `process.env.ARE_DISABLE_HOOK === '1'`
+2. Config file gate: Reads `.agents-reverse-engineer.yaml` via `existsSync()` + `readFileSync()`, returns early if content `includes('hook_enabled: false')` (substring search, no YAML parser)
+3. Git status gate: Executes `execSync('git status --porcelain', { encoding: 'utf-8' })`, returns early if output `trim()` is empty string, catches and returns on error (non-git repo)
+4. Background spawn: Launches `spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], { stdio: 'ignore', detached: true })`, calls `child.unref()` to prevent blocking Node.js exit
 
-## Background Process Spawning
+## Process Lifecycle Pattern
 
-Spawns `npx agents-reverse-engineer@latest update --quiet` via `spawn()` with detached process pattern:
-```javascript
-spawn('npx', ['agents-reverse-engineer@latest', 'update', '--quiet'], {
-  stdio: 'ignore',
-  detached: true,
-})
-```
-Calls `.unref()` on child to allow parent process exit without waiting for completion. Prevents blocking OpenCode session close.
+Detached spawn pattern prevents session close blocking. `stdio: 'ignore'` suppresses output streams. `detached: true` creates independent process group. `unref()` allows parent process termination without waiting for child completion.
 
-## OpenCode Plugin Contract
+## Disable Mechanisms
 
-OpenCode plugins export async factory functions returning objects with `event` property mapping event names to async handlers. This module implements `'session.deleted'` lifecycle hook, equivalent to Claude/Gemini `SessionEnd` hook but using OpenCode's plugin system conventions.
+- **Environment**: `ARE_DISABLE_HOOK=1` environment variable
+- **Config**: `hook_enabled: false` anywhere in `.agents-reverse-engineer.yaml` content (not YAML-parsed, simple string inclusion check)
 
-## Dependencies
+## Platform Context
 
-Imports `execSync`, `spawn` from `child_process`, `existsSync`, `readFileSync` from `fs`. No external npm dependencies.
+OpenCode plugin system equivalent to Claude/Gemini SessionEnd hooks (`are-session-end.js`). Event name `session.deleted` maps to OpenCode lifecycle, whereas Claude/Gemini use `SessionEnd` trigger. Identical git change detection and background spawn logic across all three platform variants.
+
+## Installation Path
+
+Installed to `~/.config/opencode/plugins/` (or `$OPENCODE_CONFIG_DIR/plugins/`) via `src/installer/operations.ts` when user runs `npx agents-reverse-engineer --runtime opencode -g`.

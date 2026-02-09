@@ -1,52 +1,52 @@
 ---
-generated_at: 2026-02-09T17:46:30.331Z
+generated_at: 2026-02-09T21:30:59.352Z
 content_hash: bebbac9539b1852caf8c0855f599a72527e4266076aba139231fb1c036ad4e37
-purpose: tsconfig.json configures TypeScript compiler for ES2022/NodeNext module system with strict type-checking, declaration...
+purpose: TypeScript compiler configuration defining ES2022 target with NodeNext module resolution, strict type-checking, and s...
 ---
-**tsconfig.json configures TypeScript compiler for ES2022/NodeNext module system with strict type-checking, declaration map generation, and source map output to the dist/ directory.**
+**TypeScript compiler configuration defining ES2022 target with NodeNext module resolution, strict type-checking, and source map generation for the agents-reverse-engineer CLI tool.**
 
-## Compiler Target and Module System
+## Compiler Options
 
-- `target: "ES2022"` compiles TypeScript to ECMAScript 2022 syntax
-- `module: "NodeNext"` enables Node.js native ES module support with package.json "type": "module"
-- `moduleResolution: "NodeNext"` resolves imports using Node.js ESM algorithm (requires .js extensions in imports)
-- `lib: ["ES2022"]` provides ES2022 standard library type definitions
+**target**: `"ES2022"` — Emits JavaScript compatible with ECMAScript 2022 runtime (requires Node.js ≥18.0.0).
 
-## Output Configuration
+**module**: `"NodeNext"` — Uses Node.js native ES module resolution with package.json `"type": "module"` support.
 
-- `outDir: "dist"` emits compiled JavaScript to dist/ directory (mirrors src/ structure)
-- `rootDir: "src"` establishes src/ as compilation root (prevents ../node_modules pollution in dist/)
-- `declaration: true` generates .d.ts type declaration files alongside .js output
-- `declarationMap: true` creates .d.ts.map files for IDE "Go to Definition" navigation to source .ts files
-- `sourceMap: true` emits .js.map files for runtime debugging with original TypeScript line numbers
+**moduleResolution**: `"NodeNext"` — Resolves imports using Node.js package exports field and .js extension requirements for relative imports.
 
-## Type Safety Settings
+**lib**: `["ES2022"]` — Includes ES2022 standard library type definitions (Promise, Array methods, Object.hasOwn, etc.).
 
-- `strict: true` enables all strict type-checking options (noImplicitAny, strictNullChecks, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, noImplicitThis, alwaysStrict, useUnknownInCatchVariables)
-- `forceConsistentCasingInFileNames: true` enforces case-sensitive imports (prevents cross-platform file resolution issues)
-- `skipLibCheck: true` skips type-checking of .d.ts files in node_modules (improves compile speed)
-- `isolatedModules: true` ensures each file can be transpiled independently (required for build tools like esbuild, enforces no const enums or ambient module declarations)
+**outDir**: `"dist"` — Compiles all TypeScript output to `dist/` directory (referenced by package.json `"main"` field and `bin` entry points).
 
-## Module Interoperability
+**rootDir**: `"src"` — Establishes `src/` as base directory for computing relative output paths in `dist/`.
 
-- `esModuleInterop: true` enables default import syntax for CommonJS modules (import fs from 'fs' instead of import * as fs)
-- `resolveJsonModule: true` allows importing .json files with type inference (e.g., import pkg from './package.json')
+**strict**: `true` — Enables all strict type-checking flags (noImplicitAny, strictNullChecks, strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, noImplicitThis, alwaysStrict).
 
-## Compilation Scope
+**esModuleInterop**: `true` — Enables CommonJS/ES module interoperability helpers for default imports from CJS modules.
 
-- `include: ["src/**/*"]` compiles all TypeScript files recursively under src/
-- `exclude: ["node_modules", "dist"]` prevents compilation of dependencies and previous build output
+**skipLibCheck**: `true` — Skips type-checking of .d.ts files in node_modules to improve compilation speed.
+
+**forceConsistentCasingInFileNames**: `true` — Enforces case-sensitive file path imports (prevents Windows/macOS case-insensitivity bugs).
+
+**declaration**: `true` — Generates .d.ts type declaration files alongside compiled JavaScript (enables TypeScript consumers to import with type safety).
+
+**declarationMap**: `true` — Emits .d.ts.map files mapping type declarations back to original TypeScript source for IDE navigation.
+
+**sourceMap**: `true` — Generates .js.map files for debugging with original TypeScript line numbers in stack traces.
+
+**resolveJsonModule**: `true` — Allows importing JSON files with type inference (used for package.json version reading in src/version.ts).
+
+**isolatedModules**: `true` — Ensures each file can be transpiled independently without cross-file type information (required for build tools like esbuild/swc).
+
+## File Inclusion
+
+**include**: `["src/**/*"]` — Compiles all TypeScript files recursively under `src/` directory (matches src/cli/index.ts, src/ai/service.ts, src/generation/prompts/templates.ts, etc.).
+
+**exclude**: `["node_modules", "dist"]` — Excludes third-party dependencies and compiled output from compilation scope (prevents reprocessing of emitted .d.ts files).
 
 ## Build Integration
 
-Referenced by npm scripts in package.json:
-- `npm run build` invokes `tsc` which reads this configuration
-- `npm run dev` runs `tsx watch src/cli/index.ts` (bypasses tsc, uses tsx runtime transpiler)
-- `prepublishOnly` hook executes `npm run build` before publishing to npm registry
+Referenced by `npm run build` script which invokes `tsc` to compile src/ → dist/. The `prepublishOnly` hook chains `build` + `build:hooks` before npm publish. Binary entry points in package.json (`bin.are`, `bin.agents-reverse-engineer`) resolve to `dist/cli/index.js` after compilation.
 
-## ES Module Constraints
+## NodeNext Module Implications
 
-NodeNext module resolution requires:
-- Explicit .js extensions in relative imports (import { foo } from './bar.js' even though source is bar.ts)
-- Package.json with `"type": "module"` at project root
-- File extensions must match: .ts → .js, .mts → .mjs, .cts → .cjs
+Requires explicit `.js` extensions in relative imports despite source files using `.ts` extension (e.g., `import { foo } from './bar.js'` resolves to `src/bar.ts` at compile time, `dist/bar.js` at runtime). Package.json must include `"type": "module"` to enable ES module semantics in emitted JavaScript.

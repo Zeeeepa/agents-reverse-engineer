@@ -6,146 +6,160 @@
 
 ## Contents
 
-### Root Documentation
+### Configuration & Metadata
 
-**[LANGUAGES-MANIFEST.md](./LANGUAGES-MANIFEST.md)** — Enumerates 25 language ecosystem manifest types (package.json, Cargo.toml, go.mod, pyproject.toml, pom.xml, build.gradle, Gemfile, composer.json, CMakeLists.txt/Makefile, plus 16 unsupported: Gemfile, *.csproj, Package.swift, mix.exs, rebar.config, build.sbt, deps.edn, *.cabal, pubspec.yaml, *.rockspec, DESCRIPTION, Project.toml, build.zig.zon, *.nimble, dune-project) with support checkmarks indicating `extractDirectoryImports()` detection coverage. Serves as specification for manifest-aware prompt construction in Phase 2 directory aggregation.
+**[package.json](./package.json)** — Defines npm package identity (`agents-reverse-engineer@0.7.1`, MIT license), binary entry points (`are`, `agents-reverse-engineer` → `dist/cli/index.js`), dependencies (`fast-glob`, `ignore`, `isbinaryfile`, `simple-git`, `yaml`, `zod`, `ora`, `picocolors`), build scripts (`tsc`, `build-hooks.js`), and distribution whitelist (`["dist", "hooks/dist", "README.md", "LICENSE"]`).
 
-**[LICENSE](./LICENSE)** — MIT license grant for agents-reverse-engineer (copyright 2026 GeoloeG-IsT) granting unrestricted usage/modification/distribution rights with warranty disclaimer and liability waiver.
+**[tsconfig.json](./tsconfig.json)** — TypeScript compiler targeting ES2022 with NodeNext module resolution, strict type-checking, declaration/source map generation, compiling `src/**/*` → `dist/` with JSON module support for `package.json` version extraction.
 
-**[README.md](./README.md)** — User-facing documentation covering `npx agents-reverse-engineer@latest` installation workflows (runtime selection: claude/opencode/gemini/all, scope: global `-g`/local `-l`), command reference (init/discover/generate/update/specify/clean), generated artifact formats (`.sum` with YAML frontmatter, `AGENTS.md` directories, runtime-specific roots), configuration schema (`.agents-reverse-engineer/config.yaml` with exclude patterns/vendorDirs/binaryExtensions/ai backend/concurrency/timeout/pricing), three-phase workflow (file analysis → directory aggregation → root synthesis), incremental update strategy (SHA-256 hash comparison, orphan cleanup, affected directory propagation), IDE integration hooks (session-end auto-update, version checking), requirements (Node.js ≥18.0.0, Claude Code/Gemini CLI/OpenCode support).
+**[LICENSE](./LICENSE)** — MIT License granting unrestricted use/modification/distribution rights with liability disclaimer, copyright held by GeoloeG-IsT (2026).
 
-**[package.json](./package.json)** — Package metadata: name `agents-reverse-engineer`, version `0.6.6`, license MIT. Binary entry points: `agents-reverse-engineer`/`are` → `dist/cli/index.js`. Build scripts: `build` (tsc), `build:hooks` (copies hooks/ → hooks/dist/), `prepublishOnly` (build + build:hooks), `prepack` (remove .sum artifacts), `dev` (tsx watch). Dependencies: fast-glob, ignore, isbinaryfile, ora, picocolors, simple-git, yaml, zod. DevDependencies: @types/node, tsx, typescript. Files array: dist, hooks/dist, README.md, LICENSE. Engine: Node.js ≥18.0.0.
+### Documentation
 
-**[tsconfig.json](./tsconfig.json)** — TypeScript compiler configuration: target ES2022, module/moduleResolution NodeNext (native ES modules), outDir dist, rootDir src, strict type-checking enabled, declaration/declarationMap/sourceMap generation, esModuleInterop/resolveJsonModule enabled, isolatedModules enforced, include src/**, exclude node_modules/dist. Invoked by `npm run build` (tsc) and `prepublishOnly` hook.
+**[README.md](./README.md)** — User-facing installation guide (interactive `npx` installer with `--runtime`/`-g`/`-l` flags), command reference (`are init/discover/generate/update/specify/clean`, `/are-*` AI skills), configuration schema (`.agents-reverse-engineer/config.yaml` with `exclude.patterns`, `ai.backend`, `ai.concurrency`), generated artifact formats (`.sum` YAML frontmatter with `content_hash`, `AGENTS.md` directory overviews, root platform documents), workflow sequences (init → discover → generate → update), and concurrency tuning recommendations (1-10 range, default 2 for WSL/5 elsewhere).
+
+**[LANGUAGES-MANIFEST.md](./LANGUAGES-MANIFEST.md)** — Reference table mapping 25 programming language ecosystems to manifest file patterns (`package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `pom.xml`, `build.gradle`, `Gemfile`, `composer.json`, `CMakeLists.txt`) with `✓` marks indicating detection support in Phase 2 directory aggregation via `detectManifestFiles()` (9 active patterns: JavaScript/Python/Go/Rust/Java/Ruby/PHP/C/C++).
 
 ## Subdirectories
 
-**[.github/workflows/](./github/workflows/)** — CI/CD GitHub Actions workflow for npm package publishing with Sigstore-signed provenance attestation on `release[published]` events. Executes `ubuntu-latest` job with `id-token: write` permission enabling cryptographic attestation linking published artifact to source commit SHA. Runs `actions/checkout@v4`, `actions/setup-node@v4` with registry-url `https://registry.npmjs.org`, executes `npm ci`, `npm run build` (tsc + build:hooks), publishes via `npm publish --provenance --access public` using `NPM_TOKEN` secret.
+**[.github/workflows/](./github/workflows/)** — CI/CD automation for npm publishing with Sigstore-signed provenance attestation via `actions/setup-node@v4` and `npm publish --provenance --access public` on `release[published]` events.
 
-**[docs/](./docs/)** — Original vision document `INPUT.md` defining RLM algorithm (post-order traversal, leaf-to-root aggregation), command contracts (`/are-generate`, `/are-update`), session lifecycle hooks (SessionStart version check, SessionEnd auto-update), multi-tier documentation system (AGENTS.md, ARCHITECTURE.md, STRUCTURE.md, STACK.md, INTEGRATIONS.md, INFRASTRUCTURE.md, CONVENTIONS.md, TESTING.md, PATTERNS.md, CONCERNS.md), and references to inspirational projects: SpecKit (GitHub spec toolkit), BMAD (methodology framework), GSD (workflow system).
+**[docs/](./docs/)** — Original vision document (`INPUT.md`) defining RLM algorithm with post-order traversal methodology, directory documentation schema (9 supplementary doc types: ARCHITECTURE.md, STACK.md, PATTERNS.md), multi-platform requirements (Claude/OpenCode/Gemini), and research references (GSD, BMAD, SpecKit).
 
-**[hooks/](./hooks/)** — IDE session lifecycle hooks implemented as detached background processes for Claude Code/Gemini CLI/OpenCode: `are-check-update.js` (SessionStart npm registry query via `npm view agents-reverse-engineer version`, cache to `~/.claude/cache/are-update-check.json` with 10s timeout), `are-session-end.js` (SessionEnd git change detection via `git status --porcelain`, spawns `npx agents-reverse-engineer@latest update --quiet` when uncommitted changes exist), `opencode-are-check-update.js`/`opencode-are-session-end.js` (plugin wrappers exporting async factories returning OpenCode plugin objects with `event['session.created']`/`event['session.deleted']` handlers). Spawned via `spawn(process.execPath, ['-e', scriptString], { stdio: 'ignore', detached: true, windowsHide: true }).unref()` to prevent blocking IDE exit. Honors disable flags: `ARE_DISABLE_HOOK=1` environment variable or `hook_enabled: false` in `.agents-reverse-engineer.yaml`.
+**[hooks/](./hooks/)** — Session lifecycle automation scripts: `are-check-update.js` (SessionStart hook spawning detached `npm view` query with cache to `~/.claude/cache/are-update-check.json`), `are-session-end.js` (SessionEnd hook triggering `npx agents-reverse-engineer@latest update --quiet` on git changes), `opencode-are-check-update.js`/`opencode-are-session-end.js` (plugin wrappers exporting `event['session.created']`/`event['session.deleted']` handlers).
 
-**[scripts/](./scripts/)** — Build automation script `build-hooks.js` copying hook source files from `hooks/` → `hooks/dist/` during `prepublishOnly` lifecycle via `readdirSync()` filtering `.js` files + `copyFileSync()` per file. Ensures session lifecycle hooks exist in npm tarball for `src/installer/operations.ts` reference during global/local hook installation.
+**[scripts/](./scripts/)** — Build automation via `build-hooks.js` copying `.js` files from `hooks/` → `hooks/dist/` during `prepublishOnly` lifecycle for npm tarball inclusion.
 
-**[src/](./src/)** — Core implementation housing seven CLI commands (init, discover, generate, update, clean, specify, help), three-phase pipeline orchestration (concurrent file analysis with iterator-based worker pools, post-order directory synthesis with dependency graphs, sequential root integration with preamble stripping), AI backend abstraction layer with Claude/Gemini/OpenCode adapters + subprocess resource management (512MB heap limits, 4-thread libuv pools, process group killing), gitignore-aware file discovery with composable filter chains (gitignore → vendor → binary → custom), SHA-256 incremental change detection with orphan cleanup, quality validation (code-vs-doc/code-vs-code inconsistencies via regex export extraction, phantom path detection via three regex patterns + `existsSync()` validation), worker pool concurrency control with shared iterator preventing over-allocation, NDJSON trace emission (phase/worker/task/subprocess/retry events with auto-populated seq/ts/pid/elapsedMs fields), platform-specific IDE integration (Claude Code skills/hooks, OpenCode commands/plugins, Gemini commands/hooks with TOML format).
+**[src/](./src/)** — TypeScript source tree implementing nine functional subsystems: `ai/` (subprocess pooling with retry/telemetry), `change-detection/` (git diff + SHA-256 hashing), `cli/` (command entry points with `parseArgs()` routing), `config/` (YAML schema validation with resource-adaptive concurrency), `discovery/` (gitignore-aware filtering with binary detection), `generation/` (three-phase orchestrator with prompt builders), `imports/` (regex-based import extraction), `installer/` (npx-driven hook deployment), `integration/` (platform-specific template generation), `orchestration/` (iterator-based worker pool with progress/trace/plan tracking), `output/` (picocolors terminal logging), `quality/` (code-vs-doc/code-vs-code/phantom-paths validation), `rebuild/` (AI-driven project reconstruction from specs), `specify/` (11-section spec synthesis from `AGENTS.md` corpus), `types/` (shared discovery result interfaces), `update/` (incremental regeneration with orphan cleanup).
 
 ## Architecture
 
-### Three-Phase Pipeline Execution
+### Three-Phase Generation Pipeline
 
-**Phase 1 (Concurrent File Analysis):** Iterator-based worker pool (`src/orchestration/pool.ts`) shares `tasks.entries()` iterator across N workers (default 2 WSL, 5 elsewhere) to prevent over-allocation. Each worker invokes `AIService.call()` → `runSubprocess()` → `execFile()` spawning AI CLI subprocesses with resource limits (`NODE_OPTIONS='--max-old-space-size=512'` limits heap to 512MB, `UV_THREADPOOL_SIZE='4'` constrains libuv thread pool, `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS='1'` prevents background tasks, `--disallowedTools Task` blocks subagents). Process group killing (`kill(-pid)`) terminates subprocess trees on timeout (SIGTERM at `timeoutMs`, SIGKILL escalation after 5s grace period). Exponential backoff retry on rate limits (stderr patterns: "rate limit", "429", "too many requests", "overloaded"). Writes `.sum` files with YAML frontmatter containing `generated_at` timestamp, `content_hash` (SHA-256), followed by markdown sections (Purpose, Public Interface, Dependencies, Implementation Notes). Detects `## Annex References` marker for `writeAnnexFile()` reproduction-critical source content.
+**Phase 1 (Concurrent File Analysis)**: Iterator-based worker pool shares `tasks.entries()` across N workers via atomic `.next()` calls. Each worker invokes `AIService.call()` → `runSubprocess()` → `execFile()` spawning AI CLI subprocesses with resource limits (`NODE_OPTIONS='--max-old-space-size=512'`, `UV_THREADPOOL_SIZE=4`, `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`). Writes `.sum` files with YAML frontmatter containing SHA-256 `content_hash` for incremental update detection.
 
-**Phase 2 (Post-Order Directory Aggregation):** Sorts directories by depth descending via `path.relative().split(path.sep).length` (deepest first). Waits for all child `.sum` files to exist via `isDirectoryComplete()` predicate before processing directory. Prompts include aggregated child `.sum` content via `readSumFile()`, subdirectory `AGENTS.md` files via recursive traversal, import maps via `extractDirectoryImports()` with verified path constraints, manifest detection (9 types: package.json, Cargo.toml, go.mod, pyproject.toml, pom.xml, build.gradle, Gemfile, composer.json, CMakeLists.txt/Makefile). User-authored `AGENTS.md` files renamed to `AGENTS.local.md` and prepended above generated content with `---` separator. Writes `AGENTS.md` with `<!-- Generated by agents-reverse-engineer -->` marker.
+**Phase 2 (Post-Order Directory Aggregation)**: Sorts directories by depth descending via `path.relative().split(path.sep).length`. `isDirectoryComplete()` predicate polls child `.sum` existence before processing directory. `buildDirectoryPrompt()` aggregates child summaries via `readSumFile()`, subdirectory `AGENTS.md` files, import maps via `extractDirectoryImports()`, and manifest detection (9 types). Writes `AGENTS.md` preserving `AGENTS.local.md` user content above generated sections.
 
-**Phase 3 (Root Document Synthesis):** Sequential execution (concurrency=1) generates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`. Prompts consume all `AGENTS.md` files via `collectAgentsDocs()` recursive tree traversal (skips 13 directories: node_modules, .git, .agents-reverse-engineer, vendor, dist, build, __pycache__, .next, venv, .venv, target, .cargo, .gradle), parse root `package.json` for project metadata, enforce synthesis-only constraints (no invention of features/hooks/patterns not in source documents). Strips conversational preamble via pattern matching (prefixes: "now i", "perfect", "based on", "let me", "here is", "i'll", "i will", "great", "okay", "sure", "certainly", "alright"; separator: `\n---\n` within first 500 chars; bold headers: `/^[\s\S]{0,500}?(\*\*[A-Z])/` without `##` markers) before writing output.
+**Phase 3 (Root Document Synthesis)**: Sequential execution (concurrency=1) generates `CLAUDE.md`/`GEMINI.md`/`OPENCODE.md` consuming all `AGENTS.md` via `collectAgentsDocs()` recursive traversal, parsing root `package.json` for project metadata, enforcing synthesis-only constraints (no feature invention).
+
+### Resource Management
+
+**Subprocess limits**: 512MB heap (`--max-old-space-size`), 4 libuv threads (`UV_THREADPOOL_SIZE`), process group killing (`kill(-pid)`) on timeout. SIGTERM sent at `timeoutMs`, SIGKILL escalation after 5s grace period. Exponential backoff retry on rate limits (stderr patterns: `["rate limit", "429", "too many requests", "overloaded"]`).
+
+**Concurrency formula**: `clamp(os.availableParallelism() * 5, 2, min(20, floor(os.totalmem() * 0.5 / 0.512)))` prevents RAM exhaustion in WSL/low-memory environments.
 
 ### Incremental Update Strategy
 
-Workflow orchestrated by `src/update/orchestrator.ts`:
-1. Read `content_hash` from each `.sum` file's YAML frontmatter via `readSumFile()`
-2. Compute current file content hash via `computeContentHash()` (SHA-256)
-3. Hash mismatch → add to `filesToAnalyze` as `FileChange` with `status: 'modified'` or `'added'`
-4. Hash match → add to `filesToSkip`
-5. Detect orphans: `.sum` files for deleted source files or renamed oldPaths
-6. Call `cleanupOrphans()` to delete stale `.sum` files
-7. Call `cleanupEmptyDirectoryDocs()` to remove `AGENTS.md` from directories with no remaining sources (excludes `GENERATED_FILES` set: CLAUDE.md, AGENTS.md, ARCHITECTURE.md, etc.)
-8. Compute `affectedDirs` via `getAffectedDirectories()` by walking parent directories of changed files via `path.dirname()` until `.` or absolute path
-9. Regenerate `.sum` for `filesToAnalyze` via Phase 1 pool execution
-10. Regenerate `AGENTS.md` for `affectedDirs` sequentially (no Phase 2 post-order traversal required)
+Hash-based change detection via `.sum` frontmatter `content_hash` comparison against SHA-256 of current content. Segregates files into `filesToAnalyze` (added/modified), `filesToSkip` (unchanged), `cleanup` (orphaned). `cleanupOrphans()` deletes `.sum`/`.annex.md` for deleted/renamed sources. `cleanupEmptyDirectoryDocs()` removes `AGENTS.md` from directories with no remaining files. `getAffectedDirectories()` walks parent paths to root, sorts deepest-first. Regenerates Phase 1 for changed files, Phase 2 for affected directories (skips Phase 3).
 
-Git integration: supports committed changes (`git diff <baseCommit>..HEAD`) and uncommitted (`git status --porcelain` merge via `--uncommitted` flag), rename detection via `git diff -M` (50% similarity threshold), fallback to SHA-256 hashing for non-git workflows.
+### Quality Validation
 
-### Subprocess Resource Management
+**Code-vs-Doc**: Extracts exported symbols via regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`, verifies substring presence in `.sum` summaries.
 
-Mitigates Claude CLI thread exhaustion (GitHub #5771: 200 Node.js instances reported):
-- `NODE_OPTIONS='--max-old-space-size=512'` limits heap to 512MB per subprocess
-- `UV_THREADPOOL_SIZE='4'` constrains libuv thread pool to 4 threads
-- `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS='1'` prevents background task spawning
-- `--disallowedTools Task` prevents subprocess from spawning subagents
-- Process group killing: `kill(-pid)` terminates entire subprocess tree
-- Default concurrency reduced from 5 → 2 for resource-constrained environments (WSL detection in `src/config/defaults.ts` via `clamp(cores × 5, MIN=2, min(floor((totalMemGB × 0.5) / 0.512), MAX=20))`)
+**Code-vs-Code**: Aggregates exports into `Map<symbol, string[]>` per directory, reports duplicates.
 
-Timeout enforcement: SIGTERM sent at `timeoutMs`, SIGKILL escalation after 5s grace period, unref'd timeout handle allows Node.js exit without cleanup blocking.
+**Phantom Paths**: Extracts file references via three patterns (markdown links, backtick paths, prose-embedded `src/` mentions), resolves via `existsSync()` at `agentsMdDir`/`projectRoot`/.ts fallback locations, filters via `SKIP_PATTERNS` (node_modules, .git, URLs, template syntax).
 
 ### Telemetry & Tracing
 
-**Run logs:** `.agents-reverse-engineer/logs/run-<timestamp>.json` aggregate per-call token counts (input/output/cacheRead/cacheCreation), costs (computed via per-model pricing from config), durations, errors. Tracks `filesRead[]` metadata with `path`, `sizeBytes`, `linesRead`. Computes summary: `totalInputTokens`, `totalCacheReadTokens`, `errorCount`, `uniqueFilesRead`. Enforces retention via `cleanupOldLogs(keepCount)` after each run (default 50 runs).
+**Run logs** (`.agents-reverse-engineer/logs/run-<timestamp>.json`): Aggregates token counts, costs, durations, errors per AI call. Tracks `filesRead[]` with `path`, `sizeBytes`, `linesRead`. Enforces retention via `cleanupOldLogs(keepCount)`.
 
-**Trace events:** `.agents-reverse-engineer/traces/trace-<timestamp>.ndjson` enabled via `--trace` flag. Events: `phase:start/end`, `worker:start/end`, `task:pickup/done`, `subprocess:spawn/exit`, `retry`. Auto-populated fields: `seq` (monotonic), `ts` (ISO 8601), `pid`, `elapsedMs` (high-resolution delta). Promise-chain serialization ensures NDJSON line order matches emission order despite concurrent workers. Retention: keeps 500 most recent traces via `cleanupOldTraces(keepCount)`.
+**Trace events** (`.agents-reverse-engineer/traces/trace-<timestamp>.ndjson`): Emits `phase:start/end`, `worker:start/end`, `task:pickup/done`, `subprocess:spawn/exit`, `retry` events with auto-populated `seq`/`ts`/`pid`/`elapsedMs` fields. Promise-chain serialization ensures NDJSON line order.
 
-**Progress log:** `.agents-reverse-engineer/progress.log` human-readable streaming output mirroring console. ETA calculation via moving average of last 10 task durations. Quality metrics: code-vs-doc/code-vs-code inconsistencies, phantom path counts. Real-time monitoring: `tail -f .agents-reverse-engineer/progress.log`.
+**Progress log** (`.agents-reverse-engineer/progress.log`): Streams `[X/Y] ANALYZING/DONE/FAIL path` with ETA calculation via moving average of last 10 task durations.
 
-## File Relationships
+## Workflows
 
-**CLI orchestration chain:**
-1. `src/cli/index.ts` parses args → routes to `src/cli/{command}.ts` (init/discover/generate/update/clean/specify)
-2. Commands call `src/config/loader.ts` → `loadConfig()` with Zod validation against `src/config/schema.ts`
-3. Commands call `src/discovery/run.ts` → `discoverFiles()` with four-stage filter chain (gitignore → vendor → binary → custom)
-4. `src/cli/generate.ts` calls `src/generation/orchestrator.ts` → `createOrchestrator().createPlan()`, then `src/orchestration/runner.ts` → `CommandRunner.executeGenerate()`
-5. Runner calls `src/ai/service.ts` → `AIService.call()` → `src/ai/subprocess.ts` → `runSubprocess()` → Node.js `execFile()`
-6. Runner calls `src/generation/writers/sum.ts` → `writeSumFile()` with YAML frontmatter, `src/generation/writers/agents-md.ts` → `writeAgentsMd()` preserving user content
-7. Post-generation calls `src/quality/index.ts` → `checkCodeVsDoc()`, `checkCodeVsCode()`, `checkPhantomPaths()` → `buildInconsistencyReport()`
+### Installation
 
-**Trace emission flow:**
-1. CLI creates `TraceWriter` via `src/orchestration/trace.ts` → `createTraceWriter()`
-2. Threads `tracer` through `CommandRunOptions` → `PoolOptions` → `AIServiceOptions`
-3. Runner emits `phase:start/end`, pool emits `worker:start/end` + `task:pickup/done`, AIService emits `subprocess:spawn/exit` + `retry`
-4. TraceWriter serializes via promise-chain writes, finalized via `tracer.finalize()` after all phases
+Interactive installer via `npx agents-reverse-engineer@latest` prompts for runtime (`claude`, `opencode`, `gemini`, `all`) and location (`-g` global, `-l` local). Non-interactive mode uses `--runtime <rt>` with `-g`/`-l` flags. Installs commands to `~/.claude/commands/`, hooks to `~/.claude/hooks/`, registers ARE permissions in `settings.json`, writes `ARE-VERSION` file.
 
-**Update workflow chain:**
-1. `src/cli/update.ts` calls `src/update/orchestrator.ts` → `preparePlan()` reading `.sum` frontmatter
-2. Orchestrator calls `src/change-detection/detector.ts` → `computeContentHash()` for SHA-256 comparison
-3. Orchestrator calls `src/update/orphan-cleaner.ts` → `cleanupOrphans()`, `cleanupEmptyDirectoryDocs()`
-4. CLI calls `src/orchestration/runner.ts` → `CommandRunner.executeUpdate()` for file regeneration
-5. CLI loops `affectedDirs` calling `src/generation/prompts/builder.ts` → `buildDirectoryPrompt()`, `src/generation/writers/agents-md.ts` → `writeAgentsMd()`
+### Documentation Generation
 
-**Installer workflow chain:**
-1. `src/installer/index.ts` → `parseInstallerArgs()` → `runInstall()` or `runUninstall()`
-2. Operations call `src/installer/paths.ts` → `getRuntimePaths()` with environment overrides (`CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`)
-3. Operations call `src/integration/templates.ts` → `getClaudeTemplates()`/`getOpenCodeTemplates()`/`getGeminiTemplates()`
-4. Operations read bundled hooks from `hooks/dist/` via `getBundledHookPath()`
-5. Operations modify `settings.json` via JSON parse/stringify for hook/permission registration
-6. Uninstallation calls `src/installer/uninstall.ts` → `cleanupOrphans()`, `cleanupEmptyDirs()`, `cleanupLegacyGeminiFiles()`
+1. **Initialize**: `are init` → creates `.agents-reverse-engineer/config.yaml`
+2. **Discover**: `are discover --plan` → writes `GENERATION-PLAN.md` with post-order traversal plan
+3. **Generate**: `are generate` → Phase 1 (`.sum`), Phase 2 (`AGENTS.md`), Phase 3 (root docs)
+4. **Update**: `are update --uncommitted` → incremental regeneration for changed files only
+5. **Clean**: `are clean` → removes `.sum`, generated `AGENTS.md`, root docs
+
+### Project Specification Synthesis
+
+`are specify` aggregates all `AGENTS.md` into `specs/SPEC.md` with 11-section structure: Project Overview, Architecture, Public API Surface, Data Structures, Configuration, Dependencies, Behavioral Contracts (Runtime Behavior + Implementation Contracts), Test Contracts, Build Plan, Prompt Templates, IDE Integration. Use `--multi-file` for split specs (`specs/<slug>.md`), `--dry-run` for preview.
 
 ## Behavioral Contracts
 
-**Default vendor directories** (`src/config/defaults.ts`):
-```typescript
-['node_modules', '.git', 'dist', 'build', 'target', '.next', '__pycache__', 'venv', '.venv', '.cargo', '.gradle', '.agents-reverse-engineer', '.agents', '.planning', '.claude', '.opencode', '.gemini']
+### Subprocess Resource Limits
+```
+NODE_OPTIONS='--max-old-space-size=512'
+UV_THREADPOOL_SIZE=4
+CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1
+--disallowedTools Task
 ```
 
-**Default concurrency formula** (`src/config/defaults.ts`):
-```typescript
-clamp(cores × 5, MIN=2, min(floor((totalMemGB × 0.5) / 0.512), MAX=20))
+### Process Lifecycle Timeouts
+- SIGTERM at `timeoutMs`
+- SIGKILL at `timeoutMs + 5000ms`
+- Process group kill: `kill(-pid, 'SIGKILL')`
+
+### Rate Limit Detection Patterns
+```javascript
+["rate limit", "429", "too many requests", "overloaded"]
 ```
 
-**Export extraction regex** (`src/quality/inconsistency/code-vs-doc.ts`):
+### Exponential Backoff Formula
+```typescript
+min(baseDelayMs * multiplier^attempt, maxDelayMs) + Math.random() * 500
+// Default: { maxRetries: 3, baseDelayMs: 1000, maxDelayMs: 8000, multiplier: 2 }
+```
+
+### Export Extraction Regex
 ```regex
 /^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm
 ```
 
-**Phantom path detection patterns** (`src/quality/phantom-paths/validator.ts`):
-- Markdown links: `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g`
-- Backtick paths: `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g ``
-- Prose-embedded: `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi`
-
-**Rate limit detection patterns** (`src/ai/service.ts`):
-```typescript
-['rate limit', '429', 'too many requests', 'overloaded']
+### Import Extraction Regex
+```regex
+/^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm
 ```
 
-**Preamble stripping patterns** (`src/orchestration/runner.ts`):
-- Prefixes (case-insensitive): `['now i', 'perfect', 'based on', 'let me', 'here is', "i'll", 'i will', 'great', 'okay', 'sure', 'certainly', 'alright']`
-- Separator detection: `\n---\n` within first 500 chars
-- Bold header detection: `/^[\s\S]{0,500}?(\*\*[A-Z])/` without `##` markers, strip if <300 chars
-
-**YAML manifest types** (`src/generation/prompts/builder.ts`):
-```typescript
-['package.json', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'pom.xml', 'build.gradle', 'Gemfile', 'composer.json', 'CMakeLists.txt', 'Makefile']
+### Phantom Path Extraction Patterns
+```javascript
+/\[(?:[^\]]*)\]\((\.[^)]+)\)/g                          // Markdown links
+/`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g              // Backtick paths
+/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi     // Prose-embedded paths
 ```
 
-**Trace event types** (`src/orchestration/types.ts`):
-```typescript
-'phase:start' | 'phase:end' | 'worker:start' | 'worker:end' | 'task:pickup' | 'task:done' | 'task:start' | 'subprocess:spawn' | 'subprocess:exit' | 'retry' | 'discovery:start' | 'discovery:end' | 'filter:applied' | 'plan:created' | 'config:loaded'
+### Git Diff Format
 ```
+A       → { status: 'added', path }
+M       → { status: 'modified', path }
+D       → { status: 'deleted', path }
+R<pct>  → { status: 'renamed', path: newPath, oldPath }
+```
+
+## IDE Integration
+
+Commands installed via `npx agents-reverse-engineer@latest --runtime <rt> -g`:
+
+- `/are-init` — Create `.agents-reverse-engineer/config.yaml`
+- `/are-discover` — Preview generation plan
+- `/are-generate` — Full documentation generation (long-running: use `run_in_background: true`, poll `progress.log` with `tail -5`)
+- `/are-update` — Incremental update
+- `/are-specify` — Synthesize project specification
+- `/are-clean` — Remove generated artifacts
+
+Session hooks:
+- **SessionStart**: `are-check-update.js` (version check with cache)
+- **SessionEnd**: `are-session-end.js` (auto-update on git changes)
+
+Disable hooks: `ARE_DISABLE_HOOK=1` or `hook_enabled: false` in config.
+
+## Dependencies
+
+**Runtime**: Node.js ≥18.0.0 (ES modules)
+
+**Core**: `fast-glob` (file discovery), `ignore` (gitignore parsing), `isbinaryfile` (binary detection), `simple-git` (git diff), `yaml` (config parsing), `zod` (schema validation)
+
+**UI**: `ora` (spinners), `picocolors` (ANSI colors)
+
+**Build**: TypeScript 5.7.3 (ES2022 target, NodeNext resolution, strict mode), `tsx` (dev watch mode)

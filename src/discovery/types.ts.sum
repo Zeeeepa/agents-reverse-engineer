@@ -1,20 +1,24 @@
 ---
-generated_at: 2026-02-09T17:44:52.054Z
+generated_at: 2026-02-09T21:28:50.819Z
 content_hash: 4c45840b650bc80b1f64e7a9fdcb91facda8d7364bf0159ba9453de1df0fcb92
-purpose: Defines core TypeScript interfaces for the file discovery pipeline: FileFilter for composable exclusion predicates, F...
+purpose: `src/discovery/types.ts` defines the core type contracts for the file discovery pipeline's filter chain architecture ...
 ---
-**Defines core TypeScript interfaces for the file discovery pipeline: FileFilter for composable exclusion predicates, FilterResult for discovery outcomes, WalkerOptions for traversal configuration, and ExcludedFile for audit trails.**
+**`src/discovery/types.ts` defines the core type contracts for the file discovery pipeline's filter chain architecture and walker configuration.**
 
 ## Exported Interfaces
 
-**FileFilter** — Contract for composable file exclusion predicates in the discovery filter chain. Exposes `name: string` for audit logging and `shouldExclude(path: string, stats?: Stats): Promise<boolean> | boolean` for synchronous or asynchronous exclusion decisions. Implemented by GitignoreFilter, BinaryFilter, VendorFilter, CustomPatternFilter.
+**`FileFilter`** — Contract for pluggable filters in the discovery pipeline. Requires `name: string` for logging which filter excluded a file, and `shouldExclude(path: string, stats?: Stats): Promise<boolean> | boolean` to determine exclusion synchronously or asynchronously. Concrete implementations include `GitignoreFilter`, `BinaryFilter`, `VendorFilter`, `CustomPatternFilter` (per JSDoc examples).
 
-**ExcludedFile** — Record structure for excluded files with `path: string` (absolute path), `reason: string` (human-readable exclusion explanation), `filter: string` (name of the FileFilter that triggered exclusion).
+**`ExcludedFile`** — Record of a file rejected by the filter chain. Contains `path: string` (absolute path), `reason: string` (human-readable explanation), `filter: string` (name of the `FileFilter` that excluded it).
 
-**FilterResult** — Discriminated discovery outcome containing `included: string[]` (absolute paths passing all filters) and `excluded: ExcludedFile[]` (rejected files with exclusion metadata).
+**`FilterResult`** — Output of running the discovery filter chain. Contains `included: string[]` (files passing all filters for analysis) and `excluded: ExcludedFile[]` (rejected files with exclusion metadata).
 
-**WalkerOptions** — Configuration for directory traversal with `cwd: string` (absolute root path), `followSymlinks?: boolean` (default false per CONTEXT.md), `dot?: boolean` (include dotfiles, default true).
+**`WalkerOptions`** — Configuration for the directory walker. Requires `cwd: string` (absolute root directory). Optional `followSymlinks?: boolean` (default `false` per CONTEXT.md to skip symlinks) and `dot?: boolean` (default `true` to include dotfiles for analysis).
+
+## Filter Chain Pattern
+
+The `FileFilter` interface enables composable filter chains where each filter independently evaluates files. The `shouldExclude()` method supports both synchronous (direct `boolean` return) and asynchronous (`Promise<boolean>` return) implementations, allowing filters to perform I/O operations like reading file headers for binary detection or parsing `.gitignore` rules.
 
 ## Integration Points
 
-Consumed by `src/discovery/walker.ts` for traversal configuration and `src/discovery/filters/` implementations (binary.ts, gitignore.ts, vendor.ts, custom.ts) for FileFilter contract adherence. FilterResult returned by `src/discovery/run.ts` aggregates results across the filter chain. Stats type imported from `node:fs` enables size-based filtering (see BinaryFilter with maxFileSize threshold).
+These types are consumed by `src/discovery/walker.ts` (directory traversal), `src/discovery/filters/` implementations (gitignore parsing, binary detection, vendor exclusion, custom glob patterns), and `src/discovery/run.ts` (filter chain orchestration). The `Stats` parameter in `shouldExclude()` enables size-based filtering (e.g., `maxFileSize` threshold from config) without redundant filesystem calls.

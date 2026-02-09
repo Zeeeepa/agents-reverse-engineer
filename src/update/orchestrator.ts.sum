@@ -1,92 +1,96 @@
 ---
-generated_at: 2026-02-09T17:46:19.129Z
+generated_at: 2026-02-09T21:30:38.240Z
 content_hash: e12473df086ec99a89ddbef7f84ffa9766f5e35ded335bfdc318fd153d1fb24b
-purpose: UpdateOrchestrator coordinates incremental documentation updates via SHA-256 content hash comparison stored in .sum f...
+purpose: UpdateOrchestrator implements frontmatter-based incremental documentation updates by comparing SHA-256 content hashes...
 ---
-**UpdateOrchestrator coordinates incremental documentation updates via SHA-256 content hash comparison stored in .sum file YAML frontmatter, orchestrating file change detection, orphan cleanup, and affected directory tracking without requiring git diff parsing.**
+**UpdateOrchestrator implements frontmatter-based incremental documentation updates by comparing SHA-256 content hashes stored in `.sum` file YAML frontmatter against current file content, generating UpdatePlan objects identifying files requiring re-analysis, orphaned `.sum` cleanup targets, and affected directories needing `AGENTS.md` regeneration.**
 
 ## Exported Interface
 
-**UpdateOrchestrator** class constructor accepts `Config`, `projectRoot: string`, `options?: { tracer?: ITraceWriter; debug?: boolean }`. Exposes methods:
+**UpdateOrchestrator** class with constructor signature `(config: Config, projectRoot: string, options?: { tracer?: ITraceWriter; debug?: boolean })`. Provides instance methods:
 
-- `checkPrerequisites(): Promise<void>` — throws if `projectRoot` is not a git repository via `isGitRepo()`
-- `preparePlan(options?: UpdateOptions): Promise<UpdatePlan>` — discovers all source files via `runDiscovery()`, reads existing `.sum` files via `readSumFile()`, compares stored `content_hash` from YAML frontmatter against `computeContentHash()` output, returns `UpdatePlan` with `filesToAnalyze` (added/modified), `filesToSkip` (unchanged hashes), `cleanup` (orphaned `.sum` files), `affectedDirs` (sorted by depth descending), `currentCommit`, `isFirstRun` flag
-- `recordFileAnalyzed(relativePath: string, contentHash: string, currentCommit: string): Promise<void>` — no-op, kept for API compatibility (hash stored in `.sum` frontmatter)
-- `removeFileState(relativePath: string): Promise<void>` — no-op, kept for API compatibility
-- `recordRun(commitHash: string, filesAnalyzed: number, filesSkipped: number): Promise<number>` — no-op returning `0`, kept for API compatibility
-- `getLastRun(): Promise<undefined>` — returns `undefined` (no run history in frontmatter mode), kept for API compatibility
-- `isFirstRun(): Promise<boolean>` — checks if any `.sum` files exist by calling `preparePlan({ dryRun: true })`
-- `close(): void` — no-op, kept for API compatibility
+- `checkPrerequisites(): Promise<void>` — Validates git repository via `isGitRepo()`, throws Error if not a git repo
+- `preparePlan(options?: UpdateOptions): Promise<UpdatePlan>` — Discovers files, compares content hashes, returns plan with `filesToAnalyze`, `filesToSkip`, `cleanup`, `affectedDirs`, `baseCommit`, `currentCommit`, `isFirstRun`
+- `close(): void` — No-op for API compatibility (no database in frontmatter mode)
+- `recordFileAnalyzed(relativePath: string, contentHash: string, currentCommit: string): Promise<void>` — No-op, kept for compatibility
+- `removeFileState(relativePath: string): Promise<void>` — No-op, kept for compatibility
+- `recordRun(commitHash: string, filesAnalyzed: number, filesSkipped: number): Promise<number>` — No-op, returns 0
+- `getLastRun(): Promise<undefined>` — No-op, returns undefined (no run history)
+- `isFirstRun(): Promise<boolean>` — Checks if any `.sum` files exist via `preparePlan({ dryRun: true })`
 
-**createUpdateOrchestrator** factory function returns new `UpdateOrchestrator` instance.
+**createUpdateOrchestrator** factory function with signature `(config: Config, projectRoot: string, options?: { tracer?: ITraceWriter; debug?: boolean }): UpdateOrchestrator`.
 
-## UpdatePlan Structure
-
-`UpdatePlan` interface defines:
-- `filesToAnalyze: FileChange[]` — files with hash mismatches or missing `.sum` files, status `'added'` or `'modified'`
-- `filesToSkip: string[]` — relative paths where stored hash matches current `computeContentHash()` result
-- `cleanup: CleanupResult` — output from `cleanupOrphans()` with `.sum` files to delete
-- `affectedDirs: string[]` — unique directories needing `AGENTS.md` regeneration via `getAffectedDirectories()`, sorted by `path.sep` depth descending (deepest first)
-- `baseCommit: string` — not used in frontmatter mode, kept for compatibility, set to `currentCommit`
-- `currentCommit: string` — SHA from `getCurrentCommit()`
-- `isFirstRun: boolean` — true when `filesToSkip.length === 0 && filesToAnalyze.length > 0`
+**UpdatePlan** interface with fields:
+- `filesToAnalyze: FileChange[]` — Added or modified files requiring analysis
+- `filesToSkip: string[]` — Unchanged files based on hash comparison
+- `cleanup: CleanupResult` — Orphaned `.sum` files to delete
+- `affectedDirs: string[]` — Directories needing `AGENTS.md` regeneration (sorted deepest-first)
+- `baseCommit: string` — Not used in frontmatter mode, kept for compatibility
+- `currentCommit: string` — Current git commit SHA
+- `isFirstRun: boolean` — True when `filesToSkip.length === 0 && filesToAnalyze.length > 0`
 
 ## Change Detection Algorithm
 
-`preparePlan()` executes:
+`preparePlan()` orchestrates hash-based change detection:
 
-1. Calls `checkPrerequisites()` to verify git repository
-2. Obtains `currentCommit` via `getCurrentCommit(projectRoot)`
-3. Discovers all source files via `runDiscovery()`, converts absolute paths to relative via `path.relative(projectRoot, f)`
-4. Iterates each file:
-   - Computes `sumPath` via `getSumPath(filePath)`
-   - Adds `sumPath` to `seenSumFiles` set for orphan detection
-   - Calls `readSumFile(sumPath)` returning `SumFileContent | null`
-   - If no `.sum` exists, adds to `filesToAnalyze` with `status: 'added'`
-   - If `.sum` exists, calls `computeContentHash(filePath)` and compares against `sumContent.contentHash`
-   - Hash mismatch or missing hash → adds to `filesToAnalyze` with `status: 'modified'`
-   - Hash match → adds to `filesToSkip`
-5. Calls `cleanupOrphans(projectRoot, deletedOrRenamed, options.dryRun ?? false)` returning `CleanupResult`
-6. Calls `getAffectedDirectories(filesToAnalyze)` returning `Set<string>`, converts to sorted array via depth descending comparator
-7. Emits `plan:created` trace event with `fileCount`, `taskCount: filesToAnalyze.length + affectedDirs.length`
+1. Calls `checkPrerequisites()` ensuring git repository
+2. Calls `getCurrentCommit()` to retrieve current commit SHA
+3. Invokes `discoverFiles()` → `runDiscovery()` returning absolute paths, converts to relative via `path.relative()`
+4. Iterates discovered files, for each:
+   - Constructs `.sum` path via `getSumPath(filePath)`
+   - Adds to `seenSumFiles` Set for orphan detection
+   - Calls `readSumFile(sumPath)` to extract `SumFileContent` with `contentHash` from frontmatter
+   - If no `.sum` exists: pushes `{ path, status: 'added' }` to `filesToAnalyze`
+   - If `.sum` exists: calls `computeContentHash(filePath)` for current SHA-256 hash
+   - Hash mismatch or missing: pushes `{ path, status: 'modified' }` to `filesToAnalyze`
+   - Hash match: pushes path to `filesToSkip`
+5. Calls `cleanupOrphans(projectRoot, deletedOrRenamed, dryRun)` returning `CleanupResult` with `deletedSumFiles`
+6. Calls `getAffectedDirectories(filesToAnalyze)` returning Set of directory paths
+7. Sorts `affectedDirs` by depth descending: `depthB - depthA` where depth = `path.split(path.sep).length`
+8. Emits `plan:created` trace event with `fileCount` and `taskCount`
 
-## Trace Event Emissions
+## Trace Emission Points
 
-`preparePlan()` emits:
-- `phase:start` with `phase: 'update-plan-creation'`, `taskCount: 0`, `concurrency: 1`
-- `plan:created` with `planType: 'update'`, `fileCount: filesToAnalyze.length`, `taskCount: filesToAnalyze.length + affectedDirs.length`
-- `phase:end` with `phase: 'update-plan-creation'`, `durationMs` computed via `process.hrtime.bigint()` delta, `tasksCompleted: 1`, `tasksFailed: 0`
+Emits trace events via optional `ITraceWriter`:
 
-## Integration Points
+- `phase:start` at plan creation start with `phase: 'update-plan-creation'`, `taskCount: 0`, `concurrency: 1`
+- `plan:created` after plan construction with `planType: 'update'`, `fileCount: filesToAnalyze.length`, `taskCount: filesToAnalyze.length + affectedDirs.length`
+- `phase:end` after plan completion with `phase: 'update-plan-creation'`, `durationMs`, `tasksCompleted: 1`, `tasksFailed: 0`
 
-Depends on:
-- `discoverFiles` from `../discovery/run.js` returning `FilterResult` with `.included: string[]` absolute paths
-- `readSumFile` from `../generation/writers/sum.js` parsing YAML frontmatter, returning `SumFileContent` with `contentHash: string`
-- `getSumPath` from `../generation/writers/sum.js` computing `.sum` file path from source file path
-- `computeContentHash` from `../change-detection/index.js` returning SHA-256 hex string
-- `cleanupOrphans` from `./orphan-cleaner.js` accepting `projectRoot`, `deletedOrRenamed: FileChange[]`, `dryRun: boolean`, returning `CleanupResult`
-- `getAffectedDirectories` from `./orphan-cleaner.js` returning `Set<string>` of unique parent directories
+Duration computed via `process.hrtime.bigint()` delta converted to milliseconds: `Number(endTime - startTime) / 1_000_000`.
+
+## Dependencies
+
+Imports from `../change-detection/index.js`: `isGitRepo()`, `getCurrentCommit()`, `computeContentHash()`, `FileChange` type.
+
+Imports from `./orphan-cleaner.js`: `cleanupOrphans()`, `getAffectedDirectories()`.
+
+Imports from `../generation/writers/sum.js`: `readSumFile()`, `getSumPath()`.
+
+Imports from `../discovery/run.js`: `discoverFiles` as `runDiscovery()`.
+
+Imports from `../config/schema.js`: `Config` type.
+
+Imports from `../orchestration/trace.js`: `ITraceWriter` interface.
+
+Imports from `./types.js`: `UpdateOptions`, `CleanupResult` types.
 
 ## Debug Logging
 
-When `debug: true`, writes to `console.error` via `pc.dim()`:
-- `[debug] Creating update plan with change detection...`
-- `[debug] Git commit: <currentCommit.slice(0, 7)>`
-- `[debug] Discovering files...`
-- `[debug] Change detection: N changed, N unchanged, N orphaned`
-- `[debug] Affected directories: N`
+When `debug: true`, emits picocolors-formatted stderr messages:
 
-## API Compatibility No-Ops
+- `[debug] Creating update plan with change detection...` at plan start
+- `[debug] Git commit: ${currentCommit.slice(0, 7)}` after commit retrieval
+- `[debug] Discovering files...` before discovery
+- `[debug] Change detection: ${filesToAnalyze.length} changed, ${filesToSkip.length} unchanged, ${cleanup.deletedSumFiles.length} orphaned` after hash comparison
+- `[debug] Affected directories: ${affectedDirs.length}` after directory computation
 
-Methods retained for backward compatibility but perform no operations in frontmatter-based mode:
-- `recordFileAnalyzed` — hash stored in `.sum` YAML frontmatter by generation phase
-- `removeFileState` — `.sum` file cleanup handled by `cleanupOrphans()`
-- `recordRun` — no run history database in frontmatter mode
-- `getLastRun` — returns `undefined`, no run history available
-- `close` — no resources to dispose
+## Frontmatter Mode Design
+
+No-op methods (`recordFileAnalyzed`, `removeFileState`, `recordRun`, `getLastRun`) retain signatures for API compatibility with database-backed change detection but perform no operations. Content hash storage delegated to `.sum` file YAML frontmatter written by `writeSumFile()` from `../generation/writers/sum.js`. Run history tracking unavailable in frontmatter mode (`getLastRun()` returns `undefined`, `recordRun()` returns `0`).
 
 ## Error Handling
 
-`checkPrerequisites()` throws `Error` with message `'Not a git repository: <projectRoot>\nThe update command requires a git repository for change detection.'` when `isGitRepo()` returns `false`.
+`checkPrerequisites()` throws Error with message `Not a git repository: ${projectRoot}\nThe update command requires a git repository for change detection.` when `isGitRepo()` returns false.
 
-File iteration in `preparePlan()` catches exceptions from `readSumFile()` or `computeContentHash()` and adds file to `filesToSkip` on error.
+Hash comparison wrapped in try-catch: file read errors cause path addition to `filesToSkip` (silent failure for inaccessible files).

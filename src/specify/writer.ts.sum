@@ -1,79 +1,48 @@
 ---
-generated_at: 2026-02-09T17:46:04.587Z
+generated_at: 2026-02-09T21:30:29.483Z
 content_hash: 1cd35b3f4d654b045247be0ba5624bf20469a0fb17c183876faa4c6897e2d9ee
-purpose: writer.ts implements spec output file writing with overwrite protection, single/multi-file mode support, and markdown...
+purpose: writeSpec() orchestrates single-file or multi-file specification output with overwrite protection, slugified heading-...
 ---
-**writer.ts implements spec output file writing with overwrite protection, single/multi-file mode support, and markdown heading-based content splitting.**
+**writeSpec() orchestrates single-file or multi-file specification output with overwrite protection, slugified heading-based splitting, and existence-check guardrails for the `/are-specify` command.**
 
 ## Exported Interface
 
-`WriteSpecOptions` interface defines output control:
-- `outputPath: string` — absolute path to output file (e.g., `/project/specs/SPEC.md`)
-- `force: boolean` — overwrite existing files without throwing `SpecExistsError`
-- `multiFile: boolean` — split AI output into separate files by top-level `# ` headings
+**WriteSpecOptions** configures output behavior:
+- `outputPath: string` — absolute path to target file (e.g., `/project/specs/SPEC.md`)
+- `force: boolean` — bypass existence checks to overwrite files
+- `multiFile: boolean` — split AI output on top-level `# ` headings into separate files
 
-## Exported Error Class
+**SpecExistsError** extends `Error` with `paths: string[]` property listing conflicting file paths. Constructor message formats paths as bullet list with `"Use --force to overwrite."` suffix.
 
-`SpecExistsError` extends `Error` and is thrown when `writeSpec()` detects existing files and `force=false`:
-- `paths: string[]` — readonly array of conflicting file paths
-- Constructor formats paths as bulleted list with instruction: `"Use --force to overwrite."`
-- `name` property set to `'SpecExistsError'` for discriminated error handling
+**writeSpec(content: string, options: WriteSpecOptions): Promise<string[]>** writes specification markdown to disk:
+- Single-file mode: writes `content` directly to `outputPath` after `mkdir(dirname(outputPath), { recursive: true })`
+- Multi-file mode: calls `splitByHeadings(content)` to partition on `/^# /m` regex, writes each section to `dirname(outputPath)/<slug>.md`
+- Pre-write existence check: aggregates conflicts via `fileExists()` and throws `SpecExistsError` unless `force=true`
+- Returns array of absolute paths for all written files
 
-## Main Export Function
+## Heading-Based Splitting
 
-`writeSpec(content: string, options: WriteSpecOptions): Promise<string[]>` writes spec output with two modes:
+**splitByHeadings(content: string): Array<{ filename: string; content: string }>** partitions markdown on top-level headings:
+- Splits via `/^(?=# )/m` regex (positive lookahead for lines starting with `# `)
+- Extracts heading text via `/^# (.+)/` match, transforms via `slugify()`
+- Pre-heading content assigned to `00-preamble.md` filename
+- Each section object contains `{ filename, content }` with trailing newline appended
 
-**Single-file mode** (`multiFile=false`):
-- Checks `fileExists(outputPath)` via `access(filePath, constants.F_OK)` and throws `SpecExistsError([outputPath])` if exists and `force=false`
-- Creates parent directory via `mkdir(path.dirname(outputPath), { recursive: true })`
-- Writes `content` to `outputPath` with `writeFile(outputPath, content, 'utf-8')`
-- Returns `[outputPath]` array
+**slugify(heading: string): string** sanitizes heading text into filename-safe slug:
+- Lowercases via `.toLowerCase()`
+- Replaces whitespace with hyphens via `/\s+/g` → `'-'`
+- Strips non-alphanumeric characters (except hyphens) via `/[^a-z0-9-]/g` → `''`
+- Collapses consecutive hyphens via `/-+/g` → `'-'`
+- Trims leading/trailing hyphens via `/^-|-$/g` → `''`
 
-**Multi-file mode** (`multiFile=true`):
-- Calls `splitByHeadings(content)` to partition content by top-level `# ` headings
-- Returns `Array<{ filename: string; content: string }>` with slugified filenames
-- Pre-flight checks all target paths `path.join(path.dirname(outputPath), section.filename)` for existence
-- Throws `SpecExistsError(conflicts)` with all conflicting paths if any exist and `force=false`
-- Creates output directory `mkdir(outputDir, { recursive: true })`
-- Writes each section via `writeFile(filePath, section.content, 'utf-8')`
-- Returns array of all written absolute paths
+## File System Operations
 
-## Content Splitting Logic
+**fileExists(filePath: string): Promise<boolean>** checks file existence:
+- Invokes `access(filePath, constants.F_OK)` from `node:fs/promises`
+- Returns `true` on success, `false` on rejection (file not found)
 
-`splitByHeadings(content: string): Array<{ filename: string; content: string }>` partitions markdown:
-- Splits on regex `/^(?=# )/m` matching lines starting with exactly `# ` (top-level headings)
-- Iterates parts, extracts heading text via `/^# (.+)/` match
-- Passes heading text to `slugify()` for filename generation
-- Content before first `# ` heading assigned to `'00-preamble.md'`
-- Trims trailing whitespace via `trimEnd()` and appends single newline to each section's `content`
+**Multi-file conflict detection:** Before writing any files in multi-file mode, iterates all sections to check existence via `fileExists()`. Aggregates conflicts into array and throws `SpecExistsError` if non-empty and `force=false`. Ensures atomic write operation (all-or-nothing).
 
-## Filename Sanitization
+## Integration Context
 
-`slugify(heading: string): string` transforms heading into filesystem-safe slug:
-- Lowercases entire string
-- Replaces whitespace sequences (`/\s+/g`) with single hyphen
-- Strips non-alphanumeric characters except hyphens (`/[^a-z0-9-]/g` → empty string)
-- Collapses consecutive hyphens (`/-+/g` → single hyphen)
-- Trims leading/trailing hyphens via `/^-|-$/g` replacement
-- Returns slugified string used as `${slug}.md` filename
-
-## File Existence Check
-
-`fileExists(filePath: string): Promise<boolean>` wraps Node.js `fs/promises`:
-- Calls `access(filePath, constants.F_OK)` to test file accessibility
-- Returns `true` on success, `false` on caught exception (file not found or inaccessible)
-
-## Dependencies
-
-Imports from Node.js core:
-- `writeFile`, `mkdir`, `access` from `node:fs/promises`
-- `constants` from `node:fs` (specifically `constants.F_OK`)
-- `path` module for `path.dirname()` and `path.join()`
-
-## Integration Points
-
-Called by `src/specify/index.ts` `generateProjectSpec()` with options from CLI:
-- `outputPath` derived from project root and `--output` flag (default `specs/SPEC.md`)
-- `force` flag from `--force` CLI option
-- `multiFile` flag from `--multi-file` CLI option
-- Caller catches `SpecExistsError` and logs `error.message` to stderr
+Consumed by `src/cli/specify.ts` after AI synthesis completes. The `outputPath` parameter receives value from `config.output.specPath` (default: `specs/SPEC.md`). The `--force` CLI flag maps to `WriteSpecOptions.force`. The `--multi-file` CLI flag maps to `WriteSpecOptions.multiFile`.

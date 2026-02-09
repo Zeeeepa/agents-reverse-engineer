@@ -1,0 +1,37 @@
+---
+generated_at: 2026-02-09T21:30:04.939Z
+content_hash: 69b2b18740da34a0949e911a6b76d1ba92eaeefeaf157b50779c5badd7691aef
+purpose: Parses AI-generated multi-file rebuild responses using delimiter-based and markdown fence fallback strategies to extr...
+---
+**Parses AI-generated multi-file rebuild responses using delimiter-based and markdown fence fallback strategies to extract file paths and contents into a `Map<string, string>`.**
+
+## Exported Interface
+
+**`parseModuleOutput(responseText: string): Map<string, string>`** — Primary entry point that attempts delimiter-based parsing via `parseDelimiterFormat()`, falling back to `parseFencedBlockFormat()` if no matches found, returning empty Map on total failure (caller handles error case).
+
+## Parsing Strategies
+
+**Primary Format (Delimiter-based):**
+`parseDelimiterFormat()` uses regex `/===FILE:\s*(.+?)===\n([\s\S]*?)===END_FILE===/g` to extract files between `===FILE: path===` and `===END_FILE===` markers. File paths undergo `.trim()`, content preserves whitespace verbatim (no trimming).
+
+**Fallback Format (Markdown Fenced Blocks):**
+`parseFencedBlockFormat()` matches code blocks with file path annotations using `/```\w*:([^\n]+)\n([\s\S]*?)```/g` pattern. Expects format:
+````
+```language:path/to/file
+content
+```
+````
+
+## Behavioral Contracts
+
+**Delimiter pattern (primary):** `/===FILE:\s*(.+?)===\n([\s\S]*?)===END_FILE===/g`
+
+**Fenced block pattern (fallback):** `/```\w*:([^\n]+)\n([\s\S]*?)```/g`
+
+**Content preservation:** File content captured without trimming to preserve indentation and trailing whitespace. Only file paths undergo `.trim()` normalization.
+
+**Empty Map semantics:** Returns `new Map<string, string>()` when neither format matches, requiring caller to validate non-empty result.
+
+## Integration Points
+
+Used by rebuild orchestrator (`src/rebuild/orchestrator.ts`) to parse AI responses during multi-file project reconstruction from specification documents. Output Map keys are relative file paths, values are raw file contents for filesystem writes.

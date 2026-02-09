@@ -1,0 +1,28 @@
+---
+generated_at: 2026-02-09T21:30:06.068Z
+content_hash: 6779dede187fc2f11ece95ab33640cbee4186988eda9e5c67aa16ed3771d1833
+purpose: prompts.ts defines system and user prompt construction for AI-driven project reconstruction, emitting source files wi...
+---
+**prompts.ts defines system and user prompt construction for AI-driven project reconstruction, emitting source files with `===FILE:===` / `===END_FILE===` delimiters.**
+
+## Exported Constants
+
+`REBUILD_SYSTEM_PROMPT` is a string constant containing the system prompt that instructs the AI model to reconstruct source code from a project specification. The prompt enforces:
+
+- **Output format:** Each file must be wrapped in `===FILE: relative/path.ext===` and `===END_FILE===` delimiters with no markdown fencing or external commentary
+- **Quality requirements:** Code must compile, use exact type names/function signatures/constants from spec, follow described architecture, import only real modules from spec, generate production code only (no tests/stubs/placeholders), avoid inventing features or adding explanatory comments
+- **Strict compliance:** When spec defines exact names for functions/methods/types/classes/constants, those exact names MUST be used (no synonyms like `reportSuccess()` for spec's `done()`), "Interfaces for This Phase" section signatures must be implemented precisely, exported symbols from "Already Built" context must be imported and used without redefinition
+- **Context awareness:** Import from previously built modules shown in "Already Built" context, use their exported types/functions, match API signatures exactly
+
+## Exported Functions
+
+`buildRebuildPrompt(unit: RebuildUnit, fullSpec: string, builtContext: string | undefined): { system: string; user: string }` constructs the prompt pair for a single `RebuildUnit`. Returns object with `system` field set to `REBUILD_SYSTEM_PROMPT` and `user` field containing concatenated sections:
+
+1. **Full Specification** section with `fullSpec` parameter content
+2. **Current Phase** section with `unit.specContent` describing module to build
+3. **Already Built** section (conditionally included when `builtContext` provided) listing exported type signatures from previously built modules for import resolution
+4. **Output Format** section reminding of `===FILE:===` / `===END_FILE===` delimiter syntax and relative path requirements
+
+## Integration Points
+
+Imports `RebuildUnit` type from `./types.js` which defines the structure for individual rebuild tasks. `buildRebuildPrompt` consumes `unit.specContent` field containing phase-specific specification content to isolate current build target within larger project context.

@@ -1,54 +1,43 @@
 ---
-generated_at: 2026-02-09T17:45:40.978Z
+generated_at: 2026-02-09T21:29:44.882Z
 content_hash: 42c09530c03faf24c901c3a010c351a0a9bdabf54d884aca3f1e01ecece26b8d
-purpose: pool.ts implements iterator-based concurrency limiting via shared-iterator worker pattern for parallel task execution...
+purpose: Iterator-based concurrency pool implementing shared-iterator worker pattern for zero-dependency concurrent task execu...
 ---
-**pool.ts implements iterator-based concurrency limiting via shared-iterator worker pattern for parallel task execution with configurable worker count, fail-fast abort, and optional trace emission.**
+**Iterator-based concurrency pool implementing shared-iterator worker pattern for zero-dependency concurrent task execution with N-bounded parallelism, fail-fast abort semantics, and NDJSON trace emission.**
 
-## Exported Functions
+## Exported Interface
 
-**runPool<T>(tasks, options, onComplete?): Promise<TaskResult<T>[]>**
+`runPool<T>(tasks, options, onComplete?)` executes array of async task factories through concurrency-limited pool. Returns `Promise<TaskResult<T>[]>` where results indexed by original task position. Parameters:
+- `tasks: Array<() => Promise<T>>` — zero-argument async factory functions
+- `options: PoolOptions` — pool configuration with required `concurrency: number`, optional `failFast?: boolean`, `tracer?: ITraceWriter`, `phaseLabel?: string`, `taskLabels?: string[]`
+- `onComplete?: (result: TaskResult<T>) => void` — callback invoked after each task settles
 
-Executes array of async task factories through concurrency-limited pool using shared iterator pattern where N workers pull from single `tasks.entries()` iterator. Each worker invokes tasks sequentially until iterator exhaustion or abort flag set. Returns array of `TaskResult<T>` indexed by original task position (may be sparse if aborted via fail-fast).
+`TaskResult<T>` discriminated by `success: boolean`, contains `index: number`, optional `value?: T` (when success true), optional `error?: Error` (when success false).
 
-Parameters:
-- `tasks: Array<() => Promise<T>>` — zero-argument async task factories
-- `options: PoolOptions` — pool configuration (concurrency, failFast, tracer, phaseLabel, taskLabels)
-- `onComplete?: (result: TaskResult<T>) => void` — optional callback invoked after each task settles
+`PoolOptions` configures maximum `concurrency: number`, optional `failFast?: boolean` stops pulling new tasks on first error, optional `tracer?: ITraceWriter` for concurrency debugging (imported from `'./trace.js'`), optional `phaseLabel?: string` for trace events (example: `'phase-1-files'`), optional `taskLabels?: string[]` indexed by task position for trace event labels (example: file paths).
 
-Worker lifecycle: emits `worker:start` with workerId and phase, iterates over shared iterator checking `aborted` flag before each pickup, emits `task:pickup` with `activeTasks` snapshot, awaits task execution, catches errors converting non-Error values via `String(err)`, emits `task:done` with `durationMs` and `success` boolean, invokes `onComplete` callback with result, sets `aborted=true` on error if `failFast` enabled, emits `worker:end` with `tasksExecuted` count.
+## Shared-Iterator Worker Pattern
 
-Effective concurrency computed via `Math.min(options.concurrency, tasks.length)` to avoid spawning idle workers. All workers awaited via `Promise.allSettled()` ensuring completion even if individual workers reject.
+All workers iterate over same `tasks.entries()` iterator. Each `worker()` consumes `[index, task]` pairs via `for...of` loop over shared iterator. JavaScript iterator protocol ensures each task picked up by exactly one worker (atomic `.next()` calls). When worker finishes task, immediately pulls next from iterator, keeping all worker slots busy without batch idle periods.
 
-## Types
+Effective concurrency capped via `Math.min(options.concurrency, tasks.length)` to prevent spawning more workers than tasks. Workers spawned via `Array.from({ length: effectiveConcurrency }, (_, workerId) => worker(iterator, workerId))` and awaited via `Promise.allSettled(workers)`.
 
-**PoolOptions**
-- `concurrency: number` — maximum concurrent workers
-- `failFast?: boolean` — abort on first error (sets shared `aborted` flag preventing new task pickups)
-- `tracer?: ITraceWriter` — trace writer for emit calls (no-op when undefined)
-- `phaseLabel?: string` — phase identifier for trace events (defaults to `'unknown'`)
-- `taskLabels?: string[]` — per-task labels indexed by task position (used in `task:pickup`/`task:done` events, falls back to `'task-${index}'`)
+## Abort Semantics
 
-**TaskResult<T>**
-- `index: number` — zero-based task position in original array
-- `success: boolean` — settlement status
-- `value?: T` — resolved value when `success=true`
-- `error?: Error` — rejection error when `success=false`
+Shared `aborted` flag checked before pulling next task via `if (aborted) break` at loop start. Flag set when `options.failFast` true and task throws error via `aborted = true; break`. Workers in-flight during abort complete their current task before checking flag.
 
-## Concurrency Strategy
+## Trace Event Emission
 
-Shared-iterator pattern prevents "batch anti-pattern" where `Promise.all()` on fixed-size chunks idles workers waiting for slowest task in batch. Single `tasks.entries()` iterator consumed by all workers ensures each task picked exactly once, with workers immediately pulling next task upon completion maintaining full worker utilization until iterator exhaustion.
+Emits trace events via `tracer?.emit()` optional chaining when `options.tracer` provided:
+- `{ type: 'worker:start', workerId, phase }` at worker spawn
+- `{ type: 'worker:end', workerId, phase, tasksExecuted }` at worker termination
+- `{ type: 'task:pickup', workerId, taskIndex, taskLabel, activeTasks }` before task execution
+- `{ type: 'task:done', workerId, taskIndex, taskLabel, durationMs, success, activeTasks, error? }` after task settles
 
-## Trace Events
+Task labels resolved via `taskLabels?.[index] ?? 'task-${index}'`. Duration computed via `Date.now() - taskStart`. Global `activeTasks` counter incremented before execution, decremented after completion for snapshot visibility.
 
-Emits via `tracer?.emit()` optional chaining (no-op when tracer undefined):
-- `worker:start` — `{ type, workerId, phase }`
-- `task:pickup` — `{ type, workerId, taskIndex, taskLabel, activeTasks }`
-- `task:done` — `{ type, workerId, taskIndex, taskLabel, durationMs, success, error?, activeTasks }`
-- `worker:end` — `{ type, workerId, phase, tasksExecuted }`
+## Result Collection
 
-`activeTasks` counter incremented at pickup, decremented at settlement, providing snapshot of concurrent task count at trace event emission time. Duration computed via `Date.now() - taskStart` without high-resolution timer.
+Results array sparse-populated via `results[index] = result` to preserve task position. Returns `TaskResult<T>[]` where index correlates back to input task array position. Sparse array may contain holes when abort occurs before all tasks execute.
 
-## Abort Mechanism
-
-Shared mutable `aborted` boolean flag checked at loop start (`for (const [index, task] of iterator) { if (aborted) break; }`). Set to `true` in catch block when `options.failFast` enabled, causing all workers to stop pulling new tasks. Workers already executing tasks run to completion before checking flag. Results array may be sparse with undefined indices for tasks never started due to abort.
+Error coercion via `err instanceof Error ? err : new Error(String(err))` normalizes non-Error throws.

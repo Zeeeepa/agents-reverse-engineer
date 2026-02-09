@@ -1,56 +1,91 @@
 ---
-generated_at: 2026-02-09T17:44:26.575Z
+generated_at: 2026-02-09T21:28:16.615Z
 content_hash: 933b3ad3745f59291dbebe07fe01eddb97942b85d21ce141dbf9f186483c9da6
-purpose: sum.ts manages .sum file I/O with YAML frontmatter serialization, parsing, and annex file generation for reproduction...
+purpose: sum.ts implements YAML frontmatter-based `.sum` file I/O for storing AI-generated file summaries with SHA-256 content...
 ---
-**sum.ts manages .sum file I/O with YAML frontmatter serialization, parsing, and annex file generation for reproduction-critical source content.**
+**sum.ts implements YAML frontmatter-based `.sum` file I/O for storing AI-generated file summaries with SHA-256 content hashes and structured metadata.**
 
-## Exported Interfaces and Types
+## Exported Types
 
-`SumFileContent` interface defines `.sum` file structure with `summary: string`, `metadata: SummaryMetadata`, `generatedAt: string`, `contentHash: string` (SHA-256 hex digest for change detection).
+**SumFileContent** — structured content for a `.sum` file with fields:
+- `summary: string` — main summary text (detailed description)
+- `metadata: SummaryMetadata` — extracted metadata (imported from `../types.js`)
+- `generatedAt: string` — generation timestamp (ISO 8601 format)
+- `contentHash: string` — SHA-256 hash of source file content for change detection
 
-## Core I/O Functions
+## Core File Operations
 
-`writeSumFile(sourcePath: string, content: SumFileContent): Promise<string>` appends `.sum` extension to `sourcePath`, creates parent directory via `mkdir(..., { recursive: true })`, formats content via `formatSumFile()`, writes with `writeFile()`, returns absolute `.sum` path.
+**writeSumFile(sourcePath: string, content: SumFileContent): Promise<string>** — writes `.sum` file alongside source file (e.g., `foo.ts` → `foo.ts.sum`), creates parent directory via `mkdir({ recursive: true })`, formats content via `formatSumFile()`, returns written `.sum` path.
 
-`readSumFile(sumPath: string): Promise<SumFileContent | null>` reads file via `readFile()`, delegates to `parseSumFile()`, returns `null` on read failure or parse error.
+**readSumFile(sumPath: string): Promise<SumFileContent | null>** — parses `.sum` file into structured content via `parseSumFile()`, returns `null` if file doesn't exist or parsing fails.
 
-`getSumPath(sourcePath: string): string` returns `${sourcePath}.sum` without filesystem access.
+**getSumPath(sourcePath: string): string** — returns `.sum` path by appending `.sum` to source path.
 
-`sumFileExists(sourcePath: string): Promise<boolean>` calls `readSumFile(getSumPath(sourcePath))` and checks for non-null result.
+**sumFileExists(sourcePath: string): Promise<boolean>** — checks if `.sum` file exists by calling `readSumFile()` and testing for non-null result.
 
-## Frontmatter Parsing
+## Annex File Operations
 
-`parseSumFile(content: string): SumFileContent | null` extracts YAML frontmatter via regex `/^---\n([\s\S]*?)\n---\n/`, parses `generated_at`, `content_hash`, `purpose` fields via individual regex patterns (`/generated_at:\s*(.+)/`, `/content_hash:\s*(.+)/`, `/purpose:\s*(.+)/`), delegates array parsing to `parseYamlArray()` for `critical_todos` and `related_files`, returns `null` on parse failure.
+**writeAnnexFile(sourcePath: string, sourceContent: string): Promise<string>** — writes `.annex.md` file alongside source file (e.g., `foo.ts` → `foo.ts.annex.md`) containing full source content for reproduction-critical files whose verbatim constants cannot fit within `.sum` word limits, wraps source in triple-backtick code fence with markdown header using `GENERATED_MARKER` from `agents-md.js`, returns written annex path.
 
-`parseYamlArray(frontmatter: string, key: string): string[]` supports inline format `key: [a, b, c]` via regex `new RegExp(\`${key}:\\s*\\[([^\\]]*)\\]\`)` and multi-line format via `new RegExp(\`${key}:\\s*\\n((?:\\s+-\\s+.+\\n?)+)\`, 'm')`, strips quotes and list markers, returns empty array if neither pattern matches.
+**getAnnexPath(sourcePath: string): string** — returns `.annex.md` path by appending `.annex.md` to source path.
 
-## Frontmatter Serialization
+## YAML Frontmatter Format
 
-`formatSumFile(content: SumFileContent): string` builds YAML frontmatter block with `---` delimiters, writes `generated_at`, `content_hash`, `purpose` as top-level fields, conditionally includes `critical_todos` and `related_files` via `formatYamlArray()` if arrays non-empty, appends summary body after closing `---\n\n`.
+**formatSumFile(content: SumFileContent): string** — serializes `SumFileContent` to YAML frontmatter format:
+```
+---
+generated_at: <ISO 8601 timestamp>
+content_hash: <SHA-256 hex>
+purpose: <single line string>
+critical_todos: [<array>] or multi-line YAML
+related_files: [<array>] or multi-line YAML
+---
 
-`formatYamlArray(key: string, values: string[]): string` returns `key: []` for empty arrays, inline format `key: [val1, val2]` for arrays ≤3 elements with all values <40 chars, multi-line YAML list format `key:\n  - val1\n  - val2` otherwise.
+<summary text>
+```
 
-## Annex File Generation
+**parseSumFile(content: string): SumFileContent | null** — extracts frontmatter via regex `/^---\n([\s\S]*?)\n---\n/`, parses fields using line-based regex patterns (`/generated_at:\s*(.+)/`, `/content_hash:\s*(.+)/`, `/purpose:\s*(.+)/`), delegates array parsing to `parseYamlArray()`, returns `null` on parse failure.
 
-`writeAnnexFile(sourcePath: string, sourceContent: string): Promise<string>` creates `${sourcePath}.annex.md` with markdown structure: `GENERATED_MARKER` comment (imported from `agents-md.ts`), `# Annex: {basename}` heading, explanatory text referencing `.sum` file, triple-backtick code fence containing full `sourceContent`, writes via `writeFile()`, returns annex path.
+## YAML Array Parsing
 
-`getAnnexPath(sourcePath: string): string` returns `${sourcePath}.annex.md` without filesystem access.
+**parseYamlArray(frontmatter: string, key: string): string[]** — parses YAML array fields from frontmatter supporting two formats:
+1. Inline: `key: [a, b, c]` via regex `/key:\s*\[([^\]]*)\]/`
+2. Multi-line: `key:\n  - item1\n  - item2` via regex `/key:\s*\n((?:\s+-\s+.+\n?)+)/m`
+
+Strips quotes from inline values via `.replace(/^["']|["']$/g, '')`, trims whitespace, filters empty strings.
+
+**formatYamlArray(key: string, values: string[]): string** — serializes array to YAML frontmatter using inline format for arrays with ≤3 items where all items are <40 chars, otherwise uses multi-line format with `  - ` prefix per item.
 
 ## Integration Points
 
-Imports `GENERATED_MARKER` from `./agents-md.js` for consistent generated file annotation. Used by update workflow (`src/update/`) for hash comparison via `readSumFile()`, by file analysis phase (`src/generation/executor.ts`) for `.sum` output via `writeSumFile()`, by orphan cleanup (`src/update/orphan-cleaner.ts`) for stale file deletion.
+Imports `SummaryMetadata` from `../types.js` (contains `purpose`, optional `criticalTodos`, optional `relatedFiles`).
 
-## YAML Format Contract
+Imports `GENERATED_MARKER` from `./agents-md.js` for consistent generated file headers in annex files.
 
-Frontmatter delimiter: `---\n...\n---\n` with exactly one newline after closing delimiter before summary body begins.
+Uses Node.js `fs/promises` for async file operations (`writeFile`, `readFile`, `mkdir`).
 
-Scalar field pattern: `key: value` with optional trailing whitespace.
+## Behavioral Contracts
 
-Array formats:
-- Inline: `key: [item1, item2]` with comma-separated values
-- Multi-line: `key:\n  - item1\n  - item2` with two-space indent and `- ` prefix per line
+**Frontmatter regex patterns:**
+- Frontmatter block: `/^---\n([\s\S]*?)\n---\n/`
+- Scalar field: `/<key>:\s*(.+)/` (e.g., `generated_at`, `content_hash`, `purpose`)
+- Inline array: `/<key>:\s*\[([^\]]*)\]/`
+- Multi-line array: `/<key>:\s*\n((?:\s+-\s+.+\n?)+)/m`
 
-Required fields: `generated_at` (ISO 8601 timestamp), `content_hash` (64-char hex string), `purpose` (single-line string).
+**File naming conventions:**
+- Summary file: `<sourcePath>.sum`
+- Annex file: `<sourcePath>.annex.md`
 
-Optional fields: `critical_todos` (string array), `related_files` (string array).
+**Annex file template:**
+```
+<!-- Generated by agents-reverse-engineer -->
+# Annex: <fileName>
+
+Reproduction-critical source content from `<fileName>`.
+Referenced by `<fileName>.sum`.
+
+```
+<sourceContent>
+```
+
+```

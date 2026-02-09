@@ -1,40 +1,37 @@
 ---
-generated_at: 2026-02-09T17:43:57.297Z
+generated_at: 2026-02-09T21:27:53.011Z
 content_hash: f53c95d0ca14366b01b3c308f8a715ab591f45b624b30958caafa6def2fa2c65
-purpose: Defines TypeScript interfaces and constants for prompt construction context in the three-phase documentation generati...
+purpose: types.ts defines the PromptContext interface for prompt construction and exports SUMMARY_GUIDELINES constants specify...
 ---
-**Defines TypeScript interfaces and constants for prompt construction context in the three-phase documentation generation pipeline.**
+**types.ts defines the PromptContext interface for prompt construction and exports SUMMARY_GUIDELINES constants specifying documentation generation rules.**
 
 ## Exported Types
 
-**`PromptContext`** — Interface providing file analysis context to prompt builders during Phase 1 (file analysis) and Phase 2 (directory aggregation):
-- `filePath: string` — Absolute path to file being analyzed
-- `content: string` — Raw file content to analyze
-- `contextFiles?: Array<{path: string; content: string}>` — Optional related files for dependency context
-- `projectPlan?: string` — Optional GENERATION-PLAN.md content providing bird's-eye project structure
-- `existingSum?: string` — Optional existing `.sum` summary text for incremental update workflows (enables delta-aware regeneration)
+**PromptContext** — Interface for prompt builder input with fields:
+- `filePath: string` — Absolute path to the file being analyzed
+- `content: string` — File content to analyze
+- `contextFiles?: Array<{path: string; content: string}>` — Related files for additional context
+- `projectPlan?: string` — Project structure listing for bird's-eye context
+- `existingSSum?: string` — Existing .sum summary text for incremental updates
 
-## Documentation Guidelines
+## Exported Constants
 
-**`SUMMARY_GUIDELINES`** — Immutable configuration object (as const) defining documentation generation constraints consumed by `src/generation/prompts/builder.ts` and `src/generation/prompts/templates.ts`:
+**SUMMARY_GUIDELINES** — Const object defining documentation generation constraints:
+- `targetLength: {min: 300, max: 500}` — Target word count range
+- `include: string[]` — Required content categories (8 items):
+  - Purpose and responsibility
+  - Public interface (exports, key functions)
+  - Key patterns and notable algorithms
+  - Dependencies with usage context
+  - Key function signatures as code snippets
+  - Tightly coupled sibling files
+  - Behavioral contracts: verbatim regex patterns, format strings, magic constants, sentinel values, output templates, environment variables
+  - Annex references: for files with large string constants (prompt templates, config arrays, IDE templates), list each constant name with a one-line description in an ## Annex References section
+- `exclude: string[]` — Forbidden content categories (3 items):
+  - Control flow minutiae (loop structures, variable naming, temporary state)
+  - Generic TODOs/FIXMEs (keep only security/breaking)
+  - Broad architectural relationships (handled by AGENTS.md)
 
-**`targetLength`** — Word count boundaries: `{min: 300, max: 500}`
+## Usage Context
 
-**`include`** — Array of 8 mandatory content categories:
-1. Purpose and responsibility
-2. Public interface (exports, key functions)
-3. Key patterns and notable algorithms
-4. Dependencies with usage context
-5. Key function signatures as code snippets
-6. Tightly coupled sibling files
-7. Behavioral contracts: verbatim regex patterns, format strings, magic constants, sentinel values, output templates, environment variables
-8. Annex references: for files with large string constants (prompt templates, config arrays, IDE templates), list each constant name with a one-line description in an ## Annex References section
-
-**`exclude`** — Array of 3 prohibited content categories:
-1. Control flow minutiae (loop structures, variable naming, temporary state)
-2. Generic TODOs/FIXMEs (keep only security/breaking)
-3. Broad architectural relationships (handled by AGENTS.md)
-
-## Integration Points
-
-Consumed by `PromptBuilder` class in `src/generation/prompts/builder.ts` for constructing AI prompts with standardized documentation quality constraints. The `existingSum` field enables incremental update workflows orchestrated by `src/update/orchestrator.ts` where hash-mismatched files receive their previous summary as context for delta-aware regeneration.
+PromptContext consumed by `buildPrompt()` in `src/generation/prompts/builder.ts` to construct AI prompts for file analysis. SUMMARY_GUIDELINES referenced in prompt templates (`FILE_SYSTEM_PROMPT` in `src/generation/prompts/templates.ts`) to enforce documentation standards across Phase 1 file analysis and Phase 2 directory aggregation.

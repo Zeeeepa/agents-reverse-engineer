@@ -1,40 +1,30 @@
 ---
-generated_at: 2026-02-09T17:44:17.085Z
+generated_at: 2026-02-09T21:28:07.912Z
 content_hash: 75ab86d0c3fb58954b283b3a7d7248f50fb838f608dd6f39ab0db505acb7d4c8
-purpose: GitHub Actions workflow automating npm package publication with Sigstore provenance attestation on release events or ...
+purpose: GitHub Actions workflow automating npm package publication with Sigstore-signed provenance attestation on release eve...
 ---
-**GitHub Actions workflow automating npm package publication with Sigstore provenance attestation on release events or manual dispatch.**
+**GitHub Actions workflow automating npm package publication with Sigstore-signed provenance attestation on release events.**
 
 ## Workflow Triggers
 
-Activates on two GitHub event types:
-- `release` with `types: [published]` when GitHub release is published
-- `workflow_dispatch` for manual execution via GitHub UI
+Executes on `release[published]` GitHub events and manual `workflow_dispatch` invocation.
 
 ## Job Configuration
 
-`publish` job runs on `ubuntu-latest` with two permissions:
-- `contents: read` for repository checkout
-- `id-token: write` enabling OIDC token generation for Sigstore provenance signing
+Single `publish` job runs on `ubuntu-latest` with permissions `contents: read` and `id-token: write` (enables OIDC authentication for provenance signing).
 
-## Build Steps
+## Build and Publish Steps
 
-Executes five sequential steps:
+Executes `actions/checkout@v4` to clone repository, then `actions/setup-node@v4` with `node-version: '20'` and `registry-url: 'https://registry.npmjs.org'` to configure npm registry authentication.
 
-1. **Checkout** via `actions/checkout@v4` clones repository at triggered commit SHA
-2. **Setup Node.js** via `actions/setup-node@v4` with `node-version: '20'` and `registry-url: 'https://registry.npmjs.org'` configuring npm authentication context
-3. **Install dependencies** via `npm ci` performing clean install from `package-lock.json`
-4. **Build** via `npm run build` invoking `prepublishOnly` script executing `tsc` TypeScript compilation and `build:hooks` hook file copying
-5. **Publish to npm** via `npm publish --provenance --access public` with `NODE_AUTH_TOKEN` from GitHub secret `NPM_TOKEN`
+Runs `npm ci` for dependency installation (clean install from lockfile), then `npm run build` invoking TypeScript compilation via `tsc` and hook copying via `build:hooks` script (triggered through `prepublishOnly` lifecycle hook).
 
-## Provenance Attestation
+Executes `npm publish --provenance --access public` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` environment variable for registry authentication. The `--provenance` flag generates Sigstore-signed attestation linking published tarball to source commit SHA via GitHub's OIDC provider, creating cryptographic proof of build integrity recorded in Sigstore's public transparency log. The `--access public` flag ensures package visibility on npm registry.
 
-`--provenance` flag generates cryptographic attestation linking published npm package to source commit SHA via Sigstore transparency log, requires `id-token: write` permission for OIDC token exchange.
+## Integration with Project Build System
 
-## Access Control
+Depends on `prepublishOnly` script in `package.json` executing `npm run build && npm run build:hooks`, which compiles `src/` to `dist/` via TypeScript compiler and copies `hooks/` directory to `hooks/dist/` for npm tarball inclusion via `scripts/build-hooks.js`.
 
-`--access public` flag ensures scoped package `agents-reverse-engineer` publishes with public visibility on npm registry.
+## Security Model
 
-## Environment Variables
-
-`NODE_AUTH_TOKEN` set from GitHub secret `secrets.NPM_TOKEN` authenticates npm publish operation via `.npmrc` configuration injected by `actions/setup-node`.
+Uses GitHub Actions secrets (`NPM_TOKEN`) for npm registry write access and GitHub's native OIDC identity provider (`id-token: write` permission) for provenance attestation without requiring long-lived signing keys.

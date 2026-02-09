@@ -2,52 +2,50 @@
 
 # src/update
 
-Orchestrates incremental documentation updates via SHA-256 content hash comparison against `.sum` YAML frontmatter, deleting orphaned artifacts and computing affected directory sets without requiring git diff parsing.
+Incremental documentation update workflow coordinating SHA-256 hash-based change detection, orphaned artifact cleanup, and selective `.sum` + `AGENTS.md` regeneration for modified files and affected directories.
 
 ## Contents
 
-**[index.ts](./index.ts)** — Barrel module exporting `UpdateOrchestrator` class, factory `createUpdateOrchestrator()`, cleanup utilities `cleanupOrphans()`, `cleanupEmptyDirectoryDocs()`, `getAffectedDirectories()`, and interfaces `UpdatePlan`, `UpdateOptions`, `UpdateResult`, `UpdateProgress`, `CleanupResult`.
+**[index.ts](./index.ts)** — Barrel export exposing UpdateOrchestrator, createUpdateOrchestrator, cleanupOrphans, cleanupEmptyDirectoryDocs, getAffectedDirectories, UpdatePlan, UpdateOptions, UpdateResult, UpdateProgress, CleanupResult types.
 
-**[orchestrator.ts](./orchestrator.ts)** — `UpdateOrchestrator` class coordinates change detection by reading stored `content_hash` from `.sum` frontmatter via `readSumFile()`, comparing against `computeContentHash()` output, returning `UpdatePlan` with `filesToAnalyze` (hash mismatch), `filesToSkip` (match), `cleanup` (orphans), `affectedDirs` (sorted depth descending). Methods: `preparePlan()`, `checkPrerequisites()`, `isFirstRun()`. Emits `plan:created` trace events.
+**[orchestrator.ts](./orchestrator.ts)** — UpdateOrchestrator compares YAML frontmatter `content_hash` fields from existing `.sum` files against SHA-256 hashes of current file content via computeContentHash(), generates UpdatePlan segregating files into `filesToAnalyze` (added/modified), `filesToSkip` (unchanged), and `cleanup` (orphaned), computes `affectedDirs` requiring `AGENTS.md` regeneration sorted deepest-first. Factory createUpdateOrchestrator() constructs instances with optional ITraceWriter injection.
 
-**[orphan-cleaner.ts](./orphan-cleaner.ts)** — `cleanupOrphans()` deletes stale `.sum`/`.annex.md` files for deleted/renamed sources via `deleteIfExists()`, `cleanupEmptyDirectoryDocs()` removes `AGENTS.md` from directories with zero source files (excludes `GENERATED_FILES` set and dotfiles), `getAffectedDirectories()` walks parent directories via `path.dirname()` until `.` or absolute path, returning `Set<string>` of directories requiring regeneration.
+**[orphan-cleaner.ts](./orphan-cleaner.ts)** — cleanupOrphans() deletes `.sum` and `.annex.md` files for deleted/renamed source files (targeting `oldPath` for renames), invokes cleanupEmptyDirectoryDocs() removing `AGENTS.md` from directories with no remaining source files (excludes hidden files, `GENERATED_FILES` set, `.sum`/`.annex.md` from emptiness check). getAffectedDirectories() walks parent directories of non-deleted FileChange entries via path.dirname() to project root.
 
-**[types.ts](./types.ts)** — Interfaces: `CleanupResult` (`deletedSumFiles`, `deletedAgentsMd` arrays), `UpdateOptions` (`includeUncommitted`, `dryRun` flags), `UpdateResult` (`analyzedFiles`, `skippedFiles`, `cleanup`, `regeneratedDirs`, `baseCommit`, `currentCommit`, `dryRun`), `UpdateProgress` callbacks (`onFileStart`, `onFileDone`, `onCleanup`, `onDirRegenerate`).
+**[types.ts](./types.ts)** — Defines CleanupResult (`deletedSumFiles[]`, `deletedAgentsMd[]`), UpdateOptions (`includeUncommitted`, `dryRun` flags), UpdateResult (execution summary with `analyzedFiles`, `skippedFiles`, `cleanup`, `regeneratedDirs`, `baseCommit`, `currentCommit`), UpdateProgress (event callbacks: `onFileStart`, `onFileDone`, `onCleanup`, `onDirRegenerate`).
 
-## Update Workflow
+## Workflow
 
-1. **Change Detection:** `preparePlan()` discovers files via `runDiscovery()` from `src/discovery/`, reads `.sum` frontmatter via `readSumFile()` from `src/generation/writers/sum.js`, compares `content_hash` against `computeContentHash()` from `src/change-detection/`, populates `filesToAnalyze` (added/modified) and `filesToSkip` (unchanged).
+1. **Prerequisites** — UpdateOrchestrator.checkPrerequisites() validates git repository via isGitRepo(), throws Error if not a git repo
+2. **Plan Creation** — preparePlan() calls discoverFiles(), iterates results:
+   - Constructs `.sum` path via getSumPath()
+   - Calls readSumFile() extracting `contentHash` from frontmatter
+   - Missing `.sum`: adds `{ path, status: 'added' }` to `filesToAnalyze`
+   - Existing `.sum`: calls computeContentHash(), compares hashes
+   - Hash mismatch: adds `{ path, status: 'modified' }` to `filesToAnalyze`
+   - Hash match: adds path to `filesToSkip`
+3. **Orphan Cleanup** — cleanupOrphans() deletes `.sum`/`.annex.md` for deleted/renamed files, cleanupEmptyDirectoryDocs() removes `AGENTS.md` from directories with no source files
+4. **Affected Directories** — getAffectedDirectories() computes parent paths of changed files, sorts by depth descending (deepest-first processing)
+5. **Regeneration** — External caller (src/cli/update.ts) invokes Phase 1 pool execution for `filesToAnalyze`, Phase 2 sequential directory aggregation for `affectedDirs` (skips Phase 3 root synthesis)
 
-2. **Orphan Cleanup:** `cleanupOrphans()` processes `FileChange[]` with `status: 'deleted' | 'renamed'`, extracts `path` (deleted) or `oldPath` (renamed), constructs `.sum` and `.annex.md` paths, deletes via `unlink()` unless `dryRun: true`.
+## Integration
 
-3. **Affected Directories:** `getAffectedDirectories()` walks parent chains for all changed files, returns `Set<string>` sorted by `path.sep` depth descending (deepest first), ensuring `AGENTS.md` regeneration propagates upward.
+**Upstream callers**: src/cli/update.ts constructs UpdateOrchestrator via createUpdateOrchestrator(), calls preparePlan() returning UpdatePlan, passes `filesToAnalyze` to src/generation/executor.ts Phase 1 file analysis pool, passes `affectedDirs` to Phase 2 directory aggregation.
 
-4. **Empty Directory Cleanup:** `cleanupEmptyDirectoryDocs()` filters directory entries excluding dotfiles, `.sum`/`.annex.md` extensions, `GENERATED_FILES` set (`['AGENTS.md', 'CLAUDE.md']`), deletes `AGENTS.md` if zero source files remain.
+**Dependencies**: src/change-detection/detector.ts (computeContentHash, isGitRepo, getCurrentCommit), src/generation/writers/sum.ts (readSumFile, getSumPath), src/discovery/run.ts (discoverFiles), src/orchestration/trace.ts (ITraceWriter).
 
-5. **Execution:** `src/cli/update.ts` invokes `preparePlan()`, executes Phase 1 pool for `filesToAnalyze` via `src/generation/executor.ts`, regenerates `AGENTS.md` sequentially for `affectedDirs` (no post-order traversal required).
+## Trace Events
 
-## Trace Emissions
+UpdateOrchestrator emits via optional ITraceWriter:
 
-`preparePlan()` emits:
-- `phase:start` with `phase: 'update-plan-creation'`, `taskCount: 0`, `concurrency: 1`
-- `plan:created` with `planType: 'update'`, `fileCount: filesToAnalyze.length`, `taskCount: filesToAnalyze.length + affectedDirs.length`
-- `phase:end` with `durationMs` computed via `process.hrtime.bigint()` delta
+- `phase:start` at plan creation with `phase: 'update-plan-creation'`, `taskCount: 0`, `concurrency: 1`
+- `plan:created` after plan construction with `planType: 'update'`, `fileCount: filesToAnalyze.length`, `taskCount: filesToAnalyze.length + affectedDirs.length`
+- `phase:end` after completion with `durationMs` computed via process.hrtime.bigint() delta
 
-## Behavioral Contracts
+## Frontmatter Mode
 
-**Depth-descending sort:** `affectedDirs` sorted via `path.relative().split(path.sep).length` comparator (deepest first) ensuring child directories process before parents.
+No-op methods (recordFileAnalyzed, removeFileState, recordRun, getLastRun) retain signatures for API compatibility with hypothetical database-backed change detection but perform no operations. Content hash storage delegated to `.sum` file YAML frontmatter written by writeSumFile(). Run history tracking unavailable (getLastRun() returns undefined, recordRun() returns 0).
 
-**Orphan path construction:** `.sum` path = `path.join(projectRoot, \`${relativePath}.sum\`)`, `.annex.md` path = `path.join(projectRoot, \`${relativePath}.annex.md\`)`.
+## Dry-Run Support
 
-**Directory emptiness filter:** Exclude entries matching `entry.startsWith('.')` OR `entry.endsWith('.sum')` OR `entry.endsWith('.annex.md')` OR `GENERATED_FILES.has(entry)`.
-
-**Upward traversal terminator:** `getAffectedDirectories()` stops when `dir === '.'` OR `path.isAbsolute(dir) === true`.
-
-## API Compatibility No-Ops
-
-Methods retained for backward compatibility but perform no operations in frontmatter-based mode:
-- `recordFileAnalyzed()` — hash stored in `.sum` YAML frontmatter by generation phase
-- `removeFileState()` — `.sum` file cleanup handled by `cleanupOrphans()`
-- `recordRun()` — returns `0`, no run history database in frontmatter mode
-- `getLastRun()` — returns `undefined`, no run history available
-- `close()` — no resources to dispose
+When `UpdateOptions.dryRun === true`, orphan-cleaner skips unlink() calls but executes stat() checks, returning would-be deletions in CleanupResult. Used for preview mode in src/cli/update.ts.

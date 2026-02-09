@@ -1,35 +1,36 @@
 ---
-generated_at: 2026-02-09T17:43:56.544Z
+generated_at: 2026-02-09T21:27:53.027Z
 content_hash: 21bf8f8555dac27a2608934b9016f732256e87fab42ec4dce4f6c8f1b746e901
-purpose: createGitignoreFilter() returns a FileFilter that excludes files matching .gitignore patterns using the ignore librar...
+purpose: createGitignoreFilter() builds a FileFilter that excludes paths matching .gitignore patterns using the `ignore` library.
 ---
-**createGitignoreFilter() returns a FileFilter that excludes files matching .gitignore patterns using the ignore library with relative path normalization.**
+**createGitignoreFilter() builds a FileFilter that excludes paths matching .gitignore patterns using the `ignore` library.**
 
-## Exported Function
+## Exported Interface
 
-**createGitignoreFilter(root: string): Promise<FileFilter>**
-- Resolves root directory via path.resolve()
-- Attempts to read .gitignore from `path.join(normalizedRoot, '.gitignore')` using fs.readFile() with utf-8 encoding
-- Creates Ignore instance via ignore() library
-- Adds .gitignore content to Ignore instance via ig.add(content)
-- Silently continues on read failure (missing .gitignore passes all paths)
-- Returns FileFilter object with name property `'gitignore'` and shouldExclude() method
+```typescript
+async function createGitignoreFilter(root: string): Promise<FileFilter>
+```
 
-## FileFilter Implementation
+Returns a `FileFilter` object with `name: 'gitignore'` and `shouldExclude(absolutePath: string): boolean` method.
 
-**shouldExclude(absolutePath: string): boolean**
-- Converts absolutePath to relativePath via path.relative(normalizedRoot, absolutePath)
-- Returns false if relativePath is empty or starts with `'..'` (paths outside root)
-- Delegates to ig.ignores(relativePath) for pattern matching
-- Passes relative paths without trailing slash (file-only mode, not directory mode)
+## Implementation Details
+
+createGitignoreFilter() normalizes `root` via `path.resolve()`, attempts to read `.gitignore` from `path.join(normalizedRoot, '.gitignore')`, passes content to `ignore.add()` if file exists, silently skips if ENOENT occurs (try-catch with empty catch block).
+
+shouldExclude() converts `absolutePath` to relative via `path.relative(normalizedRoot, absolutePath)`, returns `false` immediately if relativePath is empty or starts with `'..'` (path outside root), calls `ig.ignores(relativePath)` otherwise.
+
+## Critical Constraints
+
+The `ignore` library requires relative paths without leading slashes. shouldExclude() does NOT append trailing slash to paths, assuming walker returns files only (not directories). Directory exclusion would require appending `/` to directory paths before calling `ig.ignores()`.
+
+Returns `false` for paths outside root tree to prevent exclusion of unrelated filesystem locations.
 
 ## Dependencies
 
-- `ignore` library (Ignore type) for .gitignore pattern parsing and matching
-- `node:fs/promises` for async file reading (fs.readFile)
-- `node:path` for path normalization (path.resolve, path.join, path.relative)
-- `../types.js` for FileFilter interface
+- `ignore` library (`import ignore, { type Ignore } from 'ignore'`) for .gitignore pattern matching
+- `fs.promises.readFile()` for async .gitignore content loading
+- `path.resolve()`, `path.join()`, `path.relative()` for path normalization
 
-## Critical Behavior
+## Integration
 
-The ignore library treats paths differently based on trailing slashes. This implementation passes relativePath without appending slash because walker returns files only, not directories. Directory exclusion would require `relativePath + '/'` pattern.
+Used in composable filter chain via `src/discovery/filters/index.ts` alongside binary, vendor, and custom pattern filters. Returned `FileFilter` object matches `FileFilter` interface from `src/discovery/types.ts`.

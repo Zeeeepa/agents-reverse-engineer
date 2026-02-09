@@ -1,30 +1,50 @@
 ---
-generated_at: 2026-02-09T17:44:01.024Z
+generated_at: 2026-02-09T21:27:48.074Z
 content_hash: f3124a988e86b4fd955b0436cc2b3fc12e5bc5433442c4f37fcbc1d813dea324
-purpose: src/discovery/filters/index.ts orchestrates filter chain execution for file discovery, re-exports filter creators, an...
+purpose: src/discovery/filters/index.ts orchestrates filter chain execution for file discovery, applying multiple FileFilter p...
 ---
-**src/discovery/filters/index.ts orchestrates filter chain execution for file discovery, re-exports filter creators, and implements bounded-concurrency file filtering with per-filter exclusion tracking and trace emission.**
+**src/discovery/filters/index.ts orchestrates filter chain execution for file discovery, applying multiple FileFilter predicates sequentially with bounded concurrency and tracking exclusion reasons per filter.**
 
 ## Exported Functions
 
-**applyFilters(files: string[], filters: FileFilter[], options?: { tracer?: ITraceWriter; debug?: boolean }): Promise<FilterResult>** runs files through filter chain with short-circuit evaluation (first exclusion stops further checks), processes files with concurrency limit of 30 to prevent file descriptor exhaustion during binary detection I/O, returns `FilterResult` containing `included: string[]` and `excluded: ExcludedFile[]` arrays sorted by original file order.
+**applyFilters(files: string[], filters: FileFilter[], options?: { tracer?: ITraceWriter; debug?: boolean }): Promise<FilterResult>** processes files through filter chain with short-circuit evaluation. Returns FilterResult containing `included: string[]` and `excluded: ExcludedFile[]` arrays. Each file runs through filters sequentially until one returns true from `shouldExclude()`, at which point remaining filters are skipped. Uses bounded concurrency of 30 workers sharing single iterator to prevent file descriptor exhaustion during I/O-heavy binary content detection.
 
 ## Re-Exported Filter Creators
 
-Exports `createGitignoreFilter` from `./gitignore.js`, `createVendorFilter` and `DEFAULT_VENDOR_DIRS` from `./vendor.js`, `createBinaryFilter`, `BINARY_EXTENSIONS`, and `BinaryFilterOptions` type from `./binary.js`, `createCustomFilter` from `./custom.js`.
+Aggregates filter factory functions from sibling modules:
+- **createGitignoreFilter** from `./gitignore.js`
+- **createVendorFilter** and **DEFAULT_VENDOR_DIRS** from `./vendor.js`
+- **createBinaryFilter**, **BINARY_EXTENSIONS**, **BinaryFilterOptions** from `./binary.js`
+- **createCustomFilter** from `./custom.js`
 
-## Filter Chain Execution Strategy
+## Concurrency Strategy
 
-**applyFilters** spawns `CONCURRENCY` (30) worker promises sharing single `files.entries()` iterator to distribute work. Each worker calls `filter.shouldExclude(file)` for each filter in sequence until first exclusion or all filters pass. Collects results as `Array<{ index: number; file: string; excluded?: ExcludedFile }>`, sorts by original `index` to preserve input order, then segregates into `included` and `excluded` arrays.
+Uses iterator-based worker pool pattern with `CONCURRENCY = 30` to process files in parallel without exhausting file handles. Workers share single `files.entries()` iterator, each consuming items until exhausted. BinaryFilter calls `isBinaryFile()` which performs synchronous file reads, making concurrency bounds critical to prevent system resource limits (ulimit -n).
 
-## Per-Filter Statistics Tracking
+## Filter Execution Algorithm
 
-Maintains `filterStats: Map<string, { matched: number; rejected: number }>` initialized for each filter before processing. Increments `rejected` counter when filter excludes file. Increments `matched` counter for all filters when file passes through entire chain. Emits `filter:applied` trace event for each filter with `filterName`, `filesMatched`, `filesRejected` fields. Writes debug output via `console.error(pc.dim(...))` for filters with `rejected > 0` when `options.debug` enabled.
+1. Initialize `filterStats` map tracking `matched` and `rejected` counts per filter name
+2. Spawn 30 workers (or `files.length` if fewer) each iterating over shared file entries
+3. For each file, iterate through `filters[]` array sequentially
+4. On first `shouldExclude()` returning true, push `ExcludedFile` with `{ path, reason, filter: filter.name }` and break inner loop (short-circuit)
+5. If no filter excludes file, push path to `included[]` and increment `matched` count for all filters
+6. Flatten worker results, sort by original index to preserve order
+7. Emit `filter:applied` trace events with `filesMatched` and `filesRejected` counts per filter
 
-## Bounded Concurrency Pattern
+## Trace Events
 
-Sets `effectiveConcurrency = Math.min(CONCURRENCY, files.length)` to avoid spawning excess workers. Uses iterator-based work stealing pattern where workers pull `[index, file]` pairs from shared iterator via `for (const [index, file] of iter)` loop. Worker function signature: `async function worker(iter: IterableIterator<[number, string]>): Promise<Array<{ index: number; file: string; excluded?: ExcludedFile }>>`.
+Emits `filter:applied` events via `options?.tracer?.emit()` containing:
+- `type: 'filter:applied'`
+- `filterName: string` — filter.name from FileFilter
+- `filesMatched: number` — count of files passing through this filter
+- `filesRejected: number` — count of files excluded by this filter
 
-## Integration with Trace System
+## Debug Output
 
-Accepts optional `options.tracer: ITraceWriter` parameter threaded from CLI via `CommandRunOptions`. Emits `filter:applied` events after all workers complete, providing per-filter exclusion metrics for telemetry analysis. Debug flag `options.debug` enables console logging of rejection counts using `picocolors` dim formatting.
+When `options?.debug` is true and `stats.rejected > 0`, writes `pc.dim()` colored message to stderr: `[debug] Filter [${filter.name}]: ${stats.rejected} files rejected`.
+
+## Return Type
+
+FilterResult contains:
+- `included: string[]` — absolute paths passing all filters
+- `excluded: ExcludedFile[]` — objects with `{ path: string, reason: string, filter: string }` describing which filter excluded each file

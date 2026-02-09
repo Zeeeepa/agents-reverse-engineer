@@ -1,22 +1,34 @@
 ---
-generated_at: 2026-02-09T17:46:14.179Z
+generated_at: 2026-02-09T21:30:37.561Z
 content_hash: d9caa33615b771069b778e0f5f27babaff43c440b86055ccf94e42c0751b0632
-purpose: getVersion() reads the package.json version field from the parent directory of the compiled module, returning 'unknow...
+purpose: Exports `getVersion()` to extract package version from package.json via filesystem path resolution from ES module URL.
 ---
-**getVersion() reads the package.json version field from the parent directory of the compiled module, returning 'unknown' on any error.**
+**Exports `getVersion()` to extract package version from package.json via filesystem path resolution from ES module URL.**
 
-## Exported Function
+## Public Interface
 
-- `getVersion(): string` — Synchronously reads `../package.json` relative to the compiled module location, parses JSON, extracts `version` field, returns it or `'unknown'` if parsing/reading fails.
+```typescript
+function getVersion(): string
+```
+
+Returns the `version` field from `package.json` located one directory above the compiled module location, or `'unknown'` string literal if read fails or version field missing.
 
 ## Implementation Details
 
-Uses `import.meta.url` to resolve current module path via `fileURLToPath()`, then `dirname()` to get containing directory, constructs `join(__dirname, '..', 'package.json')` path pointing to project root package.json. Reads file synchronously with `readFileSync(packagePath, 'utf-8')`, parses via `JSON.parse()`, accesses `packageJson.version` with fallback `|| 'unknown'`. Wraps entire logic in try-catch returning `'unknown'` on any exception (file not found, invalid JSON, missing version field).
+`getVersion()` resolves the package.json path via:
+1. `import.meta.url` → `fileURLToPath()` converts ES module URL to filesystem path
+2. `dirname()` extracts directory containing the compiled `.js` file
+3. `join(__dirname, '..', 'package.json')` navigates up one level to project root
+
+Uses synchronous `readFileSync(packagePath, 'utf-8')` followed by `JSON.parse()` to extract `packageJson.version`. Try-catch block returns `'unknown'` on any error (file not found, invalid JSON, missing version field).
+
+## Runtime Constraints
+
+Assumes compiled output in `dist/` with `package.json` at `dist/../package.json` (project root). Build process must preserve this relative path structure. Path resolution works for both development (`tsx src/cli/index.ts`) and production (`node dist/cli/index.js`) via `import.meta.url` dynamic resolution.
 
 ## Integration Points
 
-Called by CLI entry point (`src/cli/index.ts`) to display version in `--version` flag handler and by session lifecycle hooks (`hooks/are-check-update.js`) to compare local version against npm registry for update notifications.
-
-## Runtime Assumptions
-
-Assumes build output structure places compiled `version.js` in `dist/` directory with `package.json` at `dist/../package.json` (project root). ES module context required for `import.meta.url` support (Node.js ≥18.0.0).
+Version string consumed by:
+- CLI `--version` flag output (see `src/cli/index.ts`)
+- Session lifecycle hooks for update checking (`hooks/are-check-update.js` compares against `npm view agents-reverse-engineer version`)
+- Telemetry run logs metadata (`src/ai/telemetry/run-log.ts` includes version in run context)

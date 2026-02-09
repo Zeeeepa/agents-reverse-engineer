@@ -2,86 +2,53 @@
 
 # src/discovery/filters
 
-**Five filter implementations for file discovery exclusion: gitignore pattern matching, vendor directory detection, binary file detection via extension/content analysis, custom glob patterns, and bounded-concurrency filter chain orchestration with per-filter statistics tracking.**
+Composable file exclusion filters for discovery pipeline: gitignore pattern matching, binary file detection, vendor directory exclusion, and custom glob rules with short-circuit evaluation and bounded-concurrency application.
 
 ## Contents
 
+### Filter Orchestration
+
+**[index.ts](./index.ts)** — `applyFilters(files, filters, options)` executes filter chain with short-circuit evaluation (stops at first exclusion) using 30-worker bounded concurrency pool to prevent file descriptor exhaustion during `isBinaryFile()` I/O operations. Returns `FilterResult` with `included[]` and `excluded[]` arrays, emits `filter:applied` trace events with per-filter `filesMatched`/`filesRejected` counts. Re-exports all filter factory functions.
+
 ### Filter Implementations
 
-**[binary.ts](./binary.ts)** — `createBinaryFilter()` implements two-phase binary detection: extension-based fast path against `BINARY_EXTENSIONS` set (80+ extensions across images/archives/executables/media/documents/fonts/compiled/database), size threshold check against `maxFileSize` (default 1MB), content analysis fallback via `isBinaryFile()` for unknown extensions.
+**[gitignore.ts](./gitignore.ts)** — `createGitignoreFilter(root)` async factory reads `.gitignore`, parses via `ignore` library, returns `FileFilter` that converts absolute paths to relative before calling `ig.ignores()`. Returns `false` for paths outside root tree (relative path starts with `..`).
 
-**[custom.ts](./custom.ts)** — `createCustomFilter()` matches absolute paths against user-provided gitignore-style patterns via `ignore` library with relative path normalization, returns pass-through filter when pattern array empty.
+**[binary.ts](./binary.ts)** — `createBinaryFilter(options?)` constructs fast-path extension lookup in `BINARY_EXTENSIONS` set (96 extensions: `.png`, `.exe`, `.mp4`, `.pdf`, `.woff`, `.class`, `.db`, etc.) with fallback to `isBinaryFile()` content analysis. Excludes files exceeding `maxFileSize` (default 1MB via `DEFAULT_MAX_FILE_SIZE`). Returns `true` on `fs.stat()` errors.
 
-**[gitignore.ts](./gitignore.ts)** — `createGitignoreFilter()` async factory reads `.gitignore` from project root, delegates exclusion to `ignore` library instance with relative path conversion, silently passes all files when `.gitignore` missing.
+**[vendor.ts](./vendor.ts)** — `createVendorFilter(vendorDirs)` partitions input into single-segment Set (e.g., `node_modules`) for O(1) membership testing and path-pattern array (e.g., `.agents/skills`) for substring matching. `DEFAULT_VENDOR_DIRS` contains `node_modules`, `vendor`, `.git`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`.
 
-**[vendor.ts](./vendor.ts)** — `createVendorFilter()` excludes third-party dependency directories via two-tier matching: single-segment patterns (`'node_modules'`) matched against all path segments, multi-segment patterns (`'apps/vendor'`) matched via substring inclusion with OS-specific separator normalization.
+**[custom.ts](./custom.ts)** — `createCustomFilter(patterns, root)` parses gitignore-style glob patterns via `ignore` library, converts absolute paths to relative before evaluation. Returns `false` immediately for empty patterns array or paths outside root.
 
-**[index.ts](./index.ts)** — `applyFilters()` orchestrates bounded-concurrency filter chain execution (30 workers sharing iterator), short-circuits on first exclusion, tracks per-filter `matched`/`rejected` statistics, emits `filter:applied` trace events, re-exports all filter creators and constants.
+## Concurrency Strategy
 
-## Filter Chain Architecture
+`applyFilters()` uses iterator-based worker pool with `CONCURRENCY = 30` to share single `files.entries()` iterator across workers. Each file runs through `filters[]` sequentially until `shouldExclude()` returns `true` (short-circuit). BinaryFilter calls synchronous `isBinaryFile()`, making concurrency bounds critical to avoid ulimit violations.
 
-**Execution Model**: Worker pool pattern with `CONCURRENCY=30` limit prevents file descriptor exhaustion during I/O-heavy binary detection. Shared `files.entries()` iterator across workers via `for (const [index, file] of iter)` loop. Sequential filter evaluation per file with early termination on first match.
+## Filter Contract
 
-**Statistics Tracking**: `Map<string, { matched: number; rejected: number }>` initialized for each filter before processing. `rejected` increments when filter excludes file. `matched` increments for all filters when file passes entire chain.
-
-**Result Preservation**: Workers collect `Array<{ index: number; file: string; excluded?: ExcludedFile }>`, sort by original `index` to maintain input order, segregate into `included`/`excluded` arrays for `FilterResult` return value.
+All factories return `FileFilter` interface from `../types.js`:
+- `name: string` — filter identifier for logging
+- `shouldExclude(absolutePath: string): boolean` — exclusion predicate
 
 ## Behavioral Contracts
 
-### Binary Extensions Set (binary.ts)
+### Binary Extension Set
+`BINARY_EXTENSIONS` (96 entries): `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.tiff`, `.tif`, `.psd`, `.raw`, `.heif`, `.heic`, `.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.bz2`, `.xz`, `.tgz`, `.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.msi`, `.app`, `.dmg`, `.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.mkv`, `.flac`, `.ogg`, `.webm`, `.m4a`, `.aac`, `.wma`, `.wmv`, `.flv`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp`, `.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`, `.class`, `.pyc`, `.pyo`, `.o`, `.obj`, `.a`, `.lib`, `.wasm`, `.db`, `.sqlite`, `.sqlite3`, `.mdb`, `.icns`, `.cur`, `.deb`, `.rpm`, `.jar`, `.war`, `.ear`
 
-`BINARY_EXTENSIONS` contains 80+ extensions organized by category:
-- **Images**: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.tiff`, `.tif`, `.psd`, `.raw`, `.heif`, `.heic`
-- **Archives**: `.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.bz2`, `.xz`, `.tgz`
-- **Executables**: `.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.msi`, `.app`, `.dmg`
-- **Media**: `.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.mkv`, `.flac`, `.ogg`, `.webm`, `.m4a`, `.aac`, `.wma`, `.wmv`, `.flv`
-- **Documents**: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp`
-- **Fonts**: `.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`
-- **Compiled/bytecode**: `.class`, `.pyc`, `.pyo`, `.o`, `.obj`, `.a`, `.lib`, `.wasm`
-- **Database**: `.db`, `.sqlite`, `.sqlite3`, `.mdb`
+### Default Vendor Directories
+`DEFAULT_VENDOR_DIRS` (10 entries): `node_modules`, `vendor`, `.git`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`
 
-### Default Vendor Directories (vendor.ts)
+### Path Normalization
+- Gitignore filter: `path.relative(normalizedRoot, absolutePath)` before `ig.ignores()`
+- Vendor filter: `dir.replace(/[\\/]/g, path.sep)` for cross-platform separator handling
+- Binary filter: `path.extname(absolutePath).toLowerCase()` for extension extraction
 
-`DEFAULT_VENDOR_DIRS`: `['node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target']`
-
-### Concurrency Limit (index.ts)
-
-`CONCURRENCY = 30` workers — hard limit to prevent file descriptor exhaustion during binary file detection I/O operations.
-
-### Binary Size Threshold (binary.ts)
-
-`DEFAULT_MAX_FILE_SIZE = 1048576` (1MB) — files exceeding threshold excluded without content analysis.
-
-## Path Normalization Patterns
-
-**gitignore.ts**: `path.relative(normalizedRoot, absolutePath)` → guard against `'..'` prefix or empty string before `ig.ignores()` call.
-
-**custom.ts**: `path.relative(normalizedRoot, absolutePath)` → guard against `'..'` prefix or empty string before `ig.ignores()` call.
-
-**vendor.ts**: Multi-segment patterns normalized via `dir.replace(/[\\/]/g, path.sep)` for cross-platform separator handling before `absolutePath.includes(pattern)` check.
-
-**binary.ts**: Extension extraction via `path.extname(absolutePath).toLowerCase()`, additional extensions normalized via `ext.startsWith('.') ? ext : \`.\${ext}\`` before merging with `BINARY_EXTENSIONS`.
-
-## Filter Interface Contract
-
-All filter creators return `FileFilter` object:
+### Trace Event Schema
 ```typescript
 {
-  name: string;              // Discriminator: 'gitignore' | 'vendor' | 'binary' | 'custom'
-  shouldExclude(absolutePath: string): boolean | Promise<boolean>
+  type: 'filter:applied',
+  filterName: string,
+  filesMatched: number,
+  filesRejected: number
 }
 ```
-
-**Synchronous filters**: custom.ts, vendor.ts, binary.ts (async internally but return sync `shouldExclude`).
-
-**Async factory**: gitignore.ts returns `Promise<FileFilter>` due to `.gitignore` file read.
-
-## Integration Points
-
-**Consumed by**: `src/discovery/walker.ts` composes filters into chain via `createGitignoreFilter()`, `createVendorFilter()`, `createBinaryFilter()`, `createCustomFilter()`, then calls `applyFilters()`.
-
-**Configuration surface**: `BinaryFilterOptions` with `maxFileSize`/`additionalExtensions` threaded from `src/config/schema.ts` YAML config (`exclude.binaryExtensions`, `options.maxFileSize`).
-
-**Telemetry integration**: Accepts optional `ITraceWriter` via `applyFilters()` options, emits `filter:applied` events with per-filter metrics (`filterName`, `filesMatched`, `filesRejected`).
-
-**Debug output**: `options.debug` flag enables `console.error(pc.dim(...))` logging for filters with `rejected > 0` count.
