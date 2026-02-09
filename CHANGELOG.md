@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-09
+
+### Added
+- Auto-detection of default concurrency based on system CPU cores and available memory — `getDefaultConcurrency()` computes `clamp(cores * 5, 2, min(memCap, 20))` where memCap allocates 50% of system RAM at 512MB per subprocess
+- Permission entries for viewing (`tail -5`) and removing (`rm -f`) progress logs added to Claude Code installer permissions
+- Phantom path validation `.sum` files and `AGENTS.md` documentation for the `src/quality/phantom-paths/`, `src/specify/`, `src/types/`, and `src/update/` directories
+
+### Changed
+- Default concurrency changed from static `5` to auto-detected value based on system resources (CPU cores and memory)
+- Maximum concurrency limit increased from 10 to 20
+- Generated `config.yaml` now shows auto-detected concurrency value and comments out the field by default instead of hardcoding `5`
+- Affected directories in `update` command now sorted by depth descending (deepest first) so child AGENTS.md files are regenerated before their parents
+- Configuration schema refactored with improved Zod validation defaults and `getDefaultConcurrency` as schema default function
+
 ## [0.6.2] - 2026-02-09
 
 ### Added
@@ -465,7 +479,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.5...v0.6.0
