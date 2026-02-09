@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-02-09
+
+### Added
+- ProgressLog integration in `discover` command for real-time `tail -f` monitoring — mirrors file discovery output, exclusion details, and plan generation status to `.agents-reverse-engineer/progress.log`
+- `specify` command template with full documentation in skill help — includes argument hints, execution steps with background polling, and CLI examples
+
+### Changed
+- Command templates for `generate`, `update`, and `discover` updated with background execution and progress polling pattern — commands now run with `run_in_background: true` and poll `progress.log` every 10-15 seconds for real-time status updates
+- `discover` command arguments simplified: removed `--plan` and `--show-excluded` flags (plan generation and excluded file display are now always enabled), replaced with `--debug` and `--trace`
+- Help documentation updated to reflect new `specify` command and revised `discover` options
+
 ## [0.6.1] - 2026-02-09
 
 ### Added
@@ -454,7 +465,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.5.4...v0.5.5
