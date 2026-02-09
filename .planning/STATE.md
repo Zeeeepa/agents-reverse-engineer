@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 11 (Rebuild Command)
-Plan: 1 of 2
-Status: In progress
-Last activity: 2026-02-09 -- Completed 11-01-PLAN.md
+Plan: 2 of 2
+Status: Phase complete
+Last activity: 2026-02-09 -- Completed 11-02-PLAN.md
 
-Progress: [████████████░░░░░░░░░░░░] 50% (v4.0 -- 1/2 plans)
+Progress: [████████████████████████] 100% (v4.0 -- 2/2 plans)
 
 ## Performance Metrics
 
@@ -63,7 +63,7 @@ Progress: [████████████░░░░░░░░░░░
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 11. Rebuild Command | 1/2 | 3 min | 3 min |
+| 11. Rebuild Command | 2/2 | 7 min | 4 min |
 
 ## Accumulated Context
 
@@ -132,6 +132,10 @@ v4.0 decisions:
 - Dual output format support: ===FILE:=== delimiters (primary) and fenced code blocks (fallback)
 - CheckpointManager uses static factory methods (load/createFresh) instead of constructor overloading
 - Spec drift detection checks both individual hash values and file count (added/removed files)
+- 15min minimum timeout for rebuild (Math.max 900_000) matching specify command pattern
+- Standalone executeRebuild function (not method on CommandRunner) avoids modifying runner.ts
+- Best-effort regex export extraction acceptable since full spec always included in every prompt
+- Order-grouped execution: Map<number, RebuildUnit[]> sorted keys, sequential groups, concurrent within
 
 ### Pending Todos
 
@@ -150,5 +154,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 11-01-PLAN.md
+Stopped at: Completed 11-02-PLAN.md (Phase 11 complete)
 Resume file: None
