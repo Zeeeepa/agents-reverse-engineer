@@ -4,6 +4,7 @@
 
 - [x] **v1.0 MVP** - Phases 1-5 (shipped 2026-02-02)
 - [x] **v2.0 AI Service & Quality** - Phases 6-9 (shipped 2026-02-07)
+- [ ] **v3.0 Specification Generation** - Phase 10+
 
 ## Phases
 
@@ -113,6 +114,22 @@ Plans:
 - [x] 09-02-PLAN.md -- Density-aware prompts, hierarchical dedup, findability validator (Wave 1)
 - [x] 09-03-PLAN.md -- Code-vs-code detection, report builder, CLI pipeline wiring (Wave 2)
 
+## v3.0 Specification Generation
+
+**Milestone Goal:** The tool produces specification artifacts (.md) from generated AGENTS.md files that contain enough detail to reconstruct the project.
+
+- [ ] **Phase 10: Specify Command** - Produce specification artifact(s) that could reconstruct the project from AGENTS.md documentation
+
+### Phase 10: Specify Command
+**Goal**: An `are specify` command that reads the generated AGENTS.md hierarchy and produces specification document(s) (.md) containing enough architectural, structural, and behavioral detail to reconstruct the project from scratch
+**Depends on**: Phase 9
+**Plans**: 3 plans
+
+Plans:
+- [ ] 10-01-PLAN.md -- Content collector and barrel index (Wave 1)
+- [ ] 10-02-PLAN.md -- Prompt templates and output writer (Wave 1)
+- [ ] 10-03-PLAN.md -- CLI command handler and registration (Wave 2)
+
 ## Progress
 
 **Execution Order:**
@@ -126,7 +143,8 @@ Phase 9 can start after Phase 7 completes (independent of Phase 8).
 | 7. Orchestration & Commands | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 8. Full Telemetry | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 9. Quality Improvements | v2.0 | 3/3 | Complete | 2026-02-07 |
+| 10. Specify Command | v3.0 | 0/3 | Planned | - |
 
 ---
 *Roadmap created: 2026-02-07*
-*Last updated: 2026-02-07 (v2.0 complete)*
+*Last updated: 2026-02-09 (Phase 10 planned -- 3 plans in 2 waves)*
