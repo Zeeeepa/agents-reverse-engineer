@@ -200,13 +200,11 @@ export class CommandRunner {
         const contentHash = computeContentHashFromString(sourceContent);
 
         // Build .sum file content
+        const cleanedText = stripPreamble(response.text);
         const sumContent: SumFileContent = {
-          summary: response.text,
+          summary: cleanedText,
           metadata: {
-            purpose: extractPurpose(response.text),
-            publicInterface: [],
-            dependencies: [],
-            patterns: [],
+            purpose: extractPurpose(cleanedText),
           },
           generatedAt: new Date().toISOString(),
           contentHash,
@@ -667,13 +665,11 @@ export class CommandRunner {
         const contentHash = computeContentHashFromString(sourceContent);
 
         // Build .sum file content
+        const cleanedText = stripPreamble(response.text);
         const sumContent: SumFileContent = {
-          summary: response.text,
+          summary: cleanedText,
           metadata: {
-            purpose: extractPurpose(response.text),
-            publicInterface: [],
-            dependencies: [],
-            patterns: [],
+            purpose: extractPurpose(cleanedText),
           },
           generatedAt: new Date().toISOString(),
           contentHash,
@@ -883,9 +879,41 @@ export class CommandRunner {
 // ---------------------------------------------------------------------------
 
 /**
+ * Strip LLM preamble from response text.
+ * Detects common preamble patterns and removes everything before the actual content.
+ */
+function stripPreamble(responseText: string): string {
+  // Pattern 1: Content after a --- separator (LLM uses --- before real content)
+  const separatorIndex = responseText.indexOf('\n---\n');
+  if (separatorIndex >= 0 && separatorIndex < 500) {
+    const afterSeparator = responseText.slice(separatorIndex + 5).trim();
+    if (afterSeparator.length > 0) {
+      return afterSeparator;
+    }
+  }
+
+  // Pattern 2: Content starts with a bold purpose line (**)
+  const boldMatch = responseText.match(/^[\s\S]{0,500}?(\*\*[A-Z])/);
+  if (boldMatch && boldMatch.index !== undefined) {
+    const before = responseText.slice(0, boldMatch.index).trim();
+    // Only strip if what comes before looks like preamble (no identifiers, short)
+    if (before.length > 0 && before.length < 300 && !before.includes('##')) {
+      return responseText.slice(boldMatch.index);
+    }
+  }
+
+  return responseText;
+}
+
+const PREAMBLE_PREFIXES = [
+  'now i', 'perfect', 'based on', 'let me', 'here is', 'i\'ll', 'i will',
+  'great', 'okay', 'sure', 'certainly', 'alright',
+];
+
+/**
  * Extract the purpose from AI response text.
  *
- * Takes the first non-empty line of the response as the file's purpose.
+ * Skips lines that look like LLM preamble, markdown headers, or separators.
  * Falls back to empty string if the response is empty.
  *
  * @param responseText - The AI-generated summary text
@@ -895,11 +923,15 @@ function extractPurpose(responseText: string): string {
   const lines = responseText.split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
-    // Skip markdown headers and empty lines
-    if (trimmed && !trimmed.startsWith('#')) {
-      // Truncate to a reasonable length for the purpose field
-      return trimmed.length > 120 ? trimmed.slice(0, 117) + '...' : trimmed;
-    }
+    if (!trimmed || trimmed.startsWith('#') || trimmed === '---') continue;
+
+    // Skip lines that look like LLM preamble
+    const lower = trimmed.toLowerCase();
+    if (PREAMBLE_PREFIXES.some(p => lower.startsWith(p))) continue;
+
+    // Strip bold markdown wrapper if present
+    const purpose = trimmed.replace(/^\*\*(.+)\*\*$/, '$1');
+    return purpose.length > 120 ? purpose.slice(0, 117) + '...' : purpose;
   }
   return '';
 }

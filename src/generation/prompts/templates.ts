@@ -40,7 +40,13 @@ WHAT TO INCLUDE:
 WHAT TO EXCLUDE:
 - Internal implementation details
 - Generic descriptions without identifiers
-- Filler phrases and transitions`;
+- Filler phrases and transitions
+
+OUTPUT FORMAT (MANDATORY):
+- Start your response DIRECTLY with the purpose statement — a single bold line: **Purpose statement here.**
+- Do NOT include any preamble, thinking, or meta-commentary before the purpose statement
+- Do NOT say "Here is...", "Now I'll...", "Based on my analysis...", "Let me create...", "Perfect."
+- Your response IS the documentation — not a message about the documentation`;
 
 export const FILE_USER_PROMPT = `Analyze this source file and generate a summary that captures what an AI coding assistant needs to know to work with this file effectively.
 
@@ -50,7 +56,12 @@ File: {{FILE_PATH}}
 {{CONTENT}}
 \`\`\`
 {{PROJECT_PLAN_SECTION}}
-Choose the most relevant topics for this file. Lead with a single-line purpose statement.`;
+Lead with a single bold purpose statement: **[FileName] does X.**
+Then use ## headings to organize the remaining content.
+Every file MUST include at minimum:
+- A purpose statement (first line, bold)
+- Exported symbols with signatures (under any appropriate heading)
+Choose additional sections based on file content.`;
 
 /**
  * System prompt for directory-level AGENTS.md generation.
@@ -81,10 +92,17 @@ Consider these section types (choose what applies):
 
 Choose any relevant sections or create your own based on the directory contents. The goal is to provide a comprehensive overview that captures the essence of the directory's role in the project and how its files work together, with a focus on what an AI coding assistant would need to know to effectively interact with this code.
 
+SCOPE:
+- AGENTS.md is a NAVIGATIONAL INDEX — help an AI find the right file quickly
+- Focus on: what each file does, how files relate, directory-level patterns
+- Do NOT reproduce full architecture sections — those belong in the root CLAUDE.md
+
 DENSITY RULES (MANDATORY):
 - Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
 - Never use filler phrases: "this directory", "this module", "provides", "responsible for", "is used to"
 - Use technical shorthand: "exports X, Y, Z" not "this module exports a function called X..."
+- Per-file descriptions: 1-2 sentences maximum. Reference key symbols but do not reproduce full summaries.
+- Subdirectory descriptions: 1-2 sentences maximum. Capture the directory's role, not its full contents.
 
 ANCHOR TERM PRESERVATION (MANDATORY):
 - Key exported symbols from file summaries MUST appear in the directory overview

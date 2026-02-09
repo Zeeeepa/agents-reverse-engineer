@@ -1,9 +1,12 @@
 /**
  * Heuristic findability validation for AGENTS.md content.
  *
- * validateFindability checks that key exported symbols listed in .sum file
- * publicInterface metadata appear in the parent AGENTS.md content.
+ * validateFindability checks that key exported symbols from .sum files
+ * appear in the parent AGENTS.md content.
  * No LLM calls -- purely string-based symbol matching.
+ *
+ * NOTE: Previously relied on metadata.publicInterface which has been removed.
+ * This module is retained for future structured extraction support.
  */
 
 import type { SumFileContent } from '../../generation/writers/sum.js';
@@ -27,63 +30,19 @@ export interface FindabilityResult {
 }
 
 /**
- * Extract the symbol name from a publicInterface entry.
- *
- * Entries may be bare names ("buildAgentsMd") or include signatures
- * ("buildAgentsMd(doc: DirectoryDoc): string"). This extracts just
- * the leading identifier.
- */
-function extractSymbolName(entry: string): string {
-  const match = entry.match(/^(\w+)/);
-  return match ? match[1] : entry.trim();
-}
-
-/**
  * Check that key symbols from .sum files appear in AGENTS.md content.
  *
- * For each .sum file, extracts symbol names from metadata.publicInterface
- * and checks whether each name appears (case-sensitive) in the AGENTS.md
- * content string. Files with no publicInterface items are skipped.
+ * Currently returns an empty array since structured metadata extraction
+ * (publicInterface) has been removed. The function signature is preserved
+ * for future re-implementation via post-processing passes.
  *
- * @param agentsMdContent - Full text content of the AGENTS.md file
- * @param sumFiles - Map of file path to parsed SumFileContent
- * @returns FindabilityResult per .sum file that has publicInterface entries
+ * @param _agentsMdContent - Full text content of the AGENTS.md file
+ * @param _sumFiles - Map of file path to parsed SumFileContent
+ * @returns Empty array (no structured symbols to validate)
  */
 export function validateFindability(
-  agentsMdContent: string,
-  sumFiles: Map<string, SumFileContent>,
+  _agentsMdContent: string,
+  _sumFiles: Map<string, SumFileContent>,
 ): FindabilityResult[] {
-  const results: FindabilityResult[] = [];
-
-  for (const [filePath, sum] of sumFiles) {
-    const publicInterface = sum.metadata.publicInterface;
-    if (publicInterface.length === 0) continue;
-
-    const symbolsTested: string[] = [];
-    const symbolsFound: string[] = [];
-    const symbolsMissing: string[] = [];
-
-    for (const entry of publicInterface) {
-      const symbolName = extractSymbolName(entry);
-      symbolsTested.push(symbolName);
-
-      if (agentsMdContent.includes(symbolName)) {
-        symbolsFound.push(symbolName);
-      } else {
-        symbolsMissing.push(symbolName);
-      }
-    }
-
-    results.push({
-      filePath,
-      symbolsTested,
-      symbolsFound,
-      symbolsMissing,
-      score: symbolsTested.length > 0
-        ? symbolsFound.length / symbolsTested.length
-        : 0,
-    });
-  }
-
-  return results;
+  return [];
 }

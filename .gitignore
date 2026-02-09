@@ -30,8 +30,7 @@ npm-debug.log*
 .opencode/
 
 # agents-reverse-engineer
-.agents-reverse-engineer/
-*.sum
 
-
+# tmp
+tmp/
 

@@ -49,27 +49,21 @@ export function checkCodeVsDoc(
   filePath: string,
 ): CodeDocInconsistency | null {
   const exports = extractExports(sourceContent);
-  const sumText =
-    sumContent.summary + ' ' + sumContent.metadata.publicInterface.join(' ');
+  const sumText = sumContent.summary;
 
   // Exports present in source but not mentioned anywhere in .sum text
   const missingFromDoc = exports.filter((e) => !sumText.includes(e));
 
-  // Public interface items in .sum that don't match any source export
-  const missingFromCode = sumContent.metadata.publicInterface.filter(
-    (iface) => !exports.some((e) => iface.includes(e)),
-  );
-
-  if (missingFromDoc.length === 0 && missingFromCode.length === 0) {
+  if (missingFromDoc.length === 0) {
     return null;
   }
 
   return {
     type: 'code-vs-doc',
-    severity: missingFromCode.length > 0 ? 'error' : 'warning',
+    severity: 'warning',
     filePath,
     sumPath: `${filePath}.sum`,
-    description: `Documentation out of sync: ${missingFromDoc.length} exports undocumented, ${missingFromCode.length} documented items not found in code`,
-    details: { missingFromDoc, missingFromCode },
+    description: `Documentation out of sync: ${missingFromDoc.length} exports undocumented`,
+    details: { missingFromDoc, missingFromCode: [] },
   };
 }

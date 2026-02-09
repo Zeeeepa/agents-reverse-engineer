@@ -18,12 +18,6 @@ export interface AnalysisResult {
 export interface SummaryMetadata {
   /** Primary purpose of the file */
   purpose: string;
-  /** Public exports/interface */
-  publicInterface: string[];
-  /** External dependencies */
-  dependencies: string[];
-  /** Design patterns used */
-  patterns: string[];
   /** Only security/breaking issues */
   criticalTodos?: string[];
   /** Tightly coupled siblings */

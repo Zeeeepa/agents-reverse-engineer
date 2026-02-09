@@ -304,6 +304,10 @@ export async function buildRootPrompt(
     '- Getting started (install, build, run commands)',
     '- Key technologies and dependencies',
     '',
+    'This document is the COMPREHENSIVE reference for the entire project.',
+    'It should contain architecture, configuration, build instructions, and project-wide patterns.',
+    'Individual file details belong in directory-level AGENTS.md files — reference them, don\'t duplicate them.',
+    '',
     'Output ONLY the markdown content. No preamble.',
   );
 

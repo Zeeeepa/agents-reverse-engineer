@@ -77,12 +77,8 @@ function parseSumFile(content: string): SumFileContent | null {
     // Parse purpose (single line value)
     const purpose = frontmatter.match(/purpose:\s*(.+)/)?.[1]?.trim() ?? '';
 
-    // Parse metadata arrays
     const metadata: SummaryMetadata = {
       purpose,
-      publicInterface: parseYamlArray(frontmatter, 'public_interface'),
-      dependencies: parseYamlArray(frontmatter, 'dependencies'),
-      patterns: parseYamlArray(frontmatter, 'patterns'),
     };
 
     // Parse optional fields
@@ -132,9 +128,6 @@ function formatSumFile(content: SumFileContent): string {
     `generated_at: ${content.generatedAt}`,
     `content_hash: ${content.contentHash}`,
     `purpose: ${content.metadata.purpose}`,
-    formatYamlArray('public_interface', content.metadata.publicInterface),
-    formatYamlArray('dependencies', content.metadata.dependencies),
-    formatYamlArray('patterns', content.metadata.patterns),
   ];
 
   // Add optional fields if present
