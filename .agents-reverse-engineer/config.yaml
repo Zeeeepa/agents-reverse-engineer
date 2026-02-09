@@ -125,7 +125,7 @@ ai:
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)
   # Increase for very large files or slow connections
-  timeoutMs: 300000
+  timeoutMs: 1200000
 
   # Maximum number of retries for transient errors
   # Default: 3

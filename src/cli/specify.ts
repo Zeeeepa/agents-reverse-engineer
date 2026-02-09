@@ -172,7 +172,7 @@ export async function specifyCommand(
 
   // Create AI service with extended timeout (spec generation takes longer)
   const aiService = new AIService(backend, {
-    timeoutMs: Math.max(config.ai.timeoutMs, 600_000),
+    timeoutMs: Math.max(config.ai.timeoutMs, 900_000),
     maxRetries: config.ai.maxRetries,
     model: config.ai.model,
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
