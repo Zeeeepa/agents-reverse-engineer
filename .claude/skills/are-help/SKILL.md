@@ -166,7 +166,6 @@ Reads spec files from `specs/`, partitions them into ordered rebuild units, proc
 | `--fail-fast` | Stop on first failure |
 | `--debug` | Show AI prompts and backend details |
 | `--trace` | Enable concurrency tracing to `.agents-reverse-engineer/traces/` |
-
 **Usage:**
 - `/are-rebuild --dry-run` — Preview rebuild plan
 - `/are-rebuild --output ./out --force` — Rebuild to custom directory
