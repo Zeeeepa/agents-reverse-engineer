@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Documentation that stays fresh automatically via git-diff-based updates
-**Current focus:** v3.0 Specification Generation -- shipped
+**Current focus:** v4.0 Project Reconstruction
 
 ## Current Position
 
-Phase: 10 of 10 (Specify Command)
-Plan: 3 of 3
-Status: v3.0 milestone complete
-Last activity: 2026-02-09 -- Phase 10 verified and complete
+Phase: 11 (Rebuild Command)
+Plan: 0 of 2
+Status: Planned -- ready for execution
+Last activity: 2026-02-09 -- Phase 11 planned (2 plans, 2 waves)
 
-Progress: [████████████████████████] 100% (v3.0 -- 3/3 plans)
+Progress: [░░░░░░░░░░░░░░░░░░░░░░░░] 0% (v4.0 -- 0/2 plans)
 
 ## Performance Metrics
 
@@ -118,7 +118,6 @@ v3.0 decisions:
 - No language-specific metadata (readPackageSection removed) -- tool stays language-agnostic
 - Debug output goes to stderr (console.error) to keep stdout clean for piping
 - Auto-generate fallback: when no AGENTS.md found, invoke generateCommand() then re-collect (skipped in dry-run)
-- Extended timeout uses Math.max(config.ai.timeoutMs, 600_000) for 10min minimum on spec generation
 
 ### Pending Todos
 
@@ -128,6 +127,7 @@ v3.0 decisions:
 ### Roadmap Evolution
 
 - Phase 10 added (2026-02-09): Specify Command -- produce specification artifacts from AGENTS.md for project reconstruction
+- Phase 11 added (2026-02-09): Rebuild Command -- reconstruct project from specs/ into rebuild/ with checkpoint-based multi-session progress tracking
 
 ### Blockers/Concerns
 
@@ -136,5 +136,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Phase 10 verified and complete -- v3.0 milestone shipped
+Stopped at: Phase 11 planned -- ready for execution
 Resume file: None
