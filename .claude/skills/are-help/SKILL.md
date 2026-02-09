@@ -150,6 +150,45 @@ npx are specify --multi-file
 
 ---
 
+### `/are-rebuild`
+Reconstruct a project from specification documents.
+
+Reads spec files from `specs/`, partitions them into ordered rebuild units, processes each via AI, and writes generated source files to an output directory. Supports checkpoint-based session continuity for resumable long-running rebuilds.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| `[path]` | Target directory (default: current directory) |
+| `--output <path>` | Output directory (default: rebuild/) |
+| `--force` | Wipe output directory and start fresh |
+| `--dry-run` | Show rebuild plan without making AI calls |
+| `--concurrency N` | Number of concurrent AI calls (default: auto) |
+| `--fail-fast` | Stop on first failure |
+| `--debug` | Show AI prompts and backend details |
+| `--trace` | Enable concurrency tracing to `.agents-reverse-engineer/traces/` |
+
+**Usage:**
+- `/are-rebuild --dry-run` — Preview rebuild plan
+- `/are-rebuild --output ./out --force` — Rebuild to custom directory
+
+**CLI:**
+```bash
+npx are rebuild --dry-run
+npx are rebuild --output ./out --force
+npx are rebuild --concurrency 3
+```
+
+**How it works:**
+1. Reads all spec files from `specs/` directory
+2. Partitions specs into ordered rebuild units (from Build Plan phases or top-level headings)
+3. Processes units in order: sequentially between groups, concurrently within each group
+4. Accumulates context (export signatures) after each group for dependent phases
+5. Writes generated source files via `===FILE:===` delimited output parsing
+
+**Exit codes:** 0 (success), 1 (partial failure), 2 (total failure)
+
+---
+
 ### `/are-clean`
 Remove all generated documentation artifacts.
 
