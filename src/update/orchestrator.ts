@@ -189,7 +189,13 @@ export class UpdateOrchestrator {
     );
 
     // Get directories affected by changes (for AGENTS.md regeneration)
-    const affectedDirs = Array.from(getAffectedDirectories(filesToAnalyze));
+    // Sort by depth descending (deepest first) so children are processed before parents
+    const affectedDirs = Array.from(getAffectedDirectories(filesToAnalyze))
+      .sort((a, b) => {
+        const depthA = a === '.' ? 0 : a.split(path.sep).length;
+        const depthB = b === '.' ? 0 : b.split(path.sep).length;
+        return depthB - depthA;
+      });
 
     if (this.debug) {
       console.error(
