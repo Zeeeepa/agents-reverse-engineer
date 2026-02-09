@@ -12,24 +12,19 @@ Run the specify command in the background and monitor progress in real time.
 
 1. **Display version**: Read `.claude/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
 
-2. **Clear stale progress log** (if it exists):
-   ```bash
-   rm -f .agents-reverse-engineer/progress.log
-   ```
-
-3. **Run the specify command in the background** using `run_in_background: true`:
+2. **Run the specify command in the background** using `run_in_background: true`:
    ```bash
    npx agents-reverse-engineer@latest specify $ARGUMENTS
    ```
 
-4. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:
+3. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:
    - Wait ~15 seconds (use `sleep 15` in Bash), then use the **Read** tool to read `.agents-reverse-engineer/progress.log` (use the `offset` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using `TaskOutput` with `block: false`
    - Repeat until the background task finishes
    - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and summarize:
+4. **On completion**, read the full background task output and summarize:
    - Number of AGENTS.md files collected
    - Output file(s) written
 
