@@ -15,6 +15,7 @@ export type {
   InconsistencySeverity,
   CodeDocInconsistency,
   CodeCodeInconsistency,
+  PhantomPathInconsistency,
   Inconsistency,
   InconsistencyReport,
 } from './types.js';
@@ -36,6 +37,12 @@ export { checkCodeVsCode } from './inconsistency/code-vs-code.js';
 // ---------------------------------------------------------------------------
 
 export { buildInconsistencyReport, formatReportForCli } from './inconsistency/reporter.js';
+
+// ---------------------------------------------------------------------------
+// Phantom path detection
+// ---------------------------------------------------------------------------
+
+export { checkPhantomPaths } from './phantom-paths/index.js';
 
 // ---------------------------------------------------------------------------
 // Density validation

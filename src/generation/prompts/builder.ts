@@ -5,6 +5,7 @@ import type { PromptContext } from './types.js';
 import { FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, DIRECTORY_SYSTEM_PROMPT, ROOT_SYSTEM_PROMPT } from './templates.js';
 import { readSumFile, getSumPath } from '../writers/sum.js';
 import { GENERATED_MARKER } from '../writers/agents-md.js';
+import { extractDirectoryImports, formatImportMap } from '../../imports/index.js';
 
 function logTemplate(debug: boolean, action: string, filePath: string, extra?: string): void {
   if (!debug) return;
@@ -93,6 +94,7 @@ export async function buildDirectoryPrompt(
   projectRoot: string,
   debug = false,
   knownDirs?: Set<string>,
+  projectStructure?: string,
 ): Promise<{ system: string; user: string }> {
   const relativePath = path.relative(projectRoot, dirPath) || '.';
   const dirName = path.basename(dirPath) || 'root';
@@ -164,7 +166,16 @@ export async function buildDirectoryPrompt(
     .filter((e) => manifestNames.includes(e.name))
     .map((e) => e.name);
 
-  logTemplate(debug, 'buildDirectoryPrompt', dirPath, `files=${fileSummaries.length} subdirs=${subdirSections.length}`);
+  // Extract actual import statements for cross-reference accuracy
+  const sourceExtensions = /\.(ts|tsx|js|jsx|py|go|rs|java|kt)$/;
+  const sourceFileNames = fileEntries
+    .filter((e) => sourceExtensions.test(e.name))
+    .map((e) => e.name);
+
+  const fileImports = await extractDirectoryImports(dirPath, sourceFileNames);
+  const importMapText = formatImportMap(fileImports);
+
+  logTemplate(debug, 'buildDirectoryPrompt', dirPath, `files=${fileSummaries.length} subdirs=${subdirSections.length} imports=${fileImports.length}`);
 
   const userSections: string[] = [
     `Generate AGENTS.md for directory: "${relativePath}" (${dirName})`,
@@ -173,6 +184,26 @@ export async function buildDirectoryPrompt(
     '',
     ...fileSummaries,
   ];
+
+  if (importMapText) {
+    userSections.push(
+      '',
+      '## Import Map (verified — use these exact paths)',
+      '',
+      importMapText,
+    );
+  }
+
+  if (projectStructure) {
+    userSections.push(
+      '',
+      '## Project Directory Structure',
+      '',
+      '<project-structure>',
+      projectStructure,
+      '</project-structure>',
+    );
+  }
 
   if (subdirSections.length > 0) {
     userSections.push('', '## Subdirectories', '', ...subdirSections);

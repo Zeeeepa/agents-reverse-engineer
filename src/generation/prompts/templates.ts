@@ -97,6 +97,20 @@ SCOPE:
 - Focus on: what each file does, how files relate, directory-level patterns
 - Do NOT reproduce full architecture sections — those belong in the root CLAUDE.md
 
+PATH ACCURACY (MANDATORY):
+- When referencing files or modules outside this directory, use ONLY paths from the "Import Map" section
+- Do NOT invent, rename, or guess module paths — if a path isn't in the Import Map, don't reference it
+- Use the exact directory names from "Project Directory Structure" — do NOT rename directories
+  (e.g., if the directory is called "cli", write "src/cli/", NOT "src/commands/")
+- Cross-module references must use the specifier format from actual import statements
+  (e.g., "../generation/writers/sum.js", NOT "../fs/sum-file.js")
+- If you are unsure about a path, omit the cross-reference rather than guessing
+
+CONSISTENCY (MANDATORY):
+- Do not contradict yourself within the same document
+- If you describe a technique (e.g., "regex-based"), do not call it something else later (e.g., "AST-based")
+- When stating version numbers, engines, or config fields, use ONLY values present in the file summaries
+
 DENSITY RULES (MANDATORY):
 - Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
 - Never use filler phrases: "this directory", "this module", "provides", "responsible for", "is used to"

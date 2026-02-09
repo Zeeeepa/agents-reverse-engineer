@@ -60,6 +60,8 @@ export interface GenerationPlan {
   tasks: AnalysisTask[];
   /** Complexity metrics */
   complexity: ComplexityMetrics;
+  /** Compact project directory listing for bird's-eye context */
+  projectStructure?: string;
 }
 
 /**
@@ -250,6 +252,7 @@ export class GenerationOrchestrator {
       files,
       tasks,
       complexity,
+      projectStructure,
     };
 
     // Emit plan created event

@@ -57,6 +57,8 @@ export interface ExecutionPlan {
   rootTasks: ExecutionTask[];
   /** Directory to file mapping */
   directoryFileMap: Record<string, string[]>;
+  /** Compact project directory listing for directory prompt context */
+  projectStructure?: string;
 }
 
 /**
@@ -167,6 +169,7 @@ export function buildExecutionPlan(
     directoryTasks,
     rootTasks,
     directoryFileMap,
+    projectStructure: plan.projectStructure,
   };
 }
 

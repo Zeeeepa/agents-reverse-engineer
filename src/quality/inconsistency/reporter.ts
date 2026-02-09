@@ -29,6 +29,7 @@ export function buildInconsistencyReport(
 ): InconsistencyReport {
   let codeVsDoc = 0;
   let codeVsCode = 0;
+  let phantomPaths = 0;
   let errors = 0;
   let warnings = 0;
   let info = 0;
@@ -36,6 +37,7 @@ export function buildInconsistencyReport(
   for (const issue of issues) {
     if (issue.type === 'code-vs-doc') codeVsDoc++;
     if (issue.type === 'code-vs-code') codeVsCode++;
+    if (issue.type === 'phantom-path') phantomPaths++;
     if (issue.severity === 'error') errors++;
     if (issue.severity === 'warning') warnings++;
     if (issue.severity === 'info') info++;
@@ -53,6 +55,7 @@ export function buildInconsistencyReport(
       total: issues.length,
       codeVsDoc,
       codeVsCode,
+      phantomPaths,
       errors,
       warnings,
       info,
@@ -100,6 +103,9 @@ export function formatReportForCli(report: InconsistencyReport): string {
 
     if (issue.type === 'code-vs-doc') {
       lines.push(`  File: ${issue.filePath}`);
+    } else if (issue.type === 'phantom-path') {
+      lines.push(`  Doc: ${issue.agentsMdPath}`);
+      lines.push(`  Path: ${issue.details.referencedPath}`);
     } else {
       lines.push(`  Files: ${issue.files.join(', ')}`);
     }

@@ -81,6 +81,8 @@ export interface RunSummary {
   inconsistenciesCodeVsDoc?: number;
   /** Number of code-vs-code inconsistencies detected */
   inconsistenciesCodeVsCode?: number;
+  /** Number of phantom path references detected in AGENTS.md files */
+  phantomPaths?: number;
   /** Full inconsistency report (undefined if no checks ran) */
   inconsistencyReport?: InconsistencyReport;
 }

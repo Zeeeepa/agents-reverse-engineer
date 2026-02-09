@@ -28,6 +28,7 @@ import { CONFIG_DIR } from '../config/loader.js';
 import {
   checkCodeVsDoc,
   checkCodeVsCode,
+  checkPhantomPaths,
   buildInconsistencyReport,
   formatReportForCli,
 } from '../quality/index.js';
@@ -431,7 +432,7 @@ export class CommandRunner {
 
       const dirTasks = dirsAtDepth.map(
         (dirTask) => async () => {
-          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug, knownDirs);
+          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug, knownDirs, plan.projectStructure);
           const dirResponse: AIResponse = await this.aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,
@@ -461,6 +462,37 @@ export class CommandRunner {
         tasksCompleted: phase2Succeeded,
         tasksFailed: phase2Failed,
       });
+    }
+
+    // -------------------------------------------------------------------
+    // Post-Phase 2: Phantom path validation (non-throwing)
+    // -------------------------------------------------------------------
+
+    let phantomPathCount = 0;
+    try {
+      const phantomIssues: Inconsistency[] = [];
+      for (const dirTask of plan.directoryTasks) {
+        const agentsMdPath = path.join(dirTask.absolutePath, 'AGENTS.md');
+        try {
+          const content = await readFile(agentsMdPath, 'utf-8');
+          const issues = checkPhantomPaths(agentsMdPath, content, plan.projectRoot);
+          phantomIssues.push(...issues);
+        } catch {
+          // AGENTS.md not yet written or read error — skip
+        }
+      }
+      phantomPathCount = phantomIssues.length;
+
+      if (phantomIssues.length > 0) {
+        const phantomReport = buildInconsistencyReport(phantomIssues, {
+          projectRoot: plan.projectRoot,
+          filesChecked: plan.directoryTasks.length,
+          durationMs: 0,
+        });
+        console.error(formatReportForCli(phantomReport));
+      }
+    } catch (err) {
+      console.error(`[quality] Phantom path validation failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     // -------------------------------------------------------------------
@@ -575,6 +607,7 @@ export class CommandRunner {
       uniqueFilesRead: aiSummary.uniqueFilesRead,
       inconsistenciesCodeVsDoc,
       inconsistenciesCodeVsCode,
+      phantomPaths: phantomPathCount,
       inconsistencyReport,
     };
 

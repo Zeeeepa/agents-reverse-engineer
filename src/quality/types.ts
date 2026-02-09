@@ -41,8 +41,27 @@ export interface CodeCodeInconsistency {
   pattern: string;
 }
 
+/**
+ * Path reference in generated documentation that doesn't resolve to a real file/directory.
+ */
+export interface PhantomPathInconsistency {
+  type: 'phantom-path';
+  severity: InconsistencySeverity;
+  /** Path to the AGENTS.md file containing the phantom reference */
+  agentsMdPath: string;
+  description: string;
+  details: {
+    /** The phantom path as written in the document */
+    referencedPath: string;
+    /** What it was resolved against (project root or AGENTS.md location) */
+    resolvedTo: string;
+    /** The line of text containing the phantom reference */
+    context: string;
+  };
+}
+
 /** Union of all inconsistency types. */
-export type Inconsistency = CodeDocInconsistency | CodeCodeInconsistency;
+export type Inconsistency = CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency;
 
 /** Structured report produced by inconsistency analysis. */
 export interface InconsistencyReport {
@@ -60,6 +79,7 @@ export interface InconsistencyReport {
     total: number;
     codeVsDoc: number;
     codeVsCode: number;
+    phantomPaths: number;
     errors: number;
     warnings: number;
     info: number;
