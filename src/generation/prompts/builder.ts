@@ -6,6 +6,7 @@ import { FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, DIRECTORY_SYSTEM_PROMPT, ROOT_SYS
 import { readSumFile, getSumPath } from '../writers/sum.js';
 import { GENERATED_MARKER } from '../writers/agents-md.js';
 import { extractDirectoryImports, formatImportMap } from '../../imports/index.js';
+import { collectAgentsDocs } from '../collector.js';
 
 function logTemplate(debug: boolean, action: string, filePath: string, extra?: string): void {
   if (!debug) return;
@@ -224,39 +225,6 @@ export async function buildDirectoryPrompt(
 }
 
 /**
- * Recursively collect all AGENTS.md file paths under a directory,
- * skipping vendor/meta directories.
- */
-async function collectAgentsMdFiles(dir: string): Promise<string[]> {
-  const SKIP_DIRS = new Set([
-    'node_modules', '.git', '.agents-reverse-engineer',
-    'vendor', 'dist', 'build', '__pycache__', '.next',
-    'venv', '.venv', 'target', '.cargo', '.gradle',
-  ]);
-  const results: string[] = [];
-
-  async function walk(currentDir: string): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(currentDir, { withFileTypes: true });
-    } catch {
-      return; // Permission denied or inaccessible
-    }
-    for (const entry of entries) {
-      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
-        await walk(path.join(currentDir, entry.name));
-      } else if (entry.name === 'AGENTS.md') {
-        results.push(path.join(currentDir, entry.name));
-      }
-    }
-  }
-
-  await walk(dir);
-  results.sort();
-  return results;
-}
-
-/**
  * Build a prompt for generating the root CLAUDE.md document.
  *
  * Collects all generated AGENTS.md files and optional package.json,
@@ -267,22 +235,11 @@ export async function buildRootPrompt(
   projectRoot: string,
   debug = false,
 ): Promise<{ system: string; user: string }> {
-  // 1. Collect all AGENTS.md files
-  const agentsFiles = await collectAgentsMdFiles(projectRoot);
-
-  // 2. Read each and build context sections
-  const agentsSections: string[] = [];
-  for (const filePath of agentsFiles) {
-    try {
-      const content = await readFile(filePath, 'utf-8');
-      const relativePath = path.relative(projectRoot, filePath);
-      agentsSections.push(`### ${relativePath}\n\n${content}`);
-    } catch {
-      if (debug) {
-        console.error(pc.dim(`[prompt] Skipping unreadable ${filePath}`));
-      }
-    }
-  }
+  // 1. Collect all AGENTS.md files via shared collector
+  const agentsDocs = await collectAgentsDocs(projectRoot);
+  const agentsSections: string[] = agentsDocs.map(
+    (doc) => `### ${doc.relativePath}\n\n${doc.content}`,
+  );
 
   // 3. Read root package.json for project metadata
   let packageSection = '';
