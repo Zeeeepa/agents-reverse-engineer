@@ -5,9 +5,9 @@ Project: /home/pascal/wks/agents-reverse-engineer
 
 ## Summary
 
-- **Total Tasks**: 126
-- **File Tasks**: 96
-- **Directory Tasks**: 29
+- **Total Tasks**: 138
+- **File Tasks**: 107
+- **Directory Tasks**: 30
 - **Root Tasks**: 1
 - **Traversal**: Post-order (children before parents)
 
@@ -32,11 +32,13 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/discovery/filters/index.ts`
 - [x] `src/discovery/filters/vendor.ts`
 
-### Depth 3: src/generation/prompts/ (4 files)
+### Depth 3: src/generation/prompts/ (6 files)
 - [x] `src/generation/prompts/builder.ts`
 - [x] `src/generation/prompts/index.ts`
 - [x] `src/generation/prompts/templates.ts`
+- [x] `src/generation/prompts/templates.ts.annex.md`
 - [x] `src/generation/prompts/types.ts`
+- [x] `src/generation/prompts/types.ts.annex.md`
 
 ### Depth 3: src/generation/writers/ (3 files)
 - [x] `src/generation/writers/agents-md.ts`
@@ -71,12 +73,13 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/change-detection/index.ts`
 - [x] `src/change-detection/types.ts`
 
-### Depth 2: src/cli/ (7 files)
+### Depth 2: src/cli/ (8 files)
 - [x] `src/cli/clean.ts`
 - [x] `src/cli/discover.ts`
 - [x] `src/cli/generate.ts`
 - [x] `src/cli/index.ts`
 - [x] `src/cli/init.ts`
+- [x] `src/cli/rebuild.ts`
 - [x] `src/cli/specify.ts`
 - [x] `src/cli/update.ts`
 
@@ -117,12 +120,13 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/integration/templates.ts`
 - [x] `src/integration/types.ts`
 
-### Depth 2: src/orchestration/ (7 files)
+### Depth 2: src/orchestration/ (8 files)
 - [x] `src/orchestration/index.ts`
 - [x] `src/orchestration/plan-tracker.ts`
 - [x] `src/orchestration/pool.ts`
 - [x] `src/orchestration/progress.ts`
 - [x] `src/orchestration/runner.ts`
+- [x] `src/orchestration/runner.ts.annex.md`
 - [x] `src/orchestration/trace.ts`
 - [x] `src/orchestration/types.ts`
 
@@ -132,6 +136,15 @@ Project: /home/pascal/wks/agents-reverse-engineer
 ### Depth 2: src/quality/ (2 files)
 - [x] `src/quality/index.ts`
 - [x] `src/quality/types.ts`
+
+### Depth 2: src/rebuild/ (7 files)
+- [x] `src/rebuild/checkpoint.ts`
+- [x] `src/rebuild/index.ts`
+- [x] `src/rebuild/orchestrator.ts`
+- [x] `src/rebuild/output-parser.ts`
+- [x] `src/rebuild/prompts.ts`
+- [x] `src/rebuild/spec-reader.ts`
+- [x] `src/rebuild/types.ts`
 
 ### Depth 2: src/specify/ (3 files)
 - [x] `src/specify/index.ts`
@@ -171,7 +184,7 @@ Project: /home/pascal/wks/agents-reverse-engineer
 
 ---
 
-## Phase 2: Directory AGENTS.md (Post-Order Traversal, 29 directories)
+## Phase 2: Directory AGENTS.md (Post-Order Traversal, 30 directories)
 
 ### Depth 3
 - [x] `src/ai/backends/AGENTS.md`
@@ -197,6 +210,7 @@ Project: /home/pascal/wks/agents-reverse-engineer
 - [x] `src/orchestration/AGENTS.md`
 - [x] `src/output/AGENTS.md`
 - [x] `src/quality/AGENTS.md`
+- [x] `src/rebuild/AGENTS.md`
 - [x] `src/specify/AGENTS.md`
 - [x] `src/types/AGENTS.md`
 - [x] `src/update/AGENTS.md`
