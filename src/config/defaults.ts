@@ -2,6 +2,46 @@
  * Default configuration values for agents-reverse
  */
 
+import os from 'node:os';
+
+/** Multiplier applied to CPU core count for default concurrency */
+const CONCURRENCY_MULTIPLIER = 5;
+
+/** Minimum default concurrency */
+const MIN_CONCURRENCY = 2;
+
+/** Maximum default concurrency (matches schema .max(20)) */
+const MAX_CONCURRENCY = 20;
+
+/** Heap budget per subprocess in GB (matches NODE_OPTIONS --max-old-space-size=512) */
+const SUBPROCESS_HEAP_GB = 0.512;
+
+/** Fraction of total system memory to allocate to subprocesses */
+const MEMORY_FRACTION = 0.5;
+
+/**
+ * Compute the default concurrency based on available CPU cores and system memory.
+ *
+ * Formula: clamp(cores * 5, MIN, min(memCap, MAX))
+ * - cores: os.availableParallelism() or os.cpus().length
+ * - memCap: floor(totalMemGB * 0.5 / 0.512) — use at most 50% of RAM for subprocesses
+ *
+ * @returns Default concurrency value (integer between MIN_CONCURRENCY and MAX_CONCURRENCY)
+ */
+export function getDefaultConcurrency(): number {
+  const cores = typeof os.availableParallelism === 'function'
+    ? os.availableParallelism()
+    : (os.cpus().length || MIN_CONCURRENCY);
+
+  const totalMemGB = os.totalmem() / (1024 ** 3);
+  const memCap = totalMemGB > 1
+    ? Math.floor((totalMemGB * MEMORY_FRACTION) / SUBPROCESS_HEAP_GB)
+    : Infinity;
+
+  const computed = cores * CONCURRENCY_MULTIPLIER;
+  return Math.max(MIN_CONCURRENCY, Math.min(computed, memCap, MAX_CONCURRENCY));
+}
+
 /**
  * Default vendor directories to exclude from analysis.
  * These are typically package managers, build outputs, or version control directories.

@@ -11,6 +11,7 @@ import {
   DEFAULT_BINARY_EXTENSIONS,
   DEFAULT_MAX_FILE_SIZE,
   DEFAULT_EXCLUDE_PATTERNS,
+  getDefaultConcurrency,
 } from './defaults.js';
 
 /**
@@ -58,8 +59,8 @@ const AISchema = z.object({
   timeoutMs: z.number().positive().default(300_000),
   /** Maximum number of retries for transient errors */
   maxRetries: z.number().min(0).default(3),
-  /** Default parallelism for concurrent AI calls (1-20). Lower values recommended for resource-constrained environments. */
-  concurrency: z.number().min(1).max(20).default(5),
+  /** Default parallelism for concurrent AI calls (1-20). Auto-detected from CPU cores and available memory. */
+  concurrency: z.number().min(1).max(20).default(getDefaultConcurrency),
   /** Telemetry settings */
   telemetry: z.object({
     /** Number of most recent run logs to keep on disk */

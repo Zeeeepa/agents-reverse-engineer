@@ -12,7 +12,7 @@ import { parse, stringify } from 'yaml';
 import { ZodError } from 'zod';
 import pc from 'picocolors';
 import { ConfigSchema, Config } from './schema.js';
-import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS } from './defaults.js';
+import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS, getDefaultConcurrency } from './defaults.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
 /**
@@ -254,12 +254,10 @@ ai:
   maxRetries: 3
 
   # Number of concurrent AI calls (parallelism)
-  # Range: 1-10, Default: 5
-  # Lower values (2-3) recommended for:
-  #   - WSL environments (limited resources)
-  #   - Machines with <16GB RAM
-  #   - Slow network connections
-  concurrency: 5
+  # Range: 1-20, Default: auto-detected from CPU cores and available memory
+  # Current machine default: ${getDefaultConcurrency()}
+  # Uncomment to override:
+  # concurrency: ${getDefaultConcurrency()}
 
   # Telemetry settings
   telemetry:

@@ -56,7 +56,7 @@ This executes a three-phase pipeline:
 
 **Options:**
 - \`--dry-run\`: Preview the plan without making AI calls
-- \`--concurrency N\`: Control number of parallel AI calls (default: 5)
+- \`--concurrency N\`: Control number of parallel AI calls (default: auto)
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
 - \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
@@ -98,7 +98,7 @@ Run the update command in the background and monitor progress in real time.
 **Options:**
 - \`--uncommitted\`: Include staged but uncommitted changes
 - \`--dry-run\`: Show what would be updated without writing
-- \`--concurrency N\`: Control number of parallel AI calls (default: 5)
+- \`--concurrency N\`: Control number of parallel AI calls (default: auto)
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
 - \`--trace\`: Enable concurrency tracing to \`.agents-reverse-engineer/traces/\`
@@ -287,7 +287,7 @@ Generate comprehensive documentation for the codebase.
 | Flag | Description |
 |------|-------------|
 | \`[path]\` | Target directory (default: current directory) |
-| \`--concurrency N\` | Number of concurrent AI calls (default: 5) |
+| \`--concurrency N\` | Number of concurrent AI calls (default: auto) |
 | \`--dry-run\` | Show what would be generated without writing |
 | \`--fail-fast\` | Stop on first file analysis failure |
 | \`--debug\` | Show AI prompts and backend details |
@@ -322,7 +322,7 @@ Incrementally update documentation for changed files.
 | \`[path]\` | Target directory (default: current directory) |
 | \`--uncommitted\` | Include staged but uncommitted changes |
 | \`--dry-run\` | Show what would be updated without writing |
-| \`--concurrency N\` | Number of concurrent AI calls (default: 5) |
+| \`--concurrency N\` | Number of concurrent AI calls (default: auto) |
 | \`--fail-fast\` | Stop on first file analysis failure |
 | \`--debug\` | Show AI prompts and backend details |
 | \`--trace\` | Enable concurrency tracing to \`.agents-reverse-engineer/traces/\` |

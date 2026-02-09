@@ -65,7 +65,7 @@ General Options:
   --dry-run         Show plan without writing files (generate, update, specify)
   --output <path>   Output path for specification (specify only)
   --multi-file      Split specification into multiple files (specify only)
-  --concurrency <n> Number of concurrent AI calls (default: 5)
+  --concurrency <n> Number of concurrent AI calls (default: auto)
   --fail-fast       Stop on first file analysis failure
   --uncommitted     Include uncommitted changes (update only)
   --help, -h        Show this help

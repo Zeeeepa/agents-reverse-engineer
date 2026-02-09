@@ -42,7 +42,7 @@ export async function initCommand(root: string): Promise<void> {
       logger.info('');
       logger.info('Edit the file to customize:');
       logger.info('  - exclude.patterns: Custom glob patterns to exclude');
-      logger.info('  - ai.concurrency: Parallel AI calls (1-10, default: 5)');
+      logger.info('  - ai.concurrency: Parallel AI calls (1-20, default: auto)');
       logger.info('  - ai.timeoutMs: Subprocess timeout (default: 300,000ms = 5 min)');
       logger.info('  - ai.backend: AI backend (claude/gemini/opencode/auto)');
       logger.info('');
