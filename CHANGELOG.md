@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-02-09
+
+### Added
+- **Behavioral contract preservation in summaries** — File analysis prompts now mandate verbatim inclusion of regex patterns, format strings, magic constants, sentinel values, environment variable names, and output templates. New "BEHAVIORAL CONTRACTS (NEVER EXCLUDE)" section in `FILE_SYSTEM_PROMPT` ensures reproduction-critical patterns survive summarization
+- **Behavioral Contracts section in directory AGENTS.md** — Directory aggregation prompts include mandatory "Behavioral Contracts" section when file summaries contain regex, format specs, or constants; incremental update prompts preserve these verbatim
+- **Version display in all skill commands** — Every `/are-*` skill now reads `ARE-VERSION` file and displays `agents-reverse-engineer vX.Y.Z` before execution. Platform-specific `versionFilePath` added to `PlatformConfig` (`.claude/ARE-VERSION`, `.opencode/ARE-VERSION`, `.gemini/ARE-VERSION`)
+- **`specs/SPEC.md` generated** — First project specification synthesized from AGENTS.md corpus via `are specify`
+
+### Changed
+- Summary target length increased from 200-300 words to 300-500 words to accommodate behavioral contract content (`SUMMARY_GUIDELINES.targetLength`)
+- "Internal implementation details" exclusion replaced with more precise "Control flow minutiae (loop structures, variable naming, temporary state)" in both `FILE_SYSTEM_PROMPT` and `SUMMARY_GUIDELINES`
+- Specification synthesis prompt (`src/specify/prompts.ts`) now splits Behavioral Contracts into "Runtime Behavior" and "Implementation Contracts" subsections, requiring verbatim regex patterns and magic constants
+- Stale progress log clearing (`rm -f progress.log`) removed from all skill templates, replaced with version display step
+- Per-file descriptions in directory prompts clarified as belonging to "Contents sections" only; behavioral contracts directed to separate dedicated section
+
 ## [0.6.4] - 2026-02-09
 
 ### Added
@@ -493,7 +508,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.1...v0.6.2

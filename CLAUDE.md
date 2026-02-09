@@ -6,7 +6,7 @@
 
 agents-reverse-engineer (ARE) automates brownfield documentation for AI coding assistants by executing a three-phase pipeline that discovers source files, analyzes them concurrently via AI CLI subprocesses (Claude Code, Gemini, OpenCode), generates file summaries with YAML frontmatter containing SHA-256 content hashes, synthesizes directory-level documentation from bottom-up via post-order traversal, and produces root integration documents tailored to each AI platform.
 
-**Version**: 0.6.4  
+**Version**: 0.6.5  
 **License**: MIT (GeoloeG-IsT, 2026)  
 **Runtime**: Node.js ≥18.0.0 (ES modules)
 
