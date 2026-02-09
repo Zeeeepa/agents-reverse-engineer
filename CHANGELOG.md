@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-09
+
+### Added
+- **`rebuild` command** — New CLI command (`are rebuild`) that reconstructs source code from specification documents in `specs/`. Reads and partitions specs into rebuild units from Build Plan phases or top-level headings, processes them with ordered concurrent execution via worker pools, and writes generated files to an output directory
+- **Rebuild checkpoint manager** — Persistent session continuity for rebuild operations with `CheckpointManager` class supporting load/createFresh static factories, markDone/markFailed/getPendingUnits tracking, spec drift detection via SHA-256 hash comparison, and promise-chain write serialization
+- **Rebuild output parser** — Handles `===FILE:===` delimited multi-file AI output with fenced code block fallback for single-file responses
+- **Rebuild prompt templates** — `REBUILD_SYSTEM_PROMPT` with delimiter format instructions and `buildRebuildPrompt` combining full spec, current phase, and accumulated build context (export signatures extracted after each group)
+- **Conflict detection for `specify` command** — Early exit when spec files already exist to avoid waiting for an AI call; `--force` flag overrides the check
+
+### Changed
+- AI service default timeout increased from 300s (5 minutes) to 1200s (20 minutes) for longer specification and rebuild operations
+- Orphan cleanup now includes `.annex.md` files when their source file is deleted/renamed, and skips `.annex.md` files when checking for remaining source files in empty directory cleanup
+- Rebuild CLI handler supports `--output`, `--force`, `--dry-run`, `--concurrency`, `--fail-fast`, `--debug`, `--trace` flags with 15-minute minimum timeout and exit codes 0/1/2 for success/partial/total failure
+- Full documentation regeneration with updated `.sum` and `AGENTS.md` files
+
 ## [0.6.6] - 2026-02-09
 
 ### Added
@@ -526,7 +541,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.6...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.6...v0.7.0
 [0.6.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.3...v0.6.4
