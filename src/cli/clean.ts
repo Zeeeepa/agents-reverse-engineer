@@ -60,16 +60,9 @@ export async function cleanCommand(
     throw error;
   }
 
-  // Find all artifacts
-  const [sumFiles, annexFiles, agentsFiles, localAgentsFiles] = await Promise.all([
+  // Find all artifacts (*.sum glob catches both .sum and .annex.sum)
+  const [sumFiles, agentsFiles, localAgentsFiles] = await Promise.all([
     fg.glob('**/*.sum', {
-      cwd: resolvedPath,
-      absolute: true,
-      onlyFiles: true,
-      dot: true,
-      ignore: ['**/node_modules/**', '**/.git/**'],
-    }),
-    fg.glob('**/*.annex.md', {
       cwd: resolvedPath,
       absolute: true,
       onlyFiles: true,
@@ -123,7 +116,7 @@ export async function cleanCommand(
     }
   }
 
-  const allFiles = [...sumFiles, ...annexFiles, ...generatedAgentsFiles, ...singleFiles];
+  const allFiles = [...sumFiles, ...generatedAgentsFiles, ...singleFiles];
 
   if (allFiles.length === 0 && localAgentsFiles.length === 0) {
     logger.info('No generated artifacts found.');
@@ -162,7 +155,6 @@ export async function cleanCommand(
   logger.info('');
   logger.info(
     `${pc.bold(String(sumFiles.length))} .sum file(s), ` +
-    `${pc.bold(String(annexFiles.length))} .annex.md file(s), ` +
     `${pc.bold(String(generatedAgentsFiles.length))} AGENTS.md file(s), ` +
     `${pc.bold(String(singleFiles.length))} root doc(s), ` +
     `${pc.bold(String(localAgentsFiles.length))} AGENTS.local.md to restore`

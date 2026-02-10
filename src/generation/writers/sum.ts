@@ -190,7 +190,7 @@ export async function sumFileExists(sourcePath: string): Promise<boolean> {
  * Contains the full source content for reproduction-critical files
  * whose verbatim constants cannot fit within .sum word limits.
  *
- * Creates: foo.ts -> foo.ts.annex.md
+ * Example: foo.ts -> foo.annex.sum
  *
  * @param sourcePath - Absolute path to the source file
  * @param sourceContent - Full source file content
@@ -219,8 +219,11 @@ export async function writeAnnexFile(
 }
 
 /**
- * Get the .annex.md path for a source file.
+ * Get the .annex.sum path for a source file.
+ *
+ * Strips the source extension: foo.ts -> foo.annex.sum
  */
 export function getAnnexPath(sourcePath: string): string {
-  return `${sourcePath}.annex.md`;
+  const parsed = path.parse(sourcePath);
+  return path.join(parsed.dir, `${parsed.name}.annex.sum`);
 }

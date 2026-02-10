@@ -54,7 +54,7 @@ export async function collectAgentsDocs(projectRoot: string): Promise<AgentsDocs
 }
 
 /**
- * Recursively collect all `.annex.md` files under `projectRoot`,
+ * Recursively collect all `.annex.sum` files under `projectRoot`,
  * returning their relative paths and content sorted alphabetically.
  *
  * Uses the same skip-list as `collectAgentsDocs()`.
@@ -72,7 +72,7 @@ export async function collectAnnexFiles(projectRoot: string): Promise<AgentsDocs
     for (const entry of entries) {
       if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
         await walk(path.join(currentDir, entry.name));
-      } else if (entry.isFile() && entry.name.endsWith('.annex.md')) {
+      } else if (entry.isFile() && entry.name.endsWith('.annex.sum')) {
         try {
           const filePath = path.join(currentDir, entry.name);
           const content = await readFile(filePath, 'utf-8');

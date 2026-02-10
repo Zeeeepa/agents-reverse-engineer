@@ -58,7 +58,18 @@
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Bash(npm pack:*)",
-      "Bash(wc -l:*)"
+      "Bash(wc -l:*)",
+      "Bash(git -C /home/pascal/wks/agents-reverse-engineer log v0.7.1..HEAD --oneline --no-merges)",
+      "Bash(git -C /home/pascal/wks/agents-reverse-engineer show --stat 909555b bd04996 f7d465d d470fd7)",
+      "Bash(git -C /home/pascal/wks/agents-reverse-engineer diff v0.7.1..HEAD -- src/rebuild/output-parser.ts src/rebuild/spec-reader.ts src/specify/prompts.ts src/cli/specify.ts)",
+      "Bash(claude:*)",
+      "Bash(xxd:*)",
+      "Bash(for tag in v2.1.1 v2.0.76 v2.0.74 v2.0.73)",
+      "Bash(do echo \"=== $tag ===\")",
+      "Bash(for tag in v2.1.2 v2.1.3 v2.1.4 v2.1.5 v2.1.6 v2.1.7 v2.1.9 v2.1.11 v2.1.12)",
+      "WebFetch(domain:claudelog.com)",
+      "Bash(npm view:*)",
+      "Bash(git -C /home/pascal/wks/agents-reverse-engineer ls-files:*)"
     ]
   }
 }

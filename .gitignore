@@ -25,6 +25,7 @@ coverage/
 npm-debug.log*
 
 # agents-reverse-engineer
+*.sum
 rebuild/
 !src/rebuild/
 

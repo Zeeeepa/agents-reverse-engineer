@@ -218,7 +218,7 @@ export async function buildDirectoryPrompt(
 
   // Scan for annex files in the directory
   const annexFiles = entries
-    .filter((e) => e.isFile() && e.name.endsWith('.annex.md'))
+    .filter((e) => e.isFile() && e.name.endsWith('.annex.sum'))
     .map((e) => e.name);
   if (annexFiles.length > 0) {
     userSections.push(

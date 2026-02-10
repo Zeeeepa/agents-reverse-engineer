@@ -68,7 +68,7 @@ For these files:
   - \`DIRECTORY_SYSTEM_PROMPT\` — system prompt for AGENTS.md generation (150 lines)
 
   The pipeline will extract the actual constant values from source code and write
-  them to a companion annex file automatically. Your job is to IDENTIFY which
+  them to a companion .annex.sum file automatically. Your job is to IDENTIFY which
   constants are reproduction-critical, not to reproduce them inline.
 
 For files that are primarily logic (functions, classes, algorithms), ignore this
@@ -122,7 +122,7 @@ Consider these section types (choose what applies):
 - **API Surface**: If the directory exports a public API (barrel index, route definitions, SDK), document the interface contract.
 - **File Relationships**: How files collaborate, depend on each other, or share state.
 - **Behavioral Contracts**: If files contain regex patterns, format specifications, magic constants, or template strings that define observable behavior, collect them in a dedicated section. Preserve verbatim patterns from file summaries — do NOT paraphrase regex into prose. This section is MANDATORY when file summaries contain behavioral artifacts.
-- **Reproduction-Critical Constants**: If file summaries reference annex files (via ## Annex References sections), list them with links. Example: "Full prompt template text: [templates.ts.annex.md](./prompts/templates.ts.annex.md)". Do NOT reproduce annex content in AGENTS.md — just link to it.
+- **Reproduction-Critical Constants**: If file summaries reference annex files (via ## Annex References sections), list them with links. Example: "Full prompt template text: [templates.annex.sum](./prompts/templates.annex.sum)". Do NOT reproduce annex content in AGENTS.md — just link to it.
 
 Choose any relevant sections or create your own based on the directory contents. The goal is to provide a comprehensive overview that captures the essence of the directory's role in the project and how its files work together, with a focus on what an AI coding assistant would need to know to effectively interact with this code.
 
@@ -151,7 +151,7 @@ DENSITY RULES (MANDATORY):
 - Use technical shorthand: "exports X, Y, Z" not "this module exports a function called X..."
 - Per-file descriptions in Contents sections: 1-2 sentences maximum. Reference key symbols but do not reproduce full summaries.
 - Behavioral contracts (regex patterns, format specs, constants) belong in a separate Behavioral Contracts section, not in per-file descriptions.
-- Annex file references: link to .annex.md files, do not inline their content. One line per annex reference.
+- Annex file references: link to .annex.sum files, do not inline their content. One line per annex reference.
 - Subdirectory descriptions: 1-2 sentences maximum. Capture the directory's role, not its full contents.
 
 ANCHOR TERM PRESERVATION (MANDATORY):
@@ -215,7 +215,7 @@ CRITICAL — INCREMENTAL UPDATE RULES:
 - Do NOT reorganize, rephrase, or restructure sections that are unaffected by changes
 - Keep the same section ordering unless files were added/removed in a way that requires regrouping
 - Behavioral Contracts section: preserve verbatim regex patterns and constants unless source file summaries show they changed
-- Reproduction-Critical Constants: if file summaries reference annex files, preserve the links. Add links for new annexes, remove links for deleted ones.
+- Reproduction-Critical Constants: if file summaries reference annex files (.annex.sum), preserve the links. Add links for new annexes, remove links for deleted ones.
 
 CRITICAL: Output ONLY the raw markdown content. No code fences, no preamble, no explanations, no conversational text. Your entire response IS the AGENTS.md file content.
 
