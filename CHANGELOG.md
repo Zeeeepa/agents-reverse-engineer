@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.7] - 2026-02-10
+
+### Changed
+- **JSONC handling upgraded to `jsonc-parser` library** — Replaced custom `stripJsonc()` function with the `jsonc-parser` package for VS Code settings, Claude/Gemini hooks registration, and permission management. Settings file edits now use surgical `modify()`/`applyEdits()` operations that preserve existing comments and formatting instead of round-tripping through `JSON.parse()`/`JSON.stringify()`
+- **Default exclude patterns expanded** — Added `.idea`, `.vscode`, and `benchmark` directories to default exclusion list in `config.yaml`
+
+### Removed
+- **Generated AGENTS.md and CLAUDE.md files cleaned up** — Removed 32 generated AGENTS.md documentation files from source directories and root CLAUDE.md to streamline the repository
+
 ## [0.7.6] - 2026-02-10
 
 ### Added
@@ -610,7 +619,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.6...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.7...HEAD
+[0.7.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.3...v0.7.4
