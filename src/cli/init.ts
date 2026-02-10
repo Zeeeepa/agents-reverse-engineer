@@ -5,6 +5,7 @@
  * Warns if configuration already exists.
  */
 
+import { existsSync } from 'node:fs';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { configExists, writeDefaultConfig, CONFIG_DIR, CONFIG_FILE } from '../config/loader.js';
@@ -53,9 +54,52 @@ async function ensureGitignoreEntry(root: string): Promise<boolean> {
 }
 
 /**
+ * Strip JSONC features (line/block comments, trailing commas) so the
+ * result is valid JSON.  Handles comments inside strings correctly by
+ * skipping quoted regions.
+ */
+function stripJsonc(text: string): string {
+  let result = '';
+  let i = 0;
+  while (i < text.length) {
+    // String literal — copy verbatim
+    if (text[i] === '"') {
+      const start = i;
+      i++; // skip opening quote
+      while (i < text.length && text[i] !== '"') {
+        if (text[i] === '\\') i++; // skip escaped char
+        i++;
+      }
+      i++; // skip closing quote
+      result += text.slice(start, i);
+      continue;
+    }
+    // Line comment
+    if (text[i] === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++;
+      continue;
+    }
+    // Block comment
+    if (text[i] === '/' && text[i + 1] === '*') {
+      i += 2;
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
+      i += 2; // skip closing */
+      continue;
+    }
+    result += text[i];
+    i++;
+  }
+  // Remove trailing commas before } or ]
+  return result.replace(/,\s*([}\]])/g, '$1');
+}
+
+/**
  * Ensure `.vscode/settings.json` has `files.exclude["**\/*.sum"] = true`.
  *
- * Creates the file and directory if needed. Idempotent.
+ * Creates the file and directory if needed. Handles JSONC (comments,
+ * trailing commas) used by VS Code. If an existing file cannot be
+ * parsed even after stripping JSONC, the file is left untouched.
+ * Idempotent.
  *
  * @returns true if the file was modified
  */
@@ -64,11 +108,21 @@ async function ensureVscodeExclude(root: string): Promise<boolean> {
   const settingsPath = path.join(vscodePath, 'settings.json');
 
   let settings: Record<string, unknown> = {};
-  try {
+  const fileExists = existsSync(settingsPath);
+
+  if (fileExists) {
     const content = await readFile(settingsPath, 'utf-8');
-    settings = JSON.parse(content) as Record<string, unknown>;
-  } catch {
-    // File doesn't exist or invalid JSON — start fresh
+    try {
+      settings = JSON.parse(content) as Record<string, unknown>;
+    } catch {
+      // Likely JSONC (comments / trailing commas) — strip and retry
+      try {
+        settings = JSON.parse(stripJsonc(content)) as Record<string, unknown>;
+      } catch {
+        // Truly unparseable — leave the file untouched to avoid data loss
+        return false;
+      }
+    }
   }
 
   const filesExclude = (settings['files.exclude'] ?? {}) as Record<string, boolean>;
