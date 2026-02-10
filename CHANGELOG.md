@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-02-10
+
+### Added
+- **Auto-configure `.gitignore` and VS Code on `are init`** — `init` command now automatically adds `*.sum` to `.gitignore` and sets `**/*.sum` in `.vscode/settings.json` `files.exclude`, hiding generated summary files from git tracking and the VS Code explorer
+- **CONTRIBUTING.md** — Added contribution guidelines with development setup instructions
+- **README badges and compatibility section** — Added npm downloads, GitHub stars, and last commit badges; new "Works with" section showing compatible AI tools (Claude Code, Gemini CLI, OpenCode, any AGENTS.md tool)
+- **Comprehensive AGENTS.md documentation** — Generated navigational indexes for all 32 project directories covering orchestration, quality, rebuild, specify, update, and other subsystems
+
+### Changed
+- **Annex file extension changed from `.annex.md` to `.annex.sum`** — Annex files now use the `.sum` extension family (e.g., `foo.ts.annex.md` → `foo.annex.sum`), aligning with the `*.sum` gitignore pattern so a single glob catches all generated summary artifacts
+- **`clean` command simplified** — Single `**/*.sum` glob now catches both `.sum` and `.annex.sum` files, removing the separate `**/*.annex.md` discovery pass
+- **Orphan cleaner updated for new annex naming** — `cleanupOrphans()` and `cleanupEmptyDirectoryDocs()` use `.annex.sum` extension with simplified `.endsWith('.sum')` check for skipping generated files
+- **README configuration documentation updated** — Removed deprecated `verbose`, `costThresholdUsd`, and custom `pricing` options; updated concurrency range from 1-10 to 1-20 with auto-detection note; simplified `discover` command description
+- **npm package keywords expanded** — Added `claude-code`, `gemini-cli`, `opencode`, `agents-md`, `code-documentation`, `ai-documentation`, `codebase-analysis`, `developer-tools`, `cli`, `llm` for better discoverability
+
 ## [0.7.3] - 2026-02-10
 
 ### Changed
@@ -572,7 +587,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.4...HEAD
+[0.7.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.0...v0.7.1
