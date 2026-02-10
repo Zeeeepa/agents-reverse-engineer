@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-02-10
+
+### Changed
+- **Claude CLI JSON output parser rewritten for multi-format support** — New `extractResultJson()` method in `ClaudeBackend` handles three output formats: JSON array (CLI >= 2.1.38), NDJSON (newline-delimited JSON objects), and legacy single-object (CLI <= 2.1.31). Replaces the previous naive "find first `{`" approach with a strategy-based parser that locates the `{"type":"result",...}` object regardless of output format
+- **ClaudeResponseSchema hardened with `.passthrough()`** — Zod schema for Claude CLI response now uses `.passthrough()` on nested objects (`usage`, `modelUsage` entries, and root) so new fields added by future CLI versions don't cause validation failures
+- **Schema documentation updated** — JSDoc on `ClaudeResponseSchema` and `parseResponse()` now documents NDJSON and JSON array formats alongside the legacy single-object format
+
 ## [0.7.2] - 2026-02-10
 
 ### Added
@@ -565,7 +572,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.6.6...v0.7.0
