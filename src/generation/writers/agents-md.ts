@@ -1,4 +1,5 @@
 import { writeFile, readFile, mkdir, rename } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 
 /** Marker comment to identify generated AGENTS.md files */
@@ -37,24 +38,20 @@ export async function writeAgentsMd(
   const localPath = path.join(dirPath, 'AGENTS.local.md');
 
   // Step 1: Preserve user-authored AGENTS.md (rename to AGENTS.local.md)
-  let userContent: string | null = null;
+  let hasLocalContent = false;
   try {
     const existingContent = await readFile(agentsPath, 'utf-8');
     if (!existingContent.includes(GENERATED_MARKER)) {
-      userContent = existingContent;
       await rename(agentsPath, localPath);
+      hasLocalContent = true;
     }
   } catch {
     // No existing AGENTS.md
   }
 
   // Step 2: Check for already-renamed AGENTS.local.md (from a previous run)
-  if (!userContent) {
-    try {
-      userContent = await readFile(localPath, 'utf-8');
-    } catch {
-      // No AGENTS.local.md either
-    }
+  if (!hasLocalContent && existsSync(localPath)) {
+    hasLocalContent = true;
   }
 
   // Step 3: Strip marker from LLM content (we add it ourselves)
@@ -63,18 +60,11 @@ export async function writeAgentsMd(
     llmContent = llmContent.slice(GENERATED_MARKER.length).replace(/^\n+/, '');
   }
 
-  // Step 4: Build final content with marker + optional user content + LLM content
+  // Step 4: Build final content with marker + optional @import + LLM content
   const parts: string[] = [GENERATED_MARKER, ''];
 
-  if (userContent?.trim()) {
-    parts.push(
-      '<!-- User-defined AGENTS.md preserved as AGENTS.local.md -->',
-      '',
-      userContent.trim(),
-      '',
-      '---',
-      '',
-    );
+  if (hasLocalContent) {
+    parts.push('@AGENTS.local.md', '');
   }
 
   parts.push(llmContent);

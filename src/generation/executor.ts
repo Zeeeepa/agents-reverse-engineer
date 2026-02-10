@@ -18,7 +18,7 @@ export interface ExecutionTask {
   /** Unique task ID */
   id: string;
   /** Task type */
-  type: 'file' | 'directory' | 'root-doc';
+  type: 'file' | 'directory';
   /** File or directory path (relative) */
   path: string;
   /** Absolute path */
@@ -53,8 +53,6 @@ export interface ExecutionPlan {
   fileTasks: ExecutionTask[];
   /** Directory tasks (depend on file tasks) */
   directoryTasks: ExecutionTask[];
-  /** Root document tasks (depend on directories) */
-  rootTasks: ExecutionTask[];
   /** Directory to file mapping */
   directoryFileMap: Record<string, string[]>;
   /** Compact project directory listing for directory prompt context */
@@ -82,7 +80,6 @@ export function buildExecutionPlan(
 ): ExecutionPlan {
   const fileTasks: ExecutionTask[] = [];
   const directoryTasks: ExecutionTask[] = [];
-  const rootTasks: ExecutionTask[] = [];
   const directoryFileMap: Record<string, string[]> = {};
 
   // Track files by directory
@@ -145,29 +142,11 @@ export function buildExecutionPlan(
     });
   }
 
-  // Create root document tasks
-  const allDirTaskIds = Object.keys(directoryFileMap).map(d => `dir:${d}`);
-
-  rootTasks.push({
-    id: 'root:CLAUDE.md',
-    type: 'root-doc',
-    path: 'CLAUDE.md',
-    absolutePath: path.join(projectRoot, 'CLAUDE.md'),
-    // Prompts are built at runtime by buildRootPrompt() in runner.ts Phase 3.
-    // These placeholders exist only for plan display and dependency tracking.
-    systemPrompt: 'Built at runtime by buildRootPrompt()',
-    userPrompt: 'Root document — prompt populated from AGENTS.md files at runtime.',
-    dependencies: allDirTaskIds,
-    outputPath: path.join(projectRoot, 'CLAUDE.md'),
-    metadata: {},
-  });
-
   return {
     projectRoot,
-    tasks: [...fileTasks, ...directoryTasks, ...rootTasks],
+    tasks: [...fileTasks, ...directoryTasks],
     fileTasks,
     directoryTasks,
-    rootTasks,
     directoryFileMap,
     projectStructure: plan.projectStructure,
   };
@@ -241,7 +220,6 @@ export function formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string {
   lines.push(`- **Total Tasks**: ${plan.tasks.length}`);
   lines.push(`- **File Tasks**: ${plan.fileTasks.length}`);
   lines.push(`- **Directory Tasks**: ${plan.directoryTasks.length}`);
-  lines.push(`- **Root Tasks**: ${plan.rootTasks.length}`);
   lines.push('- **Traversal**: Post-order (children before parents)');
   lines.push('');
   lines.push('---');
@@ -302,15 +280,6 @@ export function formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string {
     }
     lines.push('');
   }
-
-  lines.push('---');
-  lines.push('');
-
-  // Phase 3: Root Documents
-  lines.push('## Phase 3: Root Documents');
-  lines.push('');
-  lines.push('- [ ] `CLAUDE.md`');
-  lines.push('');
 
   return lines.join('\n');
 }

@@ -9,3 +9,7 @@ export {
 export {
   writeAgentsMd,
 } from './agents-md.js';
+
+export {
+  writeClaudeMdPointer,
+} from './claude-md.js';

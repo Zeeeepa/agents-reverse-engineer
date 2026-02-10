@@ -6,7 +6,7 @@
  * 2. Detecting file types and creating analysis tasks
  * 3. Resolving an AI CLI backend
  * 4. Running concurrent AI analysis via CommandRunner
- * 5. Producing .sum files, AGENTS.md, and root documents
+ * 5. Producing .sum files, AGENTS.md, and companion CLAUDE.md per directory
  *
  * With --dry-run, shows the plan without making any AI calls.
  */
@@ -138,7 +138,6 @@ export async function generateCommand(
     console.log(pc.bold('\n--- Dry Run Summary ---\n'));
     console.log(`  Files to analyze:     ${pc.cyan(String(executionPlan.fileTasks.length))}`);
     console.log(`  Directories:          ${pc.cyan(String(dirCount))}`);
-    console.log(`  Root documents:       ${pc.cyan(String(executionPlan.rootTasks.length))}`);
     console.log(`  Estimated AI calls:   ${pc.cyan(String(executionPlan.tasks.length))}`);
     console.log('');
     console.log(pc.dim('Files:'));

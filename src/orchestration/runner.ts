@@ -1,28 +1,28 @@
 /**
- * Three-phase command runner for AI-driven documentation generation.
+ * Two-phase command runner for AI-driven documentation generation.
  *
  * Wires together {@link AIService}, {@link ExecutionPlan}, the concurrency
  * pool, and the progress reporter into a cohesive execution engine.
  *
- * The three execution phases match the {@link ExecutionPlan} dependency graph:
+ * The two execution phases match the {@link ExecutionPlan} dependency graph:
  * 1. **File analysis** -- concurrent AI calls with configurable parallelism
- * 2. **Directory docs** -- concurrent per depth level, post-order AGENTS.md generation
- * 3. **Root documents** -- sequential AI calls for CLAUDE.md, ARCHITECTURE.md, etc.
+ * 2. **Directory docs** -- concurrent per depth level, post-order AGENTS.md + companion CLAUDE.md generation
  *
  * @module
  */
 
 import * as path from 'node:path';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import type { AIService } from '../ai/index.js';
 import type { AIResponse } from '../ai/types.js';
 import type { ExecutionPlan, ExecutionTask } from '../generation/executor.js';
 import { writeSumFile, readSumFile, writeAnnexFile } from '../generation/writers/sum.js';
 import type { SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
+import { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 import { computeContentHashFromString } from '../change-detection/index.js';
 import type { FileChange } from '../change-detection/types.js';
-import { buildFilePrompt, buildDirectoryPrompt, buildRootPrompt } from '../generation/prompts/index.js';
+import { buildFilePrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
 import { CONFIG_DIR } from '../config/loader.js';
 import {
@@ -100,10 +100,9 @@ export class CommandRunner {
   /**
    * Execute the `generate` command using a pre-built execution plan.
    *
-   * Runs all three phases:
+   * Runs two phases:
    * 1. File tasks concurrently through the pool
-   * 2. Directory AGENTS.md generation (post-order)
-   * 3. Root document generation (sequential)
+   * 2. Directory AGENTS.md + companion CLAUDE.md generation (post-order)
    *
    * @param plan - The execution plan from the generation orchestrator
    * @returns Aggregated run summary
@@ -451,6 +450,7 @@ export class CommandRunner {
             taskLabel: `${dirTask.path}/AGENTS.md`,
           });
           await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
+          await writeClaudeMdPointer(dirTask.absolutePath);
           const dirDurationMs = Date.now() - dirCallStart;
           reporter.onDirectoryDone(
             dirTask.path,
@@ -515,92 +515,6 @@ export class CommandRunner {
     } catch (err) {
       console.error(`[quality] Phantom path validation failed: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-    // -------------------------------------------------------------------
-    // Phase 3: Root documents (sequential)
-    // -------------------------------------------------------------------
-
-    const phase3Start = Date.now();
-    this.tracer?.emit({
-      type: 'phase:start',
-      phase: 'phase-3-root',
-      taskCount: plan.rootTasks.length,
-      concurrency: 1,
-    });
-
-    let rootTasksCompleted = 0;
-    let rootTasksFailed = 0;
-    for (const rootTask of plan.rootTasks) {
-      const taskStart = Date.now();
-
-      // Emit task:start event
-      this.tracer?.emit({
-        type: 'task:start',
-        taskLabel: rootTask.path,
-        phase: 'phase-3-root',
-      });
-
-      try {
-        // Build prompt at runtime with all AGENTS.md content injected
-        const rootPrompt = await buildRootPrompt(plan.projectRoot, this.options.debug);
-
-        const response = await this.aiService.call({
-          prompt: rootPrompt.user,
-          systemPrompt: rootPrompt.system,
-          taskLabel: rootTask.path,
-          maxTurns: 1, // All context in prompt; no tool use needed
-        });
-
-        // Strip conversational preamble if the LLM still adds one
-        let content = response.text;
-        const mdStart = content.indexOf('# ');
-        if (mdStart > 0) {
-          const preamble = content.slice(0, mdStart).trim();
-          if (preamble && !preamble.startsWith('#') && !preamble.startsWith('<!--')) {
-            content = content.slice(mdStart);
-          }
-        }
-
-        await writeFile(rootTask.outputPath, content, 'utf-8');
-        reporter.onRootDone(rootTask.path);
-        planTracker.markDone(rootTask.path);
-        rootTasksCompleted++;
-
-        // Emit task:done event (success)
-        this.tracer?.emit({
-          type: 'task:done',
-          workerId: 0, // Sequential execution, single worker
-          taskIndex: rootTasksCompleted - 1,
-          taskLabel: rootTask.path,
-          durationMs: Date.now() - taskStart,
-          success: true,
-          activeTasks: 0, // Sequential, only one active at a time
-        });
-      } catch (error) {
-        rootTasksFailed++;
-
-        // Emit task:done event (failure)
-        this.tracer?.emit({
-          type: 'task:done',
-          workerId: 0,
-          taskIndex: rootTasksCompleted + rootTasksFailed - 1,
-          taskLabel: rootTask.path,
-          durationMs: Date.now() - taskStart,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          activeTasks: 0,
-        });
-        throw error; // Re-throw to maintain existing error handling
-      }
-    }
-
-    this.tracer?.emit({
-      type: 'phase:end',
-      phase: 'phase-3-root',
-      durationMs: Date.now() - phase3Start,
-      tasksCompleted: rootTasksCompleted,
-      tasksFailed: rootTasksFailed,
-    });
 
     // Ensure all plan tracker writes are flushed
     await planTracker.flush();

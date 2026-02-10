@@ -257,17 +257,3 @@ USER NOTES:
 - Do NOT repeat or paraphrase user notes in your generated content — they are included separately
 - You may reference information from user notes for context`;
 
-/**
- * System prompt for root CLAUDE.md generation.
- * Used by buildRootPrompt() in builder.ts.
- */
-export const ROOT_SYSTEM_PROMPT = `You generate markdown documentation files. Output ONLY the raw markdown content.
-Do NOT include any conversational text, preamble, or meta-commentary.
-Do NOT say "Here is..." or "I've generated..." — just output the document itself.
-The output will be written directly to a file.
-
-CRITICAL CONSTRAINT:
-- Synthesize ONLY from the AGENTS.md content provided in the user prompt
-- Do NOT invent, extrapolate, or hallucinate features, hooks, APIs, patterns, or dependencies not explicitly mentioned
-- If information is missing, omit that section rather than guessing
-- Every claim must be traceable to a specific AGENTS.md file provided`;

@@ -16,6 +16,7 @@ import {
   type UpdatePlan,
 } from '../update/index.js';
 import { writeAgentsMd, GENERATED_MARKER } from '../generation/writers/agents-md.js';
+import { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 import { buildDirectoryPrompt } from '../generation/prompts/index.js';
 import {
   AIService,
@@ -348,6 +349,7 @@ export async function updateCommand(
             systemPrompt: prompt.system,
           });
           await writeAgentsMd(dirPath, absolutePath, response.text);
+          await writeClaudeMdPointer(dirPath);
           const dirDurationMs = Date.now() - taskStart;
           dirReporter.onDirectoryDone(
             dir || '.',
