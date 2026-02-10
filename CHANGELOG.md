@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-02-10
+
+### Added
+- **Companion CLAUDE.md pointer files** — Phase 2 directory synthesis now generates a deterministic `CLAUDE.md` alongside each `AGENTS.md`, using `@AGENTS.md` import syntax instead of AI-generated content. User-authored `CLAUDE.md` files are preserved as `CLAUDE.local.md` (with `@CLAUDE.local.md` import added automatically)
+- **Benchmark infrastructure** — New `benchmark/` directory with E2E trial scripts (`run-benchmark.sh`, `run-trial.sh`, `setup.sh`, `verify.sh`, `analyze.ts`) for systematic ARE performance and quality evaluation across repositories
+
+### Changed
+- **Three-phase pipeline reduced to two phases** — Phase 3 (root document generation via AI call) eliminated. `CLAUDE.md` is now a lightweight `@`-import pointer generated deterministically during Phase 2, removing an entire AI call phase and simplifying the execution plan
+- **`clean` command extended for CLAUDE.md** — Now discovers and deletes generated `CLAUDE.md` files (marker-checked), restores `CLAUDE.local.md` → `CLAUDE.md`, and reports CLAUDE.md counts separately in cleanup summary
+- **Execution plan simplified** — `ExecutionTask.type` narrowed from `'file' | 'directory' | 'root-doc'` to `'file' | 'directory'`; `ExecutionPlan.rootTasks` removed; ~126 lines of Phase 3 runner code deleted from `src/orchestration/runner.ts`
+
 ## [0.7.4] - 2026-02-10
 
 ### Added
@@ -587,7 +598,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.4...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.5...HEAD
+[0.7.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.1...v0.7.2
