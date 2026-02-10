@@ -7,6 +7,9 @@
 **Generate `.sum` files, `AGENTS.md`, and root docs for Claude Code, OpenCode, and any AI assistant that supports `AGENTS.md`.**
 
 [![npm version](https://img.shields.io/npm/v/agents-reverse-engineer?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/agents-reverse-engineer)
+[![npm downloads](https://img.shields.io/npm/dw/agents-reverse-engineer?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/agents-reverse-engineer)
+[![GitHub stars](https://img.shields.io/github/stars/GeoloeG-IsT/agents-reverse-engineer?style=for-the-badge&logo=github&color=181717)](https://github.com/GeoloeG-IsT/agents-reverse-engineer)
+[![Last commit](https://img.shields.io/github/last-commit/GeoloeG-IsT/agents-reverse-engineer?style=for-the-badge&logo=github&color=181717)](https://github.com/GeoloeG-IsT/agents-reverse-engineer/commits)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
 <br>
@@ -28,6 +31,15 @@ _"No more explaining the same architecture in every conversation."_
 <br>
 
 [Why This Exists](#why-this-exists) · [How It Works](#how-it-works) · [Commands](#commands) · [Generated Docs](#generated-documentation)
+
+<br>
+
+### Works with
+
+[<img src="https://img.shields.io/badge/Claude_Code-F97316?style=for-the-badge&logo=anthropic&logoColor=white" alt="Claude Code">](https://claude.ai/claude-code)
+[<img src="https://img.shields.io/badge/Gemini_CLI-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini CLI">](https://github.com/google-gemini/gemini-cli)
+[<img src="https://img.shields.io/badge/OpenCode-000000?style=for-the-badge&logo=github&logoColor=white" alt="OpenCode">](https://github.com/opencode-ai/opencode)
+[<img src="https://img.shields.io/badge/Any_AGENTS.md_tool-6B7280?style=for-the-badge" alt="Any AGENTS.md tool">](#)
 
 </div>
 
@@ -338,6 +350,14 @@ ai:
   - [Gemini CLI](https://github.com/google-gemini/gemini-cli) (full support + session hooks)
   - [OpenCode](https://github.com/opencode-ai/opencode) (AGENTS.md supported)
   - Any assistant supporting `AGENTS.md` format
+
+---
+
+## Contributing
+
+Contributions are welcome! Whether it's bug reports, feature requests, or pull requests — all input is valued.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ---
 

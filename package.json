@@ -37,7 +37,17 @@
     "codebase",
     "ai",
     "agents",
-    "reverse-engineering"
+    "reverse-engineering",
+    "claude-code",
+    "gemini-cli",
+    "opencode",
+    "agents-md",
+    "code-documentation",
+    "ai-documentation",
+    "codebase-analysis",
+    "developer-tools",
+    "cli",
+    "llm"
   ],
   "author": "GeoloeG-IsT",
   "license": "MIT",
