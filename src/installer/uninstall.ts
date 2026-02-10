@@ -7,6 +7,7 @@
 
 import { existsSync, unlinkSync, readFileSync, writeFileSync, readdirSync, rmdirSync, rmSync } from 'node:fs';
 import * as path from 'node:path';
+import { parse, modify, applyEdits } from 'jsonc-parser';
 import type { Runtime, Location, InstallerResult } from './types.js';
 import { resolveInstallPath, getAllRuntimes, getRuntimePaths } from './paths.js';
 import {
@@ -320,14 +321,15 @@ function unregisterClaudeHooks(basePath: string, dryRun: boolean): boolean {
     return false;
   }
 
-  // Load settings
-  let settings: SettingsJson;
+  // Load settings (JSONC-aware)
+  let content: string;
   try {
-    const content = readFileSync(settingsPath, 'utf-8');
-    settings = JSON.parse(content) as SettingsJson;
+    content = readFileSync(settingsPath, 'utf-8');
   } catch {
     return false;
   }
+
+  const settings = (parse(content) ?? {}) as SettingsJson;
 
   if (!settings.hooks) {
     return false;
@@ -363,13 +365,15 @@ function unregisterClaudeHooks(basePath: string, dryRun: boolean): boolean {
   }
 
   // Clean up empty hooks object
-  if (Object.keys(settings.hooks).length === 0) {
-    delete settings.hooks;
-  }
+  const hooksEmpty = Object.keys(settings.hooks).length === 0;
 
-  // Write updated settings
+  // Write updated settings preserving comments
   if (!dryRun) {
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    const fmt = { formattingOptions: { tabSize: 2, insertSpaces: true } };
+    const updated = hooksEmpty
+      ? applyEdits(content, modify(content, ['hooks'], undefined, fmt))
+      : applyEdits(content, modify(content, ['hooks'], settings.hooks, fmt));
+    writeFileSync(settingsPath, updated, 'utf-8');
   }
 
   return true;
@@ -392,14 +396,15 @@ export function unregisterPermissions(basePath: string, dryRun: boolean): boolea
     return false;
   }
 
-  // Load settings
-  let settings: SettingsJson;
+  // Load settings (JSONC-aware)
+  let content: string;
   try {
-    const content = readFileSync(settingsPath, 'utf-8');
-    settings = JSON.parse(content) as SettingsJson;
+    content = readFileSync(settingsPath, 'utf-8');
   } catch {
     return false;
   }
+
+  const settings = (parse(content) ?? {}) as SettingsJson;
 
   // Check if permissions.allow exists
   if (!settings.permissions?.allow) {
@@ -423,13 +428,15 @@ export function unregisterPermissions(basePath: string, dryRun: boolean): boolea
     delete settings.permissions.allow;
   }
 
-  if (settings.permissions && Object.keys(settings.permissions).length === 0) {
-    delete settings.permissions;
-  }
+  const permsEmpty = !settings.permissions || Object.keys(settings.permissions).length === 0;
 
-  // Write updated settings
+  // Write updated settings preserving comments
   if (!dryRun) {
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    const fmt = { formattingOptions: { tabSize: 2, insertSpaces: true } };
+    const updated = permsEmpty
+      ? applyEdits(content, modify(content, ['permissions'], undefined, fmt))
+      : applyEdits(content, modify(content, ['permissions'], settings.permissions, fmt));
+    writeFileSync(settingsPath, updated, 'utf-8');
   }
 
   return true;
@@ -446,14 +453,15 @@ function unregisterGeminiHooks(basePath: string, dryRun: boolean): boolean {
     return false;
   }
 
-  // Load settings
-  let settings: GeminiSettingsJson;
+  // Load settings (JSONC-aware)
+  let content: string;
   try {
-    const content = readFileSync(settingsPath, 'utf-8');
-    settings = JSON.parse(content) as GeminiSettingsJson;
+    content = readFileSync(settingsPath, 'utf-8');
   } catch {
     return false;
   }
+
+  const settings = (parse(content) ?? {}) as GeminiSettingsJson;
 
   if (!settings.hooks) {
     return false;
@@ -489,13 +497,15 @@ function unregisterGeminiHooks(basePath: string, dryRun: boolean): boolean {
   }
 
   // Clean up empty hooks object
-  if (Object.keys(settings.hooks).length === 0) {
-    delete settings.hooks;
-  }
+  const hooksEmpty = Object.keys(settings.hooks).length === 0;
 
-  // Write updated settings
+  // Write updated settings preserving comments
   if (!dryRun) {
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    const fmt = { formattingOptions: { tabSize: 2, insertSpaces: true } };
+    const updated = hooksEmpty
+      ? applyEdits(content, modify(content, ['hooks'], undefined, fmt))
+      : applyEdits(content, modify(content, ['hooks'], settings.hooks, fmt));
+    writeFileSync(settingsPath, updated, 'utf-8');
   }
 
   return true;

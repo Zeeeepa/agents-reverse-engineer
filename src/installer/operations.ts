@@ -8,6 +8,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse, modify, applyEdits } from 'jsonc-parser';
 import type { Runtime, Location, InstallerResult } from './types.js';
 import { resolveInstallPath, getAllRuntimes } from './paths.js';
 import {
@@ -355,17 +356,17 @@ export function registerHooks(
  * Register ARE hooks in Claude Code settings.json format
  */
 function registerClaudeHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean {
-  // Load or create settings
-  let settings: SettingsJson = {};
+  // Load or create settings (JSONC-aware)
+  let content = '{}';
   if (existsSync(settingsPath)) {
     try {
-      const content = readFileSync(settingsPath, 'utf-8');
-      settings = JSON.parse(content) as SettingsJson;
+      content = readFileSync(settingsPath, 'utf-8');
     } catch {
-      // If can't parse, start fresh
-      settings = {};
+      // If can't read, start with empty object
     }
   }
+
+  const settings = (parse(content) ?? {}) as SettingsJson;
 
   // Ensure hooks structure exists
   if (!settings.hooks) {
@@ -406,10 +407,13 @@ function registerClaudeHooks(settingsPath: string, runtimeDir: string, dryRun: b
     return false;
   }
 
-  // Write settings if not dry run
+  // Write settings preserving comments outside the hooks section
   if (!dryRun) {
     ensureDir(settingsPath);
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    const updated = applyEdits(content, modify(content, ['hooks'], settings.hooks, {
+      formattingOptions: { tabSize: 2, insertSpaces: true },
+    }));
+    writeFileSync(settingsPath, updated, 'utf-8');
   }
 
   return true;
@@ -438,17 +442,17 @@ const ARE_PERMISSIONS = [
  * @returns true if permissions were added, false if already existed
  */
 export function registerPermissions(settingsPath: string, dryRun: boolean): boolean {
-  // Load or create settings
-  let settings: SettingsJson = {};
+  // Load or create settings (JSONC-aware)
+  let content = '{}';
   if (existsSync(settingsPath)) {
     try {
-      const content = readFileSync(settingsPath, 'utf-8');
-      settings = JSON.parse(content) as SettingsJson;
+      content = readFileSync(settingsPath, 'utf-8');
     } catch {
-      // If can't parse, start fresh
-      settings = {};
+      // If can't read, start with empty object
     }
   }
+
+  const settings = (parse(content) ?? {}) as SettingsJson;
 
   // Ensure permissions structure exists
   if (!settings.permissions) {
@@ -471,10 +475,13 @@ export function registerPermissions(settingsPath: string, dryRun: boolean): bool
     return false;
   }
 
-  // Write settings if not dry run
+  // Write settings preserving comments outside the permissions section
   if (!dryRun) {
     ensureDir(settingsPath);
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    const updated = applyEdits(content, modify(content, ['permissions'], settings.permissions, {
+      formattingOptions: { tabSize: 2, insertSpaces: true },
+    }));
+    writeFileSync(settingsPath, updated, 'utf-8');
   }
 
   return true;
@@ -484,17 +491,17 @@ export function registerPermissions(settingsPath: string, dryRun: boolean): bool
  * Register ARE hooks in Gemini CLI settings.json format
  */
 function registerGeminiHooks(settingsPath: string, runtimeDir: string, dryRun: boolean): boolean {
-  // Load or create settings
-  let settings: GeminiSettingsJson = {};
+  // Load or create settings (JSONC-aware)
+  let content = '{}';
   if (existsSync(settingsPath)) {
     try {
-      const content = readFileSync(settingsPath, 'utf-8');
-      settings = JSON.parse(content) as GeminiSettingsJson;
+      content = readFileSync(settingsPath, 'utf-8');
     } catch {
-      // If can't parse, start fresh
-      settings = {};
+      // If can't read, start with empty object
     }
   }
+
+  const settings = (parse(content) ?? {}) as GeminiSettingsJson;
 
   // Ensure hooks structure exists
   if (!settings.hooks) {
@@ -530,10 +537,13 @@ function registerGeminiHooks(settingsPath: string, runtimeDir: string, dryRun: b
     return false;
   }
 
-  // Write settings if not dry run
+  // Write settings preserving comments outside the hooks section
   if (!dryRun) {
     ensureDir(settingsPath);
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+    const updated = applyEdits(content, modify(content, ['hooks'], settings.hooks, {
+      formattingOptions: { tabSize: 2, insertSpaces: true },
+    }));
+    writeFileSync(settingsPath, updated, 'utf-8');
   }
 
   return true;
