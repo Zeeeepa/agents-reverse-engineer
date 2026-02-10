@@ -216,9 +216,7 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `are install --runtime <rt> -l` | Install to runtime locally       |
 | `are install -u`                | Uninstall (remove files/hooks)   |
 | `are init`                      | Create configuration file        |
-| `are discover`                  | List files that will be analyzed |
-| `are discover --plan`           | Create GENERATION-PLAN.md        |
-| `are discover --show-excluded`  | Show excluded files with reasons |
+| `are discover`                  | Scan files and create GENERATION-PLAN.md |
 | `are generate`                  | Generate all documentation       |
 | `are update`                    | Update changed files only        |
 | `are specify`                   | Generate project specification   |
@@ -306,7 +304,6 @@ options:
 # Output formatting
 output:
   colors: true              # Use colors in terminal output
-  verbose: true             # Show each file as processed
 
 # AI service configuration
 ai:
@@ -314,24 +311,17 @@ ai:
   model: sonnet             # Model identifier (backend-specific)
   timeoutMs: 300000         # Subprocess timeout in ms (5 minutes)
   maxRetries: 3             # Max retries for transient errors
-  concurrency: 5            # Parallel AI calls (1-10, lower for WSL/constrained envs)
+  concurrency: 10           # Parallel AI calls (1-20, auto-detected from CPU/RAM)
 
   telemetry:
     keepRuns: 50            # Number of run logs to keep
-    costThresholdUsd: 10.0  # Optional: warn when cost exceeds this (USD)
-
-  # Optional: Custom model pricing (override defaults)
-  pricing:
-    claude-opus-4:
-      inputCostPerMTok: 15.0    # USD per 1M input tokens
-      outputCostPerMTok: 75.0   # USD per 1M output tokens
 ```
 
 ### Key Config Options
 
 **Concurrency (`ai.concurrency`)**
-- Default: `5` (changed from 5 to 2 in WSL environments)
-- Range: `1-10`
+- Default: Auto-detected from CPU cores and available memory
+- Range: `1-20`
 - Lower values recommended for resource-constrained environments
 - Higher values speed up generation but use more memory
 
