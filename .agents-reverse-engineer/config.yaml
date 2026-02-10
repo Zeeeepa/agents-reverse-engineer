@@ -56,12 +56,15 @@ exclude:
     - target
     - .cargo
     - .gradle
-    - .agents-reverse-engineer
+    - .idea
+    - .vscode
     - .agents
     - .planning
     - .claude
     - .opencode
     - .gemini
+    - .agents-reverse-engineer
+    - benchmark
 
   # Binary file extensions to exclude from analysis
   # These files cannot be meaningfully analyzed as text

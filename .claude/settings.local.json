@@ -74,7 +74,10 @@
       "Bash(bash:*)",
       "WebFetch(domain:deepwiki.com)",
       "Bash(git reset:*)",
-      "Bash(git clean:*)"
+      "Bash(git clean:*)",
+      "Bash(git branch:*)",
+      "Bash(BENCH_MODEL=opus npx tsx:*)",
+      "Bash(BENCH_MODEL=opus BENCH_TASK=tags npx tsx:*)"
     ]
   }
 }
