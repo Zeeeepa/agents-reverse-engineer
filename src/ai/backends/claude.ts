@@ -23,11 +23,13 @@ import { AIServiceError } from '../types.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Schema validated against Claude CLI v2.1.31 JSON output.
+ * Schema for Claude CLI JSON result object.
  *
- * When invoked with `claude -p --output-format json`, the CLI produces a
- * single JSON object on stdout matching this shape. See RESEARCH.md for
- * the live verification details.
+ * Uses `.passthrough()` on nested objects so that new fields added by
+ * future CLI versions don't cause validation failures.
+ *
+ * Supports both legacy single-object output (CLI ≤ 2.1.31) and NDJSON
+ * streaming output (CLI ≥ 2.1.38).
  */
 const ClaudeResponseSchema = z.object({
   type: z.literal('result'),
@@ -44,15 +46,15 @@ const ClaudeResponseSchema = z.object({
     cache_creation_input_tokens: z.number(),
     cache_read_input_tokens: z.number(),
     output_tokens: z.number(),
-  }),
+  }).passthrough(),
   modelUsage: z.record(z.object({
     inputTokens: z.number(),
     outputTokens: z.number(),
     cacheReadInputTokens: z.number(),
     cacheCreationInputTokens: z.number(),
     costUSD: z.number(),
-  })),
-});
+  }).passthrough()),
+}).passthrough();
 
 // ---------------------------------------------------------------------------
 // PATH detection utility
@@ -177,9 +179,15 @@ export class ClaudeBackend implements AIBackend {
   /**
    * Parse Claude CLI JSON output into a normalized {@link AIResponse}.
    *
-   * Handles non-JSON prefix text by finding the first `{` character
-   * (defensive parsing per RESEARCH.md Pitfall 4). Validates the response
-   * against the Zod schema and extracts the model name from `modelUsage`.
+   * Supports two output formats:
+   * - **Legacy** (CLI ≤ 2.1.31): Single JSON object on stdout, possibly
+   *   preceded by non-JSON text (upgrade notices, etc.)
+   * - **NDJSON** (CLI ≥ 2.1.38): Multiple newline-delimited JSON objects
+   *   (`system`, `assistant`, `result`). We extract the `{"type":"result",...}`
+   *   line and parse that.
+   *
+   * Validates the response against the Zod schema and extracts the model
+   * name from `modelUsage`.
    *
    * @param stdout - Raw stdout from the Claude CLI process
    * @param durationMs - Wall-clock duration of the subprocess
@@ -188,18 +196,20 @@ export class ClaudeBackend implements AIBackend {
    * @throws {AIServiceError} With code `PARSE_ERROR` if JSON is missing or schema validation fails
    */
   parseResponse(stdout: string, durationMs: number, exitCode: number): AIResponse {
-    // Find JSON object in stdout (handle any prefix text like upgrade notices)
-    const jsonStart = stdout.indexOf('{');
-    if (jsonStart === -1) {
+    // Try NDJSON format first: find the line containing the result object.
+    // Claude CLI ≥ 2.1.38 emits multiple JSON lines; we need the "result" one.
+    const resultJson = this.extractResultJson(stdout);
+
+    if (resultJson === undefined) {
       throw new AIServiceError(
         'PARSE_ERROR',
-        `No JSON object found in Claude CLI output. Raw output (first 200 chars): ${stdout.slice(0, 200)}`,
+        `No JSON result object found in Claude CLI output. Raw output (first 200 chars): ${stdout.slice(0, 200)}`,
       );
     }
 
     let parsed: z.infer<typeof ClaudeResponseSchema>;
     try {
-      parsed = ClaudeResponseSchema.parse(JSON.parse(stdout.slice(jsonStart)));
+      parsed = ClaudeResponseSchema.parse(JSON.parse(resultJson));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new AIServiceError(
@@ -222,6 +232,61 @@ export class ClaudeBackend implements AIBackend {
       exitCode,
       raw: parsed,
     };
+  }
+
+  /**
+   * Extract the result JSON string from Claude CLI stdout.
+   *
+   * Handles three output formats:
+   * - **JSON array** (CLI ≥ 2.1.38): `[{system}, {assistant}, {result}]`
+   *   Parses the array, finds the element with `type: "result"`, and
+   *   re-serializes it.
+   * - **NDJSON**: Multiple newline-delimited JSON objects. Finds the
+   *   line with `type: "result"`.
+   * - **Legacy** (CLI ≤ 2.1.31): A single JSON object (possibly preceded
+   *   by non-JSON text).
+   *
+   * @param stdout - Raw stdout from the CLI process
+   * @returns The JSON string for the result object, or `undefined` if not found
+   */
+  private extractResultJson(stdout: string): string | undefined {
+    const trimmed = stdout.trim();
+
+    // Strategy 1: JSON array — `[{...}, {...}, {...}]`
+    if (trimmed.startsWith('[')) {
+      try {
+        const arr = JSON.parse(trimmed) as Array<Record<string, unknown>>;
+        const result = arr.find((item) => item.type === 'result');
+        if (result !== undefined) {
+          return JSON.stringify(result);
+        }
+      } catch {
+        // Not a valid JSON array; fall through to other strategies
+      }
+    }
+
+    // Strategy 2: NDJSON — look for a line that is the result object
+    const lines = stdout.split('\n');
+    for (const line of lines) {
+      const l = line.trim();
+      if (!l.startsWith('{')) continue;
+      try {
+        const obj = JSON.parse(l) as Record<string, unknown>;
+        if (obj.type === 'result') {
+          return l;
+        }
+      } catch {
+        // Not a complete JSON line, skip
+      }
+    }
+
+    // Strategy 3: Legacy single-object — find first `{` and try to parse
+    const jsonStart = stdout.indexOf('{');
+    if (jsonStart !== -1) {
+      return stdout.slice(jsonStart);
+    }
+
+    return undefined;
   }
 
   /**
