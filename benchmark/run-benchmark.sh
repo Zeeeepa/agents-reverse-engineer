@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/config.sh"
 
 echo "=== ARE E2E Benchmark ==="
+echo "Task: $BENCH_TASK"
 echo "Trials per condition: $BENCH_TRIALS"
 echo "Model: $BENCH_MODEL"
 echo "Max turns: $BENCH_MAX_TURNS"
@@ -55,7 +56,8 @@ done
 echo ""
 echo "=== All trials complete. Generating analysis... ==="
 
-# Run analysis
+# Run analysis (export config vars for analyze.ts)
+export BENCH_MODEL BENCH_TASK
 npx tsx "$SCRIPT_DIR/analyze.ts"
 
 echo ""

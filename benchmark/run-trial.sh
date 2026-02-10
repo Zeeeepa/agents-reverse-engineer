@@ -125,7 +125,7 @@ echo "Metrics: $METRICS"
 
 # Run verification
 echo "Running verification..."
-VERIFY_OUTPUT=$("$SCRIPT_DIR/verify.sh" "$BENCH_TEST_REPO" --json)
+VERIFY_OUTPUT=$("$BENCH_VERIFY_SCRIPT" "$BENCH_TEST_REPO" --json)
 echo "Verification: $VERIFY_OUTPUT"
 
 # Assemble final result JSON

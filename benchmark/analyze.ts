@@ -128,6 +128,9 @@ function analyzeCondition(trials: TrialResult[]): ConditionStats {
 const without = withoutTrials.length > 0 ? analyzeCondition(withoutTrials) : null;
 const withAre = withTrials.length > 0 ? analyzeCondition(withTrials) : null;
 
+const allTrials = [...withoutTrials, ...withTrials];
+const totalChecks = allTrials[0]?.verification?.total || "?";
+
 // ---------- Generate Report ----------
 
 let md = `# ARE E2E Benchmark Results\n\n`;
@@ -146,8 +149,8 @@ if (without && withAre) {
   md += `| Cache Read Tokens (mean) | ${fmtTokens(without.cacheReadTokens.mean)} | ${fmtTokens(withAre.cacheReadTokens.mean)} | ${delta(without.cacheReadTokens.mean, withAre.cacheReadTokens.mean)} |\n`;
   md += `| Total Tokens (mean) | ${fmtTokens(without.totalTokens.mean)} | ${fmtTokens(withAre.totalTokens.mean)} | ${delta(without.totalTokens.mean, withAre.totalTokens.mean)} |\n`;
   md += `| Cost USD (mean) | $${fmt(without.cost.mean, 3)} | $${fmt(withAre.cost.mean, 3)} | ${delta(without.cost.mean, withAre.cost.mean)} |\n`;
-  md += `| Verification Score (mean) | ${fmt(without.verifyScore.mean)}/9 | ${fmt(withAre.verifyScore.mean)}/9 | ${delta(without.verifyScore.mean, withAre.verifyScore.mean)} |\n`;
-  md += `| Success Rate (≥6/9) | ${fmt(without.successRate * 100)}% | ${fmt(withAre.successRate * 100)}% | — |\n`;
+  md += `| Verification Score (mean) | ${fmt(without.verifyScore.mean)}/${totalChecks} | ${fmt(withAre.verifyScore.mean)}/${totalChecks} | ${delta(without.verifyScore.mean, withAre.verifyScore.mean)} |\n`;
+  md += `| Success Rate (≥6/${totalChecks}) | ${fmt(without.successRate * 100)}% | ${fmt(withAre.successRate * 100)}% | — |\n`;
   md += `\n`;
 
   // Interpretation
@@ -184,7 +187,7 @@ function conditionTable(label: string, stats: ConditionStats): string {
   s += `| Output Tokens | ${fmtTokens(stats.outputTokens.mean)} | ${fmtTokens(stats.outputTokens.stdDev)} | ${fmtTokens(stats.outputTokens.min)} | ${fmtTokens(stats.outputTokens.max)} | ${fmtTokens(stats.outputTokens.median)} |\n`;
   s += `| Total Tokens | ${fmtTokens(stats.totalTokens.mean)} | ${fmtTokens(stats.totalTokens.stdDev)} | ${fmtTokens(stats.totalTokens.min)} | ${fmtTokens(stats.totalTokens.max)} | ${fmtTokens(stats.totalTokens.median)} |\n`;
   s += `| Cost USD | $${fmt(stats.cost.mean, 3)} | $${fmt(stats.cost.stdDev, 3)} | $${fmt(stats.cost.min, 3)} | $${fmt(stats.cost.max, 3)} | $${fmt(stats.cost.median, 3)} |\n`;
-  s += `| Verify Score | ${fmt(stats.verifyScore.mean)}/9 | ${fmt(stats.verifyScore.stdDev)} | ${fmt(stats.verifyScore.min)} | ${fmt(stats.verifyScore.max)} | ${fmt(stats.verifyScore.median)} |\n`;
+  s += `| Verify Score | ${fmt(stats.verifyScore.mean)}/${totalChecks} | ${fmt(stats.verifyScore.stdDev)} | ${fmt(stats.verifyScore.min)} | ${fmt(stats.verifyScore.max)} | ${fmt(stats.verifyScore.median)} |\n`;
   s += `\n`;
 
   // Per-trial breakdown
@@ -192,7 +195,7 @@ function conditionTable(label: string, stats: ConditionStats): string {
   s += `| Trial | Time | Turns | Total Tokens | Cost | Score | Pass? |\n`;
   s += `|-------|------|-------|-------------|------|-------|-------|\n`;
   for (const t of stats.trials) {
-    s += `| ${t.trial} | ${fmtMs(t.wall_clock_ms)} | ${t.num_turns} | ${fmtTokens(t.total_tokens)} | $${fmt(t.total_cost_usd, 3)} | ${t.verification.passed}/9 | ${t.verification.success ? "✅" : "❌"} |\n`;
+    s += `| ${t.trial} | ${fmtMs(t.wall_clock_ms)} | ${t.num_turns} | ${fmtTokens(t.total_tokens)} | $${fmt(t.total_cost_usd, 3)} | ${t.verification.passed}/${totalChecks} | ${t.verification.success ? "✅" : "❌"} |\n`;
   }
   s += `\n`;
   return s;
@@ -203,15 +206,19 @@ if (withAre) md += conditionTable("With ARE", withAre);
 
 // Methodology
 md += `## Methodology\n\n`;
+const taskName = process.env.BENCH_TASK || "unknown";
+const taskDescriptions: Record<string, string> = {
+  tags: "Tags/Labels system (~8-15 new files, new entity + module)",
+  duedate: "Due Dates (~5-8 files, mostly modifications to existing code)",
+};
 md += `- **Test repo**: htamagnus/to-do-fullstack-nestjs-react (NestJS + React + MySQL + TypeScript)\n`;
-md += `- **Feature**: Tags/Labels system (~8-15 files)\n`;
-const allTrials = [...withoutTrials, ...withTrials];
+md += `- **Task**: ${taskDescriptions[taskName] || taskName}\n`;
 const maxTurns = Math.max(...allTrials.map((t) => t.num_turns), 0);
 const maxCost = Math.max(...allTrials.map((t) => t.total_cost_usd), 0);
-md += `- **Model**: Sonnet, max-turns observed: ${maxTurns}, max cost observed: $${fmt(maxCost, 2)}\n`;
+md += `- **Model**: ${process.env.BENCH_MODEL || "unknown"}, max-turns observed: ${maxTurns}, max cost observed: $${fmt(maxCost, 2)}\n`;
 md += `- **Tools**: Read, Write, Edit, Bash, Glob, Grep (no Task/subagents)\n`;
 md += `- **Cooldown**: 30s between trials\n`;
-md += `- **Verification**: 9-point checklist, success threshold ≥6/9\n`;
+md += `- **Verification**: ${totalChecks}-point checklist\n`;
 md += `- **ARE condition**: Full pipeline (init → discover → generate) committed to branch\n`;
 
 // Write output
