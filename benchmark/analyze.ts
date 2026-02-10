@@ -150,7 +150,7 @@ if (without && withAre) {
   md += `| Total Tokens (mean) | ${fmtTokens(without.totalTokens.mean)} | ${fmtTokens(withAre.totalTokens.mean)} | ${delta(without.totalTokens.mean, withAre.totalTokens.mean)} |\n`;
   md += `| Cost USD (mean) | $${fmt(without.cost.mean, 3)} | $${fmt(withAre.cost.mean, 3)} | ${delta(without.cost.mean, withAre.cost.mean)} |\n`;
   md += `| Verification Score (mean) | ${fmt(without.verifyScore.mean)}/${totalChecks} | ${fmt(withAre.verifyScore.mean)}/${totalChecks} | ${delta(without.verifyScore.mean, withAre.verifyScore.mean)} |\n`;
-  md += `| Success Rate (≥6/${totalChecks}) | ${fmt(without.successRate * 100)}% | ${fmt(withAre.successRate * 100)}% | — |\n`;
+  md += `| Success Rate | ${fmt(without.successRate * 100)}% | ${fmt(withAre.successRate * 100)}% | — |\n`;
   md += `\n`;
 
   // Interpretation
