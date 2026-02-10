@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-02-10
+
+### Added
+- **JSONC support in VS Code settings** — `are init` now handles VS Code `settings.json` files containing comments and trailing commas (JSONC format). New `stripJsonc()` function strips line/block comments and trailing commas before parsing; unparseable files are left untouched to avoid data loss
+- **Benchmark due date prompt** — New `benchmark/prompts/duedate.md` prompt and `benchmark/verify-duedate.sh` verification script for evaluating due date feature implementation
+
+### Changed
+- **Benchmark infrastructure reorganized** — Prompts moved to `benchmark/prompts/` subdirectory (`prompt.md` → `prompts/tags.md`), verification scripts renamed with feature prefixes (`verify.sh` → `verify-tags.sh`)
+
+### Fixed
+- **Benchmark success rate label** — Corrected label text in `benchmark/analyze.ts` for clarity
+
 ## [0.7.5] - 2026-02-10
 
 ### Added
@@ -598,7 +610,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.5...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.6...HEAD
+[0.7.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.4...v0.7.5
 [0.7.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.2...v0.7.3
