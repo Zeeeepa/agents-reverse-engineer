@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.11] - 2026-02-11
+
+### Added
+- **Workflow & convention rule extraction in file analysis prompts** — `FILE_SYSTEM_PROMPT` now instructs the AI to extract contribution guidelines, PR conventions, commit standards, testing mandates, tool usage requirements, approval workflows, AI agent behavioral instructions, and code conventions (naming, formatting, linting) as explicit actionable rules from sources like CONTRIBUTING.md, CI configs, PR templates, and linter/formatter configs
+- **"Workflow & Conventions" section type in directory AGENTS.md prompts** — `DIRECTORY_SYSTEM_PROMPT` includes new section type for collecting workflow rules from file summaries into actionable directives
+- **Mandatory preservation of workflow rules in incremental updates** — `FILE_UPDATE_SYSTEM_PROMPT` and `DIRECTORY_UPDATE_SYSTEM_PROMPT` now mandate verbatim preservation of contribution guidelines, testing mandates, and code conventions unless the source file changed them
+- **Exclusion review process in `/are-discover` skill** — After discovery, the skill now scans the generation plan for test files, CI/CD configs, tool configs, migrations, fixtures, type declarations, and Docker/infra files, presenting a summary table with proposed exclusion patterns and allowing multi-select exclusion via `AskUserQuestion`
+
 ## [0.7.10] - 2026-02-11
 
 ### Added
@@ -646,7 +654,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.10...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.11...HEAD
+[0.7.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.10...v0.7.11
 [0.7.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.9...v0.7.10
 [0.7.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.8...v0.7.9
 [0.7.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.7...v0.7.8
