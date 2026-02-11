@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.12] - 2026-02-11
+
+### Added
+- **`*.local.md` exclusion patterns** — Added `*.local.md` and `**/*.local.md` to `DEFAULT_EXCLUDE_PATTERNS` in `src/config/defaults.ts` and project `config.yaml`, preventing local markdown files (e.g., `AGENTS.local.md`, `CLAUDE.local.md`) from being discovered and documented during analysis
+
 ## [0.7.11] - 2026-02-11
 
 ### Added
@@ -654,7 +659,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.11...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.12...HEAD
+[0.7.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.11...v0.7.12
 [0.7.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.10...v0.7.11
 [0.7.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.9...v0.7.10
 [0.7.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.8...v0.7.9
