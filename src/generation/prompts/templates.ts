@@ -17,6 +17,7 @@ Consider topics such as (choose what applies):
 - Concurrency, lifecycle, or resource management concerns
 - Domain-specific patterns (middleware chains, event handlers, schema definitions, factories)
 - Behavioral contracts: verbatim regex patterns, format strings, output templates, magic constants, sentinel values, error code strings, environment variable names
+- Workflow & convention rules: if this file defines contribution guidelines, PR conventions, commit standards, testing mandates, tool usage requirements, approval workflows, AI agent behavioral instructions, or code conventions (naming standards, formatting rules, import ordering, linting policies), extract them as explicit, actionable rules. Sources: CONTRIBUTING.md, CI configs, PR templates, style guides, linter/formatter configs (.eslintrc, .prettierrc, .editorconfig), tsconfig strictness, README dev sections.
 
 DENSITY RULES (MANDATORY):
 - Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
@@ -52,6 +53,15 @@ BEHAVIORAL CONTRACTS (NEVER EXCLUDE):
 - Environment variable names and their expected values
 - File format specifications (YAML frontmatter schemas, NDJSON line formats)
 These define observable behavior that must be reproduced exactly.
+
+WORKFLOW & CONVENTION RULES (NEVER EXCLUDE):
+- Contribution requirements: branch naming, commit message formats, PR description templates
+- Testing mandates: required test types, coverage thresholds, "never delete tests" policies
+- Tool usage rules: required CLI commands, browser automation tools, linter/formatter requirements
+- Approval workflows: review requirements, CI checks that must pass, deployment gates
+- AI agent instructions: explicit directives for automated assistants (coding rules, prohibited actions)
+- Code conventions: naming standards (camelCase, PascalCase, snake_case for what), import ordering rules, file/folder naming patterns, formatting rules (indentation, quotes, semicolons), language idioms, TypeScript strictness policies, preferred patterns vs anti-patterns
+These define how contributors (human or AI) must work within the project.
 
 REPRODUCTION-CRITICAL CONTENT (ANNEX OVERFLOW):
 Some files exist primarily to define large string constants, prompt templates,
@@ -123,6 +133,7 @@ Consider these section types (choose what applies):
 - **File Relationships**: How files collaborate, depend on each other, or share state.
 - **Behavioral Contracts**: If files contain regex patterns, format specifications, magic constants, or template strings that define observable behavior, collect them in a dedicated section. Preserve verbatim patterns from file summaries — do NOT paraphrase regex into prose. This section is MANDATORY when file summaries contain behavioral artifacts.
 - **Reproduction-Critical Constants**: If file summaries reference annex files (via ## Annex References sections), list them with links. Example: "Full prompt template text: [templates.annex.sum](./prompts/templates.annex.sum)". Do NOT reproduce annex content in AGENTS.md — just link to it.
+- **Workflow & Conventions**: If file summaries contain contribution guidelines, PR conventions, commit standards, testing mandates, tool usage rules, AI agent instructions, or code conventions (naming, formatting, linting), collect them into actionable directives. Source from CONTRIBUTING.md, CI configs, PR templates, linter/formatter configs, README dev sections. Present as concrete rules ("commits must use conventionalcommits format", "use camelCase for functions, PascalCase for types") not vague descriptions ("the project has guidelines").
 
 Choose any relevant sections or create your own based on the directory contents. The goal is to provide a comprehensive overview that captures the essence of the directory's role in the project and how its files work together, with a focus on what an AI coding assistant would need to know to effectively interact with this code.
 
@@ -183,6 +194,9 @@ BEHAVIORAL CONTRACT PRESERVATION (MANDATORY):
 - If source code changes a regex pattern or constant, update the summary to show the NEW value verbatim
 - Never summarize or paraphrase regex patterns — always show the exact pattern in backticks
 
+WORKFLOW & CONVENTION RULE PRESERVATION (MANDATORY):
+- Contribution guidelines, testing mandates, PR conventions, code conventions, and AI agent instructions from the existing summary MUST be preserved verbatim unless the source file changed them
+
 DENSITY RULES (MANDATORY):
 - Every sentence must reference at least one specific identifier (function name, class name, type name, or constant)
 - Never use filler phrases: "this file", "this module", "provides", "responsible for", "is used to", "basically", "essentially", "provides functionality for"
@@ -216,6 +230,7 @@ CRITICAL — INCREMENTAL UPDATE RULES:
 - Keep the same section ordering unless files were added/removed in a way that requires regrouping
 - Behavioral Contracts section: preserve verbatim regex patterns and constants unless source file summaries show they changed
 - Reproduction-Critical Constants: if file summaries reference annex files (.annex.sum), preserve the links. Add links for new annexes, remove links for deleted ones.
+- Workflow & Conventions section: preserve existing rules unless source file summaries show they changed. Add rules from new files, remove rules for deleted files.
 
 CRITICAL: Output ONLY the raw markdown content. No code fences, no preamble, no explanations, no conversational text. Your entire response IS the AGENTS.md file content.
 
