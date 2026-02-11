@@ -2,23 +2,18 @@
 
 # docs
 
-Project requirements and design vision for Agents Reverse Engineer (ARE). INPUT.md defines the brownfield documentation automation tool, specifies the Recursive Language Model (RLM) execution strategy, and outlines integration targets with Claude Code, OpenCode, SpecKit, BMAD, and Get Shit Done (GSD).
+Project specification and vision documents that define the agents-reverse-engineer (ARE) workflow, RLM algorithm, and integration strategy.
 
 ## Contents
 
-- **[INPUT.md](./INPUT.md)**: Original project specification defining ARE's scope, RLM workflow (leaf-first traversal, `.sum` generation, AGENTS.md aggregation), command interface (`/are-generate`, `/are-update`), auxiliary file taxonomy (ARCHITECTURE.md, STRUCTURE.md, STACK.md, INTEGRATIONS.md, INFRASTRUCTURE.md, CONVENTIONS.md, TESTING.md, PATTERNS.md, CONCERNS.md), and research directives for GSD/BMAD codebase analysis.
+### Specification Documents
 
-## Role in Project Architecture
+- [INPUT.md](./INPUT.md) — Original project specification defining the Recursive Language Model (RLM) algorithm, command interface (`/are-generate`, `/are-update`), integration goals (Claude Code, OpenCode compatibility), and research directives for GSD/BMAD brownfield documentation patterns.
 
-INPUT.md serves as the canonical requirements document referenced during development and reconstruction. The RLM algorithm specified here is implemented in [`../src/generation/orchestrator.ts`](../src/generation/orchestrator.ts) (post-order traversal) and [`../src/generation/executor.ts`](../src/generation/executor.ts) (file analysis, AGENTS.md generation). Session-end hook integration directives correspond to implementations in [`../hooks/`](../hooks/) (are-session-end.js, opencode-are-session-end.js). Command interface definitions map to CLI commands in [`../src/cli/generate.ts`](../src/cli/generate.ts) and [`../src/cli/update.ts`](../src/cli/update.ts).
+## Purpose
 
-## Integration Targets
+INPUT.md establishes the foundational vision for agents-reverse-engineer: generating `AGENTS.md` and `CLAUDE.md` files for brownfield codebases via recursive, post-order traversal (leaves first, then directories, until root), with session-end hooks triggering incremental updates. The RLM algorithm proceeds as: (1) build project tree, (2) analyze first leaf recursively backward, (3) generate `{filename}.sum` per file, (4) generate `AGENTS.md` + supplementary docs per directory when all leaves complete, (5) repeat until root. This specification guided the implementation in `src/cli/index.ts` (`init`, `discover`, `generate`, `update`, `clean`, `rebuild`, `specify`) and `src/generation/orchestrator.ts` (RLM executor).
 
-INPUT.md specifies compatibility with:
-- **Claude Code**: Primary agent tool, references hooks/are-session-end.js
-- **OpenCode**: Alternative agent tool, references hooks/opencode-are-session-end.js
-- **SpecKit**: GitHub spec generation tool (https://github.com/github/spec-kit)
-- **BMAD**: Brownfield methodology (https://github.com/bmad-code-org/BMAD-METHOD)
-- **GSD**: Get Shit Done workflow (https://github.com/glittercowboy/get-shit-done)
+## Relationship to Implementation
 
-Research directives instruct adoption of GSD repository structure patterns and BMAD brownfield project analysis techniques.
+INPUT.md predates the codebase and serves as the design contract. Actual command logic resides in `src/cli/`, RLM orchestration in `src/generation/orchestrator.ts`, and prompt templates in `src/generation/prompts/templates.ts`. The specification references GSD (Get Shit Done) and BMAD (BMAD-METHOD) as architectural inspirations, reflected in the project's recursive summarization strategy and brownfield-first approach.

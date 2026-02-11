@@ -2,63 +2,79 @@
 
 # src/ai/backends
 
-Backend adapters for AI CLI tools, implementing the `AIBackend` interface to provide CLI detection, argument construction, and response parsing. Currently supports Claude Code (fully implemented), with Gemini and OpenCode as stubs awaiting JSON output format stabilization.
+AI backend implementations exposing Claude, Gemini, and OpenCode CLI integrations through a common `AIBackend` interface for multi-provider LLM orchestration.
 
 ## Contents
 
-### [claude.ts](./claude.ts)
-`ClaudeBackend` fully implements `AIBackend` for the `claude` CLI. Exports `isCommandOnPath()` for PATH detection (splits `process.env.PATH`, checks `fs.stat()`, handles Windows `PATHEXT` extensions). `buildArgs()` constructs `['-p', '--output-format', 'json', '--no-session-persistence', '--allowedTools', 'Read', 'Write']` plus optional `--model`, `--system-prompt`, `--max-turns`. `parseResponse()` handles three output formats (JSON array ≥2.1.38, NDJSON, legacy single object ≤2.1.31) via `extractResultJson()`, validates with `ClaudeResponseSchema` (Zod), normalizes to `AIResponse`.
+### Backend Implementations
 
-### [gemini.ts](./gemini.ts)
-`GeminiBackend` stub for future Google Gemini CLI. `isAvailable()` delegates to `isCommandOnPath()`, `buildArgs()` returns `['-p', '--output-format', 'json']`, but `parseResponse()` throws `AIServiceError` with code `'SUBPROCESS_ERROR'` and message `'Gemini backend is not yet implemented. Use Claude backend.'` until JSON output stabilizes (see RESEARCH.md Open Question 2).
+- **[claude.ts](./claude.ts)** — `ClaudeBackend` implements full response parsing with `ClaudeResponseSchema` Zod validation, `extractResultJson()` handling JSON array/NDJSON/legacy formats, `buildArgs()` emitting `['-p', '--output-format', 'json', '--no-session-persistence', '--allowedTools', 'Read', 'Write']`, `isCommandOnPath()` PATH detection across Windows/Unix, and `getInstallInstructions()` returning npm install command for `@anthropic-ai/claude-code`.
 
-### [opencode.ts](./opencode.ts)
-`OpenCodeBackend` stub for OpenCode CLI. `isAvailable()` checks PATH via `isCommandOnPath()`, `buildArgs()` returns `['run', '--format', 'json']`, `parseResponse()` throws `AIServiceError` with code `'SUBPROCESS_ERROR'` and message `'OpenCode backend is not yet implemented. Use Claude backend.'` pending JSONL parsing implementation (RESEARCH.md Open Question 3).
+- **[gemini.ts](./gemini.ts)** — `GeminiBackend` stub demonstrating extensibility with `buildArgs()` returning `['-p', '--output-format', 'json']`, `isAvailable()` delegating to `isCommandOnPath()` from claude.ts, and `parseResponse()` throwing `AIServiceError` until Gemini CLI output stabilizes per RESEARCH.md.
+
+- **[opencode.ts](./opencode.ts)** — `OpenCodeBackend` stub providing `buildArgs()` returning `['run', '--format', 'json']`, `isAvailable()` via shared `isCommandOnPath()`, `getInstallInstructions()` referencing https://opencode.ai, and `parseResponse()` throwing `AIServiceError` pending JSONL parsing implementation.
 
 ## Architecture
 
-All backends implement the `AIBackend` interface from `../types.js` with four methods: `isAvailable()` (async PATH check), `buildArgs()` (CLI argument construction), `parseResponse()` (stdout → `AIResponse` normalization), `getInstallInstructions()` (user-facing setup text). Registered in `src/ai/registry.ts` for runtime selection. `ClaudeBackend` serves as reference implementation, Gemini/OpenCode follow the extension pattern but defer response parsing until upstream CLI tools stabilize JSON output contracts.
+### Interface Contract
+
+All backends implement `AIBackend` from `../types.js` with four methods: `isAvailable()` detecting CLI presence on PATH, `buildArgs(options: AICallOptions)` constructing CLI arguments, `parseResponse(stdout, durationMs, exitCode)` returning normalized `AIResponse` with token counts and cost, and `getInstallInstructions()` providing user-facing setup guidance.
+
+### Response Parsing Strategy
+
+`ClaudeBackend.parseResponse()` extracts result JSON via three-path logic: JSON array with result element, NDJSON with `type: "result"` line, or legacy single object. `ClaudeResponseSchema` validates `{type, subtype, result, usage, modelUsage, total_cost_usd}` structure with `.passthrough()` for forward compatibility. Model name extracted from first `modelUsage` key, token counts normalized to `AIResponse.usage` fields.
+
+### CLI Argument Construction
+
+Backends emit base args arrays consumed by `runSubprocess()` in `../subprocess.ts`. `ClaudeBackend.buildArgs()` pre-approves Read/Write tools via `--allowedTools` to bypass root permission blocking, appends `--model`, `--system-prompt`, `--max-turns` from `AICallOptions`. Prompt text sent to stdin, never in args array.
+
+### PATH Detection
+
+`isCommandOnPath(command)` in claude.ts splits `process.env.PATH` by `path.delimiter`, iterates directories checking for `command` with `PATHEXT` extensions (Windows) or bare name (Unix), verifies via `fs.stat()`. Shared by all three backends through import reuse.
 
 ## Behavioral Contracts
 
-**ClaudeResponseSchema** (Zod):
+### ClaudeResponseSchema Structure
+
 ```typescript
-z.object({
-  type: z.literal('result'),
-  subtype: z.enum(['success', 'error']),
-  is_error: z.boolean(),
-  duration_ms: z.number(),
-  duration_api_ms: z.number(),
-  num_turns: z.number(),
-  result: z.string(),
-  session_id: z.string(),
-  total_cost_usd: z.number(),
-  usage: z.object({
-    input_tokens: z.number(),
-    cache_creation_input_tokens: z.number(),
-    cache_read_input_tokens: z.number(),
-    output_tokens: z.number(),
-  }).passthrough(),
-  modelUsage: z.record(z.object({
-    inputTokens: z.number(),
-    outputTokens: z.number(),
-    cacheReadInputTokens: z.number(),
-    cacheCreationInputTokens: z.number(),
-    costUSD: z.number(),
-  }).passthrough()),
-}).passthrough()
+{
+  type: "result",
+  subtype: "success" | "error",
+  is_error: boolean,
+  duration_ms: number,
+  duration_api_ms: number,
+  num_turns: number,
+  result: string,
+  session_id: string,
+  total_cost_usd: number,
+  usage: {
+    input_tokens: number,
+    cache_creation_input_tokens: number,
+    cache_read_input_tokens: number,
+    output_tokens: number
+  },
+  modelUsage: {
+    [model: string]: {
+      inputTokens: number,
+      outputTokens: number,
+      cacheReadInputTokens: number,
+      cacheCreationInputTokens: number,
+      costUSD: number
+    }
+  }
+}
 ```
 
-**Claude CLI arguments**: `['-p', '--output-format', 'json', '--no-session-persistence', '--allowedTools', 'Read', 'Write']` (fixed), prompt via stdin, optional `--model`, `--system-prompt`, `--max-turns`.
+### CLI Base Arguments
 
-**Gemini CLI arguments**: `['-p', '--output-format', 'json']`.
+- **Claude**: `['-p', '--output-format', 'json', '--no-session-persistence', '--allowedTools', 'Read', 'Write']`
+- **Gemini**: `['-p', '--output-format', 'json']`
+- **OpenCode**: `['run', '--format', 'json']`
 
-**OpenCode CLI arguments**: `['run', '--format', 'json']`.
+### Error Code Surface
 
-**Error messages**:
-- Gemini: `'Gemini backend is not yet implemented. Use Claude backend.'`
-- OpenCode: `'OpenCode backend is not yet implemented. Use Claude backend.'`
+`AIServiceError` with code `'PARSE_ERROR'` thrown on JSON extraction failure or schema validation failure, `'SUBPROCESS_ERROR'` thrown by unimplemented backends.
 
 ## File Relationships
 
-`ClaudeBackend.parseResponse()` calls private `extractResultJson()` to handle multiple output formats before Zod validation. `GeminiBackend` and `OpenCodeBackend` import `isCommandOnPath()` from `claude.ts` for PATH detection. All three backends throw `AIServiceError` with code `'PARSE_ERROR'` (Claude) or `'SUBPROCESS_ERROR'` (Gemini/OpenCode) on failures. Consumed by `AIService` in `src/ai/service.ts` via registry pattern (`src/ai/registry.ts`). Arguments from `buildArgs()` passed to `runSubprocess()` wrapper (`src/ai/subprocess.ts`) which manages stdin, timeouts, process lifecycle.
+`GeminiBackend` and `OpenCodeBackend` import `isCommandOnPath()` from claude.ts for shared PATH detection logic. All backends import `AIBackend`, `AICallOptions`, `AIResponse`, `AIServiceError` from `../types.js`. `ClaudeBackend.parseResponse()` calls `extractResultJson()` internal function before schema validation. Backend registry in `../registry.ts` instantiates and exports singleton instances consumed by `AIService` in `../service.ts`.

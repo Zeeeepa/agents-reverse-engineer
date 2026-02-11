@@ -2,57 +2,81 @@
 
 # src/specify/
 
-This directory implements reverse-engineering of project specifications from AGENTS.md documentation. It constructs AI prompts that synthesize rebuild specifications, enforces a 12-section structure with verbatim reproduction of annex content, and writes output in single-file or multi-file modes with overwrite protection.
+Transforms AGENTS.md documentation into project specification format via AI prompt construction and multi-file markdown output. Consumed by `src/cli/specify.ts` command handler. Inverse operation of `src/rebuild/` module (which generates code from specs).
 
 ## Contents
 
-### Exports
+**[index.ts](./index.ts)** — Barrel re-exporting `buildSpecPrompt`, `SpecPrompt`, `writeSpec`, `SpecExistsError`, `WriteSpecOptions` from `prompts.js` and `writer.js`. Entry point for `src/cli/specify.ts`.
 
-- **[index.ts](./index.ts)**: Public API barrel exporting `buildSpecPrompt()`, `SpecPrompt`, `writeSpec()`, `SpecExistsError`, and `WriteSpecOptions` for use by `src/cli/specify.ts`
-- **[prompts.ts](./prompts.ts)**: Defines `SPEC_SYSTEM_PROMPT` (402-line instruction set), `buildSpecPrompt()` (constructs AI prompts from `AgentsDocs` arrays), and `SpecPrompt` interface (system/user message pair)
-- **[writer.ts](./writer.ts)**: Implements `writeSpec()` with `multiFile` toggle, `splitByHeadings()` for markdown partitioning via `/^(?=# )/m` regex, `slugify()` for filename derivation, and `SpecExistsError` thrown when `force=false` and conflicts detected
+**[prompts.ts](./prompts.ts)** — Exports `SPEC_SYSTEM_PROMPT` constant (100-line system prompt enforcing 12 mandatory sections) and `buildSpecPrompt(docs: AgentsDocs, annexFiles?: AgentsDocs): SpecPrompt` function. Constructs user prompt by injecting `docs` with `### ${relativePath}` delimiters, optional annexFiles under "## Annex Files" heading, and "## Output Requirements" restating mandatory sections. Returns `{system, user}` SpecPrompt object.
 
-## Architecture
+**[writer.ts](./writer.ts)** — Exports `writeSpec(content: string, options: WriteSpecOptions): Promise<string[]>` function and `SpecExistsError` class. Writes specification markdown to disk with overwrite protection. Supports single-file mode (writes to `outputPath`) and multi-file mode (splits on `/^(?=# )/m` regex, slugifies headings via `slugify()`, writes to `{outputDir}/{slug}.md`). Throws `SpecExistsError` with conflicting paths if `force=false` and files exist. Uses `splitByHeadings()` for content partitioning, `fileExists()` for collision detection.
 
-Specification generation follows a two-stage pipeline: prompt construction (`buildSpecPrompt()`) ingests collected AGENTS.md and annex files from `src/generation/collector.ts`, formats them with section headers, and appends mandatory output requirements. The resulting `SpecPrompt` is sent to an AI backend (orchestrated by `src/cli/specify.ts`). The AI response is processed by `writeSpec()`, which either writes a monolithic markdown file (`multiFile=false`) or splits on top-level `# ` headings (`multiFile=true`) and writes slugified filenames (`01-project-overview.md`, `02-architecture.md`, etc.).
+## Data Flow
+
+```
+AgentsDocs (from src/generation/collector.ts)
+  ↓
+buildSpecPrompt(docs, annexFiles?) → SpecPrompt {system, user}
+  ↓
+AI call (via src/ai/service.ts) → generated spec markdown
+  ↓
+writeSpec(content, options) → string[] (written file paths)
+```
+
+## Types
+
+```typescript
+interface SpecPrompt {
+  system: string;  // SPEC_SYSTEM_PROMPT
+  user: string;    // Injected docs + requirements
+}
+
+interface WriteSpecOptions {
+  outputPath: string;  // Full path to output file
+  force: boolean;      // Overwrite without error
+  multiFile: boolean;  // Split by `# ` headings
+}
+
+class SpecExistsError extends Error {
+  readonly paths: string[];  // Conflicting file paths
+}
+```
 
 ## Behavioral Contracts
 
-### Prompt Construction
+### SPEC_SYSTEM_PROMPT — 12 Mandatory Sections
 
-`buildSpecPrompt()` formats each `AgentsDocs` entry as `### ${doc.relativePath}\n\n${doc.content}`, appends optional annex section with identical formatting under `## Annex Files (${annexFiles.length} reproduction-critical source files)`, and concatenates with `## Output Requirements` list of 12 mandatory sections.
+1. **Project Overview**
+2. **Architecture**
+3. **Public API Surface**
+4. **Data Structures & State**
+5. **Configuration**
+6. **Dependencies**
+7. **Behavioral Contracts** (subsections: Runtime Behavior, Implementation Contracts)
+8. **Test Contracts**
+9. **Build Plan** (each phase: "Defines:" exact type/function/class names from §3, "Consumes:" names from earlier phases)
+10. **Prompt Templates & System Instructions** (verbatim annex reproduction)
+11. **IDE Integration & Installer** (verbatim annex reproduction)
+12. **File Manifest** (every source file with path/module/exports)
 
-### System Instruction Constraints (SPEC_SYSTEM_PROMPT)
+### Reproduction Rules (from SPEC_SYSTEM_PROMPT)
 
-- **Anti-mirroring rule**: `"Do NOT mirror the project's folder structure in your section organization"`, `"Do NOT use directory names as section headings"`, `"Do NOT prescribe exact filenames or file paths"`
-- **Build Plan cross-reference**: `"Build Plan phases MUST cross-reference the Public API Surface: every type/function in the API Surface section must appear in exactly one phase's 'Defines:' list"`. Each phase must include `"Defines:"` (exact exported names) and `"Consumes:"` (exact imported names from earlier phases)
-- **Verbatim reproduction**: Sections 10 (Prompt Templates & System Instructions) and 11 (IDE Integration & Installer) must reproduce annex content verbatim. `"Do NOT summarize, paraphrase, abbreviate, or 'improve' the text"`. Preserve placeholder syntax exactly (e.g., `{{TOKEN}}`)
-- **Regex preservation**: `"Behavioral Contracts MUST include verbatim regex patterns, format strings, and magic constants from the source documents — do NOT paraphrase regex patterns into prose descriptions"`
-- **File Manifest completeness**: `"The File Manifest MUST list every source file. Each Build Plan phase MUST reference which File Manifest entries it produces. A file missing from both is a spec defect."`
+- Sections 10-11: reproduce annex content verbatim, preserve placeholder syntax `{{TOKEN}}`, omit if no annexFiles
+- Regex patterns: backticks without prose paraphrasing
+- Build Plan phases: cross-reference Public API Surface exports in "Defines:", reference File Manifest entries produced
+- Organization: conceptual grouping by concern, NOT folder-mirroring
 
-### Markdown Splitting
+### Filename Slugification (from slugify())
 
-`splitByHeadings()` partitions on `/^(?=# )/m` (lines starting with exactly `# `). Heading extraction via `/^# (.+)/`. Content before first heading receives filename `00-preamble.md`. `slugify()` transforms headings via: lowercase → replace `\s+` with `-` → strip `[^a-z0-9-]` → collapse `-+` to `-` → trim via `.replace(/^-|-$/g, '')`.
+Regex: lowercase → `\s+` to `-` → remove `[^a-z0-9-]` → collapse `-+` to `-` → trim `-`
 
-### Overwrite Protection
+### Heading Splitting (from splitByHeadings())
 
-`writeSpec()` checks `fileExists()` (via `access(filePath, constants.F_OK)`) before writing. In single-file mode, checks `outputPath`. In multi-file mode, iterates all `sections`, checks `path.join(outputDir, section.filename)`, accumulates conflicts, and throws `SpecExistsError(conflicts)` if any exist and `force=false`. `SpecExistsError` formats message as:
-```
-Spec file(s) already exist:
-  - <path1>
-  - <path2>
-Use --force to overwrite.
-```
-
-## Dependencies
-
-- **Internal**: Imports `AgentsDocs` from `src/generation/collector.ts`
-- **Node.js**: Uses `node:fs/promises` (`writeFile`, `mkdir`, `access`), `node:fs` (`constants`), `node:path`
-
-## Integration Points
-
-Called by `src/cli/specify.ts`, which orchestrates AI service invocation and passes `WriteSpecOptions` with `outputPath`, `force`, and `multiFile` flags. Ingests `AgentsDocs` arrays from `src/generation/collector.ts` (collected AGENTS.md and annex files).
+Split regex: `/^(?=# )/m` (positive lookahead for top-level headings)  
+Heading extraction: `/^# (.+)/`  
+Default filename for preamble or empty slugs: `"00-preamble.md"`
 
 ## Annex References
 
-- [prompts.annex.sum](./prompts.annex.sum) — Full 402-line `SPEC_SYSTEM_PROMPT` system instruction template
+Full SPEC_SYSTEM_PROMPT text: [prompts.annex.sum](./prompts.annex.sum)

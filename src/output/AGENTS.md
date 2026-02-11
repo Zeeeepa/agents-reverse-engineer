@@ -2,34 +2,46 @@
 
 # src/output
 
-Terminal output formatting layer for ARE CLI commands. Exports `createLogger()` factory producing `Logger` instances with color-controlled console output, and `createSilentLogger()` for test/programmatic contexts where output must be suppressed.
+Terminal presentation layer for agents-reverse-engineer CLI commands. Exports `Logger` interface and factory functions (`createLogger`, `createSilentLogger`) for colored CLI output during discovery and generation phases.
 
 ## Contents
 
-### Logger Interface and Factory
+### [logger.ts](./logger.ts)
+Defines `Logger` interface (info, file, excluded, summary, warn, error methods) and factory functions. `createLogger(options)` returns picocolors-powered implementation with configurable color support. `createSilentLogger()` returns no-op instance for testing. Discovery phase calls `file(path)` (green `"  +"` prefix), `excluded(path, reason, filter)` (dim `"  -"` prefix with reason), and `summary(included, excluded)` (bold count + dim exclusions).
 
-- **[logger.ts](./logger.ts)** — `Logger` interface with six methods (`info`, `file`, `excluded`, `summary`, `warn`, `error`) and two factories: `createLogger(options: LoggerOptions)` for CLI output, `createSilentLogger()` for no-op stub.
+## API Surface
+
+```typescript
+interface Logger {
+  info(message: string): void;
+  file(path: string): void;
+  excluded(path: string, reason: string, filter: string): void;
+  summary(included: number, excluded: number): void;
+  warn(message: string): void;
+  error(message: string): void;
+}
+
+interface LoggerOptions {
+  colors: boolean; // default: true
+}
+
+function createLogger(options: LoggerOptions): Logger;
+function createSilentLogger(): Logger;
+```
 
 ## Behavioral Contracts
 
-Output format rules enforced by `createLogger()`:
+### Output Format Specification
+- `file`: green `"  +"` prefix + relative path
+- `excluded`: dim `"  -"` prefix + path + dim `" (${reason}: ${filter})"`
+- `summary`: bold `"\nDiscovered ${included} files"` + dim `" (${excluded} excluded)"`
+- `warn`: yellow `"Warning: "` prefix + message
+- `error`: red `"Error: "` prefix + message
 
-```
-file(path)              → "  +" (green) + space + path
-excluded(path, r, f)    → "  -" (dim) + space + path + dim " (${r}: ${f})"
-summary(included, excl) → bold "\nDiscovered ${included} files" + dim " (${excl} excluded)"
-warn(message)           → yellow "Warning: " + message
-error(message)          → red "Error: " + message
-```
+### ColorFunctions Interface
+- `green`, `dim`, `red`, `bold`, `yellow`: each `(s: string) => string`
+- Implemented by `noColor` (identity functions) or `pc` (picocolors)
 
-Color control: `LoggerOptions.colors` (default `true`) binds `ColorFunctions` to picocolors or identity functions (`noColor`). Five color methods: `green`, `dim`, `red`, `bold`, `yellow`.
+## Usage Context
 
-## Integration Points
-
-**Consumers**:
-- `src/cli/discover.ts` — calls `logger.file()`, `logger.excluded()`, `logger.summary()` during file discovery phase
-- `src/cli/generate.ts`, `src/cli/update.ts` — call `logger.info()`, `logger.warn()`, `logger.error()` for generation/update progress
-- `src/cli/clean.ts` — uses `logger.info()` to report artifact deletion
-
-**Dependencies**:
-- `picocolors` — external color library wrapped by `ColorFunctions` interface
+CLI commands in [src/cli/](../cli/) instantiate `Logger` via `createLogger({ colors: process.stdout.isTTY })` and pass to discovery/generation orchestrators. Discovery walker in [src/discovery/walker.ts](../discovery/walker.ts) calls `logger.file()` for included paths and `logger.excluded()` for filtered paths. Generation orchestrator in [src/generation/orchestrator.ts](../generation/orchestrator.ts) uses `logger.info()` for phase transitions and `logger.error()` for AI failures.

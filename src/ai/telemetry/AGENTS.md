@@ -2,36 +2,61 @@
 
 # src/ai/telemetry
 
-In-memory telemetry accumulation and persistent run log management for AI call tracking. Accumulates per-call entries via `TelemetryLogger`, writes completed run logs to `.agents-reverse-engineer/logs/` via `writeRunLog()`, and prunes old logs via `cleanupOldLogs()`.
+Per-run telemetry collection and persistence for AI service call metrics. `TelemetryLogger` accumulates `TelemetryEntry` instances during CLI runs, `writeRunLog` persists aggregated `RunLog` objects as timestamped JSON files in `.agents-reverse-engineer/logs/`, `cleanupOldLogs` enforces log retention policies by deleting oldest run files beyond a configured threshold.
 
 ## Contents
 
-**[logger.ts](./logger.ts)** — `TelemetryLogger` class accumulates `TelemetryEntry` objects in memory, computes aggregate summaries (`totalCalls`, `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `totalFilesRead`, `uniqueFilesRead`) via `getSummary()`, and produces `RunLog` objects via `toRunLog()`.
+### Core Components
 
-**[run-log.ts](./run-log.ts)** — `writeRunLog(projectRoot, runLog)` writes `RunLog` objects to `.agents-reverse-engineer/logs/run-{sanitizedTimestamp}.json` as pretty-printed JSON, creating the logs directory if needed.
+**[logger.ts](./logger.ts)** — `TelemetryLogger` class accumulates per-call telemetry entries in memory, computes aggregate token/latency/error statistics via `getSummary()`, produces complete `RunLog` via `toRunLog()`.
 
-**[cleanup.ts](./cleanup.ts)** — `cleanupOldLogs(projectRoot, keepCount)` deletes all but the N most recent `run-*.json` files from `.agents-reverse-engineer/logs/`, returning the deletion count.
+**[run-log.ts](./run-log.ts)** — `writeRunLog(projectRoot, runLog)` persists `RunLog` objects to `.agents-reverse-engineer/logs/run-${safeTimestamp}.json` with 2-space JSON indentation.
+
+**[cleanup.ts](./cleanup.ts)** — `cleanupOldLogs(projectRoot, keepCount)` removes oldest run log files matching `run-*.json` pattern, retains `keepCount` most recent files by lexicographic sort.
 
 ## Data Flow
 
-1. **Accumulation**: `TelemetryLogger` created once per CLI run, `addEntry()` called after each AI subprocess completes, `setFilesReadOnLastEntry()` attaches file metadata from command runner
-2. **Finalization**: `toRunLog()` invoked when run completes, captures `endTime` and summary totals
-3. **Persistence**: `writeRunLog()` serializes `RunLog` to disk with timestamp-derived filename
-4. **Cleanup**: `cleanupOldLogs()` invoked after write to enforce retention policy, relies on lexicographic sort of ISO timestamp filenames
+1. CLI command instantiates `TelemetryLogger(runId)` with ISO timestamp identifier
+2. AI service calls `addEntry(entry)` after each subprocess completion, capturing tokens/latency/errors
+3. Command runner calls `setFilesReadOnLastEntry(filesRead)` to attach file metadata to most recent entry
+4. At run completion, `toRunLog()` produces final `RunLog` with computed summary statistics
+5. `writeRunLog()` persists log to disk with timestamp-derived filename
+6. `cleanupOldLogs()` enforces retention policy on subsequent runs
 
 ## Behavioral Contracts
 
-**Filename Sanitization** (run-log.ts):  
-`/[:.]/g` → `-` transforms ISO 8601 timestamps into filesystem-safe names (e.g., `2026-02-07T12:00:00.000Z` → `run-2026-02-07T12-00-00-000Z.json`)
+### Filename Pattern (run-log.ts)
 
-**Log File Pattern** (cleanup.ts):  
-`run-*.json` glob pattern for log file discovery
+```typescript
+runLog.startTime.replace(/[:.]/g, '-')
+```
 
-**Logs Directory**:  
-`.agents-reverse-engineer/logs` (shared constant `LOGS_DIR` across cleanup.ts and run-log.ts)
+ISO 8601 timestamps like `2026-02-07T12:00:00.000Z` → filesystem-safe filenames `run-2026-02-07T12-00-00-000Z.json`.
 
-## Integration Points
+### Log File Selection (cleanup.ts)
 
-- Consumed by `../service.ts` (`AIService`) to record telemetry after each subprocess call
-- `RunLog` and `TelemetryEntry` types defined in `../types.ts`
-- Telemetry files written by run-log.ts are read by orchestration progress logger and CLI status displays
+```typescript
+name.startsWith('run-') && name.endsWith('.json')
+```
+
+Identifies run log files for retention policy enforcement. Lexicographic sort assumes ISO timestamp prefixes for chronological ordering.
+
+### Storage Path
+
+```typescript
+const LOGS_DIR = '.agents-reverse-engineer/logs'
+```
+
+Shared constant in `cleanup.ts` and `run-log.ts` defines telemetry log directory relative to project root.
+
+## Type Dependencies
+
+All files import from `../types.js`:
+- **logger.ts**: `TelemetryEntry`, `RunLog`, `FileRead`
+- **run-log.ts**: `RunLog`
+
+`TelemetryEntry` contains per-call metrics (inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, latencyMs, error, filesRead). `RunLog` contains runId, startTime, endTime, entries array, summary object. `FileRead` contains file path metadata attached post-hoc by command runners.
+
+## Error Handling
+
+`cleanupOldLogs` catches `fs.readdir` ENOENT errors and returns 0 when log directory does not exist, treating missing directories as no-op. `writeRunLog` uses `fs.mkdir` with `recursive: true` to ensure log directory exists before writing. Other filesystem errors propagate to callers.

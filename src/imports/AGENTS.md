@@ -2,70 +2,47 @@
 
 # src/imports
 
-Extracts and classifies TypeScript/JavaScript import statements from source files, partitioning relative imports into internal (same-directory) and external (cross-directory) dependencies for LLM prompt construction.
+`src/imports/` extracts and classifies TypeScript/JavaScript import statements from source files to construct dependency graphs for LLM prompt context. The module parses import syntax using regex, categorizes specifiers by locality (internal vs. external), and formats the resulting dependency map for inclusion in file analysis prompts.
 
 ## Contents
 
-### Core Modules
+### Core Implementation
 
-- **[extractor.ts](./extractor.ts)** — `extractImports` parses source via `IMPORT_REGEX` capturing named/default/namespace/type imports, `extractDirectoryImports` batch-processes files reading first 100 lines to classify relative imports as internal (`./`) or external (`../`), `formatImportMap` serializes to indented prompt format
-- **[types.ts](./types.ts)** — `ImportEntry` defines single import with `specifier`, `symbols`, `typeOnly` fields; `FileImports` aggregates per-file imports split into `externalImports` and `internalImports` arrays
-- **[index.ts](./index.ts)** — Barrel re-export of `extractImports`, `extractDirectoryImports`, `formatImportMap`, `ImportEntry`, `FileImports`
+**[extractor.ts](./extractor.ts)** — `extractImports()` applies `IMPORT_REGEX` to source text, extracting `ImportEntry[]` with `specifier`, `symbols`, and `typeOnly` fields. `extractDirectoryImports()` reads first 100 lines of each file in a directory, filters out bare specifiers and `node:` built-ins, and partitions remaining imports into `internal` (`./`) and `external` (`../`) categories. `formatImportMap()` serializes `FileImports[]` into structured text for LLM prompts.
 
-## Architecture
+**[types.ts](./types.ts)** — `ImportEntry` represents a single import statement with `specifier: string`, `symbols: string[]`, and `typeOnly: boolean` properties. `FileImports` aggregates imports for one file, partitioning them into `externalImports: ImportEntry[]` (cross-directory dependencies) and `internalImports: ImportEntry[]` (same-directory references).
 
-### Import Parsing Pipeline
-
-```
-extractDirectoryImports(dirPath, fileNames)
-  ↓ for each file: readFile first 100 lines
-  ↓ extractImports(sourceContent)
-  ↓   → IMPORT_REGEX.exec() captures (typeKeyword, namedSymbols, namespaceImport, defaultImport, specifier)
-  ↓   → return ImportEntry[] with symbols split on comma, typeOnly flag
-  ↓ filter to relative imports (startsWith '.' or '..')
-  ↓ partition into internal ('./') vs external ('../')
-  ↓ return FileImports[] omitting files with zero relative imports
-formatImportMap(FileImports[])
-  ↓ serialize to "fileName:\n  specifier → symbol1, symbol2 (type)" format
-```
-
-### Classification Rules
-
-- **Relative imports**: Specifiers starting with `.` or `..`
-- **Internal imports**: Specifiers matching `./` prefix (same directory)
-- **External imports**: Specifiers matching `../` prefix (parent/sibling directories)
-- **Excluded**: npm package names (bare specifiers), `node:` built-ins
-
-### Performance Optimization
-
-`extractDirectoryImports` reads only first 100 lines via `content.split('\n').slice(0, 100).join('\n')` since import statements appear at file top.
+**[index.ts](./index.ts)** — Barrel module re-exporting `extractImports`, `extractDirectoryImports`, `formatImportMap`, `ImportEntry`, and `FileImports` from `extractor.ts` and `types.ts`.
 
 ## Behavioral Contracts
 
-### IMPORT_REGEX Pattern
+### Import Statement Parsing
 
 ```regex
 /^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm
 ```
 
-Captures five groups:
-- Group 1: `type` keyword for type-only imports
-- Group 2: Named symbols within braces `{ Foo, Bar }`
-- Group 3: Namespace import `* as name`
-- Group 4: Default import bare identifier
-- Group 5: Module specifier string after `from`
+Capture groups:
+- Group 1: `type` keyword (type-only import marker)
+- Group 2: named symbols between braces (`{ Foo, Bar }`)
+- Group 3: namespace import (`* as name`)
+- Group 4: default import (bare identifier)
+- Group 5: module specifier (string after `from`)
 
-### Symbol Processing
+### Symbol Alias Stripping
 
-Named symbols split on comma, aliases stripped via `.replace(/\s+as\s+\w+/, '')`, empty strings filtered.
+Aliases removed via `.replace(/\s+as\s+\w+/, '')` to preserve original export name.
 
-## Integration Points
+### Import Classification Logic
 
-### Upstream Consumers
+- **internal**: `specifier.startsWith('./')`
+- **external**: `specifier.startsWith('../')`
+- **excluded**: bare specifiers (npm packages) or `specifier.startsWith('node:')`
 
-- `../generation/prompts/builder.ts` calls `extractDirectoryImports` during prompt assembly for directory-level AGENTS.md generation
-- `formatImportMap` output injected into LLM system prompts under "Import Map" section
+## Performance Optimization
 
-### Data Flow
+`extractDirectoryImports` reads only first 100 lines of each file via `content.split('\n').slice(0, 100).join('\n')`, exploiting the top-of-file convention for import statements. Unreadable files silently skipped with empty catch blocks.
 
-Discovery phase produces file list → generation phase calls `extractDirectoryImports(dirPath, fileNames)` → import metadata included in prompt context → LLM generates AGENTS.md with accurate cross-references using exact specifier paths.
+## Integration
+
+Consumed by `src/generation/prompts/builder.ts` to construct "Import Map" sections for file analysis prompts. `formatImportMap()` output embedded directly into prompt text sent to `AIService`. The module enables LLM to resolve cross-file symbol references when summarizing individual files.

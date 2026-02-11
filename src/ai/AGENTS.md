@@ -2,88 +2,98 @@
 
 # src/ai
 
-AI service layer for subprocess-based AI CLI interaction, providing backend abstraction, retry logic, timeout enforcement, telemetry recording, and trace event emission.
+AI service orchestration layer providing multi-backend LLM invocation with subprocess management, exponential backoff retry, telemetry collection, and trace emission.
 
 ## Contents
 
-### [types.ts](./types.ts)
-Defines contract layer: `SubprocessResult` (stdout/stderr/exitCode/durationMs/timedOut/signal/childPid), `AICallOptions` (prompt/systemPrompt/model/timeoutMs/maxTurns/taskLabel), `AIResponse` (text/model/tokens/durationMs/exitCode/raw), `AIBackend` interface (name/cliCommand/isAvailable/buildArgs/parseResponse/getInstallInstructions), `RetryOptions` (maxRetries/baseDelayMs/maxDelayMs/multiplier/isRetryable/onRetry), `FileRead` (path/sizeBytes), `TelemetryEntry` (timestamp/prompt/response/tokens/latency/exitCode/error/retryCount/thinking/filesRead), `RunLog` (runId/startTime/endTime/entries/summary), `AIServiceError` (code/message), `AIServiceErrorCode` union (`CLI_NOT_FOUND`/`TIMEOUT`/`PARSE_ERROR`/`SUBPROCESS_ERROR`/`RATE_LIMIT`).
+### Core Service
 
-### [subprocess.ts](./subprocess.ts)
-Exports `runSubprocess(command, args, options)` spawning CLI child processes via `execFile()`, enforces timeout with SIGTERM→SIGKILL escalation after `SIGKILL_GRACE_MS` (5000ms), pipes stdin with EOF signaling (see RESEARCH.md Pitfall 1), tracks active subprocesses in Map for `getActiveSubprocessCount()` and `getActiveSubprocesses()`, invokes `onSpawn(pid)` callback at spawn time for trace emission, resolves with `SubprocessResult` including childPid, never rejects.
+**[service.ts](./service.ts)** — `AIService` orchestrates AI CLI subprocess invocations via `runSubprocess()`, wraps calls in `withRetry()` for transient `RATE_LIMIT` errors, records `TelemetryEntry` instances in `TelemetryLogger`, emits `subprocess:spawn`/`subprocess:exit`/`retry` events to `ITraceWriter`, writes per-subprocess `.log` files via serialized `logWriteQueue`, exposes `call(options: AICallOptions)` returning `AIResponse`, `finalize(projectRoot)` persisting run log and returning `{ logPath, summary }`, `addFilesReadToLastEntry(filesRead)` attaching file metadata, `setTracer(tracer)` enabling trace emission, `setDebug(enabled)` enabling verbose subprocess logging with heap/RSS/PID/duration metrics.
 
-### [retry.ts](./retry.ts)
-Exports `withRetry(fn, options)` applying exponential backoff with jitter: `min(baseDelayMs * multiplier^attempt, maxDelayMs) + Math.random() * 500`, throws immediately if `isRetryable(error)` returns false, calls `onRetry(attempt, error)` before each retry. Exports `DEFAULT_RETRY_OPTIONS` partial (`maxRetries: 3`, `baseDelayMs: 1000`, `maxDelayMs: 8000`, `multiplier: 2`) requiring caller-supplied `isRetryable`/`onRetry`.
+**[subprocess.ts](./subprocess.ts)** — `runSubprocess(command, args, options)` spawns CLI child process via `execFile` with `timeoutMs` enforcement, SIGTERM on timeout with SIGKILL escalation after `SIGKILL_GRACE_MS` (5000ms), pipes `options.input` to stdin, tracks active subprocesses in `activeSubprocesses` Map, returns `SubprocessResult` with `stdout`, `stderr`, `exitCode`, `signal`, `durationMs`, `timedOut`, `childPid`.
 
-### [service.ts](./service.ts)
-`AIService` class orchestrates AI calls: constructor takes `AIBackend` and `AIServiceOptions` (timeoutMs/maxRetries/model/telemetry.keepRuns), delegates CLI argument construction to `backend.buildArgs()` and response parsing to `backend.parseResponse()`, wraps `runSubprocess()` in `withRetry()` retrying only `RATE_LIMIT` errors (stderr patterns: `['rate limit', '429', 'too many requests', 'overloaded']`), emits trace events (`subprocess:spawn`/`subprocess:exit`/`retry`) via `setTracer()`, records `TelemetryEntry` via internal `TelemetryLogger`, logs subprocess output to `.log` files when `subprocessLogDir` is set (serialized via promise chain), throws `AIServiceError` for TIMEOUT/PARSE_ERROR/SUBPROCESS_ERROR. `finalize()` writes run log via `writeRunLog()`, calls `cleanupOldLogs()`, returns log path and summary. Debug mode logs memory usage and subprocess lifecycle to stderr.
+**[retry.ts](./retry.ts)** — `withRetry(fn, options)` wraps async functions with exponential backoff retry logic using formula `min(baseDelayMs * multiplier^attempt, maxDelayMs) + jitter` where jitter is random [0, 500ms], checks `isRetryable(error)` predicate, invokes `onRetry(attempt, error)` callback, throws immediately on permanent errors or exhausted retries; `DEFAULT_RETRY_OPTIONS` provides `maxRetries: 3`, `baseDelayMs: 1_000`, `maxDelayMs: 8_000`, `multiplier: 2`.
 
-### [registry.ts](./registry.ts)
-`BackendRegistry` stores `AIBackend` instances in insertion-order Map. `createBackendRegistry()` registers `ClaudeBackend`, `GeminiBackend`, `OpenCodeBackend` in priority order for auto-detection. `detectBackend(registry)` iterates `getAll()` calling `backend.isAvailable()`, returns first available or null. `resolveBackend(registry, requested)` handles `'auto'` mode via `detectBackend()` or explicit backend name via `registry.get()`, throws `AIServiceError` with code `CLI_NOT_FOUND` and formatted install instructions from `getInstallInstructions()` if unavailable.
+**[types.ts](./types.ts)** — Defines complete type system: `AIBackend` interface with `isAvailable()`, `buildArgs()`, `parseResponse()`, `getInstallInstructions()` methods; `AICallOptions` with `prompt`, optional `systemPrompt`/`model`/`timeoutMs`/`maxTurns`/`taskLabel`; `AIResponse` with `text`, `model`, token counts, `durationMs`, `exitCode`; `SubprocessResult` with process outcome fields; `TelemetryEntry` with per-call metrics; `RunLog` with aggregated entries and summary; `AIServiceError` with typed `code` field from `AIServiceErrorCode` union.
 
-### [index.ts](./index.ts)
-Barrel export enforcing encapsulation: re-exports `AIBackend`, `AIResponse`, `AICallOptions`, `SubprocessResult`, `RetryOptions`, `TelemetryEntry`, `RunLog`, `FileRead` from `./types.js`, `AIServiceOptions`, `AIService` from `./service.js`, `AIServiceError` from `./types.js`, `BackendRegistry`, `createBackendRegistry`, `resolveBackend`, `detectBackend`, `getInstallInstructions` from `./registry.js`, `withRetry`, `DEFAULT_RETRY_OPTIONS` from `./retry.js`, `runSubprocess` from `./subprocess.js`, `isCommandOnPath` from `./backends/claude.js`. Documentation explicitly states "No other module should reach into `src/ai/backends/` or `src/ai/telemetry/` directly".
+### Backend Management
+
+**[registry.ts](./registry.ts)** — `BackendRegistry` stores `AIBackend` instances in insertion order, `createBackendRegistry()` pre-populates with `ClaudeBackend`, `GeminiBackend`, `OpenCodeBackend`, `detectBackend(registry)` returns first available via `isAvailable()` checks, `resolveBackend(registry, requested)` resolves by name or auto-detection throwing `AIServiceError` with code `CLI_NOT_FOUND` and install instructions when unavailable.
+
+**[index.ts](./index.ts)** — Barrel export enforcing import boundary, re-exports all types/classes/functions from service, registry, retry, subprocess, types modules, comments prohibit direct imports from `src/ai/backends/` or `src/ai/telemetry/`.
 
 ## Subdirectories
 
-### [backends/](./backends/)
-AI CLI adapters implementing `AIBackend` interface: `ClaudeBackend` (fully implemented with JSON/NDJSON parsing, Zod validation via `ClaudeResponseSchema`), `GeminiBackend` (stub throwing `SUBPROCESS_ERROR` "not yet implemented"), `OpenCodeBackend` (stub throwing `SUBPROCESS_ERROR` "not yet implemented"). Registered in `registry.ts` for runtime selection.
+**[backends/](./backends/)** — `ClaudeBackend`, `GeminiBackend`, `OpenCodeBackend` implementing `AIBackend` interface, `ClaudeBackend` parsing JSON array/NDJSON/legacy formats via `ClaudeResponseSchema` Zod validation, shared `isCommandOnPath()` PATH detection.
 
-### [telemetry/](./telemetry/)
-In-memory `TelemetryLogger` (accumulates `TelemetryEntry`, computes summary via `getSummary()`, produces `RunLog` via `toRunLog()`), persistent run log writer `writeRunLog()` (serializes to `.agents-reverse-engineer/logs/run-{sanitizedTimestamp}.json`), log retention `cleanupOldLogs()` (deletes all but N most recent `run-*.json` files).
+**[telemetry/](./telemetry/)** — `TelemetryLogger` accumulating `TelemetryEntry` instances, `writeRunLog()` persisting `RunLog` to `.agents-reverse-engineer/logs/run-${timestamp}.json`, `cleanupOldLogs()` enforcing retention policies.
 
 ## Architecture
 
-Three-layer design: subprocess management (`subprocess.ts`) provides timeout-enforced child process execution with SIGTERM/SIGKILL escalation, backend abstraction (`backends/*.ts` + `registry.ts`) normalizes CLI-specific argument construction and response parsing, orchestration (`service.ts`) combines subprocess execution with retry logic (exponential backoff for rate limits), telemetry recording (per-call tokens/latency/errors), and trace event emission. Service layer delegates to backend `buildArgs()` for CLI arguments, wraps `runSubprocess()` in `withRetry()`, parses output via backend `parseResponse()`, emits `subprocess:spawn`/`subprocess:exit`/`retry` trace events, records telemetry entries, optionally writes subprocess logs to disk (serialized via promise chain), and finalizes with persistent run log + cleanup.
+### Request Flow
+
+1. `AIService.call()` receives `AICallOptions` with prompt text
+2. Merges service-level default `model` into call options
+3. `backend.buildArgs(options)` constructs CLI argument array
+4. `withRetry()` wraps `runSubprocess(backend.cliCommand, args, { input: prompt, timeoutMs, onSpawn })`
+5. `runSubprocess()` spawns child process, pipes stdin, enforces timeout with SIGTERM/SIGKILL escalation
+6. `backend.parseResponse(stdout, durationMs, exitCode)` normalizes output to `AIResponse`
+7. `logger.addEntry()` records telemetry with tokens/latency/errors
+8. Optional `tracer.emit()` broadcasts subprocess lifecycle events
+
+### Error Handling Strategy
+
+`AIService.call()` distinguishes error codes:
+- **TIMEOUT**: `SubprocessResult.timedOut === true`, not retried
+- **RATE_LIMIT**: `isRateLimitStderr(stderr)` matching patterns `['rate limit', '429', 'too many requests', 'overloaded']`, retried with exponential backoff
+- **PARSE_ERROR**: `backend.parseResponse()` throws, wrapped in `AIServiceError`
+- **SUBPROCESS_ERROR**: Non-zero exit code without rate limit signal, includes first 500 chars stderr
+
+### Telemetry Lifecycle
+
+1. `AIService` constructor creates `TelemetryLogger` with ISO timestamp `runId`
+2. Each `call()` appends `TelemetryEntry` with prompt/response/tokens/latency/retryCount
+3. Command runners call `addFilesReadToLastEntry(filesRead)` post-hoc to attach file metadata
+4. `finalize(projectRoot)` calls `logger.toRunLog()` computing summary statistics, writes via `writeRunLog()`, cleans up via `cleanupOldLogs(projectRoot, keepRuns)`, returns `{ logPath, summary }`
+
+### Concurrency Management
+
+`activeSubprocesses` Map in subprocess.ts tracks `{ command, spawnedAt }` by PID. `getActiveSubprocessCount()` and `getActiveSubprocesses()` expose concurrency metrics. Debug mode logs heap usage, RSS, active subprocess count before/after spawn. Serialized `logWriteQueue` in service.ts prevents corrupted subprocess log writes from concurrent pool workers.
 
 ## Behavioral Contracts
 
-**Rate Limit Patterns** (service.ts):  
-`['rate limit', '429', 'too many requests', 'overloaded']` (case-insensitive stderr matching)
+### Rate Limit Detection Patterns
 
-**SIGKILL Grace Period** (subprocess.ts):  
-`SIGKILL_GRACE_MS = 5000` (milliseconds after SIGTERM before force-kill)
-
-**Exponential Backoff Formula** (retry.ts):  
-`min(baseDelayMs * multiplier^attempt, maxDelayMs) + jitter` where `jitter ∈ [0, 500]` ms
-
-**Subprocess Log Format** (service.ts):  
-```
-task:      ${taskLabel}
-pid:       ${childPid}
-command:   ${backend.cliCommand}
-exit:      ${exitCode}
-signal:    ${signal}
-duration:  ${durationMs}ms
-timed_out: ${timedOut}
-
---- stdout ---
-${stdout}
-
---- stderr ---
-${stderr}
+```typescript
+['rate limit', '429', 'too many requests', 'overloaded']
 ```
 
-**Subprocess Log Filename Sanitization** (service.ts):  
-`/\//g` → `'--'`, `/[^a-zA-Z0-9._-]/g` → `'_'`, format: `${sanitizedLabel}_pid${childPid}.log`
+Matched against `stderr.toLowerCase()` to distinguish retryable rate limits from permanent errors.
 
-**Active Subprocess Count**: Tracked via Map keyed by PID, incremented before spawn, decremented after exit, queryable via `getActiveSubprocessCount()` and `getActiveSubprocesses()`.
+### Timeout Escalation
 
-**Error Code Classification**:
-- `CLI_NOT_FOUND`: Backend unavailable (PATH check fails or registry.get() returns undefined)
-- `TIMEOUT`: Subprocess exceeded timeoutMs (detected via `result.timedOut`)
-- `RATE_LIMIT`: Non-zero exit + stderr matches rate limit patterns (retryable)
-- `SUBPROCESS_ERROR`: Non-zero exit without rate limit stderr (not retryable)
-- `PARSE_ERROR`: Response parsing failed (Zod validation or JSON.parse error)
+SIGTERM sent at `options.timeoutMs`, SIGKILL sent at `options.timeoutMs + 5000ms` targeting process group via `process.kill(-childPid, 'SIGKILL')` with fallback to single-process kill.
 
-**Debug Output Format** (service.ts):  
+### Exponential Backoff Formula
+
+```typescript
+delay = min(baseDelayMs * multiplier^attempt, maxDelayMs) + Math.random() * 500
 ```
-[debug] Spawning subprocess for "${taskLabel}" (active: ${activeSubprocesses}, heapUsed: ${formatBytes(mem.heapUsed)}, rss: ${formatBytes(mem.rss)}, timeout: ${(timeoutMs / 1000).toFixed(0)}s)
-[debug] Subprocess exited for "${taskLabel}" (PID ${childPid}, exitCode: ${exitCode}, duration: ${(durationMs / 1000).toFixed(1)}s, active: ${activeSubprocesses})
-[warn] Subprocess timed out after ${(durationMs / 1000).toFixed(1)}s for "${taskLabel}" (PID ${childPid}, timeout was ${(timeoutMs / 1000).toFixed(0)}s)
-[warn] Retrying "${taskLabel}" (attempt ${attempt}/${maxRetries}, reason: ${errorCode})
+
+Default values: `baseDelayMs: 1000`, `multiplier: 2`, `maxDelayMs: 8000`, jitter window: [0, 500ms].
+
+### Subprocess Log Filename Sanitization
+
+```typescript
+taskLabel.replace(/\//g, '--').replace(/[^a-zA-Z0-9_\-]/g, '_') + `_pid${childPid}.log`
 ```
+
+### Trace Event Types
+
+- `subprocess:spawn` with `childPid`, `command`, `taskLabel`
+- `subprocess:exit` with `childPid`, `command`, `taskLabel`, `exitCode`, `signal`, `durationMs`, `timedOut`
+- `retry` with `attempt`, `taskLabel`, `errorCode`
 
 ## File Relationships
 
-`AIService.call()` invokes `backend.buildArgs()` for CLI arguments, wraps `runSubprocess()` in `withRetry()`, parses output via `backend.parseResponse()`, emits trace events via `tracer`, records telemetry via internal `TelemetryLogger`, enqueues subprocess log writes (serialized promise chain), throws `AIServiceError` on failures. `finalize()` invokes `telemetry/run-log.ts` `writeRunLog()` and `telemetry/cleanup.ts` `cleanupOldLogs()`. `registry.ts` holds backend instances, `detectBackend()` iterates calling `backend.isAvailable()` from `backends/*.ts`. Subprocess tracking in `subprocess.ts` populates `activeSubprocesses` Map queried by service debug logging. Consumed by `src/orchestration/runner.ts` which instantiates `AIService`, calls `setTracer()`, and delegates file analysis tasks.
+`service.ts` imports `runSubprocess` from subprocess.ts, `withRetry` from retry.ts, `TelemetryLogger` from telemetry/logger.ts, `ITraceWriter` from `../orchestration/trace.js`. `registry.ts` imports backend implementations from backends/ subdirectory. `subprocess.ts` imports `SubprocessResult` from types.ts. All modules import type definitions from types.ts establishing shared vocabulary. `index.ts` re-exports all public symbols enforcing single import boundary.

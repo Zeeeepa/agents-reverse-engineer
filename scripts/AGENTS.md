@@ -2,22 +2,16 @@
 
 # scripts
 
-NPM build automation scripts for package distribution preparation.
+Build automation directory containing Node.js scripts for npm lifecycle hooks and distribution preparation.
 
 ## Contents
 
-### Build Scripts
+- **[build-hooks.js](./build-hooks.js)**: Copies hook source files from `hooks/` to `hooks/dist/` during prepublish, filtering `.js` files via `readdirSync(HOOKS_SRC).filter(f => f.endsWith('.js') && f !== 'dist')`.
 
-[build-hooks.js](./build-hooks.js) — Copies hook files from `hooks/` to `hooks/dist/` using `copyFileSync()` after filtering `.js` files with `readdirSync(...).filter((f) => f.endsWith('.js') && f !== 'dist')`. Invoked via `npm run build:hooks` and `npm run prepublishOnly`.
+## Build Integration
 
-## Execution Flow
+Script invoked via `npm run build:hooks` and automatically triggered during `npm run prepublishOnly`. Creates `hooks/dist/` directory using `mkdirSync(HOOKS_DIST, { recursive: true })`, then copies each hook file using `copyFileSync(src, dest)`. Console output logs each file as `Copied: ${file} -> hooks/dist/${file}` and final count as `Done. ${hookFiles.length} hook(s) built.`.
 
-**Pre-publish hook chain**: `npm run prepublishOnly` → `npm run build:hooks` → `node scripts/build-hooks.js` → `mkdirSync(HOOKS_DIST, { recursive: true })` → `copyFileSync()` loop → `hooks/dist/` populated for package tarball.
+## Path Resolution
 
-**Path resolution**: Uses ESM `import.meta.url` → `fileURLToPath()` → `dirname()` → `join(__dirname, '..')` to derive `projectRoot`, then constructs `HOOKS_SRC = join(projectRoot, 'hooks')` and `HOOKS_DIST = join(projectRoot, 'hooks', 'dist')`.
-
-## Behavioral Contracts
-
-**File filter predicate**: `(f) => f.endsWith('.js') && f !== 'dist'` — excludes `dist` directory from source scan, copies only `.js` hook files.
-
-**Console output format**: `Copied: ${file} -> hooks/dist/${file}` per file, `Done. ${hookFiles.length} hook(s) built.` on completion.
+Uses ESM path resolution pattern: `__filename` derived from `fileURLToPath(import.meta.url)`, `__dirname` from `dirname(__filename)`, `projectRoot` resolved as `join(__dirname, '..')`. Hook paths: `HOOKS_SRC = join(projectRoot, 'hooks')`, `HOOKS_DIST = join(projectRoot, 'hooks', 'dist')`.

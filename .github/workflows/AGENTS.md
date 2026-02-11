@@ -2,24 +2,36 @@
 
 # .github/workflows
 
-GitHub Actions CI/CD workflow definitions for the agents-reverse-engineer npm package. Currently contains a single workflow that automates npm publishing when releases are created or manually triggered.
+GitHub Actions workflow automation for the agents-reverse-engineer package. This directory contains CI/CD pipeline definitions that execute on repository events to automate package publication with cryptographic provenance.
 
 ## Contents
 
 ### Workflows
 
-- [publish.yml](./publish.yml) — Publishes package to npm on release events, runs `npm ci && npm run build && npm publish --provenance --access public` on ubuntu-latest with Node.js 20
+- **[publish.yml](./publish.yml)**: Publishes `agents-reverse-engineer` to npm registry with SLSA provenance attestation on release publication or manual dispatch.
 
 ## Workflow Triggers
 
-**publish.yml** activates on two event types:
-- `release.published` — automatic execution when GitHub release is published
-- `workflow_dispatch` — manual trigger from Actions UI
+`publish.yml` activates via two event paths:
+- `release.types: [published]` — automatic execution when GitHub release transitions to published state
+- `workflow_dispatch` — manual invocation from GitHub Actions UI
 
-## Authentication & Secrets
+## Execution Pipeline
 
-The workflow requires `secrets.NPM_TOKEN` configured in repository settings. This token is exposed to the publish step as `NODE_AUTH_TOKEN` environment variable, enabling authenticated npm registry access.
+The `publish` job executes on `ubuntu-latest` with permission grants `contents: read` (repository access) and `id-token: write` (provenance signing):
 
-## Provenance
+1. `actions/checkout@v4` — retrieves repository source at commit SHA
+2. `actions/setup-node@v4` — provisions Node.js 20 runtime with npm registry URL `https://registry.npmjs.org`
+3. `npm ci` — installs locked dependencies from `package-lock.json`
+4. `npm run build` — invokes TypeScript compiler via `tsc` to produce distributable artifacts
+5. `npm publish --provenance --access public` — uploads package with cryptographically signed attestation linking tarball to source commit SHA, authenticated via `NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN }}`
 
-The `--provenance` flag generates SLSA build provenance attestations via GitHub's OIDC identity token (`id-token: write` permission). This links published npm artifacts to the GitHub Actions build that produced them.
+## Integration Dependencies
+
+- **Repository secret**: `NPM_TOKEN` configured in GitHub repository settings provides npm registry authentication token
+- **Package manifest**: `package.json` must define `build` script referencing `tsc` compilation step
+- **TypeScript config**: `tsconfig.json` specifies output directory and module resolution for distributable build
+
+## Provenance Attestation
+
+The `--provenance` flag generates SLSA attestation bundle containing workflow run metadata, commit SHA, and OIDC-signed claims. This enables verifiable supply chain integrity for published npm packages, allowing consumers to cryptographically verify the package was built from declared source commits via GitHub-hosted runners.

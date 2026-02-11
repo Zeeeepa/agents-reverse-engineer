@@ -2,55 +2,49 @@
 
 # phantom-paths
 
-Validates AGENTS.md files for phantom path references — markdown links, backtick-quoted paths, or prose references that don't resolve to existing files on disk.
+Detects and reports references to non-existent file paths in generated AGENTS.md documentation.
 
 ## Contents
 
-**[index.ts](./index.ts)** — Barrel export re-exposing `checkPhantomPaths` from `validator.js` as the public API for phantom path detection.
+**[validator.ts](./validator.ts)** — Extracts path-like strings from AGENTS.md content using `PATH_PATTERNS`, resolves against filesystem, and returns `PhantomPathInconsistency[]` for missing files. Employs multi-strategy resolution (relative to AGENTS.md directory, project root, .ts/.js extension substitution) and skip patterns for false positives (node_modules, URLs, template syntax).
 
-**[validator.ts](./validator.ts)** — Implements `checkPhantomPaths()`, which extracts path references via regex patterns, resolves them relative to AGENTS.md directory or project root, and returns `PhantomPathInconsistency[]` for non-existent paths.
+**[index.ts](./index.ts)** — Barrel export re-exporting `checkPhantomPaths` from validator.ts as the public interface.
 
-## Path Extraction Patterns
+## Behavioral Contracts
 
-`PATH_PATTERNS` defines three regex patterns in `validator.ts`:
+### Path Extraction Patterns (`PATH_PATTERNS`)
 
-- `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` — markdown links: `[text](./path)`, `[text](../path)`
-- `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g `` — backtick-quoted paths: `` `src/foo/bar.ts` ``, `` `../config.js` ``
-- `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi` — prose references: "from src/cli/", "see src/ai/service.ts"
+```regex
+/\[(?:[^\]]*)\]\((\.[^)]+)\)/g
+```
+Matches markdown links: `[text](./path)` or `[text](path)`
 
-## Path Resolution Strategy
+```regex
+/`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g
+```
+Matches backtick-quoted paths: `` `src/foo/bar.ts` ``, `` `../foo/bar.js` ``
 
-`checkPhantomPaths()` resolves extracted paths in multiple passes:
+```regex
+/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi
+```
+Matches prose path references: "from src/foo/", "in src/foo/bar.ts"
 
-1. `path.resolve(agentsMdDir, rawPath)` — relative to AGENTS.md directory
-2. `path.resolve(projectRoot, rawPath)` — relative to project root for `src/`-prefixed paths
-3. For `.js` extensions: retry with `.ts` suffix to handle TypeScript import conventions
+### False Positive Skip Patterns (`SKIP_PATTERNS`)
 
-Existence verified via `existsSync()` after each resolution attempt.
+- `/node_modules/`, `/\.git\//` — dependency and VCS directories
+- `/^https?:/` — URLs
+- `/\{\{/`, `/\$\{/` — template placeholder and literal syntax
+- `/\*/`, `/\{[^}]*,[^}]*\}/` — glob patterns and brace expansion
 
-## Exclusion Rules
+### Resolution Strategy
 
-`SKIP_PATTERNS` filters non-file references before validation:
+For each extracted path:
+1. Resolve relative to AGENTS.md directory: `path.resolve(agentsMdDir, rawPath)`
+2. Resolve relative to project root: `path.resolve(projectRoot, rawPath)`
+3. Try `.js` → `.ts` extension substitution for TypeScript import conventions
+4. Use `existsSync()` to verify at least one candidate exists
+5. If all fail, emit `PhantomPathInconsistency` with type `'phantom-path'`, severity `'warning'`, 120-character context snippet
 
-- `/node_modules/`, `/\.git\//` — dependency and git metadata paths
-- `/^https?:/` — HTTP(S) URLs
-- `/\{\{/`, `/\$\{/` — template placeholders and template literals
-- `/\*/` — glob patterns
-- `/\{[^}]*,[^}]*\}/` — brace expansion syntax (`{a,b,c}`)
+## Integration
 
-## Error Reporting Format
-
-`PhantomPathInconsistency` objects returned by `checkPhantomPaths()`:
-
-- `type: 'phantom-path'`, `severity: 'warning'`
-- `agentsMdPath` — project-relative path to AGENTS.md file
-- `description` — `"Phantom path reference: \"{rawPath}\" does not exist"`
-- `details.referencedPath` — raw extracted path string
-- `details.resolvedTo` — project-relative attempted resolution path
-- `details.context` — first 120 characters of containing line for debugging
-
-## Implementation Details
-
-- `Set<string> seen` deduplicates path references across multiple pattern matches
-- `pattern.lastIndex = 0` reset before each regex execution to ensure correct state
-- `content.split('\n')` extracts contextual line information for error reporting
+Called by `src/quality/index.ts` `validateDocQuality()` after AGENTS.md generation. Inconsistencies are aggregated with density and code-vs-doc validators, filtered by severity threshold, and reported via `logInconsistencies()`.
