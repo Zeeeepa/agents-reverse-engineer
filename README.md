@@ -4,7 +4,7 @@
 
 **Reverse engineer your codebase into AI-friendly documentation.**
 
-**Generate `.sum` files, `AGENTS.md`, and root docs for Claude Code, OpenCode, and any AI assistant that supports `AGENTS.md`.**
+**Generate `.sum` files and `AGENTS.md` for Claude Code, OpenCode, and any AI assistant that supports `AGENTS.md`.**
 
 [![npm version](https://img.shields.io/npm/v/agents-reverse-engineer?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/agents-reverse-engineer)
 [![npm downloads](https://img.shields.io/npm/dw/agents-reverse-engineer?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/agents-reverse-engineer)
@@ -181,8 +181,7 @@ Uses **post-order traversal** — deepest directories first, so child documentat
 Your AI assistant executes the plan:
 
 1. **File Analysis** — Creates `.sum` file for each source file
-2. **Directory Docs** — Creates `AGENTS.md` for each directory
-3. **Root Docs** — Creates `CLAUDE.md`, `GEMINI.md`, `OPENCODE.md`
+2. **Directory Docs** — Creates `AGENTS.md` and `CLAUDE.md` pointer for each directory
 
 ---
 
@@ -270,11 +269,12 @@ Directory overview with:
 - Files grouped by purpose (Types, Services, Utils, etc.)
 - Subdirectories with brief descriptions
 
-### Root Documents
+### Pointer Files
 
-- **`CLAUDE.md`** — Project entry point for Claude Code (auto-loaded)
-- **`GEMINI.md`** — Project entry point for Gemini CLI
-- **`OPENCODE.md`** — Project entry point for OpenCode
+- **`CLAUDE.md`** — Imports `AGENTS.md` for Claude Code (auto-loaded per directory)
+
+### Root Overview
+
 - **`AGENTS.md`** — Root directory overview (universal format)
 
 ---

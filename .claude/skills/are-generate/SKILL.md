@@ -30,15 +30,13 @@ Run the generate command in the background and monitor progress in real time.
    - Root and per-package documents generated
    - Any inconsistency warnings from the quality report
 
-This executes a three-phase pipeline:
+This executes a two-phase pipeline:
 
-1. **Discovery & Planning**: Walks the directory tree, applies filters (gitignore, vendor, binary, custom), detects file types, and creates a generation plan.
+1. **File Analysis** (concurrent): Discovers files, applies filters (gitignore, vendor, binary, custom), then analyzes each source file via AI and writes `.sum` summary files with YAML frontmatter (`content_hash`, `file_type`, `purpose`, `public_interface`, `dependencies`, `patterns`).
 
-2. **File Analysis** (concurrent): Analyzes each source file via AI and writes `.sum` summary files with YAML frontmatter (`content_hash`, `file_type`, `purpose`, `public_interface`, `dependencies`, `patterns`).
-
-3. **Directory & Root Documents** (sequential):
+2. **Directory & Root Documents** (sequential):
    - Generates `AGENTS.md` per directory in post-order traversal (deepest first, so child summaries feed into parents)
-   - Creates root document: `CLAUDE.md`
+   - Creates root `CLAUDE.md` pointer deterministically (no AI call)
 
 **Options:**
 - `--dry-run`: Preview the plan without making AI calls
