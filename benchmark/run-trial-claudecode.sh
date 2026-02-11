@@ -8,7 +8,7 @@ TRIAL="${2:?Usage: run-trial.sh <branch> <trial-number>}"
 
 # Load config
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/config.sh"
+source "$SCRIPT_DIR/config-claudecode.sh"
 
 # Determine condition name from branch
 if [[ "$BRANCH" == "$BENCH_BRANCH_WITH" ]]; then

@@ -1,0 +1,55 @@
+{
+  "runtime": "opencode",
+  "condition": "with-are",
+  "trial": 3,
+  "branch": "benchmark/with-are",
+  "exit_code": 0,
+  "wall_clock_ms": 225720,
+  "num_turns": 30,
+  "input_tokens": 39,
+  "output_tokens": 11016,
+  "reasoning_tokens": 0,
+  "cache_read_tokens": 985969,
+  "cache_creation_tokens": 34817,
+  "total_tokens": 11055,
+  "total_cost_usd": 2.95855725,
+  "verification": {
+    "passed": 6,
+    "failed": 1,
+    "total": 7,
+    "success": true,
+    "checks": [
+      {
+        "name": "entity-duedate",
+        "pass": true
+      },
+      {
+        "name": "create-dto-duedate",
+        "pass": true
+      },
+      {
+        "name": "update-dto-duedate",
+        "pass": false
+      },
+      {
+        "name": "frontend-interface-duedate",
+        "pass": true
+      },
+      {
+        "name": "overdue-endpoint",
+        "pass": true
+      },
+      {
+        "name": "frontend-date-input",
+        "pass": true
+      },
+      {
+        "name": "backend-compiles",
+        "pass": true
+      }
+    ]
+  },
+  "parse_error": false,
+  "timestamp": "2026-02-11T23:33:19.994Z",
+  "notes": "OpenCode does not support --max-turns or --max-budget-usd flags"
+}

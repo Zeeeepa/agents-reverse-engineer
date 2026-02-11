@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# Orchestrate all 6 benchmark trials
+# Orchestrate all benchmark trials with OpenCode
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/config.sh"
+source "$SCRIPT_DIR/config-opencode.sh"
 
-echo "=== ARE E2E Benchmark ==="
+echo "=== ARE E2E Benchmark (OpenCode) ==="
+echo "Runtime: OpenCode"
 echo "Task: $BENCH_TASK"
 echo "Trials per condition: $BENCH_TRIALS"
 echo "Model: $BENCH_MODEL"
-echo "Max turns: $BENCH_MAX_TURNS"
-echo "Budget cap: \$$BENCH_MAX_BUDGET_USD per trial"
+echo "Timeout: ${BENCH_TIMEOUT}s"
+echo ""
+echo "NOTE: OpenCode does not support:"
+echo "  - --max-turns (no turn limit enforcement)"
+echo "  - --max-budget-usd (no cost limit enforcement)"
+echo "  - --allowedTools (all tools available)"
 echo ""
 
 # Verify setup
@@ -34,7 +39,7 @@ echo ""
 # Run without-are trials
 echo ">>> Condition: WITHOUT ARE <<<"
 for i in $(seq 1 "$BENCH_TRIALS"); do
-  bash "$SCRIPT_DIR/run-trial.sh" "$BENCH_BRANCH_WITHOUT" "$i"
+  bash "$SCRIPT_DIR/run-trial-opencode.sh" "$BENCH_BRANCH_WITHOUT" "$i"
   if [[ "$i" -lt "$BENCH_TRIALS" ]]; then
     echo "Cooling down for 30s..."
     sleep 30
@@ -46,7 +51,7 @@ echo ""
 # Run with-are trials
 echo ">>> Condition: WITH ARE <<<"
 for i in $(seq 1 "$BENCH_TRIALS"); do
-  bash "$SCRIPT_DIR/run-trial.sh" "$BENCH_BRANCH_WITH" "$i"
+  bash "$SCRIPT_DIR/run-trial-opencode.sh" "$BENCH_BRANCH_WITH" "$i"
   if [[ "$i" -lt "$BENCH_TRIALS" ]]; then
     echo "Cooling down for 30s..."
     sleep 30
@@ -57,8 +62,8 @@ echo ""
 echo "=== All trials complete. Generating analysis... ==="
 
 # Run analysis (export config vars for analyze.ts)
-export BENCH_MODEL BENCH_TASK
-npx tsx "$SCRIPT_DIR/analyze.ts"
+export BENCH_MODEL BENCH_TASK BENCH_RESULTS
+npx tsx "$SCRIPT_DIR/analyze-opencode.ts"
 
 echo ""
 echo "Results: $BENCH_RESULTS/summary.md"
