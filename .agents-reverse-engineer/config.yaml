@@ -40,7 +40,6 @@ exclude:
     - "**/*.sum"
     - "**/SKILL.md"
     - CHANGELOG.md
-    - specs/**
     - "**/*.annex.md"
 
   # Vendor directories to exclude from analysis
@@ -60,13 +59,14 @@ exclude:
     - .gradle
     - .idea
     - .vscode
+    - .agents-reverse-engineer
     - .agents
     - .planning
     - .claude
     - .opencode
     - .gemini
-    - .agents-reverse-engineer
     - benchmark
+    - specs
 
   # Binary file extensions to exclude from analysis
   # These files cannot be meaningfully analyzed as text
