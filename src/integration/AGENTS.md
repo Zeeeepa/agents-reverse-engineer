@@ -14,9 +14,9 @@ Detects AI coding assistant environments (Claude Code, OpenCode, Gemini CLI, Aid
 
 ### Generation
 
-**[generate.ts](./generate.ts)** — `generateIntegrationFiles(projectRoot, options)` orchestrates template writing via `getTemplatesForEnvironment()` dispatch, `ensureDir()` directory creation, `existsSync()` skip-if-exists checks, `writeFileSync()` file emission. Claude-specific: copies bundled `hooks/dist/are-session-end.js` to `.claude/hooks/` via `getBundledHookPath()` + `readBundledHook()`. Returns `IntegrationResult[]` tracking filesCreated/filesSkipped per environment.
+**[generate.ts](./generate.ts)** — `generateIntegrationFiles(projectRoot, options)` orchestrates template writing via `getTemplatesForEnvironment()` dispatch, `ensureDir()` directory creation, `existsSync()` skip-if-exists checks, `writeFileSync()` file emission. Claude-specific: copies bundled `hooks/dist/are-session-end.js` to `.claude/hooks/` via `getBundledHookPath()` + `readBundledHook()`. Returns `IntegrationResult[]` tracking filesCreated/filesSkipped per environment. Accepts `GenerateOptions` with `dryRun`, `force`, `environment` fields controlling write behavior and environment targeting.
 
-**[templates.ts](./templates.ts)** — `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` return `IntegrationTemplate[]` for seven ARE commands (generate, update, init, discover, clean, specify, rebuild, help). `buildTemplate()` constructs platform-specific paths (`.claude/skills/are-{command}/SKILL.md`, `.opencode/commands/are-{command}.md`, `.gemini/commands/are-{command}.toml`) with `buildFrontmatter()` YAML headers or `buildGeminiToml()` triple-quoted format. Replaces `COMMAND_PREFIX` token with `/are-`, `VERSION_FILE_PATH` with `.claude/ARE-VERSION` (or OpenCode/Gemini equivalents). Long-running commands embed progress polling pattern: `sleep 15` → Read `progress.log` with `offset` → `TaskOutput` with `block: false` loop.
+**[templates.ts](./templates.ts)** — `getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()` return `IntegrationTemplate[]` for eight ARE commands (generate, update, init, discover, clean, specify, rebuild, help). `buildTemplate()` constructs platform-specific paths (`.claude/skills/are-{command}/SKILL.md`, `.opencode/commands/are-{command}.md`, `.gemini/commands/are-{command}.toml`) with `buildFrontmatter()` YAML headers or `buildGeminiToml()` triple-quoted format. Replaces `COMMAND_PREFIX` token with `/are-`, `VERSION_FILE_PATH` with `.claude/ARE-VERSION` (or OpenCode/Gemini equivalents). Long-running commands (`generate`, `update`, `discover`, `specify`, `rebuild`) embed standardized progress polling workflow: `run_in_background: true` → poll `.agents-reverse-engineer/progress.log` with `sleep 10-15` + Read tool `offset` parameter → `TaskOutput` with `block: false` until completion. `discover` command includes post-execution file classification workflow with category-based exclude pattern recommendations (test/spec files, CI/CD configs, tool configs, migrations, fixtures, type declarations, Docker/infra) via `AskUserQuestion` with `multiSelect: true` followed by Edit tool append to `config.yaml`. `help` command uses `<objective>` + `<reference>` wrapper structure outputting complete command reference.
 
 ## Architecture
 
@@ -26,11 +26,11 @@ Detects AI coding assistant environments (Claude Code, OpenCode, Gemini CLI, Aid
 
 ### Template Dispatch
 
-`templates.ts` defines `PLATFORM_CONFIGS` mapping `Platform` type to `PlatformConfig` (commandPrefix, pathPrefix, filenameSeparator, usesName, versionFilePath, extraFrontmatter). `buildTemplate()` constructs file paths via `path.join(config.pathPrefix, filename)` where filename format depends on `filenameSeparator` (`.` for Claude, `-` for OpenCode/Gemini). Claude templates use markdown with `name: are-{command}` frontmatter field. OpenCode injects `agent: build` frontmatter. Gemini uses TOML with `description` string and triple-quoted `prompt` field.
+`templates.ts` defines `PLATFORM_CONFIGS` mapping `Platform` type (`'claude' | 'opencode' | 'gemini'`) to `PlatformConfig` (commandPrefix, pathPrefix, filenameSeparator, usesName, versionFilePath, extraFrontmatter). `buildTemplate()` constructs file paths via `path.join(config.pathPrefix, filename)` where filename format depends on `filenameSeparator` (`.` for Claude, `-` for OpenCode/Gemini). Claude templates use markdown with `name: are-{command}` frontmatter field. OpenCode injects `agent: build` frontmatter. Gemini uses TOML with `description` string and triple-quoted `prompt` field. `COMMANDS` constant defines eight command templates with `description`, `argumentHint`, and `content` (multi-line markdown/text with `<execution>` blocks, placeholder tokens, detailed workflow instructions).
 
 ### Generation Pipeline
 
-`generate.ts` executes: (1) `detectEnvironments()` or construct environment from `options.environment` via `configDirMap`, (2) `getTemplatesForEnvironment()` retrieves platform-specific templates, (3) per-template loop: `existsSync()` → skip if exists without `options.force`, else `ensureDir()` + `writeFileSync()`, (4) Claude-only: `getBundledHookPath('are-session-end.js')` resolves `hooks/dist/` → `readBundledHook()` → write to `.claude/hooks/`, (5) accumulate `filesCreated`/`filesSkipped` arrays into `IntegrationResult[]`.
+`generate.ts` executes: (1) `detectEnvironments()` or construct environment from `options.environment` via `configDirMap` mapping `EnvironmentType` to `.claude`, `.opencode`, `.aider`, `.gemini`, (2) `getTemplatesForEnvironment()` retrieves platform-specific templates, (3) per-template loop: `existsSync()` → skip if exists without `options.force`, else `ensureDir()` + `writeFileSync()`, (4) Claude-only: `getBundledHookPath('are-session-end.js')` resolves from `dist/integration/` up two levels to project root then to `hooks/dist/` → `readBundledHook()` → write to `.claude/hooks/` with skip-if-exists logic, (5) accumulate `filesCreated`/`filesSkipped` arrays into `IntegrationResult[]`.
 
 ## Integration Points
 
@@ -45,18 +45,22 @@ Consumed by `src/cli/init.ts` for initial setup and `src/installer/index.ts` for
 - `clean`: `[path] [--dry-run]`
 - `specify`: `[path] [--dry-run] [--output <path>] [--multi-file] [--force] [--debug] [--trace]`
 - `rebuild`: `[path] [--dry-run] [--output <path>] [--force] [--concurrency N] [--fail-fast] [--debug] [--trace]`
+- `init`: `` (no arguments)
+- `help`: `` (no arguments)
 
 ### Progress Polling Pattern
 ```bash
 npx agents-reverse-engineer@latest {command} $ARGUMENTS  # run_in_background: true
-sleep 15
+sleep 10  # discover command
+sleep 15  # generate, update, specify, rebuild commands
 # Read .agents-reverse-engineer/progress.log (offset for last ~20 lines)
+# "Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)"
 # TaskOutput with block: false
 # Repeat until completion
 ```
 
 ### Platform File Paths
-- Claude: `.claude/skills/are-{command}/SKILL.md`, `.claude/ARE-VERSION`
+- Claude: `.claude/skills/are-{command}/SKILL.md`, `.claude/ARE-VERSION`, `.claude/hooks/are-session-end.js`
 - OpenCode: `.opencode/commands/are-{command}.md`, `.opencode/ARE-VERSION`
 - Gemini: `.gemini/commands/are-{command}.toml`, `.gemini/ARE-VERSION`
 
@@ -82,3 +86,11 @@ prompt = """
 {content with COMMAND_PREFIX and VERSION_FILE_PATH tokens replaced}
 """
 ```
+
+### Discover File Classification Categories
+Test/spec files (`*.test.*`, `*.spec.*`, `__tests__/**`, `__mocks__/**`, `*.stories.*`, `*.story.*`), CI/CD configs (`.github/workflows/*.yml`, `.gitlab-ci.yml`, `Jenkinsfile`, `.circleci/**`, `.travis.yml`), Tool configs (`.eslintrc*`, `.prettierrc*`, `jest.config.*`, `.editorconfig`, `babel.config.*`, `webpack.config.*`, `vite.config.*`, `rollup.config.*`, `tsconfig*.json`, `.lintstagedrc*`, `.huskyrc*`, `.stylelintrc*`, `commitlint.config.*`), Migration files (`migrations/`, `*.migration.*`), Fixture/snapshot files (`__snapshots__/**`, `*.fixture.*`, `fixtures/**`, `test-data/**`, `testdata/**`), Type declarations (`*.d.ts`), Docker/infra (`Dockerfile*`, `docker-compose*`, `*.Dockerfile`, `k8s/**`, `terraform/**`, `helm/**`).
+
+### Strict Argument Handling (discover, clean)
+1. Run ONLY exact command: `npx agents-reverse-engineer@latest {command} $ARGUMENTS`
+2. DO NOT add ANY flags the user did not explicitly type
+3. If user typed nothing after `COMMAND_PREFIX{command}`, run with ZERO flags

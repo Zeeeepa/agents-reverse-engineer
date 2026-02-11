@@ -8,7 +8,7 @@ Incremental documentation maintenance via content-hash-based staleness detection
 
 **[index.ts](./index.ts)** — Barrel export re-exporting `UpdateOrchestrator`, `createUpdateOrchestrator`, `UpdatePlan` from `orchestrator.js`; `cleanupOrphans`, `cleanupEmptyDirectoryDocs`, `getAffectedDirectories` from `orphan-cleaner.js`; `UpdateOptions`, `UpdateResult`, `UpdateProgress`, `CleanupResult` from `types.js`. Invoked by `src/cli/update.ts` for `are-update` command.
 
-**[orchestrator.ts](./orchestrator.ts)** — `UpdateOrchestrator` class coordinating frontmatter-based change detection via `preparePlan()`: reads existing `.sum` files via `readSumFile()` + `getSumPath()`, compares `computeContentHash()` against stored `contentHash` frontmatter field, populates `filesToAnalyze` (hash mismatches) + `filesToSkip` (matches), invokes `cleanupOrphans()` for deleted/renamed files, calls `getAffectedDirectories()` + sorts by depth descending (`depthB - depthA`), emits `phase:start`/`plan:created`/`phase:end` telemetry. `createUpdateOrchestrator()` factory instantiates with optional `tracer`/`debug` parameters.
+**[orchestrator.ts](./orchestrator.ts)** — `UpdateOrchestrator` class coordinating frontmatter-based change detection via `preparePlan()`: reads existing `.sum` files via `readSumFile()` + `getSumPath()`, compares `computeContentHash()` against stored `contentHash` frontmatter field, populates `filesToAnalyze` (hash mismatches) + `filesToSkip` (matches), invokes `cleanupOrphans()` for deleted/renamed files, calls `getAffectedDirectories()` + sorts by depth descending (`depthB - depthA`), emits `phase:start`/`plan:created`/`phase:end` telemetry. `createUpdateOrchestrator()` factory instantiates with optional `tracer`/`debug`/`logger` parameters. Imports `Logger` and `nullLogger` from `src/core/logger.js` for structured logging.
 
 **[orphan-cleaner.ts](./orphan-cleaner.ts)** — `cleanupOrphans()` deletes `.sum`/`.annex.sum` files for `FileChange` entries with `status === 'deleted'` or `status === 'renamed'` (using `oldPath`), invokes `cleanupEmptyDirectoryDocs()` for affected parent directories. `cleanupEmptyDirectoryDocs()` removes `AGENTS.md` when no source files remain (excludes files in `GENERATED_FILES` constant: `Set(['AGENTS.md', 'CLAUDIA.md'])`). `getAffectedDirectories()` collects parent directories via `path.dirname()` traversal up to `'.'` root.
 
@@ -40,6 +40,7 @@ All file deletion operations in `orphan-cleaner.ts` accept `dryRun: boolean` par
 - **`src/generation/writers/sum.js`**: imports `readSumFile()`, `getSumPath()` to retrieve YAML frontmatter `contentHash` field from existing `.sum` files
 - **`src/discovery/run.js`**: imports `discoverFiles()` to obtain full source file list for staleness comparison
 - **`src/orchestration/trace.js`**: imports `ITraceWriter` for telemetry emission (`phase:start`, `plan:created`, `phase:end` events with `phase: 'update-plan-creation'`)
+- **`src/core/logger.js`**: imports `Logger` type and `nullLogger` for structured debug output in `UpdateOrchestrator`
 
 ### Downstream Consumers
 

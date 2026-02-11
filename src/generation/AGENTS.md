@@ -2,25 +2,25 @@
 
 # src/generation
 
-Two-phase documentation pipeline orchestrator: Phase 1 (parallel file `.sum` generation via `GenerationOrchestrator.createFileTasks()` → `buildFilePrompt()` → `AIService.call()` → `writeSumFile()`), Phase 2 (post-order directory `AGENTS.md` aggregation via `createDirectoryTasks()` → `buildDirectoryPrompt()` → `writeAgentsMd()` → root `writeClaudeMdPointer()`).
+Two-phase documentation pipeline orchestrator: Phase 1 (parallel file `.sum` generation via `GenerationOrchestrator.createFileTasks()` → `buildFilePrompt()` → `AIService.call()` → `writeSumFile()` with SHA-256 `content_hash` frontmatter), Phase 2 (post-order directory `AGENTS.md` aggregation via `createDirectoryTasks()` → dirty-propagation filtering → `buildDirectoryPrompt()` → `writeAgentsMd()` → root `writeClaudeMdPointer()`).
 
 ## Contents
 
-**[collector.ts](./collector.ts)** — `collectAgentsDocs(projectRoot)` recursively walks directory tree, collects `AGENTS.md` files, returns sorted `Array<{relativePath, content}>` via `path.relative()` + `localeCompare()` sorting. `collectAnnexFiles(projectRoot)` mirrors logic for `.annex.sum` files. `SKIP_DIRS` Set excludes `node_modules`, `.git`, `.agents-reverse-engineer`, `vendor`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`, `.cargo`, `.gradle` from traversal.
+**[collector.ts](./collector.ts)** — `collectAgentsDocs(projectRoot)` recursively walks directory tree, collects `AGENTS.md` files, returns sorted `Array<{relativePath, content}>` via `path.relative()` + `localeCompare()` sorting. `collectAnnexFiles(projectRoot)` mirrors logic for `.annex.sum` files. `SKIP_DIRS` Set excludes `node_modules`, `.git`, `.agents-reverse-engineer`, `vendor`, `dist`, `build`, `__pycache__`, `.next`, `venv`, `.venv`, `target`, `.cargo`, `.gradle` from traversal. Both functions use internal async `walk(currentDir)` closures with `catch` blocks that silently skip inaccessible paths.
 
-**[complexity.ts](./complexity.ts)** — `analyzeComplexity(files, projectRoot)` returns `ComplexityMetrics` with `fileCount`, `directoryDepth` (via `path.relative()` + `split(path.sep).length - 1`), `files` array, `directories` Set. `extractDirectories()` walks upward via `path.dirname()` until `'.'` sentinel. Consumed by orchestrator for concurrency and memory planning.
+**[complexity.ts](./complexity.ts)** — `analyzeComplexity(files, projectRoot)` returns `ComplexityMetrics` with `fileCount`, `directoryDepth` (via `calculateDirectoryDepth()` computing `max(files.map(f => path.relative(projectRoot, f).split(path.sep).length - 1))`), `files` array, `directories` Set. `extractDirectories()` walks upward via `path.dirname()` until `'.'` sentinel, prevents infinite loops with `if (parent === dir) break` check. Consumed by orchestrator for concurrency and memory planning.
 
-**[executor.ts](./executor.ts)** — `buildExecutionPlan(plan, projectRoot)` transforms `GenerationPlan` into `ExecutionPlan` with dependency graph. Creates file tasks (`id: 'file:${relativePath}'`, `dependencies: []`, `outputPath: '${absolutePath}.sum'`), builds `directoryFileMap` via `path.dirname()` grouping, creates directory tasks sorted by `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)` (descending), assigns dependencies to child file task IDs, outputs to `${dirAbsPath}/AGENTS.md`. `isDirectoryComplete(dirPath, expectedFiles)` checks `.sum` existence via `sumFileExists()`. `getReadyDirectories(executionPlan)` filters completed directories. `formatExecutionPlanAsMarkdown(plan)` emits GENERATION-PLAN.md checklist grouped by depth descending with `- [ ] \`${file}\`` format.
+**[executor.ts](./executor.ts)** — `buildExecutionPlan(plan, projectRoot)` transforms `GenerationPlan` into `ExecutionPlan` with dependency graph. Builds `directoryFileMap` from `plan.allDiscoveredFiles ?? plan.files` via `path.dirname()` grouping to include all discovered files (both processed and skipped) for prompt context. Creates file tasks (`id: 'file:${relativePath}'`, `dependencies: []`, `outputPath: '${absolutePath}.sum'`), sorts `fileTasks` by directory depth descending for post-order traversal. Sorts `directoryFileMap` entries by depth descending via `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)`, creates directory tasks with dependencies set to child file task IDs via `files.map(f => 'file:${f}')`, outputs to `${dirAbsPath}/AGENTS.md`, stores `directoryFiles`, `depth` in metadata. `isDirectoryComplete(dirPath, expectedFiles)` checks `.sum` existence via `sumFileExists()`. `getReadyDirectories(executionPlan)` filters completed directories. `formatExecutionPlanAsMarkdown(plan)` emits GENERATION-PLAN.md checklist grouped by depth descending with `- [ ] \`${file}\`` format, includes skipped file/dir counts when present.
 
-**[orchestrator.ts](./orchestrator.ts)** — `GenerationOrchestrator.createPlan(discoveryResult)` executes nine-step pipeline: `prepareFiles()` (read contents), `analyzeComplexity()`, `buildProjectStructure()` (directory listing), `createFileTasks()` (calls `buildFilePrompt()` with `projectPlan` context), `createDirectoryTasks()` (defers prompt construction), memory optimization (zero `PreparedFile.content` fields), telemetry emission (`phase:start`, `plan:created`, `phase:end`). Returns `GenerationPlan` with `files`, `tasks`, `complexity`, `projectStructure`.
+**[orchestrator.ts](./orchestrator.ts)** — `GenerationOrchestrator.createPlan(discoveryResult, options)` executes skip-aware pipeline controlled by `options.force` (defaults `false`): `prepareFiles()` (read contents into `allFiles`), `filterExistingFiles(allFiles)` (skip files with `.sum` unless `force`), `analyzeComplexity()`, `buildProjectStructure(allFiles)` (uses all files for bird's-eye context), `createFileTasks(filesToProcess, projectStructure)` (prompts only for processed files), `filterExistingDirectories(allFiles, filesToProcess)` implementing dirty-propagation via `markDirtyWithAncestors()` (adds directory and ancestors to `dirtyDirs`), filters directory tasks to `dirsToProcess` union of dirty directories and directories without generated `AGENTS.md`, memory optimization (zeros `PreparedFile.content` fields), telemetry emission (`phase:start`, `plan:created`, `phase:end`). Returns `GenerationPlan` with `skippedFiles`/`skippedDirs` populated if non-empty, `allDiscoveredFiles` populated when differs from `filesToProcess`.
 
 **[types.ts](./types.ts)** — `AnalysisResult` interface (`summary: string`, `metadata: SummaryMetadata`), `SummaryMetadata` (`purpose`, optional `criticalTodos`, `relatedFiles`), `SummaryOptions` (`targetLength: 'short'|'standard'|'detailed'`, `includeCodeSnippets: boolean`). Shared contract between LLM analysis and writer components.
 
 ## Subdirectories
 
-**[prompts/](./prompts/)** — Dual-mode template expansion: `buildFilePrompt(context)` returns `{system, user}` pairs applying `FILE_UPDATE_SYSTEM_PROMPT` when `context.existingSum` present, replaces `{{FILE_PATH}}`/`{{CONTENT}}`/`{{LANG}}`/`{{PROJECT_PLAN_SECTION}}` placeholders. `buildDirectoryPrompt(dirPath)` reads child `.sum`/`AGENTS.md` via parallel `readSumFile()`, calls `extractDirectoryImports()` for `.ts/.tsx/.js/.jsx/.py/.go/.rs/.java/.kt`, scans manifests (`package.json`, `Cargo.toml`, `go.mod`, etc.), formats import map, applies `DIRECTORY_UPDATE_SYSTEM_PROMPT` when `existingAgentsMd` present.
+**[prompts/](./prompts/)** — Dual-mode template expansion: `buildFilePrompt(context)` returns `{system, user}` pairs applying `FILE_UPDATE_SYSTEM_PROMPT` when `context.existingSum` present, replaces `{{FILE_PATH}}`/`{{CONTENT}}`/`{{LANG}}`/`{{PROJECT_PLAN_SECTION}}` placeholders, appends `contextFiles` as fenced code blocks. `buildDirectoryPrompt(dirPath)` reads child `.sum`/`AGENTS.md` via parallel `readSumFile()`, extracts `AGENTS.local.md`, calls `extractDirectoryImports()` for `.ts/.tsx/.js/.jsx/.py/.go/.rs/.java/.kt` files, scans manifests (`package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `pom.xml`, `build.gradle`, `Gemfile`, `composer.json`, `CMakeLists.txt`, `Makefile`), formats import map via `formatImportMap()`, lists `.annex.sum` files, applies `DIRECTORY_UPDATE_SYSTEM_PROMPT` when `existingAgentsMd` supplied.
 
-**[writers/](./writers/)** — `writeSumFile()` formats `SumFileContent` as YAML frontmatter (`generated_at`, `content_hash`, `purpose`, `critical_todos`, `related_files`) + markdown body, uses `formatYamlArray()` (inline `[a,b,c]` when `<=3 items <40 chars`, else multi-line `- item`). `writeAgentsMd(dirPath, content)` renames user `AGENTS.md` → `AGENTS.local.md` if missing `GENERATED_MARKER`, injects `@AGENTS.local.md` directive. `writeClaudeMdPointer(dirAbsolutePath)` generates root `CLAUDE.md` with `@CLAUDE.local.md` + `@AGENTS.md` imports.
+**[writers/](./writers/)** — `writeSumFile()` formats `SumFileContent` as YAML frontmatter (`generated_at`, `content_hash` SHA-256 hex digest, `purpose`, `critical_todos`, `related_files`) + markdown body, uses `formatYamlArray()` (inline `[a,b,c]` when `<=3 items <40 chars`, else multi-line `- item`). `writeAgentsMd(dirPath, content)` renames user `AGENTS.md` → `AGENTS.local.md` if missing `GENERATED_MARKER`, injects `@AGENTS.local.md` directive. `writeClaudeMdPointer(dirAbsolutePath)` generates root `CLAUDE.md` with `@CLAUDE.local.md` + `@AGENTS.md` imports. `readSumFile(filePath)` parses YAML frontmatter via `yaml.parse()`, returns `{metadata, content}` pair. `sumFileExists(filePath)` checks `.sum` artifact existence.
 
 ## Architecture
 
@@ -28,11 +28,22 @@ Two-phase documentation pipeline orchestrator: Phase 1 (parallel file `.sum` gen
 
 Phase 1: `createFileTasks()` → `buildFilePrompt({filePath, content, projectPlan})` → `{systemPrompt, userPrompt}` → `AnalysisTask{type:'file'}` → `buildExecutionPlan()` → `ExecutionTask{id:'file:${path}', dependencies:[]}`.
 
-Phase 2: `createDirectoryTasks()` → groups files by `path.dirname()` → `AnalysisTask{type:'directory', directoryInfo:{sumFiles, fileCount}}` → `ExecutionTask{id:'dir:${path}', dependencies:['file:...']}` sorted by depth descending.
+Phase 2: `createDirectoryTasks()` → groups files by `path.dirname()` → `AnalysisTask{type:'directory', directoryInfo:{sumFiles, fileCount}}` → dirty-propagation filtering → `ExecutionTask{id:'dir:${path}', dependencies:['file:...']}` sorted by depth descending.
 
 ### Dependency Resolution
 
-`buildExecutionPlan()` constructs bipartite graph: file tasks (zero dependencies, parallel), directory tasks (depend on child file task IDs via `files.map(f => 'file:${f}')`, post-order traversal). `getReadyDirectories()` filters via `isDirectoryComplete()` checking all expected `.sum` files exist.
+`buildExecutionPlan()` constructs bipartite graph: file tasks (zero dependencies, parallel execution), directory tasks (depend on child file task IDs via `files.map(f => 'file:${f}')`, post-order traversal). `getReadyDirectories()` filters via `isDirectoryComplete()` checking all expected `.sum` files exist.
+
+### Dirty Propagation Logic
+
+`filterExistingDirectories(allFiles, processedFiles)` implements upward propagation:
+1. `markDirtyWithAncestors()` adds each directory in `processedFiles` and all ancestors to `dirtyDirs`
+2. For each directory in `allDirs`:
+   - If in `dirtyDirs`, adds to `dirsToProcess`
+   - Else checks `isGeneratedAgentsMd()`:
+     - If true (generated exists), adds to `skippedDirs`
+     - If false (no generated AGENTS.md), calls `markDirtyWithAncestors()` to propagate up
+3. Returns `dirsToProcess` set and `skippedDirs` array
 
 ### Memory Optimization
 
@@ -55,11 +66,6 @@ All sorting uses `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)` where `getD
 getDirectoryDepth(dirB) - getDirectoryDepth(dirA)  // Descending depth
 ```
 
-### Task Count Adjustment
-```javascript
-taskCount: tasks.length + 1  // +1 for CLAUDE.md task added by buildExecutionPlan()
-```
-
 ### Directory Traversal Skip Pattern
 ```javascript
 SKIP_DIRS = ['node_modules', '.git', '.agents-reverse-engineer', 'vendor',
@@ -72,7 +78,7 @@ SKIP_DIRS = ['node_modules', '.git', '.agents-reverse-engineer', 'vendor',
 fileCount = files.length
 directoryDepth = max(files.map(f =>
   path.relative(projectRoot, f).split(path.sep).length - 1))
-directories = new Set(files.map(f => /* walk upward to '.' */))
+directories = new Set(files.map(f => /* walk upward to '.' via path.dirname() */))
 ```
 
 ### Directory Completion Check
@@ -85,4 +91,21 @@ async isDirectoryComplete(dirPath, expectedFiles) {
   }
   return { complete: missing.length === 0, missing }
 }
+```
+
+### Dirty Propagation Pattern
+```javascript
+markDirtyWithAncestors(dir, dirtySet) {
+  let current = dir
+  while (current && current !== '.' && current !== '') {
+    dirtySet.add(current)
+    current = path.dirname(current)
+  }
+}
+```
+
+### Execution Plan Directory Mapping
+```javascript
+directoryFileMap = groupBy(plan.allDiscoveredFiles ?? plan.files, f => path.dirname(f.relativePath))
+// Uses all discovered files (processed + skipped) for complete directory context
 ```

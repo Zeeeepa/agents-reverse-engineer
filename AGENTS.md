@@ -14,11 +14,11 @@ CLI tool for generating AI-friendly codebase documentation via recursive post-or
 
 **[README.md](./README.md)** — Project entry point documenting installation (`npx agents-reverse-engineer@latest` interactive installer with `--runtime <rt> -g|-l` flags), eight CLI commands (`init`, `discover`, `generate`, `update`, `specify`, `clean`, `rebuild`, plus slash command equivalents), generated artifact formats (`.sum` YAML frontmatter + markdown sections, `AGENTS.md` directory aggregates, `CLAUDE.md` runtime pointers), config schema (`.agents-reverse-engineer/config.yaml` with exclude patterns, AI backend selection, concurrency settings), and runtime support matrix.
 
-**[LICENSE](./LICENSE)** — MIT License copyright notice (GeoloeG-IsT, 2026) granting unrestricted usage, modification, and distribution rights with warranty disclaimer.
+**[LICENSE](./LICENSE)** — MIT License copyright notice (GeoloeG-IsT, 2026) granting unrestricted usage, modification, and distribution rights with warranty disclaimer. Applies to all source files in project tree; compiled binaries and derivatives must preserve copyright notice.
 
 ### Configuration
 
-**[package.json](./package.json)** — npm package manifest (`agents-reverse-engineer@0.7.8`, MIT license) exposing binaries `agents-reverse-engineer` and `are` targeting `dist/cli/index.js`, defining scripts (`build: tsc`, `build:hooks`, `dev: tsx watch`, `prepublishOnly` hook), declaring dependencies (`fast-glob`, `ignore`, `isbinaryfile`, `jsonc-parser`, `ora`, `picocolors`, `simple-git`, `yaml`, `zod`) and devDependencies (`@types/node`, `tsx`, `typescript`), specifying Node.js `>=18.0.0` engine requirement, listing distribution files (`dist/`, `hooks/dist/`, `README.md`, `LICENSE`).
+**[package.json](./package.json)** — npm package manifest (`agents-reverse-engineer@0.8.0`, MIT license) exposing binaries `agents-reverse-engineer` and `are` targeting `dist/cli/index.js`, defining scripts (`build: tsc`, `build:hooks`, `dev: tsx watch`, `prepack`, `prepublishOnly` hook), declaring dependencies (`fast-glob`, `ignore`, `isbinaryfile`, `jsonc-parser`, `ora`, `picocolors`, `simple-git`, `yaml`, `zod`) and devDependencies (`@types/node`, `tsx`, `typescript`), specifying Node.js `>=18.0.0` engine requirement, exporting `./core` library interface, listing distribution files (`dist/`, `hooks/dist/`, `README.md`, `LICENSE`).
 
 **[tsconfig.json](./tsconfig.json)** — TypeScript compiler configuration targeting ES2022 with `NodeNext` module resolution (ESM package.json `"type": "module"`), strict type-checking, declaration/sourceMap generation, `src/**/*` include pattern, `node_modules`/`dist` exclusion. Enables `resolveJsonModule` and `isolatedModules` for JSON imports and ts-loader compatibility.
 
@@ -30,7 +30,7 @@ CLI tool for generating AI-friendly codebase documentation via recursive post-or
 
 **[scripts/](./scripts/)** — Build automation containing `build-hooks.js` (copies `hooks/*.js` → `hooks/dist/` via `copyFileSync()` during `npm run build:hooks` / `prepublishOnly`).
 
-**[src/](./src/)** — TypeScript source tree implementing two-phase documentation pipeline: phase 1 (parallel file `.sum` generation via `src/generation/orchestrator.ts` → `runPool()` → `AIService.call()` → `writeSumFile()` with SHA-256 `content_hash` frontmatter), phase 2 (post-order directory `AGENTS.md` aggregation via dependency graph sorted by depth descending → `buildDirectoryPrompt()` → `writeAgentsMd()` → root `writeClaudeMdPointer()`). Core subsystems: `src/cli/` (command routing), `src/config/` (YAML/Zod validation), `src/discovery/` (four-filter chain: gitignore → vendor → binary → custom), `src/generation/` (two-phase orchestration + prompt templates), `src/orchestration/` (iterator-based worker pool, NDJSON trace emission, promise-chain serialized progress logging), `src/ai/` (multi-backend subprocess spawning with exponential backoff retry, telemetry, SIGTERM/SIGKILL timeout escalation), `src/update/` (frontmatter-based staleness detection + orphan cleanup), `src/quality/` (code-vs-doc/code-vs-code/phantom-path validation), `src/rebuild/` (AI-driven project reconstruction from specs with checkpoint management), `src/specify/` (AGENTS.md → 12-section project specification transformation).
+**[src/](./src/)** — TypeScript source tree implementing two-phase documentation pipeline: phase 1 (parallel file `.sum` generation via `generation/orchestrator.ts` → `runPool()` → `AIService.call()` → `writeSumFile()` with SHA-256 `content_hash` frontmatter), phase 2 (post-order directory `AGENTS.md` aggregation via dependency graph sorted by depth descending → `buildDirectoryPrompt()` → `writeAgentsMd()` → root `writeClaudeMdPointer()`). Core subsystems: `cli/` (command routing), `config/` (YAML/Zod validation), `discovery/` (four-filter chain: gitignore → vendor → binary → custom), `generation/` (two-phase orchestration + prompt templates), `orchestration/` (iterator-based worker pool, NDJSON trace emission, promise-chain serialized progress logging), `ai/` (multi-backend subprocess spawning with exponential backoff retry, telemetry, SIGTERM/SIGKILL timeout escalation), `update/` (frontmatter-based staleness detection + orphan cleanup), `quality/` (code-vs-doc/code-vs-code/phantom-path validation), `rebuild/` (AI-driven project reconstruction from specs with checkpoint management), `specify/` (AGENTS.md → 12-section project specification transformation), `core/` (programmatic API exports with `@beta` library interface).
 
 **[.github/workflows/](../.github/workflows/)** — GitHub Actions CI/CD automation.
 
@@ -40,7 +40,7 @@ CLI tool for generating AI-friendly codebase documentation via recursive post-or
 
 **Phase 1 (File Analysis)**: `src/generation/orchestrator.ts` `createFileTasks()` builds `GenerationTask[]` with `buildFilePrompt()` (injects import maps, project structure), executes via `src/orchestration/runner.ts` `runPool()` with user-configured concurrency (default: `os.availableParallelism() * 5` clamped to memory cap), spawns LLM subprocesses via `src/ai/subprocess.ts` `runSubprocess()` (SIGTERM at timeout, SIGKILL at timeout+5s), writes `.sum` files via `src/generation/writers/sum.ts` `writeSumFile()` with YAML frontmatter (`file_type`, `generated_at`, `content_hash`).
 
-**Phase 2 (Directory Aggregation)**: `createDirectoryTasks()` constructs dependency graph (child file task IDs), sorts by `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)` (descending), filters via `getReadyDirectories()` where `isDirectoryComplete()` confirms all child `.sum` exist, executes depth-grouped sequential batches with concurrency per group, `buildDirectoryPrompt()` reads child `.sum` via `fs.readFileSync()`, `src/generation/writers/agents-md.ts` `writeAgentsMd()` renames user `AGENTS.md` → `AGENTS.local.md` + injects `@AGENTS.local.md` directive, root `src/generation/writers/claude-md.ts` `writeClaudeMdPointer()` generates deterministic `CLAUDE.md` import.
+**Phase 2 (Directory Aggregation)**: `createDirectoryTasks()` constructs dependency graph (child file task IDs), sorts by `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)` (descending), filters via `getReadyDirectories()` where `isDirectoryComplete()` confirms all child `.sum` exist, executes depth-grouped sequential batches with concurrency per group, `buildDirectoryPrompt()` reads child `.sum` via parallel `readSumFile()`, `src/generation/writers/agents-md.ts` `writeAgentsMd()` renames user `AGENTS.md` → `AGENTS.local.md` + injects `@AGENTS.local.md` directive, root `src/generation/writers/claude-md.ts` `writeClaudeMdPointer()` generates deterministic `CLAUDE.md` import.
 
 ### Concurrency Control
 
@@ -120,8 +120,8 @@ readFileSync('.agents-reverse-engineer.yaml').includes('hook_enabled: false')
 ```json
 {
   "update_available": false,
-  "installed": "0.7.8",
-  "latest": "0.7.8",
+  "installed": "0.8.0",
+  "latest": "0.8.0",
   "checked": 1738416000
 }
 ```

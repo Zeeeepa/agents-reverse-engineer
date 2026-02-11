@@ -14,7 +14,7 @@ Four-filter discovery pipeline (`gitignore`, `vendor`, `binary`, `custom`) with 
 
 ## Subdirectories
 
-**[filters/](./filters/)** — Four specialized filters: `binary.ts` (two-phase: extension check → `isBinaryFile()` content analysis), `custom.ts` (user gitignore-style patterns via `ignore` library), `gitignore.ts` (repository `.gitignore` parser), `vendor.ts` (dependency directory exclusion), `index.ts` (`applyFilters()` with 30-worker concurrent chain, short-circuit evaluation, per-filter statistics).
+**[filters/](./filters/)** — Four specialized filters: `binary.ts` (two-phase: extension check → `isBinaryFile()` content analysis with `maxFileSize` threshold), `custom.ts` (user gitignore-style patterns via `ignore` library), `gitignore.ts` (repository `.gitignore` parser with silent fallback), `vendor.ts` (dependency directory exclusion with partitioned single/multi-segment pattern matching), `index.ts` (`applyFilters()` with 30-worker concurrent chain, short-circuit evaluation, per-filter statistics, `filter:applied` trace events).
 
 ## Architecture
 
@@ -29,6 +29,32 @@ Standard four-filter order enforced by `discoverFiles()`: gitignore (repository 
 ### Traversal Configuration
 
 `walkDirectory()` delegates to `fast-glob` with `{ onlyFiles: true, dot: true, followSymbolicLinks: false, suppressErrors: true, ignore: ['**/.git/**'] }`. `followSymlinks` defaults to `false` per CONTEXT.md, overridden via `config.options.followSymlinks` passed from CLI. `suppressErrors: true` silently skips permission-denied files per RESEARCH.md guidance.
+
+## Behavioral Contracts
+
+### Filter Concurrency
+```javascript
+const CONCURRENCY = 30  // applyFilters() worker pool size
+const workers = Math.min(CONCURRENCY, files.length)
+```
+
+### Binary Detection
+- **Fast path**: extension match against `BINARY_EXTENSIONS` (90+ extensions: images, archives, executables, media, documents, fonts, compiled, database)
+- **Slow path**: `fs.stat()` for `maxFileSize` check (default: 1MB via `DEFAULT_MAX_FILE_SIZE`), `isBinaryFile()` for content analysis
+- **Fail-closed**: stat/read errors return `true` (exclude)
+
+### Vendor Pattern Matching
+Partitions `vendorDirs` into:
+- Single-segment (e.g., `'node_modules'`): `Set<string>` lookup against path components
+- Multi-segment (e.g., `'apps/vendor'`): substring match after `path.sep` normalization
+
+### Default Vendor Directories
+```javascript
+['node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target']
+```
+
+### Path Normalization
+All filters normalize root via `path.resolve()`, convert paths to relative via `path.relative(normalizedRoot, absolutePath)`. Paths outside root (starting with `..`) or empty relative paths return `false` from `shouldExclude()`.
 
 ## Integration Points
 

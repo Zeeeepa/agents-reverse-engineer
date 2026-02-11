@@ -6,13 +6,13 @@ Quality assurance subsystem detecting documentation drift, duplicate exports, no
 
 ## Contents
 
-**[index.ts](./index.ts)** — Barrel module re-exporting `InconsistencySeverity`, `CodeDocInconsistency`, `CodeCodeInconsistency`, `PhantomPathInconsistency`, `Inconsistency`, `InconsistencyReport`, `FindabilityResult` types from `./types.js`; `extractExports()`, `checkCodeVsDoc()` from `./inconsistency/code-vs-doc.js`; `checkCodeVsCode()` from `./inconsistency/code-vs-code.js`; `buildInconsistencyReport()`, `formatReportForCli()` from `./inconsistency/reporter.js`; `checkPhantomPaths()` from `./phantom-paths/index.js`; `validateFindability()` from `./density/validator.js`.
+**[index.ts](./index.ts)** — Public API barrel re-exporting `InconsistencySeverity`, `CodeDocInconsistency`, `CodeCodeInconsistency`, `PhantomPathInconsistency`, `Inconsistency`, `InconsistencyReport`, `FindabilityResult` types from `./types.js`; `extractExports()`, `checkCodeVsDoc()` from `./inconsistency/code-vs-doc.js`; `checkCodeVsCode()` from `./inconsistency/code-vs-code.js`; `buildInconsistencyReport()`, `formatReportForCli()`, `formatReportAsMarkdown()` from `./inconsistency/reporter.js`; `checkPhantomPaths()` from `./phantom-paths/index.js`; `validateFindability()` from `./density/validator.js`.
 
-**[types.ts](./types.ts)** — Type system defining `InconsistencySeverity` (`'info' | 'warning' | 'error'`), discriminated union `Inconsistency` (`CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` with `type` discriminant), inconsistency interfaces (`CodeDocInconsistency` with `missingFromDoc`/`missingFromCode` arrays, `CodeCodeInconsistency` with `pattern: 'duplicate-export'` and `files[]`, `PhantomPathInconsistency` with `referencedPath`/`resolvedTo`/`context` strings), `InconsistencyReport` aggregation structure with `metadata` (`timestamp`, `projectRoot`, `filesChecked`, `durationMs`), `issues[]`, and `summary` counts by type/severity.
+**[types.ts](./types.ts)** — Type system defining `InconsistencySeverity` (`'info' | 'warning' | 'error'`), discriminated union `Inconsistency` (`CodeDocInconsistency | CodeCodeInconsistency | PhantomPathInconsistency` with `type` discriminant), inconsistency interfaces (`CodeDocInconsistency` with `filePath`, `sumPath`, `details.missingFromDoc[]`, `details.missingFromCode[]`, optional `details.purposeMismatch`; `CodeCodeInconsistency` with `files[]`, `pattern` identifier; `PhantomPathInconsistency` with `agentsMdPath`, `details.referencedPath`, `details.resolvedTo`, `details.context`), `InconsistencyReport` with `metadata.timestamp`, `metadata.projectRoot`, `metadata.filesChecked`, `metadata.durationMs`, `issues[]`, `summary` counts by type/severity.
 
 ## Subdirectories
 
-**[inconsistency/](./inconsistency/)** — Code-documentation drift detection: `code-vs-doc.ts` `extractExports()` regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`, `checkCodeVsDoc()` `includes()` comparison; `code-vs-code.ts` `checkCodeVsCode()` duplicate export mapping; `reporter.ts` `buildInconsistencyReport()` aggregation, `formatReportForCli()` severity-tagged rendering.
+**[inconsistency/](./inconsistency/)** — Detects documentation drift and duplicate exports: `code-vs-doc.ts` `extractExports()` regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm`, `checkCodeVsDoc()` `includes()` comparison against `SumFileContent.summary`; `code-vs-code.ts` `checkCodeVsCode()` maps export names to file paths, flags duplicates; `reporter.ts` `buildInconsistencyReport()` aggregates with ISO timestamp via `new Date().toISOString()`, `formatReportForCli()` renders severity-tagged plain text, `formatReportAsMarkdown()` renders GitHub-flavored table.
 
 **[phantom-paths/](./phantom-paths/)** — Non-existent file reference validation: `validator.ts` `checkPhantomPaths()` extracts markdown links `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g`, backtick paths `` /`((?:src\/|\.\.?\/)[^`]+\.[a-z]{1,4})`/g ``, prose patterns `/(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi`, resolves AGENTS.md-relative/project-root-relative/`.js`→`.ts` substitution, reports `PhantomPathInconsistency` on `existsSync()` failure.
 
@@ -25,7 +25,7 @@ Executed in two pipeline stages by `src/orchestration/runner.ts`:
 1. **post-phase-1-quality**: `checkCodeVsDoc()` per file-sum pair (parallel), `checkCodeVsCode()` per directory group (sequential)
 2. **post-phase-2**: `checkPhantomPaths()` per generated AGENTS.md
 
-`buildInconsistencyReport()` aggregates results across both stages, `formatReportForCli()` emits to stderr via `src/core/logger.ts`.
+`buildInconsistencyReport()` aggregates results across both stages, `formatReportForCli()` emits to stderr via `src/core/logger.ts`, `formatReportAsMarkdown()` outputs table format for PR comments.
 
 ## Behavioral Contracts
 
@@ -41,6 +41,15 @@ Executed in two pipeline stages by `src/orchestration/runner.ts`:
 /(?:from|in|by|via|see)\s+`?(src\/[\w\-./]+)`?/gi // prose references
 ```
 
+**Description Templates**:
+```javascript
+// code-vs-doc
+`Documentation out of sync: ${missingFromDoc.length} exports undocumented`
+
+// code-vs-code
+`Symbol "${name}" exported from ${paths.length} files`
+```
+
 **CLI Report Format**:
 ```
 === Inconsistency Report ===
@@ -54,7 +63,18 @@ Found {total} issue(s)
   Files: {file1}, {file2}, ...
 ```
 
+**Markdown Report Format**:
+```markdown
+## Inconsistency Report
+
+Checked **{filesChecked}** files in {durationMs}ms — found **{total}** issue(s).
+
+| Severity | Type | Description | Location |
+|----------|------|-------------|----------|
+| `ERROR`/`WARN`/`INFO` | code-vs-doc/code-vs-code/phantom-path | {description} | `{path}` |
+```
+
 ## Type Dependencies
 
-- `SumFileContent` from `../generation/writers/sum.js` — parsed `.sum` structure for `checkCodeVsDoc()`
-- `Inconsistency` discriminated union — pattern-matched in `formatReportForCli()` via `type` field
+- `SumFileContent` from `../generation/writers/sum.js` — parsed `.sum` structure with `summary` text field for `checkCodeVsDoc()`
+- `Inconsistency` discriminated union — pattern-matched in formatters via `type` field
