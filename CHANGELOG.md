@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-02-11
+
+### Changed
+- **Unified orchestration architecture**: Merged `GenerationOrchestrator` and `UpdateOrchestrator` into single `DocumentationOrchestrator` in `src/orchestration/orchestrator.ts`, eliminating 735 lines of duplicate code and simplifying the two-phase pipeline
+- **Configurable compression ratio**: Added `generation.compressionRatio` config field (0.1-1.0, default 0.25) controlling `.sum` file verbosity with aggressive compression instructions for large files. Lower values (0.1) produce more concise summaries; higher values (0.5+) preserve more details
+- **Enhanced file prompt building**: `buildFilePrompt()` now accepts `sourceFileSize` and `compressionRatio` in `PromptContext`, dynamically adjusting compression instructions based on source file size
+- **Pre-built prompts in update workflow**: `CommandRunner` now uses pre-built prompts for file tasks during incremental updates, improving consistency between generation and update operations
+
+### Improved
+- Enhanced AGENTS.md documentation across 40+ modules reflecting new orchestrator architecture and config schema
+- Updated exclusion patterns in project config for refined analysis scope
+
 ## [0.8.0] - 2026-02-11
 
 ### Added
@@ -673,7 +685,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.12...v0.8.0
 [0.7.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.11...v0.7.12
 [0.7.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.10...v0.7.11
