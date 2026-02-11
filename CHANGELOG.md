@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-02-11
+
+### Added
+- **`--show-excluded` flag for `discover` command** — Excluded files are now hidden by default during discovery output; pass `--show-excluded` to display them (previously always shown)
+- **`findProjectRoot()` for automatic config directory resolution** — All CLI commands (`discover`, `generate`, `update`, `specify`, `rebuild`, `clean`) now walk up from the target path to find the nearest `.agents-reverse-engineer/` directory, so commands work correctly when invoked from subdirectories
+- **ARE update check hook** — New `.claude/hooks/are-check-update.js` performs background npm registry version checks on session start, writing results to `~/.claude/cache/are-update-check.json`
+- **AGENTS.md documentation regenerated** — Comprehensive `AGENTS.md` and `CLAUDE.md` pointer files generated for all 30+ project directories
+
+### Fixed
+- **`specs/` directory excluded from version control** — Added `specs/` to `.gitignore` to prevent generated specification files from being committed
+
 ## [0.7.8] - 2026-02-11
 
 ### Changed
@@ -624,7 +635,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.8...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.9...HEAD
+[0.7.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.8...v0.7.9
 [0.7.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.5...v0.7.6
