@@ -1,6 +1,6 @@
 ---
-name: are-generate
 description: Generate AI-friendly documentation for the entire codebase
+agent: build
 ---
 
 Generate comprehensive documentation for this codebase using agents-reverse-engineer.
@@ -10,7 +10,7 @@ Run the generate command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Display version**: Read `.claude/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
+1. **Display version**: Read `.opencode/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
 
 2. **Run the generate command in the background** using `run_in_background: true`:
    ```bash

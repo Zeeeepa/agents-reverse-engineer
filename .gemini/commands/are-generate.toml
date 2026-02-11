@@ -1,8 +1,6 @@
----
-name: are-generate
-description: Generate AI-friendly documentation for the entire codebase
----
-
+description = "Generate AI-friendly documentation for the entire codebase"
+# Arguments: [path] [--dry-run] [--concurrency N] [--fail-fast] [--debug] [--trace]
+prompt = """
 Generate comprehensive documentation for this codebase using agents-reverse-engineer.
 
 <execution>
@@ -10,7 +8,7 @@ Run the generate command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Display version**: Read `.claude/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
+1. **Display version**: Read `.gemini/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
 
 2. **Run the generate command in the background** using `run_in_background: true`:
    ```bash
@@ -42,3 +40,4 @@ This executes a two-phase pipeline:
 - `--debug`: Show AI prompts and backend details
 - `--trace`: Enable concurrency tracing to `.agents-reverse-engineer/traces/`
 </execution>
+"""

@@ -1,12 +1,12 @@
 ---
-name: are-help
 description: Show available ARE commands and usage guide
+agent: build
 ---
 
 <objective>
 Display the complete ARE command reference.
 
-**First**: Read `.claude/ARE-VERSION` and show the user the version: `agents-reverse-engineer vX.Y.Z`
+**First**: Read `.opencode/ARE-VERSION` and show the user the version: `agents-reverse-engineer vX.Y.Z`
 
 **Then**: Output ONLY the reference content below. Do NOT add:
 - Project-specific analysis
