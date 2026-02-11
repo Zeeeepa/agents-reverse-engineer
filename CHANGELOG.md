@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-02-11
+
+### Changed
+- **Claude backend switched from `bypassPermissions` to `allowedTools`** — Subprocess invocation now uses `--allowedTools Read Write` instead of `--permission-mode bypassPermissions`, pre-approving only the minimal required tools. This fixes subprocess execution when running as root, where `bypassPermissions` is blocked by Claude CLI
+
 ## [0.7.7] - 2026-02-10
 
 ### Changed
@@ -619,7 +624,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.7...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.8...HEAD
+[0.7.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.6...v0.7.7
 [0.7.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.5...v0.7.6
 [0.7.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.4...v0.7.5
