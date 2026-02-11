@@ -78,7 +78,8 @@
       "Bash(git branch:*)",
       "Bash(BENCH_MODEL=opus npx tsx:*)",
       "Bash(BENCH_MODEL=opus BENCH_TASK=tags npx tsx:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm cache clean:*)"
     ]
   }
 }
