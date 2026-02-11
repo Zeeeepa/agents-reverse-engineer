@@ -2,66 +2,46 @@
 
 # src/imports
 
-Import statement extraction and classification subsystem for TypeScript/JavaScript source files. Parses `import` statements via regex, filters by locality (internal/external/bare), and formats dependency maps for LLM prompt injection during `.sum` generation.
+Import statement extraction pipeline for TypeScript/JavaScript files: regex-based parsing → classification (internal `./ ` vs external `../`) → LLM prompt formatting. Powers `src/generation/prompts/builder.ts` dependency context injection.
 
 ## Contents
 
-**[extractor.ts](./extractor.ts)** — Implements `extractImports()` (regex-based single-file import parsing via `IMPORT_REGEX`), `extractDirectoryImports()` (parallel file analysis with 100-line read optimization, bare specifier filtering, internal vs external classification), and `formatImportMap()` (structured text serialization for prompt embedding).
+**[extractor.ts](./extractor.ts)** — Implements `extractImports()` (single-file regex parsing), `extractDirectoryImports()` (100-line header scan with `./ `/`../` classification), `formatImportMap()` (prompt serialization with `(type)` suffix annotation).
 
-**[types.ts](./types.ts)** — Defines `ImportEntry` (specifier/symbols/typeOnly fields) and `FileImports` (fileName/externalImports/internalImports partitions).
+**[types.ts](./types.ts)** — Defines `ImportEntry` (`specifier`, `symbols[]`, `typeOnly`) and `FileImports` (`fileName`, `externalImports[]`, `internalImports[]`) data structures consumed by `buildFilePrompt()`.
 
-**[index.ts](./index.ts)** — Barrel re-export for `extractImports`, `extractDirectoryImports`, `formatImportMap`, `ImportEntry`, `FileImports`.
+**[index.ts](./index.ts)** — Barrel export exposing `extractImports`, `extractDirectoryImports`, `formatImportMap`, `ImportEntry`, `FileImports` to `src/generation/` subsystem.
 
 ## Architecture
 
-### Data Flow
+**Extraction Phase**: `extractImports()` applies `IMPORT_REGEX` (`/^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm`) to capture group 1 (type keyword), group 2 (named symbols), group 3 (namespace `*`), group 4 (default), group 5 (specifier). Named symbols cleaned via `.replace(/\s+as\s+\w+/, '')` stripping aliases.
 
-`extractDirectoryImports(dirPath, fileNames)` → `Promise.all(fileNames.map(async file => { content = readFile(first 100 lines), matches = IMPORT_REGEX.exec(content), classify(matches) → internal/external }))` → `FileImports[]` → `formatImportMap()` → prompt text block consumed by `src/generation/prompts/builder.ts` `buildFilePrompt()`.
+**Classification Phase**: `extractDirectoryImports()` reads first 100 lines per file (import region optimization), filters `specifier.startsWith('.')` (relative imports), buckets as `internalImports` (`./ ` prefix) or `externalImports` (`../` prefix), excludes npm bare specifiers and `node:` builtins.
 
-### Import Classification
+**Serialization Phase**: `formatImportMap()` emits `fileName:\n  specifier → symbol1, symbol2 (type)\n\n` format for LLM prompts, including only external imports, appending `(type)` suffix when `typeOnly` flag set.
 
-After `IMPORT_REGEX` match extraction, `extractDirectoryImports` filters imports:
-- **internal**: specifier starts with `./` (same-directory references)
-- **external**: specifier starts with `../` (parent/sibling directory references)
-- **excluded**: bare specifiers (npm packages like `'react'`) or `node:` protocol (built-in modules like `'node:fs'`)
+## Integration Points
 
-Symbol lists strip `as` aliases via `.replace(/\s+as\s+\w+/, '')` to preserve original identifiers.
-
-### Performance Optimization
-
-`extractDirectoryImports` reads only first 100 lines per file via `content.split('\n').slice(0, 100).join('\n')` since import statements cluster at file tops. Unreadable files silently skip via empty catch blocks, preventing pipeline failures on binary/corrupted files.
+Called by `src/generation/prompts/builder.ts` `buildFilePrompt()` during phase-1 file analysis: extracts import metadata → injects as "Import Map" section → provides dependency context for AI symbol reference validation.
 
 ## Behavioral Contracts
 
-### Import Regex Pattern
+**Import regex pattern**:
 ```regex
 /^import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm
 ```
-Capture groups:
-- Group 1: `type` keyword (type-only import flag)
-- Group 2: named symbols `{ Foo, Bar }`
-- Group 3: namespace import `* as name`
-- Group 4: default import (bare identifier)
-- Group 5: module specifier (string after `from`)
 
-Anchored to line start (`^`) to exclude comments/strings containing `import`.
+**Alias stripping**: `.replace(/\s+as\s+\w+/, '')` applied to named symbols before storage.
 
-### Symbol Alias Stripping
-```javascript
-symbol.trim().replace(/\s+as\s+\w+/, '')
+**Performance limit**: `content.split('\n').slice(0, 100).join('\n')` reads only first 100 lines assuming imports appear at file top.
+
+**Classification rules**:
+- Internal: `specifier.startsWith('./')`
+- External: `specifier.startsWith('../')`
+- Excluded: no `.` or `..` prefix (npm packages/`node:` builtins)
+
+**Prompt format**:
 ```
-Removes `as alias` suffix to extract original export name.
-
-### Import Map Format
+fileName:
+  specifier → symbol1, symbol2 (type)
 ```
-filename.ts:
-  ../parent/module.js → Symbol1, Symbol2 (type), Symbol3
-  ./sibling.js → Symbol4
-```
-Pattern: `{fileName}:\n  {specifier} → {symbol1}, {symbol2} (type), ...\n`
-
-## File Relationships
-
-**Consumers**: `src/generation/prompts/builder.ts` `buildFilePrompt()` calls `extractDirectoryImports()` to inject import context into LLM prompts, enabling cross-file reference resolution during `.sum` generation. `formatImportMap()` output embeds in prompt under "## Import Map" section.
-
-**Dependencies**: Uses `node:fs/promises` `readFile()` for async I/O, `node:path` for path operations. No internal ARE module dependencies beyond type imports.

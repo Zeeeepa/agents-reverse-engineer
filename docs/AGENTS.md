@@ -2,36 +2,24 @@
 
 # docs
 
-Foundational project specifications defining the Recursive Language Model (RLM) algorithm, brownfield documentation vision, and integration strategy for agents-reverse-engineer.
+Original project vision and algorithm specification defining the post-order Recursive Language Model (RLM) traversal protocol and brownfield documentation research directives.
 
 ## Contents
 
-**[INPUT.md](./INPUT.md)** — Original project specification documenting the RLM post-order traversal algorithm (leaf file analysis → directory aggregation → root synthesis), eight CLI commands (`init`, `discover`, `generate`, `update`, `clean`, `rebuild`, `specify` plus session-end hooks), `AGENTS.md`/`CLAUDE.md` artifact targets, and research mandates for GSD/BMAD brownfield patterns. Establishes compatibility goals for Claude Code, OpenCode, and Gemini CLI runtimes via cross-runtime session hook architecture.
+**[INPUT.md](./INPUT.md)** — RLM algorithm specification defining post-order traversal (file `.sum` generation → leaf-complete `AGENTS.md` → recursive parent aggregation), slash command interface (`/are-generate`, `/are-update`), session-end hook integration, brownfield research directives (GSD workflow patterns from https://github.com/glittercowboy/get-shit-done, BMAD method from https://github.com/bmad-code-org/BMAD-METHOD, SpecKit project structure from https://github.com/github/spec-kit).
 
-## RLM Algorithm
+## Behavioral Contracts
 
-The Recursive Language Model workflow executes bottom-up directory traversal:
+### RLM Traversal Order
+Post-order (leaf-to-root): `analyze files → write {filename}.sum → await all directory children → generate AGENTS.md → recurse to parent`.
 
-1. **Discover**: `src/discovery/walker.ts` builds project structure tree via four-filter chain (gitignore → vendor → binary → custom exclusions)
-2. **Analyze Leaves**: For each source file, `src/generation/orchestrator.ts` spawns AI subprocess via `src/ai/subprocess.ts`, generates `{filename}.sum` with YAML frontmatter (`content_hash`, `file_type`, `generated_at`) via `src/generation/writers/sum.ts`
-3. **Aggregate Directories**: When all child `.sum` exist, `buildDirectoryPrompt()` reads child summaries, spawns AI call, writes `AGENTS.md` via `src/generation/writers/agents-md.ts`
-4. **Emit Root Pointer**: At project root, `src/generation/writers/claude-md.ts` generates deterministic `CLAUDE.md` importing `@AGENTS.md`
+### Directory Aggregation Trigger
+Generate `AGENTS.md` when `all directory leaves complete` (all child file `.sum` and subdirectory `AGENTS.md` exist).
 
-Implementation in `src/generation/orchestrator.ts` executes phase 1 (parallel file tasks via `src/orchestration/pool.ts`) followed by phase 2 (post-order directory tasks sorted by `getDirectoryDepth(dirB) - getDirectoryDepth(dirA)`).
+### Optional Reference Documents
+`AGENTS.md` may reference: `ARCHITECTURE.md`, `STRUCTURE.md`, `STACK.md`, `INTEGRATIONS.md`, `INFRASTRUCTURE.md`, `CONVENTIONS.md`, `TESTING.md`, `PATTERNS.md`, `CONCERNS.md`.
 
-## Session Integration
-
-Commands `/are-generate` (full generation) and `/are-update` (incremental staleness detection) map to `src/cli/generate.ts` and `src/cli/update.ts`. Session-end hooks (`hooks/are-session-end.js`, `hooks/opencode-are-session-end.js`) trigger detached `are update --quiet` via `child_process.spawn()` with `ARE_DISABLE_HOOK=1` gate and `hook_enabled: false` config override.
-
-## Research Context
-
-Directive to analyze GSD (`github.com/glittercowboy/get-shit-done`) and BMAD (`github.com/bmad-code-org/BMAD-METHOD`) repositories establishes precedent for brownfield documentation workflows. Repository structure follows GSD patterns with BMAD influences. Informs design of `src/orchestration/runner.ts` five-phase pipeline (pre-phase-1-cache → phase-1-files → post-phase-1-quality → phase-2-dirs → post-phase-2-quality).
-
-## Implementation Mapping
-
-Specification maps to concrete modules:
-- RLM step 1 → `src/discovery/walker.ts` `DiscoveryWalker.walk()`
-- RLM steps 2-3 → `src/generation/orchestrator.ts` `createFileTasks()` + `runPool()`
-- RLM step 4 → `createDirectoryTasks()` + depth-sorted sequential execution
-- RLM step 5 → `src/generation/writers/claude-md.ts` `writeClaudeMdPointer()`
-- Command interface → `src/cli/index.ts` CLI entry point with yargs router
+### Research Targets
+- **GSD**: https://github.com/glittercowboy/get-shit-done (brownfield workflow patterns)
+- **BMAD**: https://github.com/bmad-code-org/BMAD-METHOD (repository structure conventions)
+- **SpecKit**: https://github.com/github/spec-kit (specification integration patterns)

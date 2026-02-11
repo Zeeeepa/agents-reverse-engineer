@@ -2,63 +2,72 @@
 
 # src/core
 
-Programmatic API surface exposing core subsystems (discovery, generation, AI, quality, config) for CLI-free library usage with dependency-injected logging and no terminal UI dependencies.
+Exports programmatic API for embedding `agents-reverse-engineer` in non-CLI contexts (build tools, test harnesses, alternative frontends) via `'agents-reverse-engineer/core'` package.json export. Re-exports 60+ symbols from AI, discovery, generation, quality, orchestration, config, and change detection subsystems with CLI dependencies (`ora`, `picocolors`, `process.exit()`) excluded. `@beta` stability.
 
 ## Contents
 
-**[index.ts](./index.ts)** — Barrel export re-exporting `Logger`/`nullLogger`/`consoleLogger`, `AIService`, `discoverFiles()`, `walkDirectory()`, `applyFilters()`, `buildFilePrompt()`, `buildDirectoryPrompt()`, `detectLanguage()`, `writeSumFile()`, `readSumFile()`, `getSumPath()`, `sumFileExists()`, `writeAgentsMd()`, `isGeneratedAgentsMd()`, `writeClaudeMdPointer()`, `GenerationOrchestrator`, `UpdateOrchestrator`, `extractExports()`, `checkCodeVsDoc()`, `checkCodeVsCode()`, `checkPhantomPaths()`, `buildInconsistencyReport()`, `formatReportForCli()`, `formatReportAsMarkdown()`, `runPool()`, `computeContentHash()`, `isGitRepo()`, `getCurrentCommit()`, `getChangedFiles()`, `loadConfig()`, `findProjectRoot()`, `getDefaultConcurrency()`, `extractImports()`, `extractDirectoryImports()`, `formatImportMap()`, and 40+ interface types (`AIServiceOptions`, `PromptContext`, `SumFileContent`, `GenerationPlan`, `UpdatePlan`, `Inconsistency`, `PoolOptions`, `Config`). Status: `@beta` API until v1.0.0.
+**[index.ts](./index.ts)** — Barrel export aggregating `AIService`, `AIServiceOptions`, `AIProvider`, `AICallOptions`, `AIResponse`, `AIBackend`, `RetryOptions`, `AIServiceErrorCode`, `AIServiceError`, `withRetry()`, `DEFAULT_RETRY_OPTIONS`, `SubprocessProvider`, `SubprocessProviderOptions` (AI subsystem); `discoverFiles()`, `walkDirectory()`, `applyFilters()`, `FileFilter`, `FilterResult`, `WalkerOptions` (discovery); `buildFilePrompt()`, `buildDirectoryPrompt()`, `detectLanguage()`, `PromptContext` (prompt builders); `writeSumFile()`, `readSumFile()`, `getSumPath()`, `sumFileExists()`, `SumFileContent`, `writeAgentsMd()`, `isGeneratedAgentsMd()`, `writeClaudeMdPointer()` (writers); `DocumentationOrchestrator`, `GenerationOrchestrator`, `UpdateOrchestrator`, `GenerationPlan`, `PreparedFile`, `AnalysisTask`, `UpdatePlan`, `buildExecutionPlan()`, `formatExecutionPlanAsMarkdown()`, `ExecutionPlan`, `ExecutionTask`, `runPool()`, `PoolOptions`, `TaskResult` (orchestration); `extractExports()`, `checkCodeVsDoc()`, `checkCodeVsCode()`, `checkPhantomPaths()`, `buildInconsistencyReport()`, `formatReportForCli()`, `formatReportAsMarkdown()`, `Inconsistency`, `InconsistencyReport`, `InconsistencySeverity`, `CodeDocInconsistency`, `CodeCodeInconsistency`, `PhantomPathInconsistency` (quality); `computeContentHash()`, `computeContentHashFromString()`, `isGitRepo()`, `getCurrentCommit()`, `getChangedFiles()`, `FileChange`, `ChangeDetectionResult` (change detection); `loadConfig()`, `findProjectRoot()`, `ConfigSchema`, `Config`, `getDefaultConcurrency()`, `DEFAULT_EXCLUDE_PATTERNS`, `DEFAULT_VENDOR_DIRS` (config); `extractImports()`, `extractDirectoryImports()`, `formatImportMap()` (imports); `nullLogger`, `consoleLogger`, `Logger` (logging). Enables headless two-phase pipeline execution outside CLI contexts.
 
-**[logger.ts](./logger.ts)** — Defines `Logger` interface (`debug()`, `warn()`, `error()`) with `nullLogger` (no-op default for silent library operation) and `consoleLogger` (stderr-based CLI implementation).
+**[logger.ts](./logger.ts)** — Defines `Logger` interface (`debug(message: string): void`, `warn(message: string): void`, `error(message: string): void`) with `nullLogger` (silent no-op, default) and `consoleLogger` (`console.error` wrapper) implementations. Core library modules accept optional `Logger` param to decouple from direct `console` calls; CLI entry points inject `consoleLogger` to preserve stderr output behavior.
 
-## API Usage Pattern
+## API Surface
 
-1. **Discover**: `discoverFiles(projectRoot, config, logger)` → filtered file paths
-2. **Phase 1**: `buildFilePrompt(context)` → `AIService.call()` → `writeSumFile()`
-3. **Phase 2**: `buildDirectoryPrompt(context)` → `AIService.call()` → `writeAgentsMd()`
-4. **Root**: `writeClaudeMdPointer(projectRoot)` → `CLAUDE.md`
+### Library Export
 
-## Dependency Injection
+`'agents-reverse-engineer/core'` exposes headless API via package.json `exports['./core']` mapping to `dist/core/index.js`. Excludes `src/cli/` dependencies (`ora` spinners, `picocolors` formatting, `process.exit()` calls). `@beta` stability — breaking changes possible in minor versions.
 
-All core modules accept optional `Logger` parameter (defaults to `nullLogger`). CLI code passes `consoleLogger` from `src/output/logger.ts` to maintain stderr debug output. Library consumers inject custom loggers or use nullLogger for silent operation.
+### Two-Phase Pipeline Invocation
 
-## Orchestration Workflow
+```typescript
+import { DocumentationOrchestrator, loadConfig, consoleLogger } from 'agents-reverse-engineer/core';
 
-**High-Level**: `GenerationOrchestrator.preparePlan()` → `buildExecutionPlan()` → `runPool(fileTasks)` → `runPool(directoryTasks)` → `writeClaudeMdPointer()`. Update workflow: `UpdateOrchestrator.preparePlan()` compares `content_hash` frontmatter via `readSumFile()` against `computeContentHash()`, regenerates stale `.sum` files, invokes `getAffectedDirectories()` for post-order `AGENTS.md` aggregation.
+const config = await loadConfig('/path/to/project');
+const orchestrator = new DocumentationOrchestrator(config, { logger: consoleLogger });
+const plan = await orchestrator.preparePlan('/path/to/project');
+const results = await orchestrator.executePlan(plan);
+```
 
-**Worker Pool**: `runPool<T>(tasks, fn, options)` spawns `options.concurrency` workers sharing single `tasks.entries()` iterator. Each worker calls `fn(task, index)` until iterator exhausted or `options.abort` signal fired. Optional `options.onComplete` callback serializes progress updates via promise-chain pattern.
+### Standalone Quality Checks
 
-## Quality Subsystem
+```typescript
+import { checkCodeVsDoc, checkCodeVsCode, checkPhantomPaths, buildInconsistencyReport } from 'agents-reverse-engineer/core';
 
-Post-generation validation via `checkCodeVsDoc()` (regex export extraction comparing code vs `.sum` documented symbols), `checkCodeVsCode()` (duplicate symbol detection across files), `checkPhantomPaths()` (markdown link validation via `/\[(?:[^\]]*)\]\((\.[^)]+)\)/g` + backtick path extraction + prose reference matching). Aggregated via `buildInconsistencyReport()` producing severity-tagged `InconsistencyReport`, formatted via `formatReportForCli()` (colored stderr) or `formatReportAsMarkdown()`.
+const codeDocInconsistencies = await checkCodeVsDoc('/project/root', {});
+const codeCodeInconsistencies = await checkCodeVsCode('/project/root', {});
+const phantomPaths = await checkPhantomPaths('/project/root', {});
+const report = buildInconsistencyReport([...codeDocInconsistencies, ...codeCodeInconsistencies, ...phantomPaths]);
+```
+
+### Change Detection
+
+```typescript
+import { computeContentHash, getChangedFiles, readSumFile } from 'agents-reverse-engineer/core';
+
+const currentHash = await computeContentHash('/project/src/index.ts');
+const sumFile = await readSumFile('/project/src/index.ts.sum');
+const isStale = currentHash !== sumFile.frontmatter.content_hash;
+
+const changed = await getChangedFiles('/project', 'HEAD~1');
+```
 
 ## Behavioral Contracts
 
-### Default Concurrency
-```javascript
-Math.min(20, Math.floor(totalMemGB * 0.5 / 0.512), Math.max(2, os.availableParallelism() * 5))
+### Logger Interface
+
+```typescript
+interface Logger {
+  debug(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+}
 ```
 
-### Export Extraction Regex
-```regex
-/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm
-```
+All core subsystem functions accepting optional `logger?: Logger` parameter default to `nullLogger` (no-op). CLI commands inject `consoleLogger` to write to `console.error`.
 
-### Import Extraction Regex
-```regex
-/^[ \t]*import\s+(type\s+)?(?:\{([^}]*)\}|(\*\s+as\s+\w+)|(\w+))\s+from\s+['"]([^'"]+)['"]/gm
-```
+### Concurrency Defaults
 
-### Phantom Path Link Pattern
-```regex
-/\[(?:[^\]]*)\]\((\.[^)]+)\)/g
-```
+`getDefaultConcurrency()` returns `Math.min(20, Math.floor(totalMemGB * 0.5 / 0.512), Math.max(2, os.availableParallelism() * 5))` when `config.ai.concurrency` unset. `runPool<T>()` spawns `Math.min(options.concurrency, tasks.length)` workers sharing single `tasks.entries()` iterator.
 
-### Content Hash Algorithm
-```javascript
-crypto.createHash('sha256').update(fs.readFileSync(filePath, 'utf-8')).digest('hex')
-```
+### Retry Configuration
 
-### Generated AGENTS.md Marker
-```markdown
-<!-- Generated by agents-reverse-engineer -->
-```
+`DEFAULT_RETRY_OPTIONS = { maxAttempts: 3, baseDelayMs: 1000, multiplier: 2, maxDelayMs: 8000, retryableErrorCodes: [AIServiceErrorCode.RATE_LIMIT, AIServiceErrorCode.TIMEOUT, AIServiceErrorCode.UNKNOWN] }`. Exponential backoff: `Math.min(baseDelayMs * multiplier^attempt, maxDelayMs) + Math.random() * 500`.

@@ -2,67 +2,20 @@
 
 # src/output
 
-Terminal output abstraction providing colored CLI logging for discovery/generation/update phases with configurable color support and silent mode.
+Terminal logging facade providing two implementations (verbose colored output via `createLogger`, silent no-op via `createSilentLogger`) used by `src/discovery/run.ts`, `src/orchestration/progress.ts`, and CLI commands for file discovery progress, exclusion reasoning, and error reporting.
 
 ## Contents
 
-**[logger.ts](./logger.ts)** — Exports `Logger` interface (6 methods: `info`, `file`, `excluded`, `summary`, `warn`, `error`), `createLogger(options: LoggerOptions)` factory using `picocolors` for color formatting, `createSilentLogger()` factory returning no-op implementation.
+**[logger.ts](./logger.ts)** — Exports `Logger` interface (`info`, `file`, `excluded`, `summary`, `warn`, `error` methods), `createLogger()` factory conditionally wrapping picocolors based on `LoggerOptions.colors` boolean, and `createSilentLogger()` returning no-op stubs for test harness.
+
+## Output Format Templates
+
+- `file(path)`: `"  +" + path` (green `+` prefix via `pc.green()`)
+- `excluded(path, reason, filter)`: `"  -" + path + " (reason: filter)"` (dim via `pc.dim()`)
+- `summary(included, excluded)`: `"\nDiscovered N files (M excluded)"` (bold count via `pc.bold()`, dim exclusion count)
+- `warn(message)`: `"Warning: " + message` (yellow prefix via `pc.yellow()`)
+- `error(message)`: `"Error: " + message` (red prefix via `pc.red()`)
 
 ## Architecture
 
-### Logger Interface Contract
-
-`Logger` defines CLI output methods consumed by `src/cli/discover.ts`, `src/cli/generate.ts`, `src/cli/update.ts`:
-- `file(path: string)` — green `"  +"` prefix for discovered files
-- `excluded(path: string, reason: string, filter: string)` — dim `"  -"` prefix with parenthetical reason
-- `summary(included: number, excluded: number)` — bold/dim formatted counts
-- `warn(message: string)` — yellow `"Warning: "` prefix
-- `error(message: string)` — red `"Error: "` prefix
-- `info(message: string)` — unformatted informational output
-
-### Factory Pattern
-
-`createLogger(options: LoggerOptions)` branches on `options.colors`:
-- `true`: uses `picocolors` (`pc`) for `green`, `dim`, `red`, `bold`, `yellow` formatting
-- `false`: uses `noColor` identity functions (`ColorFunctions` interface with `(s: string) => string` no-ops)
-
-`createSilentLogger()` returns object with all methods as empty functions for testing/programmatic usage.
-
-### Color Abstraction
-
-`ColorFunctions` interface wraps formatting primitives:
-```typescript
-{ green, dim, red, bold, yellow: (s: string) => string }
-```
-Implemented by `noColor` constant (identity) or `pc` import (picocolors runtime).
-
-## Behavioral Contracts
-
-### Output Format Specification
-```typescript
-file:     green("  +") + path
-excluded: dim("  -") + path + dim(` (${reason}: ${filter})`)
-summary:  bold(`\nDiscovered ${included} files`) + dim(` (${excluded} excluded)`)
-warn:     yellow("Warning: ") + message
-error:    red("Error: ") + message
-info:     message
-```
-
-### Logger Method Signatures
-```typescript
-info(message: string): void
-file(path: string): void
-excluded(path: string, reason: string, filter: string): void
-summary(included: number, excluded: number): void
-warn(message: string): void
-error(message: string): void
-```
-
-### LoggerOptions Schema
-```typescript
-{ colors: boolean }  // default: true
-```
-
-## Dependencies
-
-- `picocolors` — terminal color formatting (imported as `pc`)
+`createLogger()` builds `ColorFunctions` adapter mapping `{ green, dim, bold, yellow, red }` methods to either picocolors or identity functions based on `options.colors`, enabling forced monochrome output for CI environments or test assertions. `createSilentLogger()` returns `Logger` with empty method bodies for programmatic API consumers (`src/core/index.ts` `@beta` interface).

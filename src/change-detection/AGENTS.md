@@ -2,48 +2,58 @@
 
 # src/change-detection
 
-Git-based change detection subsystem providing SHA-256 content hashing and commit-to-commit diff analysis for `src/update/orchestrator.ts` incremental update workflow.
+Git-based change detection subsystem computing SHA-256 content hashes and tracking file modifications, additions, deletions, and renames between commits using simple-git subprocess wrappers.
 
 ## Contents
 
-**[detector.ts](./detector.ts)** — Implements `isGitRepo()`, `getCurrentCommit()`, `getChangedFiles()` (parses `git diff --name-status -M` with rename detection), `computeContentHash()` (SHA-256 hex digest), `computeContentHashFromString()` (in-memory variant). `getChangedFiles()` maps status codes (`A`/`M`/`D`/`R*`) to `ChangeType`, merges uncommitted changes from `git.status()` when `includeUncommitted: true`, deduplicates via path existence check.
+**[detector.ts](./detector.ts)** — Core change detection implementation exporting `isGitRepo()` (repository validation via `git.checkIsRepo()`), `getCurrentCommit()` (HEAD hash via `git.revparse(['HEAD'])`), `getChangedFiles()` (diff parsing with `git diff --name-status -M` + optional uncommitted staged/modified/not_added merge), `computeContentHash()` (SHA-256 file digest), `computeContentHashFromString()` (SHA-256 string digest for in-memory content).
 
-**[types.ts](./types.ts)** — Exports `ChangeType` (`'added' | 'modified' | 'deleted' | 'renamed'`), `FileChange` (`path`, `status`, optional `oldPath`), `ChangeDetectionResult` (`currentCommit`, `baseCommit`, `changes[]`, `includesUncommitted`), `ChangeDetectionOptions` (`includeUncommitted?`).
+**[types.ts](./types.ts)** — Type definitions for change detection API surface: `ChangeType` union literal (`'added' | 'modified' | 'deleted' | 'renamed'`), `FileChange` record with `path`/`status`/optional `oldPath`, `ChangeDetectionResult` aggregate with `currentCommit`/`baseCommit`/`changes`/`includesUncommitted`, `ChangeDetectionOptions` flag for uncommitted inclusion.
 
-**[index.ts](./index.ts)** — Barrel re-export of `detector.ts` functions and `types.ts` interfaces, serving as public API for `src/cli/update.ts` and `src/update/orchestrator.ts`.
+**[index.ts](./index.ts)** — Barrel re-export of `detector.ts` functions (`isGitRepo`, `getCurrentCommit`, `getChangedFiles`, `computeContentHash`, `computeContentHashFromString`) and `types.ts` type definitions.
 
-## Integration
+## Architecture
 
-`src/update/orchestrator.ts` calls `getChangedFiles(baseCommit, { includeUncommitted: true })` to populate `filesToAnalyze`, compares `FileChange.path` content hashes against `.sum` frontmatter `content_hash` fields read by `src/generation/writers/sum.ts` `readSumFile()`, invokes `getAffectedDirectories()` on parent paths. `computeContentHash()` used by `src/generation/writers/sum.ts` to populate `.sum` frontmatter during phase 1 file analysis.
+### Change Detection Pipeline
+
+`getChangedFiles(projectRoot, baseCommit, options)` executes three-step workflow:
+
+1. **Committed changes**: spawns `git diff --name-status -M` via simple-git comparing `baseCommit` to HEAD, parses tab-delimited lines extracting status code and path(s)
+2. **Status code mapping**: `A` → `added`, `M` → `modified`, `D` → `deleted`, `R<percentage>` → `renamed` (stores `oldPath` from second tab field)
+3. **Uncommitted merge**: if `options.includeUncommitted`, executes `git.status()` and merges `modified`/`deleted`/`not_added`/`staged` arrays, deduplicates via `changes.some(c => c.path === file)`
+
+Returns `ChangeDetectionResult` with commit range, unified `FileChange[]` array, and uncommitted flag.
+
+### Content Hashing
+
+`computeContentHash(filePath)` reads file via `fs.promises.readFile()`, pipes through `crypto.createHash('sha256')`, returns hex digest. `computeContentHashFromString(content)` bypasses disk read for in-memory content (used by `src/update/orchestrator.ts` when comparing cached frontmatter hashes against current file state).
+
+### Consumer Integration
+
+Consumed by `src/update/orchestrator.ts` `UpdateOrchestrator.preparePlan()` to detect stale `.sum` files: reads YAML frontmatter `content_hash` field via `src/generation/writers/sum.ts` `readSumFile()`, compares against `computeContentHash()` result, populates `filesToAnalyze` on mismatch, triggers phase-1-files regeneration for changed files only. Also invoked by `hooks/are-session-end.js` SessionEnd hook to gate `are update` execution (exits early when `git status --porcelain` returns empty string).
 
 ## Behavioral Contracts
 
-### Diff Parsing
-```regex
-^(A|M|D|R\d+)\t([^\t]+)(\t([^\t]+))?$
+### Rename Detection
+```javascript
+git diff --name-status -M  // 50% similarity threshold
+// Status format: R<percentage>\toldPath\tnewPath
 ```
-Status codes: `A` (added), `M` (modified), `D` (deleted), `R<n>` (renamed with similarity percentage). Rename format: `R100\toldPath\tnewPath`. Non-rename format: `M\tpath`.
 
-### Hash Algorithm
+### Diff Parsing
+```javascript
+// Split on '\t', first field = status code, last field = (new) path
+// For renames: first tab field = status, second = oldPath, third = newPath
+```
+
+### Uncommitted Inclusion
+```javascript
+// Merge status.modified, status.deleted, status.not_added, status.staged arrays
+// Deduplicate via changes.some(c => c.path === file)
+```
+
+### Content Hash Algorithm
 ```javascript
 createHash('sha256').update(content).digest('hex')
+// Produces 64-character lowercase hex string
 ```
-Produces 64-character lowercase hexadecimal string for frontmatter `content_hash` field.
-
-### Git Diff Flags
-```bash
-git diff --name-status -M <baseCommit> HEAD
-```
-`-M` enables rename detection with default 50% similarity threshold.
-
-### Deduplication Logic
-```javascript
-!changes.some(c => c.path === file)
-```
-Applied before adding uncommitted changes to prevent duplicates between committed diffs and working tree status.
-
-### Uncommitted Change Mapping
-- `status.modified` → `{ status: 'modified', path }`
-- `status.deleted` → `{ status: 'deleted', path }`
-- `status.not_added` → `{ status: 'added', path }`
-- `status.staged.forEach(file => changes.push(file))`

@@ -2,105 +2,141 @@
 
 # src/installer
 
-Implements npx-driven interactive installation wizard and uninstallation routines for distributing ARE command templates and session hooks across Claude Code (`~/.claude`), OpenCode (`~/.config/opencode`), and Gemini CLI (`~/.gemini`) runtimes with dual-mode CLI (arrow-key TTY navigation / numbered fallback for CI).
+Implements npx-driven interactive installer for deploying ARE command templates, session hooks, and permissions to runtime-specific directories (`.claude/`, `.opencode/`, `.gemini/`) with support for global (`~/.claude`) and local (`./.claude`) installation modes, TTY-aware prompts, settings.json hook registration via jsonc-parser, and symmetric uninstall operations.
 
 ## Contents
 
-**[banner.ts](./banner.ts)** — Exports `displayBanner()` (ASCII "ARE" logo via `pc.green()`, version from `getVersion()`), `showHelp()` (lists `--runtime`, `-g/--global`, `-l/--local`, `-u/--uninstall`, `--force`, `-q/--quiet` flags), status formatters `showSuccess()` / `showError()` / `showWarning()` / `showInfo()` with `✓`, `✗`, `!`, `>` prefixes, and `showNextSteps()` (prints `/are-*` command list).
+### Core Orchestration
 
-**[index.ts](./index.ts)** — Orchestrates installation via `runInstaller(args: InstallerArgs)`: parses CLI flags with `parseInstallerArgs()`, dispatches to `selectRuntime()` / `selectLocation()` prompts in interactive mode, routes to `runInstall()` (calls `installFiles()`, `verifyInstallation()`, `displayInstallResults()`) or `runUninstall()` (calls `uninstallFiles()`, `deleteConfigFolder()`, `displayUninstallResults()`). Re-exports all public types and functions from submodules.
+**[index.ts](./index.ts)** — Main entry point exposing `runInstaller(args)` routing install/uninstall workflows via `parseInstallerArgs()` CLI parser (supports `--runtime`, `-g/-l`, `--force`, `-q`, `-h` flags), `selectRuntime()` / `selectLocation()` interactive prompts for missing args, `runInstall()` / `runUninstall()` operation dispatchers with post-action `verifyInstallation()` checks, and `displayInstallResults()` / `displayUninstallResults()` formatters calling `showSuccess()` / `showError()` / `showNextSteps()` banner functions. Re-exports all public types (InstallerArgs, InstallerResult, Runtime, Location) and utility functions from sibling modules.
 
-**[operations.ts](./operations.ts)** — Implements `installFiles()` writing command templates to `commands/are/`, hooks to `hooks/` (Claude/Gemini) or `plugins/` (OpenCode), ARE-VERSION via `writeVersionFile()`, and `registerHooks()` / `registerPermissions()` manipulating `settings.json` with jsonc-parser's `parse()` / `modify()` / `applyEdits()`. Claude uses nested `{ hooks: [{ type: 'command', command }] }`, Gemini uses flat `[{ name, type: 'command', command }]`. Defines `ARE_PERMISSIONS` Bash command allowlist.
+**[operations.ts](./operations.ts)** — File copier implementing `installFiles()` via `getTemplatesForRuntime()` → `resolveInstallPath()` → `writeFileSync()` with force-overwrite logic, hook installation (`registerClaudeHooks()` / `registerGeminiHooks()` injecting `node ${runtimeDir}/hooks/${filename}` commands into settings.json SessionStart/SessionEnd arrays), OpenCode plugin deployment (`getBundledHookPath()` → `are-check-update.js` / `are-session-end.js` copies), `registerPermissions()` merging `ARE_PERMISSIONS` into Claude settings.permissions.allow, `writeVersionFile()` emitting `ARE-VERSION` from `getPackageVersion()`, and `verifyInstallation()` existence checker. Uses jsonc-parser `modify()` / `applyEdits()` with `{tabSize: 2, insertSpaces: true}` for comment-preserving JSON edits.
 
-**[paths.ts](./paths.ts)** — Exports `getRuntimePaths(runtime)` resolving global/local config paths with environment overrides (`CLAUDE_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`, `GEMINI_CONFIG_DIR`), `resolveInstallPath(runtime, location, projectRoot)` joining paths for installation targets, `getSettingsPath(runtime)` returning `settings.json` path, and `isRuntimeInstalledLocally()` / `isRuntimeInstalledGlobally()` checking directory existence via `stat()`.
+**[uninstall.ts](./uninstall.ts)** — Reversal operations via `uninstallFiles()` dispatching `uninstallFilesForRuntime()` per runtime, deleting command templates, hooks (`unregisterClaudeHooks()` / `unregisterGeminiHooks()` filtering settings.json arrays via `getHookPatterns()` legacy + current command matchers), permissions (`unregisterPermissions()` removing `ARE_PERMISSIONS` from allow list), ARE-VERSION files, Claude ARE skill directories (`cleanupAreSkillDirs()`), legacy Gemini `are-*.md` / `are/*.toml` files (`cleanupLegacyGeminiFiles()`), and empty directory cleanup (`cleanupEmptyDirs()` stopping at `.claude/.opencode/.gemini/.config` roots). `deleteConfigFolder()` removes `.agents-reverse-engineer/` for local installs.
 
-**[prompts.ts](./prompts.ts)** — Provides `selectOption<T>(prompt, options)` dispatching to `arrowKeySelect()` (renders with `\x1b[${n}A` cursor escape, handles `up`/`down`/`return` keypresses via `readline.emitKeypressEvents()` + `setRawMode(true)`) or `numberedSelect()` (prints numbered list, reads via `rl.question()`) based on `isInteractive()` (`process.stdin.isTTY`). Exports `selectRuntime()`, `selectLocation()`, `confirmAction()` wrappers.
+### Configuration Resolution
 
-**[types.ts](./types.ts)** — Defines `Runtime = 'claude' | 'opencode' | 'gemini' | 'all'`, `Location = 'global' | 'local'`, `InstallerArgs` (parsed CLI flags), `InstallerResult` (success/filesCreated/filesSkipped/errors per operation), `RuntimePaths` (global/local/settingsFile paths).
+**[paths.ts](./paths.ts)** — Cross-platform path resolver exposing `getRuntimePaths()` returning `{global, local, settingsFile}` for each runtime (Claude: `CLAUDE_CONFIG_DIR || ~/.claude`, OpenCode: `OPENCODE_CONFIG_DIR || XDG_CONFIG_HOME/opencode || ~/.config/opencode`, Gemini: `GEMINI_CONFIG_DIR || ~/.gemini`), `resolveInstallPath()` joining projectRoot with local dir or returning global dir, `getSettingsPath()` building absolute settings.json path, `isRuntimeInstalledLocally()` / `isRuntimeInstalledGlobally()` stat-based existence checks, `getInstalledRuntimes()` filtering `['claude', 'opencode', 'gemini']` by local presence, and `getAllRuntimes()` excluding 'all' meta-runtime.
 
-**[uninstall.ts](./uninstall.ts)** — Implements `uninstallFiles()` removing command templates, hooks, `ARE-VERSION` via `unlinkSync()`, `unregisterHooks()` filtering hook entries from `settings.json`, `unregisterPermissions()` removing `ARE_PERMISSIONS` from allow list, `deleteConfigFolder()` deleting `.agents-reverse-engineer` for local installs, and `cleanupEmptyDirs()` recursively removing empty parent directories.
+**[types.ts](./types.ts)** — Type definitions: Runtime (`'claude' | 'opencode' | 'gemini' | 'all'`), Location (`'global' | 'local'`), InstallerArgs (CLI flags: `runtime?`, `global`, `local`, `uninstall`, `force`, `help`, `quiet`), InstallerResult (per-runtime/location outcome: `success`, `filesCreated`, `filesSkipped`, `errors`, `hookRegistered?`, `versionWritten?`), RuntimePaths (resolved directory triplet: `global`, `local`, `settingsFile`).
 
-## Installation Flow
+### Terminal Interface
 
-1. **Parse arguments**: `parseInstallerArgs()` in index.ts validates `--runtime <rt>`, `-g/-l` flags into `InstallerArgs`
-2. **Resolve runtime/location**: Interactive prompts via prompts.ts `selectRuntime()` / `selectLocation()` or flag-based `determineRuntimes()` / `determineLocation()`
-3. **Write files**: operations.ts `installFiles()` → `installFilesForRuntime()` fetches templates via `../integration/templates.js` `getClaudeTemplates()` / `getOpenCodeTemplates()` / `getGeminiTemplates()`, writes to `resolveInstallPath()` result
-4. **Register hooks**: operations.ts `registerHooks()` for Claude/Gemini modifies `settings.json` hooks arrays with jsonc-parser, OpenCode auto-loads plugins from `plugins/`
-5. **Verify**: `verifyInstallation()` checks all file paths with `existsSync()`, reports missing via `showWarning()`
-6. **Display results**: `displayInstallResults()` shows per-runtime success/error counts, calls `showNextSteps()` with command list
+**[banner.ts](./banner.ts)** — Styled output helpers: `displayBanner()` rendering green ASCII "ARE" art + VERSION + tagline via picocolors block-drawing characters (U+25XX), `showHelp()` printing eight-option usage table (`--runtime`, `-g`, `-l`, `-u`, `--force`, `-q`, `-h`) + three example commands, `showSuccess()` / `showError()` / `showWarning()` / `showInfo()` prefixing messages with colored glyphs (✓/✗/!/›), `showNextSteps()` formatting seven-step post-install guide (`/are-help` → `/are-init` → `/are-discover` → `/are-generate` → `/are-update` → `/are-specify` → `/are-clean`) with GitHub docs URL.
 
-## Uninstallation Flow
+**[prompts.ts](./prompts.ts)** — Interactive input via `selectOption<T>()` routing `arrowKeySelect()` (raw mode keypress events: up/down/return, ANSI escape sequence re-rendering) for TTY or `numberedSelect()` (1-indexed readline interface) for CI. Specialized wrappers: `selectRuntime()` prompting `['claude', 'opencode', 'gemini', 'all']`, `selectLocation()` prompting `['global', 'local']`, `confirmAction()` yes/no selector. `isInteractive()` returns `process.stdin.isTTY === true`. `cleanupRawMode()` disables raw mode + pauses stdin, registered on `exit` / `SIGINT` events.
 
-1. **Remove files**: uninstall.ts `uninstallFiles()` → `uninstallFilesForRuntime()` deletes templates, hooks/plugins, `ARE-VERSION` via `unlinkSync()`
-2. **Unregister hooks**: `unregisterHooks()` filters `settings.json` hook arrays by matching `node ${runtimeDir}/hooks/${filename}` patterns
-3. **Cleanup directories**: `cleanupEmptyDirs()` recursively removes empty parents until hitting runtime roots (`.claude`, `.opencode`, `.gemini`, `.config`)
-4. **Delete config**: `deleteConfigFolder()` removes `.agents-reverse-engineer` for local installs via `rmSync()`
+## Architecture
+
+### Installation Workflow
+
+1. **Arg Parsing**: `parseInstallerArgs()` validates `--runtime` against `['claude', 'opencode', 'gemini', 'all']`, resolves `-g/-l` flags to Location, sets `uninstall: false` (command-level).
+2. **Interactive Fallback**: Missing runtime/location triggers `selectRuntime()` / `selectLocation()` prompts unless non-interactive mode (exits with code 1).
+3. **Operation Dispatch**: `runInstall()` calls `installFiles()` → `installFilesForRuntime()` per runtime, `registerHooks()` / `registerPermissions()`, `writeVersionFile()`.
+4. **Verification**: `verifyInstallation()` filters filesCreated via `existsSync()`, displays missing files with `--force` hint.
+5. **Result Display**: `displayInstallResults()` aggregates `totalCreated` / `totalSkipped` / `hooksRegistered` counts, invokes `showNextSteps(primaryRuntime, totalCreated)` with 7-step guide.
+
+### Hook Registration
+
+**Claude/Gemini**: `registerClaudeHooks()` / `registerGeminiHooks()` read settings.json via `jsonc-parser.parse()`, inject `{ hooks: [{ type: 'command', command: 'node ${runtimeDir}/hooks/${filename}' }] }` entries into SessionStart/SessionEnd arrays (Gemini flattens to `{ name, type, command }` schema), write back via `modify(content, ['hooks', event, index], newValue)` + `applyEdits()` preserving comments. Currently disabled (empty `ARE_HOOKS` array).
+
+**OpenCode**: Copies `hooks/dist/opencode-are-check-update.js` → `.opencode/plugins/are-check-update.js` (no settings.json registration).
+
+**Permissions**: `registerPermissions()` merges five bash patterns (`Bash(npx agents-reverse-engineer@latest init*)`, etc.) into settings.permissions.allow via `modify(content, ['permissions', 'allow'], updatedArray)`.
+
+### Uninstall Workflow
+
+1. **File Deletion**: `uninstallFilesForRuntime()` deletes command templates, hooks/plugins, ARE-VERSION files, tracks in `filesCreated` (repurposed as deleted file list).
+2. **Hook Removal**: `unregisterClaudeHooks()` / `unregisterGeminiHooks()` filter settings arrays removing entries matching `getHookPatterns()` (current `node ${runtimeDir}/hooks/${filename}` + legacy `node hooks/${filename}`).
+3. **Permission Cleanup**: `unregisterPermissions()` removes `ARE_PERMISSIONS` from allow list, deletes empty `permissions` object.
+4. **Legacy Cleanup**: `cleanupAreSkillDirs()` (Claude), `cleanupLegacyGeminiFiles()` (Gemini pre-TOML `are-*.md` / `are/*.toml`), `cleanupEmptyDirs()` (recursive bottom-up removal stopping at runtime roots).
+5. **Config Folder**: `deleteConfigFolder()` removes `.agents-reverse-engineer/` for local installs only.
 
 ## Behavioral Contracts
 
-### CLI Argument Parsing
-```regex
-/^--(runtime|force|global|local|uninstall|quiet|help)$/
-/^-(g|l|u|f|q|h)$/
+### Valid Runtimes
+```typescript
+['claude', 'opencode', 'gemini', 'all']
 ```
-Supports long (`--runtime <rt>`) and short (`-g`, `-l`) flags. `--runtime` accepts `'claude' | 'opencode' | 'gemini' | 'all'`.
 
-### Hook Registration Formats
-Claude (nested):
-```json
-{ "hooks": { "SessionStart": [{ "hooks": [{ "type": "command", "command": "node .claude/hooks/are-check-update.js" }] }] } }
+### Hook Definitions (Currently Disabled)
+```typescript
+const ARE_HOOKS: HookDefinition[] = [
+  // { event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' },
+  // { event: 'SessionEnd', filename: 'are-session-end.js', name: 'are-session-end' }, // Disabled - causing issues
+];
 ```
-Gemini (flat):
-```json
-{ "hooks": { "SessionStart": [{ "name": "ARE Update Check", "type": "command", "command": "node .gemini/hooks/are-check-update.js" }] } }
+
+### Plugin Files
+```typescript
+const ARE_PLUGINS: PluginDefinition[] = [
+  { srcFilename: 'opencode-are-check-update.js', destFilename: 'are-check-update.js' },
+  // { srcFilename: 'opencode-are-session-end.js', destFilename: 'are-session-end.js' }, // Disabled - causing issues
+];
 ```
 
 ### Permission Patterns
-```javascript
-[
+```typescript
+const ARE_PERMISSIONS = [
   'Bash(npx agents-reverse-engineer@latest init*)',
   'Bash(npx agents-reverse-engineer@latest discover*)',
   'Bash(npx agents-reverse-engineer@latest generate*)',
   'Bash(npx agents-reverse-engineer@latest update*)',
   'Bash(npx agents-reverse-engineer@latest clean*)',
   'Bash(rm -f .agents-reverse-engineer/progress.log*)',
-  'Bash(sleep *)'
-]
+  'Bash(sleep *)',
+];
 ```
 
-### Hook Unregister Pattern Matching
-```javascript
-[
-  `node ${runtimeDir}/hooks/${filename}`,   // Current format
-  `node hooks/${filename}`                  // Legacy format
-]
+### Hook Command Format
+```
+node ${runtimeDir}/hooks/${hookDef.filename}
+```
+Legacy format (for uninstall matching): `node hooks/${hookDef.filename}`
+
+### Non-Interactive Error Messages
+```
+'Missing --runtime flag (required in non-interactive mode)'
+'Missing -g/--global or -l/--local flag (required in non-interactive mode)'
+'Unable to determine runtime and location'
 ```
 
-### Environment Variable Priority
-- Claude: `CLAUDE_CONFIG_DIR` → `~/.claude`
-- OpenCode: `OPENCODE_CONFIG_DIR` → `XDG_CONFIG_HOME/opencode` → `~/.config/opencode`
-- Gemini: `GEMINI_CONFIG_DIR` → `~/.gemini`
-
-### ANSI Cursor Control (TTY Mode)
-```javascript
-// Move up N lines
-`\x1b[${N}A`
-// Clear line and move down
-`\x1b[2K\x1b[1B`
+### JSONC Formatting Options
+```typescript
+{ tabSize: 2, insertSpaces: true }
 ```
 
-### Numbered Prompt Validation
-```javascript
-const num = parseInt(answer, 10);
-if (isNaN(num) || num < 1 || num > options.length) {
-  throw new Error(`Invalid selection: ${answer}. Expected 1-${options.length}`);
-}
+### Exit Codes
+- **0**: Successful install/uninstall or no-op.
+- **1**: Validation failure (missing args in non-interactive mode, unresolved runtime/location).
+
+### GitHub Docs URL
+```
+https://github.com/GeoloeG-IsT/agents-reverse-engineer
 ```
 
-## Stack
+### Runtime Root Boundaries (cleanupEmptyDirs)
+```typescript
+baseName !== '.claude' && baseName !== '.opencode' && baseName !== '.gemini' && baseName !== '.config'
+```
 
-- **Terminal UI**: picocolors@1.1.1 (`pc.green()`, `pc.cyan()`, `pc.bold()`), readline (`emitKeypressEvents()`, `createInterface()`)
-- **Config Parsing**: jsonc-parser@3.3.1 (`parse()`, `modify()`, `applyEdits()` preserve JSONC comments)
-- **File Operations**: Node.js `fs` (`mkdirSync()`, `writeFileSync()`, `unlinkSync()`, `rmSync()`), `path` (`join()`, `dirname()`)
-- **Path Resolution**: `os.homedir()`, `process.stdin.isTTY`, environment variables (`CLAUDE_CONFIG_DIR`, etc.)
-- **Template Loading**: `../integration/templates.js` (`getClaudeTemplates()`, `getOpenCodeTemplates()`, `getGeminiTemplates()`)
+### Version Fallback
+```typescript
+getPackageVersion(): string  // Returns 'unknown' on ../../package.json read failure
+```
+
+## Dependencies
+
+**Terminal I/O**: picocolors (styled output), node:readline (keypress events, interface creation), node:tty (isInteractive check).
+
+**Filesystem**: node:fs (`existsSync`, `readFileSync`, `writeFileSync`, `mkdirSync`, `unlinkSync`, `readdirSync`, `rmdirSync`, `rmSync`), node:path (cross-platform joining).
+
+**Configuration**: jsonc-parser (`parse`, `modify`, `applyEdits` for comment-preserving JSON edits).
+
+**Integration**: `../integration/templates.js` (`getClaudeTemplates`, `getOpenCodeTemplates`, `getGeminiTemplates` returning IntegrationTemplate[]).
+
+**Version**: `../version.js` (`getVersion()` reading package.json).
+
+## File Relationships
+
+`index.ts` aggregates public API, imports from all sibling modules: `banner.ts` (display functions), `prompts.ts` (user input), `paths.ts` (path resolution), `operations.ts` (install logic), `uninstall.ts` (removal logic), `types.ts` (shared interfaces). `operations.ts` and `uninstall.ts` mirror each other's constants (`ARE_HOOKS`, `ARE_PERMISSIONS`, `ARE_PLUGINS`) and template retrieval logic. `prompts.ts` depends on `types.ts` for Runtime/Location enums. `paths.ts` provides filesystem abstraction consumed by both operations and uninstall modules.

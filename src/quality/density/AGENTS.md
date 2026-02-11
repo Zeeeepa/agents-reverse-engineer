@@ -2,20 +2,32 @@
 
 # src/quality/density
 
-Heuristic validation that exported symbols from child `.sum` files appear in parent `AGENTS.md` aggregations, using string-based matching with no LLM involvement.
+Validates symbol findability in generated AGENTS.md files by checking whether exported identifiers from `.sum` files appear in the aggregated directory documentation. Currently stubbed for future metadata-driven re-implementation.
 
 ## Contents
 
-**[validator.ts](./validator.ts)** — Exports `validateFindability(agentsMdContent: string, sumFiles: Map<string, SumFileContent>): FindabilityResult[]` (currently returns empty array; awaits future structured metadata extraction) and `FindabilityResult` type (`filePath`, `symbolsTested`/`symbolsFound`/`symbolsMissing`, `score` ratio 0–1).
+**[validator.ts](./validator.ts)** — Exports `FindabilityResult` interface (`filePath`, `symbolsTested`, `symbolsFound`, `symbolsMissing`, `score`) and `validateFindability()` stub returning empty array; previously performed string matching of `.sum` exported symbols against `AGENTS.md` content, now awaiting structured metadata extraction approach avoiding LLM calls.
 
 ## Architecture
 
-Unlike LLM-driven quality checks in `src/quality/inconsistency/` (`code-vs-doc.ts`, `code-vs-code.ts`), `validateFindability()` performs deterministic string searches: for each `.sum` file in the map, tests whether exported symbol names (from hypothetical future `publicInterface` frontmatter field) appear verbatim in the parent `AGENTS.md` content string. Returns `FindabilityResult[]` array with per-file scores (ratio of found to tested symbols).
+`validateFindability()` accepts `agentsMdContent: string` and `sumFiles: Map<string, SumFileContent>` from `../../generation/writers/sum.js`, returning `FindabilityResult[]` for per-file symbol coverage reporting. Intended invocation point: `src/orchestration/runner.ts` post-phase-2 quality checks alongside `src/quality/inconsistency/code-vs-doc.ts` and `src/quality/phantom-paths/validator.ts`.
 
-## Current State
+## Behavioral Contracts
 
-**Stub implementation**: returns `[]` because the pipeline no longer extracts structured `publicInterface` metadata from `.sum` YAML frontmatter. The function signature and `FindabilityResult` type remain as placeholders for future post-processing passes that would populate symbol lists via AST parsing or regex extraction, then invoke `validateFindability()` to verify aggregation completeness.
+### FindabilityResult Schema
+```typescript
+{
+  filePath: string        // Relative path from project root
+  symbolsTested: string[] // Exported identifiers from .sum
+  symbolsFound: string[]  // Symbols present in AGENTS.md
+  symbolsMissing: string[] // Symbols absent from AGENTS.md
+  score: number           // symbolsFound.length / symbolsTested.length (0-1)
+}
+```
 
-## Integration Points
-
-Imports `SumFileContent` from `../../generation/writers/sum.js` to type the `.sum` file map parameter (maps file paths to parsed YAML frontmatter + markdown content). Intended to be called after `src/generation/orchestrator.ts` completes phase-2-dirs (directory `AGENTS.md` generation), consuming `AGENTS.md` content and the set of child `.sum` files to verify no critical identifiers were omitted during aggregation.
+### Current Behavior
+```typescript
+validateFindability(_: string, __: Map<string, SumFileContent>): FindabilityResult[]
+// Returns: []
+// Note: underscore-prefixed parameters indicate intentionally unused
+```

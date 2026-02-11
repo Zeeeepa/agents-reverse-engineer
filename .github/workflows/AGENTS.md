@@ -6,13 +6,35 @@ GitHub Actions CI/CD automation defining npm package publication workflow with p
 
 ## Contents
 
-**[publish.yml](./publish.yml)** — GitHub Actions workflow triggered by `release.types: [published]` or `workflow_dispatch`, running on `ubuntu-latest` with `contents: read` and `id-token: write` permissions. Executes checkout (`actions/checkout@v4`), Node.js 20 setup (`actions/setup-node@v4` with `registry-url: https://registry.npmjs.org`), dependency installation (`npm ci`), TypeScript compilation (`npm run build`), and publication (`npm publish --provenance --access public` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`).
+**[publish.yml](./publish.yml)** — GitHub Actions workflow executing five-step npm publication pipeline (`actions/checkout@v4` → `actions/setup-node@v4` Node.js 20 → `npm ci` → `npm run build` → `npm publish --provenance --access public`) triggered by `release.published` events and `workflow_dispatch`, using `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` for registry authentication and `id-token: write` permission for supply chain attestation generation.
 
-## Workflow Integration
+## Behavioral Contracts
 
-Consumes `NPM_TOKEN` repository secret for npm registry authentication. Depends on `package.json` defining the `build` script (invokes `tsc` via `../../tsconfig.json`). The `--provenance` flag generates signed attestation linking published package to source commit SHA.
+### Workflow Triggers
+```yaml
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+```
 
-## Trigger Matrix
+### Job Permissions
+```yaml
+permissions:
+  contents: read
+  id-token: write  # Required for --provenance attestation
+```
 
-- **Automatic**: `on.release.types: [published]` fires when GitHub release is published
-- **Manual**: `on.workflow_dispatch` enables UI-triggered execution from Actions tab
+### npm Publication Command
+```bash
+npm publish --provenance --access public
+```
+- `--provenance`: generates cryptographic attestation linking package to source commit SHA via OIDC token
+- `--access public`: forces public visibility for scoped `@organization/package-name` packages
+- `NODE_AUTH_TOKEN`: GitHub secret injected as environment variable for `https://registry.npmjs.org` authentication
+
+### Node.js Setup
+```yaml
+node-version: '20'
+registry-url: 'https://registry.npmjs.org'
+```

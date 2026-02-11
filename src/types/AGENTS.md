@@ -2,20 +2,34 @@
 
 # src/types
 
-Central type definitions for file discovery operations, defining `DiscoveryResult`, `ExcludedFile`, and `DiscoveryStats` interfaces consumed by `src/discovery/walker.ts`, `src/discovery/run.ts`, and `src/cli/discover.ts`.
+Shared type definitions for the discovery pipeline: `DiscoveryResult` (included/excluded file paths), `DiscoveryStats` (aggregated counts and exclusion reason histograms), and `ExcludedFile` (path/reason pairs). Consumed by `src/discovery/walker.ts`, `src/cli/discover.ts`, and the four-filter chain (`src/discovery/filters/`).
 
 ## Contents
 
-### Type Definitions
+**[index.ts](./index.ts)** — Exports `DiscoveryResult` (`{files: string[], excluded: ExcludedFile[]}`), `DiscoveryStats` (`{totalFiles, includedFiles, excludedFiles, exclusionReasons: Record<string, number>}`), and `ExcludedFile` (`{path: string, reason: string}`).
 
-**[index.ts](./index.ts)** — Exports `DiscoveryResult` (contains `files: string[]` and `excluded: ExcludedFile[]`), `ExcludedFile` (contains `path: string` and `reason: string`), and `DiscoveryStats` (aggregates `totalFiles`, `includedFiles`, `excludedFiles`, `exclusionReasons: Record<string, number>`).
+## API Surface
 
-## Architecture
+```typescript
+export interface ExcludedFile {
+  path: string;
+  reason: string;
+}
 
-### Type Flow
+export interface DiscoveryResult {
+  files: string[];
+  excluded: ExcludedFile[];
+}
 
-`src/discovery/filters/` modules (`gitignore.ts`, `binary.ts`, `vendor.ts`, `custom.ts`) create `ExcludedFile` instances during four-filter chain execution. `src/discovery/walker.ts` `walkFilesystem()` populates `DiscoveryResult` via `filterPipeline.process()`. `src/discovery/run.ts` `runDiscovery()` consumes `DiscoveryResult`, computes `DiscoveryStats` via aggregation of `exclusionReasons` map, returns both to `src/cli/discover.ts` for CLI output.
+export interface DiscoveryStats {
+  totalFiles: number;
+  includedFiles: number;
+  excludedFiles: number;
+  exclusionReasons: Record<string, number>;
+}
+```
 
-### Contract
+## File Relationships
 
-`ExcludedFile.reason` values: `"gitignore pattern"`, `"binary file"`, `"vendor directory"`, `"custom exclusion"` (from four filter modules). `DiscoveryStats.exclusionReasons` keys match these reason strings with counts as values.
+- **Consumed by**: `src/discovery/walker.ts` `walk()` returns `DiscoveryResult`, `src/cli/discover.ts` aggregates `DiscoveryStats` for CLI output
+- **Populated by**: `src/discovery/filters/` (`gitignore.ts`, `binary.ts`, `vendor.ts`, `custom.ts`) append to `excluded: ExcludedFile[]` with filter-specific `reason` strings

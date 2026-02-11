@@ -79,7 +79,9 @@
       "Bash(BENCH_MODEL=opus npx tsx:*)",
       "Bash(BENCH_MODEL=opus BENCH_TASK=tags npx tsx:*)",
       "WebSearch",
-      "Bash(npm cache clean:*)"
+      "Bash(npm cache clean:*)",
+      "Bash(./analyze-sum-ratios.sh:*)",
+      "Bash(./analyze-agents-compression.sh:*)"
     ]
   }
 }

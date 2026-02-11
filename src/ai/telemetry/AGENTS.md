@@ -2,40 +2,45 @@
 
 # src/ai/telemetry
 
-Telemetry subsystem for accumulating, persisting, and pruning AI service call metrics across CLI invocations.
+Telemetry subsystem for accumulating per-request AI metrics (`TelemetryEntry` instances via `TelemetryLogger`), persisting run logs as timestamped JSON to `.agents-reverse-engineer/logs/`, and enforcing retention policies via `cleanupOldLogs()`.
 
 ## Contents
 
-**[cleanup.ts](./cleanup.ts)** — `cleanupOldLogs(projectRoot, keepCount)` deletes oldest `run-*.json` files from `.agents-reverse-engineer/logs/`, retaining `keepCount` most recent via lexicographic sort (ISO timestamp prefix), returns deletion count, treats ENOENT as no-op.
+**[logger.ts](./logger.ts)** — `TelemetryLogger` class with `addEntry(TelemetryEntry)`, `setFilesReadOnLastEntry(FileRead[])`, `getSummary()` (computes `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `uniqueFilesRead`), and `toRunLog()` snapshot generation.
 
-**[logger.ts](./logger.ts)** — `TelemetryLogger` accumulates `TelemetryEntry` instances in memory per CLI run, exposes `addEntry()`, `setFilesReadOnLastEntry()`, `getEntries()`, `getSummary()` (computes `totalInputTokens`, `totalOutputTokens`, `totalCacheReadTokens`, `totalCacheCreationTokens`, `totalDurationMs`, `errorCount`, `totalFilesRead`, `uniqueFilesRead`), `toRunLog()` produces serializable `RunLog` with ISO 8601 `endTime`.
+**[run-log.ts](./run-log.ts)** — `writeRunLog(projectRoot, RunLog)` persists `RunLog` as `JSON.stringify(..., null, 2)` to `.agents-reverse-engineer/logs/run-{safeTimestamp}.json` with ISO 8601 timestamp sanitization (`[:.]/g` → `'-'`).
 
-**[run-log.ts](./run-log.ts)** — `writeRunLog(projectRoot, runLog)` persists `RunLog` to `.agents-reverse-engineer/logs/run-${safeTimestamp}.json` with 2-space indentation, creates directory via `mkdir({recursive:true})`, filename derived from `runLog.startTime.replace(/[:.]/g, '-')` for cross-platform safety.
+**[cleanup.ts](./cleanup.ts)** — `cleanupOldLogs(projectRoot, keepCount)` retains N most recent `run-*.json` files via lexicographic sort descending, deletes excess entries, returns deletion count (0 on ENOENT).
 
 ## Data Flow
 
-1. `src/ai/service.ts` instantiates `TelemetryLogger(runId)` at command start
-2. After each `AIService.call()` completion, `addEntry(entry)` appends metrics (tokens, latency, error)
-3. Command runner calls `setFilesReadOnLastEntry(filesRead)` to attach file metadata
-4. At run completion, `toRunLog()` assembles final `RunLog` with computed `summary`
-5. `writeRunLog(projectRoot, runLog)` persists JSON to logs directory
-6. `src/orchestration/runner.ts` invokes `cleanupOldLogs(projectRoot, config.ai.telemetry.keepRuns)` to enforce retention policy
+1. `src/ai/service.ts` `AIService` constructs `TelemetryLogger(runId)` at CLI start
+2. Each `AIService.call()` invokes `logger.addEntry(entry)` with token/latency/error metrics
+3. `CommandRunner` attaches file metadata via `logger.setFilesReadOnLastEntry(filesRead)`
+4. `AIService.finalize()` calls `logger.toRunLog()` → `writeRunLog()` → `cleanupOldLogs(config.ai.telemetry.keepRuns)`
+
+## Integration Points
+
+- **src/ai/service.ts**: creates logger, calls `addEntry()` per subprocess completion, invokes `finalize()` at CLI exit
+- **src/orchestration/runner.ts**: provides `filesRead` metadata to service after phase completion
+- **src/config/schema.ts**: `config.ai.telemetry.keepRuns` (default 10) controls cleanup retention
 
 ## Behavioral Contracts
 
-### Log Retention
+### Timestamp Sanitization
 ```javascript
-cleanupOldLogs(projectRoot, keepCount)
-// Filters: name.startsWith('run-') && name.endsWith('.json')
-// Sort: lexicographic ascending, reverse to newest-first
-// Delete: entries.slice(keepCount)
+safeTimestamp = runLog.startTime.replace(/[:.]/g, '-')
+// Example: "2026-02-11T14:30:45.123Z" → "2026-02-11T14-30-45-123Z"
 ```
 
-### Filename Pattern
+### Lexicographic Sort
 ```javascript
-`run-${runLog.startTime.replace(/[:.]/g, '-')}.json`
-// Example: '2026-02-07T12:00:00.000Z' → 'run-2026-02-07T12-00-00-000Z.json'
+entries.sort()  // Ascending ASCII
+entries.reverse()  // Newest first (relies on ISO 8601 timestamp prefix)
 ```
 
-### Summary Aggregation
-`TelemetryLogger.getSummary()` iterates all entries, totals `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`, `latencyMs`, counts entries where `error !== undefined`, sums `filesRead.length`, collects unique file paths in `Set`. Not cached — recomputes on every call.
+### Retention Policy
+Keeps N most recent `run-*.json` files where N = `config.ai.telemetry.keepRuns`. Deletion count returned for logging.
+
+### Error Handling
+`cleanupOldLogs()` returns 0 on ENOENT (logs directory missing) without throwing.
