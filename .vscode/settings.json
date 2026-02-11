@@ -1,6 +1,6 @@
 {
 	"files.exclude": {
-		"**/*.sum": true
+		// "**/*.sum": true
 	},
 	"workbench.colorCustomizations": {
 		"titleBar.activeBackground": "#19ad25",
