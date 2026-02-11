@@ -38,7 +38,7 @@ _"No more explaining the same architecture in every conversation."_
 
 [<img src="https://img.shields.io/badge/Claude_Code-F97316?style=for-the-badge&logo=anthropic&logoColor=white" alt="Claude Code">](https://claude.ai/claude-code)
 [<img src="https://img.shields.io/badge/Gemini_CLI-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini CLI">](https://github.com/google-gemini/gemini-cli)
-[<img src="https://img.shields.io/badge/OpenCode-000000?style=for-the-badge&logo=github&logoColor=white" alt="OpenCode">](https://github.com/opencode-ai/opencode)
+[<img src="https://img.shields.io/badge/OpenCode-000000?style=for-the-badge&logo=github&logoColor=white" alt="OpenCode">](https://github.com/anomalyco/opencode)
 [<img src="https://img.shields.io/badge/Any_AGENTS.md_tool-6B7280?style=for-the-badge" alt="Any AGENTS.md tool">](#)
 
 </div>
