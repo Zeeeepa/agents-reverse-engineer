@@ -16,6 +16,8 @@ import { buildFilePrompt } from './prompts/index.js';
 import { analyzeComplexity } from './complexity.js';
 import type { ComplexityMetrics } from './complexity.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
+import { sumFileExists } from './writers/sum.js';
+import { isGeneratedAgentsMd } from './writers/agents-md.js';
 
 /**
  * A file prepared for analysis.
@@ -54,7 +56,7 @@ export interface AnalysisTask {
  * Result of the generation planning process.
  */
 export interface GenerationPlan {
-  /** Files to be analyzed */
+  /** Files to be analyzed (after skip filtering) */
   files: PreparedFile[];
   /** Analysis tasks to execute */
   tasks: AnalysisTask[];
@@ -62,6 +64,12 @@ export interface GenerationPlan {
   complexity: ComplexityMetrics;
   /** Compact project directory listing for bird's-eye context */
   projectStructure?: string;
+  /** Files skipped due to existing .sum artifacts */
+  skippedFiles?: string[];
+  /** Directories skipped due to existing AGENTS.md with no dirty children */
+  skippedDirs?: string[];
+  /** All discovered files (before skip filtering, for directoryFileMap) */
+  allDiscoveredFiles?: PreparedFile[];
 }
 
 /**
@@ -134,6 +142,87 @@ export class GenerationOrchestrator {
   }
 
   /**
+   * Filter prepared files, removing those that already have .sum artifacts.
+   */
+  async filterExistingFiles(files: PreparedFile[]): Promise<{
+    filesToProcess: PreparedFile[];
+    skippedFiles: string[];
+  }> {
+    const filesToProcess: PreparedFile[] = [];
+    const skippedFiles: string[] = [];
+
+    for (const file of files) {
+      const exists = await sumFileExists(file.filePath);
+      if (exists) {
+        skippedFiles.push(file.relativePath);
+      } else {
+        filesToProcess.push(file);
+      }
+    }
+
+    return { filesToProcess, skippedFiles };
+  }
+
+  /**
+   * Mark a directory and all its ancestors as needing regeneration.
+   */
+  private markDirtyWithAncestors(dir: string, dirtySet: Set<string>): void {
+    let current = dir;
+    while (true) {
+      dirtySet.add(current);
+      if (current === '.' || current === '') break;
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+  }
+
+  /**
+   * Filter directory tasks, keeping only directories that need regeneration.
+   *
+   * A directory needs regeneration if:
+   * - It has no generated AGENTS.md, OR
+   * - Any descendant file was processed in phase 1 (dirty propagation)
+   */
+  async filterExistingDirectories(
+    allFiles: PreparedFile[],
+    processedFiles: PreparedFile[],
+  ): Promise<{ dirsToProcess: Set<string>; skippedDirs: string[] }> {
+    // Directories that had files processed → dirty, must regenerate
+    const dirtyDirs = new Set<string>();
+    for (const file of processedFiles) {
+      this.markDirtyWithAncestors(path.dirname(file.relativePath), dirtyDirs);
+    }
+
+    // All directories from discovered files
+    const allDirs = new Set<string>();
+    for (const file of allFiles) {
+      allDirs.add(path.dirname(file.relativePath));
+    }
+
+    const dirsToProcess = new Set<string>();
+    const skippedDirs: string[] = [];
+
+    for (const dir of allDirs) {
+      if (dirtyDirs.has(dir)) {
+        dirsToProcess.add(dir);
+      } else {
+        // Check if generated AGENTS.md already exists
+        const agentsPath = path.join(this.projectRoot, dir, 'AGENTS.md');
+        const isGenerated = await isGeneratedAgentsMd(agentsPath);
+        if (isGenerated) {
+          skippedDirs.push(dir);
+        } else {
+          // No generated AGENTS.md → needs generation; propagate up
+          this.markDirtyWithAncestors(dir, dirsToProcess);
+        }
+      }
+    }
+
+    return { dirsToProcess, skippedDirs };
+  }
+
+  /**
    * Create analysis tasks for all files.
    */
   createFileTasks(files: PreparedFile[], projectStructure?: string): AnalysisTask[] {
@@ -194,8 +283,16 @@ export class GenerationOrchestrator {
 
   /**
    * Create a complete generation plan.
+   *
+   * When `force` is false (default), files with existing `.sum` artifacts
+   * and directories with existing generated `AGENTS.md` are skipped.
+   * When `force` is true, all files and directories are processed.
    */
-  async createPlan(discoveryResult: DiscoveryResult): Promise<GenerationPlan> {
+  async createPlan(
+    discoveryResult: DiscoveryResult,
+    options?: { force?: boolean },
+  ): Promise<GenerationPlan> {
+    const force = options?.force ?? false;
     const planStartTime = process.hrtime.bigint();
 
     // Emit phase start
@@ -210,14 +307,28 @@ export class GenerationOrchestrator {
       console.error(pc.dim('[debug] Preparing files: reading and detecting types...'));
     }
 
-    const files = await this.prepareFiles(discoveryResult);
+    const allFiles = await this.prepareFiles(discoveryResult);
+
+    // --- Skip filtering ---
+    let filesToProcess = allFiles;
+    let skippedFiles: string[] = [];
+    let skippedDirs: string[] = [];
+
+    if (!force) {
+      if (this.debug) {
+        console.error(pc.dim('[debug] Checking for existing .sum files...'));
+      }
+      const fileFilter = await this.filterExistingFiles(allFiles);
+      filesToProcess = fileFilter.filesToProcess;
+      skippedFiles = fileFilter.skippedFiles;
+    }
 
     if (this.debug) {
       console.error(pc.dim(`[debug] Analyzing complexity...`));
     }
 
     const complexity = analyzeComplexity(
-      files.map(f => f.filePath),
+      allFiles.map(f => f.filePath),
       this.projectRoot
     );
 
@@ -225,18 +336,42 @@ export class GenerationOrchestrator {
       console.error(pc.dim(`[debug] Complexity analysis: depth=${complexity.directoryDepth}`));
     }
 
-    const projectStructure = this.buildProjectStructure(files);
-    const fileTasks = this.createFileTasks(files, projectStructure);
+    // Build project structure from ALL files (for bird's-eye context)
+    const projectStructure = this.buildProjectStructure(allFiles);
 
-    // Add directory tasks for LLM-generated directory descriptions
-    // These run after file analysis to synthesize richer directory overviews
-    const dirTasks = this.createDirectoryTasks(files);
+    // Create file tasks only for files to process
+    const fileTasks = this.createFileTasks(filesToProcess, projectStructure);
+
+    // --- Directory skip filtering ---
+    // Create directory tasks scoped to files being processed,
+    // but use allFiles for the full directory set so we can skip correctly
+    let dirTasks: AnalysisTask[];
+
+    if (!force) {
+      if (this.debug) {
+        console.error(pc.dim('[debug] Checking for existing AGENTS.md files...'));
+      }
+      const dirFilter = await this.filterExistingDirectories(allFiles, filesToProcess);
+      skippedDirs = dirFilter.skippedDirs;
+
+      // Create directory tasks only for directories that need processing
+      // We use allFiles so the directory tasks know about ALL child .sum files
+      // (including pre-existing ones), but filter to only dirty directories
+      const allDirTasks = this.createDirectoryTasks(allFiles);
+      dirTasks = allDirTasks.filter(t => dirFilter.dirsToProcess.has(t.filePath));
+    } else {
+      dirTasks = this.createDirectoryTasks(allFiles);
+    }
+
     const tasks = [...fileTasks, ...dirTasks];
 
     if (this.debug) {
+      const skipMsg = skippedFiles.length > 0
+        ? `, ${skippedFiles.length} files skipped, ${skippedDirs.length} dirs skipped`
+        : '';
       console.error(
         pc.dim(
-          `[debug] Generation plan: ${files.length} files, ${tasks.length} tasks (${dirTasks.length} directories)`
+          `[debug] Generation plan: ${filesToProcess.length} files, ${tasks.length} tasks (${dirTasks.length} directories)${skipMsg}`
         )
       );
     }
@@ -244,24 +379,29 @@ export class GenerationOrchestrator {
     // Release file content from PreparedFile objects to free memory.
     // Content has already been embedded into task prompts by createFileTasks()
     // and is no longer needed. The runner re-reads files from disk.
-    for (const file of files) {
+    for (const file of filesToProcess) {
+      (file as { content: string }).content = '';
+    }
+    for (const file of allFiles) {
       (file as { content: string }).content = '';
     }
 
     const plan: GenerationPlan = {
-      files,
+      files: filesToProcess,
       tasks,
       complexity,
       projectStructure,
+      skippedFiles: skippedFiles.length > 0 ? skippedFiles : undefined,
+      skippedDirs: skippedDirs.length > 0 ? skippedDirs : undefined,
+      allDiscoveredFiles: allFiles.length !== filesToProcess.length ? allFiles : undefined,
     };
 
     // Emit plan created event
-    // +1 for CLAUDE.md task added later by buildExecutionPlan()
     this.tracer?.emit({
       type: 'plan:created',
       planType: 'generate',
-      fileCount: files.length,
-      taskCount: tasks.length + 1,
+      fileCount: filesToProcess.length,
+      taskCount: tasks.length,
     });
 
     // Emit phase end

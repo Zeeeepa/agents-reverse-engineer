@@ -57,6 +57,10 @@ export interface ExecutionPlan {
   directoryFileMap: Record<string, string[]>;
   /** Compact project directory listing for directory prompt context */
   projectStructure?: string;
+  /** Files skipped due to existing .sum artifacts */
+  skippedFiles?: string[];
+  /** Directories skipped due to existing AGENTS.md */
+  skippedDirs?: string[];
 }
 
 /**
@@ -82,8 +86,10 @@ export function buildExecutionPlan(
   const directoryTasks: ExecutionTask[] = [];
   const directoryFileMap: Record<string, string[]> = {};
 
-  // Track files by directory
-  for (const file of plan.files) {
+  // Track files by directory — use all discovered files (including skipped)
+  // so directory tasks know about ALL child .sum files for prompt building
+  const allFiles = plan.allDiscoveredFiles ?? plan.files;
+  for (const file of allFiles) {
     const dir = path.dirname(file.relativePath);
     if (!directoryFileMap[dir]) {
       directoryFileMap[dir] = [];
@@ -149,6 +155,8 @@ export function buildExecutionPlan(
     directoryTasks,
     directoryFileMap,
     projectStructure: plan.projectStructure,
+    skippedFiles: plan.skippedFiles,
+    skippedDirs: plan.skippedDirs,
   };
 }
 
@@ -219,7 +227,13 @@ export function formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string {
   lines.push('');
   lines.push(`- **Total Tasks**: ${plan.tasks.length}`);
   lines.push(`- **File Tasks**: ${plan.fileTasks.length}`);
+  if (plan.skippedFiles && plan.skippedFiles.length > 0) {
+    lines.push(`- **Files Skipped**: ${plan.skippedFiles.length} (existing .sum)`);
+  }
   lines.push(`- **Directory Tasks**: ${plan.directoryTasks.length}`);
+  if (plan.skippedDirs && plan.skippedDirs.length > 0) {
+    lines.push(`- **Dirs Skipped**: ${plan.skippedDirs.length} (existing AGENTS.md)`);
+  }
   lines.push('- **Traversal**: Post-order (children before parents)');
   lines.push('');
   lines.push('---');
@@ -279,6 +293,31 @@ export function formatExecutionPlanAsMarkdown(plan: ExecutionPlan): string {
       lines.push(`- [ ] \`${dir}/AGENTS.md\`${suffix}`);
     }
     lines.push('');
+  }
+
+  // Skipped section (if any files/dirs were skipped)
+  if ((plan.skippedFiles && plan.skippedFiles.length > 0) ||
+      (plan.skippedDirs && plan.skippedDirs.length > 0)) {
+    lines.push('---');
+    lines.push('');
+    lines.push('## Skipped (Existing Artifacts)');
+    lines.push('');
+
+    if (plan.skippedFiles && plan.skippedFiles.length > 0) {
+      lines.push(`### Files (${plan.skippedFiles.length} with existing .sum)`);
+      for (const f of plan.skippedFiles) {
+        lines.push(`- \`${f}\``);
+      }
+      lines.push('');
+    }
+
+    if (plan.skippedDirs && plan.skippedDirs.length > 0) {
+      lines.push(`### Directories (${plan.skippedDirs.length} with existing AGENTS.md)`);
+      for (const d of plan.skippedDirs) {
+        lines.push(`- \`${d}/AGENTS.md\``);
+      }
+      lines.push('');
+    }
   }
 
   return lines.join('\n');

@@ -31,6 +31,8 @@ import { CommandRunner, ProgressLog, createTraceWriter, cleanupOldTraces } from 
  * Options for the generate command.
  */
 export interface GenerateOptions {
+  /** Force full regeneration (skip nothing) */
+  force?: boolean;
   /** Dry run - show plan without generating */
   dryRun?: boolean;
   /** Number of concurrent AI calls */
@@ -55,7 +57,13 @@ function formatPlan(plan: GenerationPlan): string {
 
   // File summary
   lines.push(`Files to analyze: ${plan.files.length}`);
+  if (plan.skippedFiles && plan.skippedFiles.length > 0) {
+    lines.push(`Files skipped:    ${plan.skippedFiles.length} (existing .sum)`);
+  }
   lines.push(`Tasks to execute: ${plan.tasks.length}`);
+  if (plan.skippedDirs && plan.skippedDirs.length > 0) {
+    lines.push(`Dirs skipped:     ${plan.skippedDirs.length} (existing AGENTS.md)`);
+  }
   lines.push('');
 
   // Complexity
@@ -122,7 +130,21 @@ export async function generateCommand(
     absolutePath,
     { tracer, debug: options.debug }
   );
-  const plan = await orchestrator.createPlan(discoveryResult);
+  const plan = await orchestrator.createPlan(discoveryResult, { force: options.force });
+
+  // Report skip stats
+  if (plan.skippedFiles && plan.skippedFiles.length > 0) {
+    logger.info(`Skipping ${plan.skippedFiles.length} files (existing .sum)`);
+  }
+  if (plan.skippedDirs && plan.skippedDirs.length > 0) {
+    logger.info(`Skipping ${plan.skippedDirs.length} directories (existing AGENTS.md)`);
+  }
+
+  // Early exit if nothing to do
+  if (plan.files.length === 0 && plan.tasks.length === 0) {
+    logger.info('All files already documented. Use --force to regenerate.');
+    return;
+  }
 
   // Display plan
   console.log(formatPlan(plan));
@@ -137,14 +159,29 @@ export async function generateCommand(
 
     console.log(pc.bold('\n--- Dry Run Summary ---\n'));
     console.log(`  Files to analyze:     ${pc.cyan(String(executionPlan.fileTasks.length))}`);
+    if (plan.skippedFiles && plan.skippedFiles.length > 0) {
+      console.log(`  Files skipped:        ${pc.yellow(String(plan.skippedFiles.length))}`);
+    }
     console.log(`  Directories:          ${pc.cyan(String(dirCount))}`);
+    if (plan.skippedDirs && plan.skippedDirs.length > 0) {
+      console.log(`  Dirs skipped:         ${pc.yellow(String(plan.skippedDirs.length))}`);
+    }
     console.log(`  Estimated AI calls:   ${pc.cyan(String(executionPlan.tasks.length))}`);
     console.log('');
-    console.log(pc.dim('Files:'));
-    for (const task of executionPlan.fileTasks) {
-      console.log(pc.dim(`  ${task.path}`));
+    if (executionPlan.fileTasks.length > 0) {
+      console.log(pc.dim('Files to process:'));
+      for (const task of executionPlan.fileTasks) {
+        console.log(pc.dim(`  ${task.path}`));
+      }
+      console.log('');
     }
-    console.log('');
+    if (plan.skippedFiles && plan.skippedFiles.length > 0) {
+      console.log(pc.dim('Files skipped (existing .sum):'));
+      for (const f of plan.skippedFiles) {
+        console.log(pc.dim(`  ${f}`));
+      }
+      console.log('');
+    }
     console.log(pc.dim('No AI calls made (dry run).'));
     return;
   }
@@ -209,7 +246,9 @@ export async function generateCommand(
   const progressLog = ProgressLog.create(absolutePath);
   progressLog.write(`=== ARE Generate (${new Date().toISOString()}) ===`);
   progressLog.write(`Project: ${absolutePath}`);
-  progressLog.write(`Files: ${executionPlan.fileTasks.length} | Directories: ${executionPlan.directoryTasks.length}`);
+  const skippedCount = plan.skippedFiles?.length ?? 0;
+  const skipInfo = skippedCount > 0 ? ` | Skipped: ${skippedCount}` : '';
+  progressLog.write(`Files: ${executionPlan.fileTasks.length} | Directories: ${executionPlan.directoryTasks.length}${skipInfo}`);
   progressLog.write('');
 
   // Create command runner
@@ -222,7 +261,7 @@ export async function generateCommand(
   });
 
   // Execute the two-phase pipeline
-  const summary = await runner.executeGenerate(executionPlan);
+  const summary = await runner.executeGenerate(executionPlan, { skippedFiles: skippedCount });
 
   // Write telemetry run log
   await aiService.finalize(absolutePath);

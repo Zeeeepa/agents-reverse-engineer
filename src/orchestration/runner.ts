@@ -107,7 +107,10 @@ export class CommandRunner {
    * @param plan - The execution plan from the generation orchestrator
    * @returns Aggregated run summary
    */
-  async executeGenerate(plan: ExecutionPlan): Promise<RunSummary> {
+  async executeGenerate(
+    plan: ExecutionPlan,
+    options?: { skippedFiles?: number },
+  ): Promise<RunSummary> {
     const reporter = new ProgressReporter(plan.fileTasks.length, plan.directoryTasks.length, this.progressLog);
 
     // Initialize plan tracker (writes GENERATION-PLAN.md with checkboxes)
@@ -530,7 +533,7 @@ export class CommandRunner {
       version: getVersion(),
       filesProcessed,
       filesFailed,
-      filesSkipped: 0,
+      filesSkipped: options?.skippedFiles ?? 0,
       totalCalls: aiSummary.totalCalls,
       totalInputTokens: aiSummary.totalInputTokens,
       totalOutputTokens: aiSummary.totalOutputTokens,
