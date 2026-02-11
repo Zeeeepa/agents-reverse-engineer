@@ -2,46 +2,67 @@
 
 # src/output
 
-Terminal presentation layer for agents-reverse-engineer CLI commands. Exports `Logger` interface and factory functions (`createLogger`, `createSilentLogger`) for colored CLI output during discovery and generation phases.
+Terminal output abstraction providing colored CLI logging for discovery/generation/update phases with configurable color support and silent mode.
 
 ## Contents
 
-### [logger.ts](./logger.ts)
-Defines `Logger` interface (info, file, excluded, summary, warn, error methods) and factory functions. `createLogger(options)` returns picocolors-powered implementation with configurable color support. `createSilentLogger()` returns no-op instance for testing. Discovery phase calls `file(path)` (green `"  +"` prefix), `excluded(path, reason, filter)` (dim `"  -"` prefix with reason), and `summary(included, excluded)` (bold count + dim exclusions).
+**[logger.ts](./logger.ts)** — Exports `Logger` interface (6 methods: `info`, `file`, `excluded`, `summary`, `warn`, `error`), `createLogger(options: LoggerOptions)` factory using `picocolors` for color formatting, `createSilentLogger()` factory returning no-op implementation.
 
-## API Surface
+## Architecture
 
+### Logger Interface Contract
+
+`Logger` defines CLI output methods consumed by `src/cli/discover.ts`, `src/cli/generate.ts`, `src/cli/update.ts`:
+- `file(path: string)` — green `"  +"` prefix for discovered files
+- `excluded(path: string, reason: string, filter: string)` — dim `"  -"` prefix with parenthetical reason
+- `summary(included: number, excluded: number)` — bold/dim formatted counts
+- `warn(message: string)` — yellow `"Warning: "` prefix
+- `error(message: string)` — red `"Error: "` prefix
+- `info(message: string)` — unformatted informational output
+
+### Factory Pattern
+
+`createLogger(options: LoggerOptions)` branches on `options.colors`:
+- `true`: uses `picocolors` (`pc`) for `green`, `dim`, `red`, `bold`, `yellow` formatting
+- `false`: uses `noColor` identity functions (`ColorFunctions` interface with `(s: string) => string` no-ops)
+
+`createSilentLogger()` returns object with all methods as empty functions for testing/programmatic usage.
+
+### Color Abstraction
+
+`ColorFunctions` interface wraps formatting primitives:
 ```typescript
-interface Logger {
-  info(message: string): void;
-  file(path: string): void;
-  excluded(path: string, reason: string, filter: string): void;
-  summary(included: number, excluded: number): void;
-  warn(message: string): void;
-  error(message: string): void;
-}
-
-interface LoggerOptions {
-  colors: boolean; // default: true
-}
-
-function createLogger(options: LoggerOptions): Logger;
-function createSilentLogger(): Logger;
+{ green, dim, red, bold, yellow: (s: string) => string }
 ```
+Implemented by `noColor` constant (identity) or `pc` import (picocolors runtime).
 
 ## Behavioral Contracts
 
 ### Output Format Specification
-- `file`: green `"  +"` prefix + relative path
-- `excluded`: dim `"  -"` prefix + path + dim `" (${reason}: ${filter})"`
-- `summary`: bold `"\nDiscovered ${included} files"` + dim `" (${excluded} excluded)"`
-- `warn`: yellow `"Warning: "` prefix + message
-- `error`: red `"Error: "` prefix + message
+```typescript
+file:     green("  +") + path
+excluded: dim("  -") + path + dim(` (${reason}: ${filter})`)
+summary:  bold(`\nDiscovered ${included} files`) + dim(` (${excluded} excluded)`)
+warn:     yellow("Warning: ") + message
+error:    red("Error: ") + message
+info:     message
+```
 
-### ColorFunctions Interface
-- `green`, `dim`, `red`, `bold`, `yellow`: each `(s: string) => string`
-- Implemented by `noColor` (identity functions) or `pc` (picocolors)
+### Logger Method Signatures
+```typescript
+info(message: string): void
+file(path: string): void
+excluded(path: string, reason: string, filter: string): void
+summary(included: number, excluded: number): void
+warn(message: string): void
+error(message: string): void
+```
 
-## Usage Context
+### LoggerOptions Schema
+```typescript
+{ colors: boolean }  // default: true
+```
 
-CLI commands in [src/cli/](../cli/) instantiate `Logger` via `createLogger({ colors: process.stdout.isTTY })` and pass to discovery/generation orchestrators. Discovery walker in [src/discovery/walker.ts](../discovery/walker.ts) calls `logger.file()` for included paths and `logger.excluded()` for filtered paths. Generation orchestrator in [src/generation/orchestrator.ts](../generation/orchestrator.ts) uses `logger.info()` for phase transitions and `logger.error()` for AI failures.
+## Dependencies
+
+- `picocolors` — terminal color formatting (imported as `pc`)

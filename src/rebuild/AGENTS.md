@@ -2,88 +2,103 @@
 
 # src/rebuild
 
-Orchestrates AI-driven project reconstruction from `.agents-reverse-engineer/specs/` markdown documents. Reads specification files via `readSpecFiles()`, partitions into ordered `RebuildUnit` instances grouped by `order` property, executes concurrent AI calls per group via `runPool()`, accumulates generated file content into `builtContext` for subsequent groups, and persists checkpoint state to `.rebuild-checkpoint` for resumability.
+Project reconstruction pipeline: reads specification documents from `.agents-reverse-engineer/specs/`, partitions into phase-ordered `RebuildUnit` instances, executes concurrent AI-driven file generation via `runPool` within each phase group, accumulates built module context for subsequent phases, and persists completion state via `CheckpointManager` promise-chain serialization enabling resumable multi-session rebuilds.
 
 ## Contents
 
 ### Core Orchestration
 
-- **[orchestrator.ts](./orchestrator.ts)** — `executeRebuild()` main entry point processing units in sequential order groups (concurrent within group), accumulating built context after each group via `builtContext` string (truncated at 100k chars), managing `CheckpointManager` state, returning summary counts
-- **[checkpoint.ts](./checkpoint.ts)** — `CheckpointManager` class with static factories `load()` (drift detection via spec hash comparison) and `createFresh()`, state mutation via `markDone()`/`markFailed()`, write serialization via promise-chain `queueWrite()` pattern, persists JSON to `{outputDir}/.rebuild-checkpoint`
+**[orchestrator.ts](./orchestrator.ts)** — `executeRebuild()` processes `RebuildUnit` arrays grouped by `order` property executing sequential phase groups (concurrent tasks within group via `runPool`), accumulates `builtContext` from `filesWritten` after each group (truncates older sections at 100,000 char limit), manages `CheckpointManager` via `load()` → `getPendingUnits()` → `markDone()`/`markFailed()` → `flush()` lifecycle, emits `phase:start`/`phase:end` trace events, returns `{ modulesProcessed, modulesFailed, modulesSkipped }` summary.
+
+**[checkpoint.ts](./checkpoint.ts)** — `CheckpointManager` persists `{outputDir}/.rebuild-checkpoint` JSON mapping unit names to `{ status: 'pending'|'done'|'failed', completedAt?, error?, filesWritten? }` discriminated unions. Static factory `load()` validates existing checkpoint via `RebuildCheckpointSchema`, compares `specHashes` via `computeContentHashFromString()` for drift detection (hash mismatch triggers fresh checkpoint). Instance methods `markDone()`/`markFailed()` update state and chain writes onto `writeQueue` promise property using PlanTracker pattern. `flush()` awaits pending writes before disposal.
 
 ### Specification Processing
 
-- **[spec-reader.ts](./spec-reader.ts)** — `readSpecFiles()` reads all `.md` from `specs/` directory, `partitionSpec()` extracts `RebuildUnit[]` via `extractFromBuildPlan()` (parses `### Phase N:` subsections) or falls back to `extractFromTopLevelHeadings()`, performs targeted context injection matching symbols from `Defines:`/`Consumes:` lists to API subsections
-- **[types.ts](./types.ts)** — `RebuildCheckpointSchema` Zod validator, `RebuildCheckpoint` type inferred from schema, `RebuildUnit` interface with `name`/`specContent`/`order` properties, `RebuildPlan` grouping spec files with units, `RebuildResult` capturing AI call outcome with token counts and file paths
+**[spec-reader.ts](./spec-reader.ts)** — `readSpecFiles()` reads `.md` files from `specs/` directory sorted by filename, throws if empty. `partitionSpec()` attempts `extractFromBuildPlan()` (searches `## Build Plan` → `### Phase N:` subsections, injects targeted context via `findRelevantSubsections()` matching `Defines:`/`Consumes:` symbols to `## API Surface`/`## Data Structures`/`## Behavioral Contracts` subsections), falls back to `extractFromTopLevelHeadings()` (one unit per `## ` heading), returns `RebuildUnit[]` sorted by `order` ascending.
 
-### AI Integration
+**[output-parser.ts](./output-parser.ts)** — `parseModuleOutput()` extracts `Map<filePath, fileContent>` from AI responses via delimiter format (state machine matching `===FILE: path===` at column 0, accumulates lines until `===END_FILE===`, flushes unclosed blocks at EOF) or fenced block format (regex `/```\w*:([^\n]+)\n([\s\S]*?)```/g`). Returns empty Map on parse failure signaling error to caller.
 
-- **[prompts.ts](./prompts.ts)** — `buildRebuildPrompt()` constructs system/user prompt pair combining full specification, phase-specific content from `unit.specContent`, optional `builtContext` with prior module signatures, mandates delimiter format via `REBUILD_SYSTEM_PROMPT` constant
-- **[output-parser.ts](./output-parser.ts)** — `parseModuleOutput()` extracts file content from AI response via `parseDelimiterFormat()` (state machine matching `===FILE: path===` at column 0) or `parseFencedBlockFormat()` (markdown fence pattern `/```\w*:([^\n]+)\n([\s\S]*?)```/g`), returns `Map<string, string>`
+**[prompts.ts](./prompts.ts)** — `REBUILD_SYSTEM_PROMPT` constant mandates delimiter output format with column-0 placement requirement. `buildRebuildPrompt(unit, fullSpec, builtContext)` assembles user prompt concatenating full specification, current phase `unit.specContent`, optional previously-built module signatures from `builtContext`, output format reminder. Returns `{ system, user }` tuple for AI call.
 
-### Public API
+### Type Definitions
 
-- **[index.ts](./index.ts)** — Barrel re-export of `RebuildCheckpoint`, `RebuildUnit`, `RebuildPlan`, `RebuildResult` types, `RebuildCheckpointSchema`, `readSpecFiles()`, `partitionSpec()`, `parseModuleOutput()`, `buildRebuildPrompt()`, `executeRebuild()`, `CheckpointManager` class, `REBUILD_SYSTEM_PROMPT` constant
+**[types.ts](./types.ts)** — `RebuildCheckpointSchema` validates checkpoint JSON with `version`, ISO timestamps, `outputDir`, `specHashes` record, `modules` record mapping unit names to status objects. `RebuildUnit` defines single AI call unit with `name`, `specContent`, `order` (phase number from Build Plan). `RebuildPlan` captures `specFiles`, `units`, `outputDir`. `RebuildResult` captures per-unit outcome with `success`, `filesWritten`, token counts, `durationMs`, optional `error`.
+
+**[index.ts](./index.ts)** — Barrel module re-exporting `readSpecFiles`, `partitionSpec`, `parseModuleOutput`, `buildRebuildPrompt`, `executeRebuild`, `CheckpointManager`, `RebuildCheckpointSchema`, `RebuildCheckpoint`, `RebuildUnit`, `RebuildPlan`, `RebuildResult`, `REBUILD_SYSTEM_PROMPT`.
 
 ## Architecture
 
-### Pipeline Flow
+### Phase-Ordered Execution
 
-1. `readSpecFiles()` reads markdown from `specs/` directory
-2. `partitionSpec()` extracts ordered `RebuildUnit[]` grouped by Build Plan phase number
-3. `CheckpointManager.load()` restores session state or creates fresh checkpoint
-4. `executeRebuild()` processes units in sequential order groups:
-   - Within each group: concurrent AI calls via `runPool()`
-   - After each group: accumulate generated file content into `builtContext`
-   - Between groups: `builtContext` provides module signatures to next group
-5. `CheckpointManager.markDone()` updates `.rebuild-checkpoint` after each unit completes
-6. `CheckpointManager.flush()` ensures final state persisted
+`orchestrator.ts` sorts `RebuildUnit[]` into `Map<orderValue, RebuildUnit[]>` groups where all units sharing an `order` value execute concurrently via `runPool()`, but groups execute sequentially sorted by `orderValue` ascending. Each group's `filesWritten` populate `builtContext` for subsequent phases enabling imports from prior modules.
 
 ### Context Accumulation Strategy
 
-`builtContext` string grows by appending full file content with delimiter `\n// === ${filePath} ===\n${content}\n` after each order group completes. When length exceeds `BUILT_CONTEXT_LIMIT` (100,000 characters), older file sections truncate to first `TRUNCATED_HEAD_LINES` (20 lines) while recent sections remain full. Files ending `.md`/`.json`/`.yml` skipped.
+After each phase group completes, `orchestrator.ts` reads `filesWrittenInGroup` via `readFile()`, appends to `builtContext` with delimiter `\n// === ${filePath} ===\n${content}\n`. When `builtContext.length` exceeds `BUILT_CONTEXT_LIMIT` (100,000 chars), splits by `\n// === ` delimiter, keeps last `Math.floor(sections.length / 2)` sections in full, truncates older sections to first `TRUNCATED_HEAD_LINES` (20) lines plus `// ... (truncated)` comment. Skips `.md`, `.json`, `.yml` files during accumulation.
 
-### Checkpoint Resumability
+### Resumability
 
-`CheckpointManager.load()` computes content hashes via `computeContentHashFromString()` for drift detection. Returns `{ manager, isResume: true }` only when checkpoint file exists, parses successfully, and all spec hashes match current content. `getPendingUnits()` filters modules with `status === 'pending' || status === 'failed'`. Resume skips completed modules and increments `modulesSkipped` counter.
+`CheckpointManager.load()` returns `{ manager, isResume }` where `isResume` equals true only if `.rebuild-checkpoint` exists, parses successfully, and all `specHashes` match current spec file content (computed via `computeContentHashFromString`). `getPendingUnits()` filters modules with `status === 'pending' || status === 'failed'`. `orchestrator.ts` increments `modulesSkipped` for units where `checkpoint.isDone()` returns true. Force mode (`options.force`) calls `rm(outputDir, { recursive: true })` before `mkdir()` to wipe state.
+
+### Write Serialization
+
+`CheckpointManager` queues mutations via `queueWrite()` chaining `writeFile()` calls onto `writeQueue: Promise<void>` property initialized to `Promise.resolve()`. Each mutation (`markDone`, `markFailed`) updates in-memory `data` then appends write operation to chain via `writeQueue = writeQueue.then(() => writeFile(...)).catch(() => {})`. `flush()` awaits `writeQueue` ensuring all pending writes complete before disposal. Pattern prevents concurrent write conflicts when `runPool` workers call `markDone` simultaneously.
 
 ## Behavioral Contracts
 
-### Delimiter Format (from output-parser.ts)
+### Delimiter Format (Column-0 Requirement)
+```
+===FILE: relative/path.ext===
+[file content]
+===END_FILE===
+```
+Delimiters MUST appear at column 0 with NO leading whitespace. State machine in `parseDelimiterFormat()` matches `START_RE = /^===FILE:\s*(.+?)===$/` and `END_RE = /^===END_FILE===$/` only at line start to avoid false matches in embedded code.
 
-Primary format requires `===FILE: path===` and `===END_FILE===` at start of line (column 0). Regex patterns:
+### Fenced Block Format
+```regex
+/```\w*:([^\n]+)\n([\s\S]*?)```/g
+```
+Capture group 1: file path after colon. Capture group 2: content between fences. Used as fallback when delimiter format returns empty Map.
 
-- Start: `/^===FILE:\s*(.+?)===$/` (trimmed path in capture group 1)
-- End: `/^===END_FILE===$/`
+### Build Plan Section Pattern
+```regex
+/^(## (?:\d+\.\s*)?Build Plan)\s*$/m
+```
+Matches `## Build Plan` or `## 9. Build Plan` headings with optional numeric prefix.
 
-State machine in `parseDelimiterFormat()` uses `currentPath` variable and `contentLines` accumulator, handles unclosed blocks by flushing at EOF.
+### Phase Subsection Pattern
+```regex
+/^### Phase (\d+):\s*(.+)$/gm
+```
+Captures phase number in group 1, phase title in group 2. Used by `extractFromBuildPlan()` to partition units.
 
-### Build Plan Phase Pattern (from spec-reader.ts)
+### Defines/Consumes Detection
+```regex
+/^\*\*Defines:\*\*|^Defines:/m
+```
+Signals Change 2 spec format triggering targeted context injection via `findRelevantSubsections()` instead of full API Surface dump.
 
-`extractFromBuildPlan()` matches:
+### Context Truncation Thresholds
+- `BUILT_CONTEXT_LIMIT = 100_000` characters before truncating older sections
+- `TRUNCATED_HEAD_LINES = 20` lines kept from truncated file sections
+- Truncation preserves last `Math.floor(sections.length / 2)` sections in full
 
-- Section header: `/^(## (?:\d+\.\s*)?Build Plan)\s*$/m`
-- Phase subsections: `/^### Phase (\d+):\s*(.+)$/gm`
+### Checkpoint Hash Comparison
+Drift detection compares `Object.keys(checkpoint.specHashes).length` to `specFiles.length`, then validates each `checkpoint.specHashes[relativePath] === computeContentHashFromString(content)`. Any mismatch triggers `CheckpointManager.createFresh()` discarding existing progress.
 
-Change 2 format detection: `/^\*\*Defines:\*\*|^Defines:/m`
+## Workflow & Conventions
 
-File path extraction: `/\b(?:src\/[\w\-./]+|[\w-]+\.(?:ts|js|py|rs|go))\b/g`
+### Spec File Organization
+Specs must reside in `.agents-reverse-engineer/specs/` directory with `.md` extension. `readSpecFiles()` throws `Error("No spec files found in specs/. Run \"are specify\" first.")` if directory missing or empty.
 
-## File Relationships
+### Build Plan Format
+Prefer `## Build Plan` section with `### Phase N: Title` subsections. Each phase must include `Defines:` and `Consumes:` structured lists for targeted context injection. Fallback to top-level `## ` headings creates one unit per heading with sequential order numbering.
 
-- **orchestrator.ts** depends on checkpoint.ts (`CheckpointManager`), spec-reader.ts (`readSpecFiles`, `partitionSpec`), output-parser.ts (`parseModuleOutput`), prompts.ts (`buildRebuildPrompt`)
-- **checkpoint.ts** imports `computeContentHashFromString` from `../change-detection/index.js`, `getVersion` from `../version.js`
-- **spec-reader.ts** produces `RebuildUnit[]` consumed by orchestrator.ts
-- **output-parser.ts** parses AI responses generated from prompts.ts templates
-- **index.ts** re-exports public surface for consumption by `src/cli/rebuild.ts`
+### Output Directory Structure
+Rebuilt files write to `{outputDir}/{relativePath}` where `relativePath` comes from AI response delimiters. Checkpoint persists at `{outputDir}/.rebuild-checkpoint`. Force mode wipes `outputDir` before execution.
 
-## Integration Points
-
-- Reads specification files produced by `src/specify/` module
-- Consumes `AIService` from `src/ai/index.js` for LLM-based code generation
-- Uses `runPool()` from `src/orchestration/pool.js` for concurrent execution with shared iterator
-- Writes reconstructed source files to `outputDir` (typically project root or temporary directory)
-- Persists checkpoint to `.rebuild-checkpoint` JSON file for crash recovery
+### Error Handling Protocol
+`parseModuleOutput()` returning empty Map triggers `Error("AI produced no files for unit \"${unit.name}\". Response may have used unexpected format.")` in orchestrator. `runPool` failures invoke `checkpoint.markFailed(unitName, errorMsg)` storing error in status object. File write failures during context accumulation log to console but do not halt execution.
 
 ## Annex References
 

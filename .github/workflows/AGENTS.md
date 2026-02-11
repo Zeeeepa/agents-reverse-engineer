@@ -2,36 +2,17 @@
 
 # .github/workflows
 
-GitHub Actions workflow automation for the agents-reverse-engineer package. This directory contains CI/CD pipeline definitions that execute on repository events to automate package publication with cryptographic provenance.
+GitHub Actions CI/CD automation defining npm package publication workflow with provenance attestation.
 
 ## Contents
 
-### Workflows
+**[publish.yml](./publish.yml)** — GitHub Actions workflow triggered by `release.types: [published]` or `workflow_dispatch`, running on `ubuntu-latest` with `contents: read` and `id-token: write` permissions. Executes checkout (`actions/checkout@v4`), Node.js 20 setup (`actions/setup-node@v4` with `registry-url: https://registry.npmjs.org`), dependency installation (`npm ci`), TypeScript compilation (`npm run build`), and publication (`npm publish --provenance --access public` with `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`).
 
-- **[publish.yml](./publish.yml)**: Publishes `agents-reverse-engineer` to npm registry with SLSA provenance attestation on release publication or manual dispatch.
+## Workflow Integration
 
-## Workflow Triggers
+Consumes `NPM_TOKEN` repository secret for npm registry authentication. Depends on `package.json` defining the `build` script (invokes `tsc` via `../../tsconfig.json`). The `--provenance` flag generates signed attestation linking published package to source commit SHA.
 
-`publish.yml` activates via two event paths:
-- `release.types: [published]` — automatic execution when GitHub release transitions to published state
-- `workflow_dispatch` — manual invocation from GitHub Actions UI
+## Trigger Matrix
 
-## Execution Pipeline
-
-The `publish` job executes on `ubuntu-latest` with permission grants `contents: read` (repository access) and `id-token: write` (provenance signing):
-
-1. `actions/checkout@v4` — retrieves repository source at commit SHA
-2. `actions/setup-node@v4` — provisions Node.js 20 runtime with npm registry URL `https://registry.npmjs.org`
-3. `npm ci` — installs locked dependencies from `package-lock.json`
-4. `npm run build` — invokes TypeScript compiler via `tsc` to produce distributable artifacts
-5. `npm publish --provenance --access public` — uploads package with cryptographically signed attestation linking tarball to source commit SHA, authenticated via `NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN }}`
-
-## Integration Dependencies
-
-- **Repository secret**: `NPM_TOKEN` configured in GitHub repository settings provides npm registry authentication token
-- **Package manifest**: `package.json` must define `build` script referencing `tsc` compilation step
-- **TypeScript config**: `tsconfig.json` specifies output directory and module resolution for distributable build
-
-## Provenance Attestation
-
-The `--provenance` flag generates SLSA attestation bundle containing workflow run metadata, commit SHA, and OIDC-signed claims. This enables verifiable supply chain integrity for published npm packages, allowing consumers to cryptographically verify the package was built from declared source commits via GitHub-hosted runners.
+- **Automatic**: `on.release.types: [published]` fires when GitHub release is published
+- **Manual**: `on.workflow_dispatch` enables UI-triggered execution from Actions tab

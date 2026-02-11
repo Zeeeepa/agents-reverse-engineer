@@ -2,80 +2,58 @@
 
 # src/quality/inconsistency
 
-Detects and reports three classes of consistency violations: undocumented exports (code-vs-doc), duplicate exported symbols (code-vs-code), and broken path references (phantom-path). Each detector emits typed inconsistency objects aggregated by `reporter.ts` into structured CLI output.
+Detects documentation drift and duplicate exports through syntactic analysis: `code-vs-doc.ts` flags undocumented exports via `.sum` text comparison, `code-vs-code.ts` flags duplicate symbols across files, `reporter.ts` formats findings for CLI stderr.
 
 ## Contents
 
-### Detectors
+**[code-vs-doc.ts](./code-vs-doc.ts)** — Exports `extractExports()` (regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` captures identifiers) and `checkCodeVsDoc()` (compares source exports against `SumFileContent.summary` text via `includes()`, emits `CodeDocInconsistency` with `missingFromDoc` details when symbols absent).
 
-**[code-vs-doc.ts](./code-vs-doc.ts)** — Compares TypeScript/JavaScript exports against `.sum` file content. `extractExports(sourceContent)` uses regex `/^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm` to capture identifiers. `checkCodeVsDoc(sourceContent, sumContent, filePath)` returns `CodeDocInconsistency` with `severity: 'warning'` when exports are absent from `sumContent.summary` text (case-sensitive match via `.includes()`).
+**[code-vs-code.ts](./code-vs-code.ts)** — Exports `checkCodeVsCode()` orchestrating duplicate detection: builds `Map<string, string[]>` mapping export names to file paths, filters entries where `paths.length > 1`, returns `CodeCodeInconsistency[]` with `pattern: 'duplicate-export'` and `severity: 'warning'`. Imports `extractExports()` from `./code-vs-doc.js` for symbol extraction.
 
-**[code-vs-code.ts](./code-vs-code.ts)** — Detects duplicate exported symbols across files. `checkCodeVsCode(files)` builds `Map<string, string[]>` of export names to file paths, then emits `CodeCodeInconsistency` with `pattern: 'duplicate-export'` for any symbol with `paths.length > 1`. Delegates export extraction to `code-vs-doc.ts::extractExports`. Caller must scope input files per-directory to prevent false positives.
+**[reporter.ts](./reporter.ts)** — Exports `buildInconsistencyReport()` (aggregates `Inconsistency[]` into `InconsistencyReport` with summary counts by type/severity, attaches ISO timestamp and run metadata) and `formatReportForCli()` (renders plain text with severity tags `[ERROR]|[WARN]|[INFO]`, conditionally displays `filePath`/`agentsMdPath`/`files[]` based on discriminant `type` field).
 
-**[reporter.ts](./reporter.ts)** — Formats inconsistency findings for CLI. `buildInconsistencyReport(issues, metadata)` aggregates `Inconsistency[]` into `InconsistencyReport` with counts by type/severity and run metadata (ISO timestamp, `projectRoot`, `filesChecked`, `durationMs`). `formatReportForCli(report)` renders plain-text output with severity tags `[ERROR]`, `[WARN]`, `[INFO]` and discriminated context fields (`filePath`, `agentsMdPath`, `referencedPath`, comma-joined `files[]`). Pure functions, no ANSI color dependencies.
+## Algorithm
 
-## Detection Algorithms
+**Duplicate Export Detection**: `checkCodeVsCode()` iterates `files[]`, invokes `extractExports(content)` per file, populates `Map<symbol, paths[]>`, filters entries where `paths.length > 1`, constructs `CodeCodeInconsistency` with `files: paths` and template description.
 
-### code-vs-doc
-1. Extract exports via regex capture group
-2. Filter exports not present in `.sum` summary text (case-sensitive substring match)
-3. Emit warning if `missingFromDoc.length > 0`
+**Documentation Drift Detection**: `checkCodeVsDoc()` calls `extractExports(sourceContent)`, filters symbols via `sumContent.summary.includes(e)`, returns `CodeDocInconsistency` when `missingFromDoc.length > 0`. Reverse check (`missingFromCode`) currently returns empty array.
 
-Reverse-check (`missingFromCode`) currently unimplemented (empty array in `details`).
-
-### code-vs-code
-1. Accumulate `Map<symbol, paths[]>` across file group
-2. Filter map entries where `paths.length > 1`
-3. Emit warning with duplicate symbol name and file list
-
-No semantic analysis—purely syntactic heuristics.
-
-## Type Relationships
-
-All detectors emit discriminated union members of `Inconsistency` (from `../types.js`):
-- `CodeDocInconsistency` (type: `'code-vs-doc'`) — fields: `filePath`, `sumPath`, `details.missingFromDoc`, `details.missingFromCode`
-- `CodeCodeInconsistency` (type: `'code-vs-code'`) — fields: `files[]`, `pattern: 'duplicate-export'`
-- Phantom path variant (type: `'phantom-path'`) — detected by `../phantom-paths/validator.ts`, formatted here
-
-`reporter.ts` consumes union as `Inconsistency[]` and patterns match on discriminant `type` for conditional context rendering.
+**Report Aggregation**: `buildInconsistencyReport()` computes summary counts via imperative accumulation, attaches run metadata (`projectRoot`, `filesChecked`, `durationMs`). `formatReportForCli()` renders discriminated union variants with type-specific context fields.
 
 ## Behavioral Contracts
 
-**Export extraction pattern** (from code-vs-doc.ts):
-```
+**Export Extraction Pattern**:
+```regex
 /^[ \t]*export\s+(?:default\s+)?(?:function|class|const|let|var|type|interface|enum)\s+(\w+)/gm
 ```
-Matches leading whitespace, `export` keyword, optional `default`, declaration type, captures identifier in group 1.
+Captures identifier in group 1 after export keyword and declaration type. Matches `export function foo`, `export const BAR`, `export default class App`. Ignores re-exports and commented-out lines.
 
-**Description templates**:
-- code-vs-doc: `"Documentation out of sync: ${missingFromDoc.length} exports undocumented"`
-- code-vs-code: `"Symbol \"${name}\" exported from ${paths.length} files"`
+**Description Templates**:
+- `code-vs-doc`: `"Documentation out of sync: ${missingFromDoc.length} exports undocumented"`
+- `code-vs-code`: `"Symbol \"${name}\" exported from ${paths.length} files"`
 
-**CLI report format** (from reporter.ts):
+**CLI Format**:
 ```
 === Inconsistency Report ===
 Checked {filesChecked} files in {durationMs}ms
 Found {total} issue(s)
 
-[{SEVERITY}] {description}
-  File: {filePath}         // code-vs-doc
-  Doc: {agentsMdPath}      // phantom-path
-  Path: {referencedPath}   // phantom-path
-  Files: {file1}, {file2}  // code-vs-code
+[ERROR]|[WARN]|[INFO] {description}
+  File: {filePath}
+  Doc: {agentsMdPath}
+  Path: {referencedPath}
+  Files: {file1}, {file2}, ...
 ```
 
-Severity map: `error → "[ERROR]"`, `warning → "[WARN]"`, `info → "[INFO]"`
+## Type Dependencies
+
+- `SumFileContent` from `../../generation/writers/sum.js` — parsed .sum file structure with `summary` text field
+- `CodeDocInconsistency`, `CodeCodeInconsistency`, `Inconsistency`, `InconsistencyReport` from `../types.js` — discriminated union types for quality issues
 
 ## Integration Points
 
-- `code-vs-doc.ts` imports `SumFileContent` from `../../generation/writers/sum.js` (parsed `.sum` structure with `summary` text and `publicInterface` array)
-- `code-vs-code.ts` re-uses `extractExports` from `./code-vs-doc.js` for shared regex logic
-- All detectors import return types from `../types.js` (`CodeDocInconsistency`, `CodeCodeInconsistency`)
-- `reporter.ts` imports `Inconsistency` union and `InconsistencyReport` structure from `../types.js`
+Consumed by `src/orchestration/runner.ts` post-phase-1-quality checks: `checkCodeVsDoc()` invoked per file-sum pair, `checkCodeVsCode()` invoked per directory group, `buildInconsistencyReport()` aggregates findings across phases. `formatReportForCli()` output emitted to stderr via `src/core/logger.ts` when issues detected.
 
 ## Design Constraints
 
-- **No AI involvement** — pure syntactic analysis via regex and string matching
-- **Stateless detectors** — functions accept file content, return typed issues
-- **No color coupling** — `reporter.ts` emits plain text; ANSI colorization deferred to CLI layer
-- **Caller-scoped grouping** — `code-vs-code` requires per-directory file arrays to avoid false cross-module duplicates
+Pure syntactic analysis—no AST parsing or AI-based semantic checks. `checkCodeVsCode()` requires scoped input (per-directory groups) to avoid false positives across unrelated modules. Reporter functions avoid color dependencies for testability, deferring ANSI colorization to CLI layer.

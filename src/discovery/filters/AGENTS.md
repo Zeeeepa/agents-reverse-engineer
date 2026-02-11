@@ -2,62 +2,62 @@
 
 # src/discovery/filters
 
-Implements composable file exclusion filters for discovery phase, providing gitignore integration, binary file detection, vendor directory filtering, and custom pattern matching with concurrent evaluation and per-filter statistics.
+File exclusion pipeline implementing four specialized filters (gitignore, vendor, binary, custom) with concurrent filter chain execution, short-circuit evaluation, and per-filter statistics tracking.
 
 ## Contents
 
-### Filter Implementations
+**[binary.ts](./binary.ts)** — `createBinaryFilter(options?: BinaryFilterOptions): FileFilter` excludes binary files via two-phase detection: fast-path extension matching against `BINARY_EXTENSIONS` (90+ extensions: `.png`, `.jpg`, `.pdf`, `.exe`, `.zip`, `.mp3`, etc.) and slow-path content analysis via `isBinaryFile()` for unknown extensions. Enforces `maxFileSize` threshold (default: 1MB).
 
-- **[binary.ts](./binary.ts)** — `createBinaryFilter(options?: BinaryFilterOptions): FileFilter` excludes binary files via two-phase detection: fast-path extension check against `BINARY_EXTENSIONS` Set (90+ extensions including `.png`, `.pdf`, `.exe`, `.wasm`, `.db`), slow-path `isBinaryFile()` content analysis for unknown types, and size threshold (`DEFAULT_MAX_FILE_SIZE = 1048576` bytes).
+**[custom.ts](./custom.ts)** — `createCustomFilter(patterns: string[], root: string): FileFilter` applies user-defined gitignore-style exclusion patterns via `ignore` library. Normalizes paths to relative form, skips matching for paths outside root boundary.
 
-- **[custom.ts](./custom.ts)** — `createCustomFilter(patterns: string[], root: string): FileFilter` matches user-provided gitignore-style patterns using `ignore` library, normalizes `absolutePath` to relative form via `path.relative(root, absolutePath)`, returns false for paths outside root or empty pattern lists.
+**[gitignore.ts](./gitignore.ts)** — `createGitignoreFilter(root: string): Promise<FileFilter>` async factory loads `.gitignore` from root, parses with `ignore()` library, excludes files matching repository ignore rules. Silent fallback if `.gitignore` missing.
 
-- **[gitignore.ts](./gitignore.ts)** — `createGitignoreFilter(root: string): Promise<FileFilter>` async loads `.gitignore` from root, delegates matching to `ignore()` library with relative path conversion, silently allows all files if `.gitignore` missing.
+**[index.ts](./index.ts)** — `applyFilters(files: string[], filters: FileFilter[], options?: { tracer?: ITraceWriter; debug?: boolean }): Promise<FilterResult>` orchestrates concurrent filter chain execution with `CONCURRENCY = 30` worker pool. Short-circuits on first exclusion, preserves file order via index-based sorting, emits `filter:applied` trace events with per-filter match/reject counts. Re-exports all filter creators and constants.
 
-- **[vendor.ts](./vendor.ts)** — `createVendorFilter(vendorDirs: string[]): FileFilter` partitions input into single-segment names (`'node_modules'`) checked against path components and multi-segment patterns (`'apps/vendor'`) matched via substring inclusion; `DEFAULT_VENDOR_DIRS` includes `'node_modules'`, `'vendor'`, `'.git'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`.
-
-### Orchestration
-
-- **[index.ts](./index.ts)** — `applyFilters(files: string[], filters: FileFilter[], options?: { tracer?: ITraceWriter; debug?: boolean }): Promise<FilterResult>` applies filter chain with short-circuit evaluation (stops at first exclusion), bounded concurrency (`CONCURRENCY = 30` workers sharing iterator over `files.entries()`), per-filter statistics (`Map<string, { matched: number; rejected: number }>`), and `filter:applied` trace events. Re-exports all filter creators and constants.
+**[vendor.ts](./vendor.ts)** — `createVendorFilter(vendorDirs: string[]): FileFilter` excludes third-party dependency directories and build outputs. `DEFAULT_VENDOR_DIRS` contains `'node_modules'`, `'vendor'`, `'.git'`, `'dist'`, `'build'`, `'__pycache__'`, `'.next'`, `'venv'`, `'.venv'`, `'target'`. Partitions patterns into single-segment directory names (Set-based lookup) and multi-segment path patterns (substring match).
 
 ## Architecture
 
-### Filter Chain Pattern
+### Filter Chain Execution
 
-Each FileFilter exposes `name: string` and `shouldExclude(absolutePath: string): boolean | Promise<boolean>`. `applyFilters()` evaluates filters in sequence, recording first matching filter in `ExcludedFile.filter` field and terminating evaluation for that file (short-circuit).
+`applyFilters()` spawns `Math.min(30, files.length)` workers sharing single `files.entries()` iterator. Each worker processes file through filter array sequentially until `filter.shouldExclude(file)` returns `true` (short-circuit) or all filters pass. Workers return `Array<{ index: number; file: string; excluded?: ExcludedFile }>`, preserving original order via index-based sorting after `Promise.all(workers)`.
 
-### Concurrency Model
+### Binary Detection Strategy
 
-Worker pool spawns `Math.min(CONCURRENCY, files.length)` workers sharing single iterator over `files.entries()`. Each worker processes files sequentially through filter chain, returning `Array<{ index: number; file: string; excluded?: ExcludedFile }>`. Results sorted by index to preserve input order before partitioning into `included` and `excluded` arrays.
+`createBinaryFilter()` implements two-phase detection: (1) fast path extracts extension via `path.extname(absolutePath).toLowerCase()`, checks against merged set of `BINARY_EXTENSIONS` + `additionalExtensions`, (2) slow path invokes `fs.stat()` for size check against `maxFileSize`, calls `isBinaryFile(absolutePath)` for content-based analysis of unknown extensions. Fail-closed on stat/read errors.
 
-### Path Normalization Strategy
+### Path Normalization
 
-Filters receiving absolute paths convert to relative via `path.relative(normalizedRoot, absolutePath)` before pattern matching. Paths outside root (starting with `..`) or empty relative paths bypass pattern matching. Binary filter uses `path.extname()` extraction with `.toLowerCase()` for case-insensitive extension comparison.
+All filters normalize root with `path.resolve()`, convert absolutePath to relative via `path.relative(normalizedRoot, absolutePath)`. Paths outside root (starting with `..`) or empty relative paths return `false` from `shouldExclude()`. Custom and gitignore filters require relative paths for `ignore` library pattern matching.
+
+### Vendor Pattern Matching
+
+`createVendorFilter()` partitions `vendorDirs` into single-segment names (e.g., `'node_modules'`) stored in `Set<string>` for O(1) lookup against `absolutePath.split(path.sep)` components, and multi-segment patterns (e.g., `'apps/vendor'`) stored in string array for substring matching via `absolutePath.includes(pattern)` after `path.sep` normalization.
 
 ## Behavioral Contracts
 
-### Binary Detection Algorithm
-
-1. Extract extension via `path.extname(absolutePath).toLowerCase()`
-2. Check merged set of `BINARY_EXTENSIONS` and `options.additionalExtensions` (normalized with leading dot)
-3. If extension unknown: `fs.stat(absolutePath)` size check against `maxFileSize`, then `isBinaryFile(absolutePath)` content analysis
-4. Fail-closed on stat/read errors (return true)
-
-### Custom Pattern Semantics
-
-`ignore` library gitignore syntax: `!` prefix negates pattern, `/` suffix matches directories, `*` glob wildcard, `**` recursive wildcard. Relative path requirement enforced by `path.relative()` conversion before `ig.ignores(relativePath)` call.
-
-### Vendor Directory Matching
-
-Single-segment dirs (`'node_modules'`) match if present in `absolutePath.split(path.sep)`. Multi-segment patterns (`'.agents/skills'`) match via `absolutePath.includes(pattern)` after normalizing separators to `path.sep`.
+### Concurrency Bound
+```javascript
+const CONCURRENCY = 30  // Limits file descriptor exhaustion during isBinaryFile() calls
+const workers = Math.min(CONCURRENCY, files.length)
+```
 
 ### Short-Circuit Evaluation
+Filter chain stops at first `shouldExclude() === true`, recording `filter.name` in `ExcludedFile.filter` field and reason string `"Excluded by ${filter.name} filter"`.
 
-`applyFilters()` stops checking filters after first `shouldExclude()` returns true, recording reason string `"Excluded by ${filter.name} filter"` in `ExcludedFile`. Subsequent filters skipped for that file. Order matters: earlier filters preempt later filters.
+### Binary Extension Set
+`BINARY_EXTENSIONS` contains 90+ lowercase extensions with leading dots: images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.tiff`, `.tif`, `.psd`, `.raw`, `.heif`, `.heic`), archives (`.zip`, `.tar`, `.gz`, `.rar`, `.7z`, `.bz2`, `.xz`, `.tgz`), executables (`.exe`, `.dll`, `.so`, `.dylib`, `.bin`, `.msi`, `.app`, `.dmg`), media (`.mp3`, `.mp4`, `.wav`, `.avi`, `.mov`, `.mkv`, `.flac`, `.ogg`, `.webm`, `.m4a`, `.aac`, `.wma`, `.wmv`, `.flv`), documents (`.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp`), fonts (`.woff`, `.woff2`, `.ttf`, `.eot`, `.otf`), compiled (`.class`, `.pyc`, `.pyo`, `.o`, `.obj`, `.a`, `.lib`, `.wasm`), database (`.db`, `.sqlite`, `.sqlite3`, `.mdb`).
 
-## Dependencies
+### Default Vendor Directories
+```javascript
+DEFAULT_VENDOR_DIRS = ['node_modules', 'vendor', '.git', 'dist', 'build', '__pycache__', '.next', 'venv', '.venv', 'target']
+```
 
-- **isbinaryfile** (`isBinaryFile()`) — content-based binary detection in binary.ts slow path
-- **ignore** (`ignore()`, `Ignore` type) — gitignore pattern parsing and matching in custom.ts and gitignore.ts
-- **FileFilter**, **FilterResult**, **ExcludedFile** from `../types.js` — interface contracts
-- **ITraceWriter** from `../../orchestration/trace.js` — optional tracing sink for statistics
+### Gitignore Library Integration
+`ignore()` factory from `ignore` library requires relative paths, not absolute. Trailing slash affects directory matching behavior; filters pass paths as-is without appending `/` because walker returns files only.
+
+### Filter Statistics Schema
+```typescript
+Map<string, { matched: number; rejected: number }>
+// Updated per-filter during applyFilters() execution, emitted via filter:applied trace events
+```

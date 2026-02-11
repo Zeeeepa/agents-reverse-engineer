@@ -2,16 +2,40 @@
 
 # scripts
 
-Build automation directory containing Node.js scripts for npm lifecycle hooks and distribution preparation.
+Build automation directory containing the hook bundling script executed during prepublish workflow.
 
 ## Contents
 
-- **[build-hooks.js](./build-hooks.js)**: Copies hook source files from `hooks/` to `hooks/dist/` during prepublish, filtering `.js` files via `readdirSync(HOOKS_SRC).filter(f => f.endsWith('.js') && f !== 'dist')`.
+**[build-hooks.js](./build-hooks.js)** — Copies `.js` files from `hooks/` to `hooks/dist/` via `copyFileSync()`, invoked by `npm run build:hooks` and `prepublishOnly` lifecycle hook. Resolves paths using ESM-compatible `fileURLToPath(import.meta.url)` pattern, creates output directory via `mkdirSync(HOOKS_DIST, { recursive: true })`, filters source files with `.endsWith('.js') && f !== 'dist'`, logs each operation as `Copied: ${file} -> hooks/dist/${file}`.
 
-## Build Integration
+## Integration Points
 
-Script invoked via `npm run build:hooks` and automatically triggered during `npm run prepublishOnly`. Creates `hooks/dist/` directory using `mkdirSync(HOOKS_DIST, { recursive: true })`, then copies each hook file using `copyFileSync(src, dest)`. Console output logs each file as `Copied: ${file} -> hooks/dist/${file}` and final count as `Done. ${hookFiles.length} hook(s) built.`.
+- **package.json scripts**: `"build:hooks": "node scripts/build-hooks.js"`, `"prepublishOnly": "npm run build && npm run build:hooks"`
+- **Distribution manifest**: `package.json` `"files": ["dist/", "hooks/dist/", ...]` includes bundled hooks
+- **Source directory**: `hooks/` containing `are-check-update.js`, `are-session-end.js`, `opencode-are-check-update.js`, `opencode-are-session-end.js`
+- **Output directory**: `hooks/dist/` (git-ignored, generated at build time)
 
-## Path Resolution
+## Behavioral Contracts
 
-Uses ESM path resolution pattern: `__filename` derived from `fileURLToPath(import.meta.url)`, `__dirname` from `dirname(__filename)`, `projectRoot` resolved as `join(__dirname, '..')`. Hook paths: `HOOKS_SRC = join(projectRoot, 'hooks')`, `HOOKS_DIST = join(projectRoot, 'hooks', 'dist')`.
+### Path Resolution
+
+```javascript
+__filename = fileURLToPath(import.meta.url)
+__dirname = dirname(__filename)
+projectRoot = join(__dirname, '..')
+HOOKS_SRC = join(projectRoot, 'hooks')
+HOOKS_DIST = join(projectRoot, 'hooks', 'dist')
+```
+
+### File Selection Filter
+
+```javascript
+readdirSync(HOOKS_SRC).filter(f => f.endsWith('.js') && f !== 'dist')
+```
+
+Excludes the `dist` subdirectory itself from copy operations.
+
+### Console Output Format
+
+Per-file: `Copied: ${file} -> hooks/dist/${file}`  
+Summary: `Done. ${hookFiles.length} hook(s) built.`
