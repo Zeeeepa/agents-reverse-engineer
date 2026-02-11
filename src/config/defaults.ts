@@ -82,6 +82,8 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/CLAUDE.md',
   '**/OPENCODE.md',
   '**/GEMINI.md',
+  '*.local.md',
+  '**/*.local.md',
   // Lock files (not useful for documentation, can be very large)
   '*.lock',
   'package-lock.json',
