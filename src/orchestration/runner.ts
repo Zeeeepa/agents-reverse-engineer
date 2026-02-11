@@ -54,7 +54,7 @@ import { getVersion } from '../version.js';
  *
  * Create one instance per command invocation. The runner holds references
  * to the AI service and run options, then executes plans or file lists
- * through the three-phase pipeline.
+ * through the two-phase pipeline (file analysis, then directory aggregation).
  *
  * @example
  * ```typescript

@@ -104,11 +104,10 @@ export interface RunSummary {
  * - `done`: filePath, index, total, durationMs, tokensIn, tokensOut, model
  * - `error`: filePath, index, total, error
  * - `dir-done`: filePath (directory path)
- * - `root-done`: filePath (root document path)
  */
 export interface ProgressEvent {
   /** Event type */
-  type: 'start' | 'done' | 'error' | 'dir-done' | 'root-done';
+  type: 'start' | 'done' | 'error' | 'dir-done';
   /** File or directory path */
   filePath: string;
   /** Zero-based index of this task in the current phase */

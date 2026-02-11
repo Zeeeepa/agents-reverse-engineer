@@ -43,7 +43,7 @@ export class PlanTracker {
    * The caller must pass the exact path as it appears in the markdown:
    * - File: `src/cli/init.ts`
    * - Directory: `src/cli/AGENTS.md`  (caller appends `/AGENTS.md`)
-   * - Root doc: `CLAUDE.md`
+   * - Pointer: `CLAUDE.md`
    */
   markDone(itemPath: string): void {
     const before = this.content;

@@ -1,7 +1,7 @@
 /**
  * Streaming build-log progress reporter with ETA calculation.
  *
- * Outputs one line per event (start, done, fail, dir-done, root-done)
+ * Outputs one line per event (start, done, fail, dir-done)
  * using `console.log` for atomic, non-corrupting concurrent output.
  * Each line shows progress counter, status, file path, timing, and
  * token counts using colored output via `picocolors`.
@@ -300,19 +300,6 @@ export class ProgressReporter {
     const eta = this.formatDirectoryETA();
 
     const line = `${counter} ${pc.blue('DONE')} ${dirPath}/AGENTS.md ${time} ${tokens} ${modelLabel}${eta}`;
-    console.log(line);
-    this.progressLog?.write(stripAnsi(line));
-  }
-
-  /**
-   * Log the completion of a root document generation.
-   *
-   * Output format: `[root] DONE docPath`
-   *
-   * @param docPath - Path to the root document
-   */
-  onRootDone(docPath: string): void {
-    const line = `${pc.dim('[root]')} ${pc.blue('DONE')} ${docPath}`;
     console.log(line);
     this.progressLog?.write(stripAnsi(line));
   }

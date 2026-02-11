@@ -256,7 +256,7 @@ export class GenerationOrchestrator {
     };
 
     // Emit plan created event
-    // +1 for root CLAUDE.md task added later by buildExecutionPlan()
+    // +1 for CLAUDE.md task added later by buildExecutionPlan()
     this.tracer?.emit({
       type: 'plan:created',
       planType: 'generate',

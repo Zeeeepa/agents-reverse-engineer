@@ -38,18 +38,13 @@ Run the generate command in the background and monitor progress in real time.
 4. **On completion**, read the full background task output and summarize:
    - Number of files analyzed and any failures
    - Number of directories documented
-   - Root and per-package documents generated
    - Any inconsistency warnings from the quality report
 
-This executes a three-phase pipeline:
+This executes a two-phase pipeline:
 
-1. **Discovery & Planning**: Walks the directory tree, applies filters (gitignore, vendor, binary, custom), detects file types, and creates a generation plan.
+1. **File Analysis** (concurrent): Discovers files, applies filters, then analyzes each source file via AI and writes \`.sum\` summary files with YAML frontmatter (\`content_hash\`, \`file_type\`, \`purpose\`, \`public_interface\`, \`dependencies\`, \`patterns\`).
 
-2. **File Analysis** (concurrent): Analyzes each source file via AI and writes \`.sum\` summary files with YAML frontmatter (\`content_hash\`, \`file_type\`, \`purpose\`, \`public_interface\`, \`dependencies\`, \`patterns\`).
-
-3. **Directory & Root Documents** (sequential):
-   - Generates \`AGENTS.md\` per directory in post-order traversal (deepest first, so child summaries feed into parents)
-   - Creates root document: \`CLAUDE.md\`
+2. **Directory Aggregation** (sequential): Generates \`AGENTS.md\` per directory in post-order traversal (deepest first, so child summaries feed into parents), and writes \`CLAUDE.md\` pointers.
 
 **Options:**
 - \`--dry-run\`: Preview the plan without making AI calls
@@ -344,10 +339,8 @@ npx are generate --debug --trace
 \`\`\`
 
 **How it works:**
-1. Discovers files, applies filters, detects file types, and creates a generation plan
-2. Analyzes each file via concurrent AI calls, writes \`.sum\` summary files
-3. Generates \`AGENTS.md\` for each directory (post-order traversal)
-4. Creates root document: \`CLAUDE.md\`
+1. Discovers files, applies filters, analyzes each file via concurrent AI calls, writes \`.sum\` summary files
+2. Generates \`AGENTS.md\` for each directory (post-order traversal) and writes \`CLAUDE.md\` pointers
 
 ---
 
@@ -458,7 +451,7 @@ Remove all generated documentation artifacts.
 - \`.agents-reverse-engineer/GENERATION-PLAN.md\`
 - All \`*.sum\` files
 - All \`AGENTS.md\` files
-- Root docs: \`CLAUDE.md\`
+- Pointers: \`CLAUDE.md\`
 
 **Usage:**
 - \`COMMAND_PREFIXclean --dry-run\` — Preview deletions
@@ -548,11 +541,11 @@ related_files: [./types.ts, ./middleware.ts]
 
 **\`AGENTS.md\`** — Directory overview synthesized from \`.sum\` files. Groups files by purpose and links to subdirectories.
 
-### Root Documents
+### Pointer Files
 
 | File | Purpose |
 |------|---------|
-| \`CLAUDE.md\` | Project entry point — synthesizes all AGENTS.md |
+| \`CLAUDE.md\` | Project entry point — imports root AGENTS.md |
 
 ## Common Workflows
 

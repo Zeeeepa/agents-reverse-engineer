@@ -73,7 +73,7 @@ function formatPlan(plan: GenerationPlan): string {
  *
  * Default behavior: resolves an AI CLI backend, builds an execution plan,
  * and runs concurrent AI analysis via the CommandRunner. Produces .sum files,
- * AGENTS.md per directory, and root documents (CLAUDE.md, ARCHITECTURE.md, etc.).
+ * AGENTS.md per directory, and CLAUDE.md pointers.
  *
  * @param targetPath - Directory to generate documentation for
  * @param options - Command options (concurrency, failFast, debug, etc.)
@@ -221,7 +221,7 @@ export async function generateCommand(
     progressLog,
   });
 
-  // Execute the three-phase pipeline
+  // Execute the two-phase pipeline
   const summary = await runner.executeGenerate(executionPlan);
 
   // Write telemetry run log
