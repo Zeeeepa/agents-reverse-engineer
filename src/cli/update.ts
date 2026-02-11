@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import pc from 'picocolors';
 import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
+import { consoleLogger } from '../core/logger.js';
 import {
   createUpdateOrchestrator,
   type UpdatePlan,
@@ -254,7 +255,7 @@ export async function updateCommand(
       maxRetries: config.ai.maxRetries,
       model: effectiveModel,
       telemetry: { keepRuns: config.ai.telemetry.keepRuns },
-    });
+    }, consoleLogger);
 
     if (options.debug) {
       aiService.setDebug(true);

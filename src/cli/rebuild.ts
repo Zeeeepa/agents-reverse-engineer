@@ -14,6 +14,7 @@
 import * as path from 'node:path';
 import pc from 'picocolors';
 import { loadConfig, findProjectRoot } from '../config/loader.js';
+import { consoleLogger } from '../core/logger.js';
 import {
   AIService,
   AIServiceError,
@@ -162,7 +163,7 @@ export async function rebuildCommand(
     maxRetries: config.ai.maxRetries,
     model: effectiveModel,
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
-  });
+  }, consoleLogger);
 
   if (options.debug) {
     aiService.setDebug(true);

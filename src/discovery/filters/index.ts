@@ -6,9 +6,10 @@
  * filter excluded each file.
  */
 
-import pc from 'picocolors';
 import type { FileFilter, FilterResult, ExcludedFile } from '../types.js';
 import type { ITraceWriter } from '../../orchestration/trace.js';
+import type { Logger } from '../../core/logger.js';
+import { nullLogger } from '../../core/logger.js';
 
 // Re-export all filter creators
 export { createGitignoreFilter } from './gitignore.js';
@@ -43,7 +44,7 @@ export { createCustomFilter } from './custom.js';
 export async function applyFilters(
   files: string[],
   filters: FileFilter[],
-  options?: { tracer?: ITraceWriter; debug?: boolean }
+  options?: { tracer?: ITraceWriter; debug?: boolean; logger?: Logger }
 ): Promise<FilterResult> {
   const included: string[] = [];
   const excluded: ExcludedFile[] = [];
@@ -135,7 +136,7 @@ export async function applyFilters(
 
       // Debug output
       if (options?.debug && stats.rejected > 0) {
-        console.error(pc.dim(`[debug] Filter [${filter.name}]: ${stats.rejected} files rejected`));
+        (options?.logger ?? nullLogger).debug(`[debug] Filter [${filter.name}]: ${stats.rejected} files rejected`);
       }
     }
   }

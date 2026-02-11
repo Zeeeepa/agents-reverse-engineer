@@ -36,7 +36,7 @@ export { checkCodeVsCode } from './inconsistency/code-vs-code.js';
 // Inconsistency reporting
 // ---------------------------------------------------------------------------
 
-export { buildInconsistencyReport, formatReportForCli } from './inconsistency/reporter.js';
+export { buildInconsistencyReport, formatReportForCli, formatReportAsMarkdown } from './inconsistency/reporter.js';
 
 // ---------------------------------------------------------------------------
 // Phantom path detection

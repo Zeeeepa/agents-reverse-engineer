@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import pc from 'picocolors';
 import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
+import { consoleLogger } from '../core/logger.js';
 import { discoverFiles } from '../discovery/run.js';
 import { createOrchestrator, type GenerationPlan } from '../generation/orchestrator.js';
 import { buildExecutionPlan } from '../generation/executor.js';
@@ -220,7 +221,7 @@ export async function generateCommand(
     maxRetries: config.ai.maxRetries,
     model: effectiveModel,
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
-  });
+  }, consoleLogger);
 
   if (options.debug) {
     aiService.setDebug(true);

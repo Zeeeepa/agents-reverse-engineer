@@ -85,6 +85,35 @@ export interface AIResponse {
 }
 
 // ---------------------------------------------------------------------------
+// AIProvider (injectable abstraction)
+// ---------------------------------------------------------------------------
+
+/**
+ * Injectable interface for making AI calls.
+ *
+ * Implement this to swap the underlying AI transport (subprocess, HTTP API,
+ * in-memory mock, etc.) without changing the rest of the pipeline.
+ *
+ * {@link AIService} wraps any `AIProvider` with retry logic, telemetry,
+ * and tracing.
+ *
+ * @example
+ * ```typescript
+ * // Custom provider using Anthropic SDK directly
+ * class AnthropicAPIProvider implements AIProvider {
+ *   async call(options: AICallOptions): Promise<AIResponse> {
+ *     const response = await this.client.messages.create({ ... });
+ *     return { text: response.content[0].text, ... };
+ *   }
+ * }
+ * ```
+ */
+export interface AIProvider {
+  /** Make an AI call and return the normalized response. */
+  call(options: AICallOptions): Promise<AIResponse>;
+}
+
+// ---------------------------------------------------------------------------
 // Backend
 // ---------------------------------------------------------------------------
 

@@ -1,17 +1,17 @@
 import * as path from 'node:path';
 import { readdir, readFile } from 'node:fs/promises';
-import pc from 'picocolors';
 import type { PromptContext } from './types.js';
 import { FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, FILE_UPDATE_SYSTEM_PROMPT, DIRECTORY_SYSTEM_PROMPT, DIRECTORY_UPDATE_SYSTEM_PROMPT } from './templates.js';
 import { readSumFile, getSumPath } from '../writers/sum.js';
 import { GENERATED_MARKER } from '../writers/agents-md.js';
 import { extractDirectoryImports, formatImportMap } from '../../imports/index.js';
+import type { Logger } from '../../core/logger.js';
+import { nullLogger } from '../../core/logger.js';
 
-function logTemplate(debug: boolean, action: string, filePath: string, extra?: string): void {
-  if (!debug) return;
+function logTemplate(logger: Logger, action: string, filePath: string, extra?: string): void {
   const rel = path.relative(process.cwd(), filePath);
-  const msg = `${pc.dim('[prompt]')} ${pc.cyan(action)} ${pc.dim('→')} ${rel}`;
-  console.error(extra ? `${msg} ${pc.dim(extra)}` : msg);
+  const msg = `[prompt] ${action} → ${rel}`;
+  logger.debug(extra ? `${msg} ${extra}` : msg);
 }
 
 /**
@@ -49,12 +49,12 @@ export function detectLanguage(filePath: string): string {
 /**
  * Build a complete prompt for file analysis.
  */
-export function buildFilePrompt(context: PromptContext, debug = false): {
+export function buildFilePrompt(context: PromptContext, debug = false, logger?: Logger): {
   system: string;
   user: string;
 } {
   const lang = detectLanguage(context.filePath);
-  logTemplate(debug, 'buildFilePrompt', context.filePath, `lang=${lang}`);
+  if (debug) logTemplate(logger ?? nullLogger, 'buildFilePrompt', context.filePath, `lang=${lang}`);
 
   const planSection = context.projectPlan
     ? `\n\n## Project Structure\n\nFull project file listing for context:\n\n<project-structure>\n${context.projectPlan}\n</project-structure>`
@@ -105,6 +105,7 @@ export async function buildDirectoryPrompt(
   knownDirs?: Set<string>,
   projectStructure?: string,
   existingAgentsMd?: string,
+  logger?: Logger,
 ): Promise<{ system: string; user: string }> {
   const relativePath = path.relative(projectRoot, dirPath) || '.';
   const dirName = path.basename(dirPath) || 'root';
@@ -145,7 +146,7 @@ export async function buildDirectoryPrompt(
         return `### ${entry.name}/\n${childContent}`;
       } catch {
         if (debug) {
-          console.error(pc.dim(`[prompt] Skipping missing ${childAgentsPath}`));
+          (logger ?? nullLogger).debug(`[prompt] Skipping missing ${childAgentsPath}`);
         }
         return null;
       }
@@ -185,7 +186,7 @@ export async function buildDirectoryPrompt(
   const fileImports = await extractDirectoryImports(dirPath, sourceFileNames);
   const importMapText = formatImportMap(fileImports);
 
-  logTemplate(debug, 'buildDirectoryPrompt', dirPath, `files=${fileSummaries.length} subdirs=${subdirSections.length} imports=${fileImports.length}`);
+  if (debug) logTemplate(logger ?? nullLogger, 'buildDirectoryPrompt', dirPath, `files=${fileSummaries.length} subdirs=${subdirSections.length} imports=${fileImports.length}`);
 
   const userSections: string[] = [
     `Generate AGENTS.md for directory: "${relativePath}" (${dirName})`,

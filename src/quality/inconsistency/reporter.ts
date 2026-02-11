@@ -115,3 +115,55 @@ export function formatReportForCli(report: InconsistencyReport): string {
 
   return lines.join('\n');
 }
+
+/**
+ * Format an inconsistency report as GitHub-flavored Markdown.
+ *
+ * Suitable for PR comments, issue bodies, or documentation files.
+ *
+ * @param report - The structured inconsistency report
+ * @returns Markdown-formatted string
+ */
+export function formatReportAsMarkdown(report: InconsistencyReport): string {
+  const lines: string[] = [];
+
+  lines.push('## Inconsistency Report');
+  lines.push('');
+  lines.push(`Checked **${report.metadata.filesChecked}** files in ${report.metadata.durationMs}ms — found **${report.summary.total}** issue(s).`);
+  lines.push('');
+
+  if (report.issues.length === 0) {
+    lines.push('No issues found.');
+    return lines.join('\n');
+  }
+
+  lines.push('| Severity | Type | Description | Location |');
+  lines.push('|----------|------|-------------|----------|');
+
+  for (const issue of report.issues) {
+    const severity =
+      issue.severity === 'error' ? '`ERROR`' :
+      issue.severity === 'warning' ? '`WARN`' :
+      '`INFO`';
+
+    const type =
+      issue.type === 'code-vs-doc' ? 'code-vs-doc' :
+      issue.type === 'code-vs-code' ? 'code-vs-code' :
+      'phantom-path';
+
+    let location: string;
+    if (issue.type === 'code-vs-doc') {
+      location = `\`${issue.filePath}\``;
+    } else if (issue.type === 'phantom-path') {
+      location = `\`${issue.agentsMdPath}\` → \`${issue.details.referencedPath}\``;
+    } else {
+      location = issue.files.map(f => `\`${f}\``).join(', ');
+    }
+
+    lines.push(`| ${severity} | ${type} | ${issue.description} | ${location} |`);
+  }
+
+  lines.push('');
+
+  return lines.join('\n');
+}

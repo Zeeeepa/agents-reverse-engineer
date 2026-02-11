@@ -32,6 +32,7 @@
 // ---------------------------------------------------------------------------
 
 export type {
+  AIProvider,
   AIBackend,
   AIResponse,
   AICallOptions,
@@ -74,6 +75,13 @@ export { withRetry, DEFAULT_RETRY_OPTIONS } from './retry.js';
 // ---------------------------------------------------------------------------
 
 export { runSubprocess } from './subprocess.js';
+
+// ---------------------------------------------------------------------------
+// Providers
+// ---------------------------------------------------------------------------
+
+export { SubprocessProvider } from './providers/subprocess.js';
+export type { SubprocessProviderOptions } from './providers/subprocess.js';
 
 // ---------------------------------------------------------------------------
 // Backend utilities

@@ -52,6 +52,13 @@
   ],
   "author": "GeoloeG-IsT",
   "license": "MIT",
+  "exports": {
+    ".": "./dist/cli/index.js",
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    }
+  },
   "main": "dist/cli/index.js",
   "files": [
     "dist",

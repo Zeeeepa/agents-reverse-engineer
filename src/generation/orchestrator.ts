@@ -9,7 +9,6 @@
 
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
-import pc from 'picocolors';
 import type { Config } from '../config/schema.js';
 import type { DiscoveryResult } from '../types/index.js';
 import { buildFilePrompt } from './prompts/index.js';
@@ -18,6 +17,8 @@ import type { ComplexityMetrics } from './complexity.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 import { sumFileExists } from './writers/sum.js';
 import { isGeneratedAgentsMd } from './writers/agents-md.js';
+import type { Logger } from '../core/logger.js';
+import { nullLogger } from '../core/logger.js';
 
 /**
  * A file prepared for analysis.
@@ -80,16 +81,18 @@ export class GenerationOrchestrator {
   private projectRoot: string;
   private tracer?: ITraceWriter;
   private debug: boolean;
+  private logger: Logger;
 
   constructor(
     config: Config,
     projectRoot: string,
-    options?: { tracer?: ITraceWriter; debug?: boolean }
+    options?: { tracer?: ITraceWriter; debug?: boolean; logger?: Logger }
   ) {
     this.config = config;
     this.projectRoot = projectRoot;
     this.tracer = options?.tracer;
     this.debug = options?.debug ?? false;
+    this.logger = options?.logger ?? nullLogger;
   }
 
   /**
@@ -304,7 +307,7 @@ export class GenerationOrchestrator {
     });
 
     if (this.debug) {
-      console.error(pc.dim('[debug] Preparing files: reading and detecting types...'));
+      this.logger.debug('[debug] Preparing files: reading and detecting types...');
     }
 
     const allFiles = await this.prepareFiles(discoveryResult);
@@ -316,7 +319,7 @@ export class GenerationOrchestrator {
 
     if (!force) {
       if (this.debug) {
-        console.error(pc.dim('[debug] Checking for existing .sum files...'));
+        this.logger.debug('[debug] Checking for existing .sum files...');
       }
       const fileFilter = await this.filterExistingFiles(allFiles);
       filesToProcess = fileFilter.filesToProcess;
@@ -324,7 +327,7 @@ export class GenerationOrchestrator {
     }
 
     if (this.debug) {
-      console.error(pc.dim(`[debug] Analyzing complexity...`));
+      this.logger.debug('[debug] Analyzing complexity...');
     }
 
     const complexity = analyzeComplexity(
@@ -333,7 +336,7 @@ export class GenerationOrchestrator {
     );
 
     if (this.debug) {
-      console.error(pc.dim(`[debug] Complexity analysis: depth=${complexity.directoryDepth}`));
+      this.logger.debug(`[debug] Complexity analysis: depth=${complexity.directoryDepth}`);
     }
 
     // Build project structure from ALL files (for bird's-eye context)
@@ -349,7 +352,7 @@ export class GenerationOrchestrator {
 
     if (!force) {
       if (this.debug) {
-        console.error(pc.dim('[debug] Checking for existing AGENTS.md files...'));
+        this.logger.debug('[debug] Checking for existing AGENTS.md files...');
       }
       const dirFilter = await this.filterExistingDirectories(allFiles, filesToProcess);
       skippedDirs = dirFilter.skippedDirs;
@@ -369,10 +372,8 @@ export class GenerationOrchestrator {
       const skipMsg = skippedFiles.length > 0
         ? `, ${skippedFiles.length} files skipped, ${skippedDirs.length} dirs skipped`
         : '';
-      console.error(
-        pc.dim(
-          `[debug] Generation plan: ${filesToProcess.length} files, ${tasks.length} tasks (${dirTasks.length} directories)${skipMsg}`
-        )
+      this.logger.debug(
+        `[debug] Generation plan: ${filesToProcess.length} files, ${tasks.length} tasks (${dirTasks.length} directories)${skipMsg}`
       );
     }
 
@@ -425,7 +426,7 @@ export class GenerationOrchestrator {
 export function createOrchestrator(
   config: Config,
   projectRoot: string,
-  options?: { tracer?: ITraceWriter; debug?: boolean }
+  options?: { tracer?: ITraceWriter; debug?: boolean; logger?: Logger }
 ): GenerationOrchestrator {
   return new GenerationOrchestrator(config, projectRoot, options);
 }

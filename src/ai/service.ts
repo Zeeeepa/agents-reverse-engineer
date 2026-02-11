@@ -2,54 +2,28 @@
  * AI service orchestrator.
  *
  * The {@link AIService} class is the main entry point for making AI calls.
- * It ties together the subprocess wrapper, retry logic, backend selection,
- * and telemetry logging into a clean `call()` method.
+ * It wraps any {@link AIProvider} with retry logic, telemetry recording,
+ * and optional subprocess log writing.
+ *
+ * For CLI usage, pass an {@link AIBackend} which is auto-wrapped in a
+ * {@link SubprocessProvider}. For library usage, pass any custom
+ * {@link AIProvider} implementation directly.
  *
  * @module
  */
 
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import type { AIBackend, AICallOptions, AIResponse, SubprocessResult, TelemetryEntry, RunLog, FileRead } from './types.js';
+import type { AIBackend, AIProvider, AICallOptions, AIResponse, SubprocessResult, RunLog, FileRead } from './types.js';
 import { AIServiceError } from './types.js';
-import { runSubprocess } from './subprocess.js';
 import { withRetry, DEFAULT_RETRY_OPTIONS } from './retry.js';
 import { TelemetryLogger } from './telemetry/logger.js';
 import { writeRunLog } from './telemetry/run-log.js';
 import { cleanupOldLogs } from './telemetry/cleanup.js';
+import { SubprocessProvider } from './providers/subprocess.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
-
-// ---------------------------------------------------------------------------
-// Rate-limit detection patterns
-// ---------------------------------------------------------------------------
-
-/** Patterns in stderr that indicate a transient rate-limit error */
-const RATE_LIMIT_PATTERNS = [
-  'rate limit',
-  '429',
-  'too many requests',
-  'overloaded',
-];
-
-/**
- * Check whether stderr text contains rate-limit indicators.
- *
- * @param stderr - Standard error output from the subprocess
- * @returns `true` if any rate-limit pattern matches (case-insensitive)
- */
-function isRateLimitStderr(stderr: string): boolean {
-  const lower = stderr.toLowerCase();
-  return RATE_LIMIT_PATTERNS.some((pattern) => lower.includes(pattern));
-}
-
-/**
- * Format bytes as a human-readable string.
- */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
+import type { Logger } from '../core/logger.js';
+import { nullLogger } from '../core/logger.js';
 
 // ---------------------------------------------------------------------------
 // AIService options
@@ -79,34 +53,43 @@ export interface AIServiceOptions {
 // ---------------------------------------------------------------------------
 
 /**
- * Orchestrates AI CLI calls with retry, timeout, and telemetry.
+ * Orchestrates AI calls with retry, timeout, and telemetry.
  *
- * Create one instance per CLI run. Call {@link call} for each AI invocation.
- * Call {@link finalize} at the end to write the run log and clean up old files.
+ * Wraps any {@link AIProvider} with retry logic and telemetry recording.
+ * Create one instance per run. Call {@link call} for each AI invocation.
+ * Call {@link finalize} at the end to write the run log.
  *
  * @example
  * ```typescript
+ * // CLI usage (backward compatible): pass AIBackend directly
  * import { AIService } from './service.js';
  * import { resolveBackend, createBackendRegistry } from './registry.js';
  *
- * const registry = createBackendRegistry();
- * const backend = await resolveBackend(registry, 'auto');
+ * const backend = await resolveBackend(createBackendRegistry(), 'auto');
  * const service = new AIService(backend, {
  *   timeoutMs: 120_000,
  *   maxRetries: 3,
  *   telemetry: { keepRuns: 10 },
  * });
+ * ```
  *
- * const response = await service.call({ prompt: 'Summarize this codebase' });
- * console.log(response.text);
+ * @example
+ * ```typescript
+ * // Library usage: pass custom AIProvider
+ * import { AIService } from './service.js';
+ * import type { AIProvider } from './types.js';
  *
- * const { logPath, summary } = await service.finalize('/path/to/project');
- * console.log(`Log written to ${logPath}`);
+ * const provider: AIProvider = new MyCustomProvider();
+ * const service = new AIService(provider, {
+ *   timeoutMs: 120_000,
+ *   maxRetries: 3,
+ *   telemetry: { keepRuns: 10 },
+ * });
  * ```
  */
 export class AIService {
-  /** The backend adapter used for CLI invocations */
-  private readonly backend: AIBackend;
+  /** The provider used for AI calls */
+  private readonly provider: AIProvider;
 
   /** Service configuration */
   private readonly options: AIServiceOptions;
@@ -117,14 +100,11 @@ export class AIService {
   /** Running count of calls made (used for entry tracking) */
   private callCount: number = 0;
 
-  /** Trace writer for concurrency debugging (may be no-op) */
+  /** Trace writer for retry event tracing */
   private tracer: ITraceWriter | null = null;
 
   /** Whether debug mode is enabled */
   private debug: boolean = false;
-
-  /** Number of currently active subprocesses */
-  private activeSubprocesses: number = 0;
 
   /** Directory for subprocess output logs (null = disabled) */
   private subprocessLogDir: string | null = null;
@@ -132,25 +112,54 @@ export class AIService {
   /** Serializes log writes so concurrent workers don't interleave mkdirs */
   private logWriteQueue: Promise<void> = Promise.resolve();
 
+  /** Debug/warn/error logger (injected; defaults to silent) */
+  private readonly log: Logger;
+
+  /** Backend reference kept for subprocess log writing (null when using custom provider) */
+  private readonly backend: AIBackend | null;
+
   /**
    * Create a new AI service instance.
    *
-   * @param backend - The resolved backend adapter
+   * Accepts either an {@link AIBackend} (auto-wrapped in {@link SubprocessProvider})
+   * or a custom {@link AIProvider} implementation.
+   *
+   * @param providerOrBackend - An AIProvider or AIBackend
    * @param options - Service configuration (timeout, retries, telemetry)
+   * @param debugLogger - Optional debug logger (defaults to nullLogger)
    */
-  constructor(backend: AIBackend, options: AIServiceOptions) {
-    this.backend = backend;
+  constructor(providerOrBackend: AIProvider | AIBackend, options: AIServiceOptions, debugLogger?: Logger) {
     this.options = options;
     this.logger = new TelemetryLogger(new Date().toISOString());
+    this.log = debugLogger ?? nullLogger;
+
+    // Auto-wrap AIBackend in SubprocessProvider for backward compatibility
+    if (isAIBackend(providerOrBackend)) {
+      this.backend = providerOrBackend;
+      this.provider = new SubprocessProvider(providerOrBackend, {
+        timeoutMs: options.timeoutMs,
+        logger: this.log,
+      });
+    } else {
+      this.backend = null;
+      this.provider = providerOrBackend;
+    }
   }
 
   /**
-   * Set the trace writer for subprocess and retry event tracing.
+   * Set the trace writer for retry event tracing.
+   *
+   * If the provider is a {@link SubprocessProvider}, also sets the tracer
+   * on it for subprocess spawn/exit events.
    *
    * @param tracer - The trace writer instance
    */
   setTracer(tracer: ITraceWriter): void {
     this.tracer = tracer;
+    // Forward to subprocess provider if applicable
+    if (this.provider instanceof SubprocessProvider) {
+      this.provider.setTracer(tracer);
+    }
   }
 
   /**
@@ -171,19 +180,22 @@ export class AIService {
    */
   setSubprocessLogDir(dir: string): void {
     this.subprocessLogDir = dir;
+    // Forward to subprocess provider if applicable
+    if (this.provider instanceof SubprocessProvider) {
+      this.provider.setSubprocessLogDir(dir);
+    }
   }
 
   /**
    * Make an AI call with retry logic and telemetry recording.
    *
    * The call flow:
-   * 1. Build CLI args via the backend adapter
-   * 2. Wrap the subprocess invocation in retry logic
-   * 3. On success: parse response via backend, record telemetry entry
+   * 1. Merge service-level model default
+   * 2. Delegate to the provider with retry wrapping
+   * 3. On success: record telemetry entry
    * 4. On failure: record error telemetry entry, throw the error
    *
-   * Retries are attempted for `RATE_LIMIT` and `TIMEOUT` errors only.
-   * All other errors are treated as permanent failures.
+   * Retries are attempted for `RATE_LIMIT` errors only.
    *
    * @param options - The call options (prompt, model, timeout, etc.)
    * @returns The normalized AI response
@@ -201,102 +213,12 @@ export class AIService {
       model: options.model ?? this.options.model,
     };
 
-    const args = this.backend.buildArgs(effectiveOptions);
-    const timeoutMs = options.timeoutMs ?? this.options.timeoutMs;
-
     let retryCount = 0;
 
     try {
       const response = await withRetry(
         async () => {
-          if (this.debug) {
-            const mem = process.memoryUsage();
-            console.error(
-              `[debug] Spawning subprocess for "${taskLabel}" ` +
-              `(active: ${this.activeSubprocesses}, ` +
-              `heapUsed: ${formatBytes(mem.heapUsed)}, ` +
-              `rss: ${formatBytes(mem.rss)}, ` +
-              `timeout: ${(timeoutMs / 1000).toFixed(0)}s)`,
-            );
-          }
-
-          this.activeSubprocesses++;
-
-          const result = await runSubprocess(this.backend.cliCommand, args, {
-            timeoutMs,
-            input: options.prompt,
-            onSpawn: (pid) => {
-              // Emit subprocess:spawn at actual spawn time (not after completion)
-              this.tracer?.emit({
-                type: 'subprocess:spawn',
-                childPid: pid ?? -1,
-                command: this.backend.cliCommand,
-                taskLabel,
-              });
-            },
-          });
-
-          this.activeSubprocesses--;
-
-          // Emit subprocess:exit after completion
-          if (this.tracer && result.childPid !== undefined) {
-            this.tracer.emit({
-              type: 'subprocess:exit',
-              childPid: result.childPid,
-              command: this.backend.cliCommand,
-              taskLabel,
-              exitCode: result.exitCode,
-              signal: result.signal,
-              durationMs: result.durationMs,
-              timedOut: result.timedOut,
-            });
-          }
-
-          // Write subprocess output log (fire-and-forget, non-critical)
-          this.enqueueSubprocessLog(result, taskLabel);
-
-          if (result.timedOut) {
-            console.error(
-              `[warn] Subprocess timed out after ${(result.durationMs / 1000).toFixed(1)}s ` +
-              `for "${taskLabel}" (PID ${result.childPid ?? 'unknown'}, ` +
-              `timeout was ${(timeoutMs / 1000).toFixed(0)}s)`,
-            );
-            throw new AIServiceError('TIMEOUT', 'Subprocess timed out');
-          }
-
-          if (this.debug) {
-            console.error(
-              `[debug] Subprocess exited for "${taskLabel}" ` +
-              `(PID ${result.childPid ?? 'unknown'}, ` +
-              `exitCode: ${result.exitCode}, ` +
-              `duration: ${(result.durationMs / 1000).toFixed(1)}s, ` +
-              `active: ${this.activeSubprocesses})`,
-            );
-          }
-
-          if (result.exitCode !== 0) {
-            if (isRateLimitStderr(result.stderr)) {
-              throw new AIServiceError(
-                'RATE_LIMIT',
-                `Rate limited by ${this.backend.name}: ${result.stderr.slice(0, 200)}`,
-              );
-            }
-            throw new AIServiceError(
-              'SUBPROCESS_ERROR',
-              `${this.backend.name} CLI exited with code ${result.exitCode}: ${result.stderr.slice(0, 500)}`,
-            );
-          }
-
-          // Parse the response -- wrap in try/catch for parse errors
-          try {
-            return this.backend.parseResponse(result.stdout, result.durationMs, result.exitCode);
-          } catch (error) {
-            if (error instanceof AIServiceError) {
-              throw error;
-            }
-            const message = error instanceof Error ? error.message : String(error);
-            throw new AIServiceError('PARSE_ERROR', `Failed to parse response: ${message}`);
-          }
+          return this.provider.call(effectiveOptions);
         },
         {
           ...DEFAULT_RETRY_OPTIONS,
@@ -317,7 +239,7 @@ export class AIService {
             const errorCode = error instanceof AIServiceError ? error.code : 'UNKNOWN';
 
             // Always warn on retry (not just debug) -- retries are noteworthy
-            console.error(
+            this.log.warn(
               `[warn] Retrying "${taskLabel}" (attempt ${attempt}/${this.options.maxRetries}, reason: ${errorCode})`,
             );
 
@@ -418,39 +340,16 @@ export class AIService {
   getSummary(): RunLog['summary'] {
     return this.logger.getSummary();
   }
+}
 
-  /**
-   * Enqueue a subprocess output log write.
-   *
-   * Serializes writes via a promise chain to avoid concurrent mkdir races.
-   * Failures are silently swallowed -- log writing is non-critical.
-   */
-  private enqueueSubprocessLog(result: SubprocessResult, taskLabel: string): void {
-    if (this.subprocessLogDir === null) return;
+// ---------------------------------------------------------------------------
+// Type guard
+// ---------------------------------------------------------------------------
 
-    const dir = this.subprocessLogDir;
-    const sanitized = taskLabel.replace(/\//g, '--').replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filename = `${sanitized}_pid${result.childPid ?? 0}.log`;
-    const filePath = path.join(dir, filename);
-
-    const content =
-      `task:      ${taskLabel}\n` +
-      `pid:       ${result.childPid ?? 'unknown'}\n` +
-      `command:   ${this.backend.cliCommand}\n` +
-      `exit:      ${result.exitCode}\n` +
-      `signal:    ${result.signal ?? 'none'}\n` +
-      `duration:  ${result.durationMs}ms\n` +
-      `timed_out: ${result.timedOut}\n` +
-      `\n--- stdout ---\n` +
-      result.stdout +
-      `\n--- stderr ---\n` +
-      result.stderr;
-
-    this.logWriteQueue = this.logWriteQueue
-      .then(async () => {
-        await mkdir(dir, { recursive: true });
-        await writeFile(filePath, content, 'utf-8');
-      })
-      .catch(() => { /* non-critical -- log loss is acceptable */ });
-  }
+/**
+ * Check whether the given object is an AIBackend (has buildArgs, parseResponse)
+ * rather than an AIProvider (has only call).
+ */
+function isAIBackend(obj: AIProvider | AIBackend): obj is AIBackend {
+  return 'buildArgs' in obj && 'parseResponse' in obj && 'cliCommand' in obj;
 }

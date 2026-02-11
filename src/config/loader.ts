@@ -10,8 +10,9 @@ import { constants } from 'node:fs';
 import path from 'node:path';
 import { parse, stringify } from 'yaml';
 import { ZodError } from 'zod';
-import pc from 'picocolors';
 import { ConfigSchema, Config } from './schema.js';
+import type { Logger } from '../core/logger.js';
+import { nullLogger } from '../core/logger.js';
 import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS, getDefaultConcurrency } from './defaults.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
 
@@ -88,7 +89,7 @@ export class ConfigError extends Error {
  */
 export async function loadConfig(
   root: string,
-  options?: { tracer?: ITraceWriter; debug?: boolean }
+  options?: { tracer?: ITraceWriter; debug?: boolean; logger?: Logger }
 ): Promise<Config> {
   const configPath = path.join(root, CONFIG_DIR, CONFIG_FILE);
 
@@ -109,10 +110,9 @@ export async function loadConfig(
 
       // Debug output
       if (options?.debug) {
-        console.error(pc.dim(`[debug] Config loaded from: ${path.relative(root, configPath)}`));
-        console.error(
-          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}`)
-        );
+        const log = options.logger ?? nullLogger;
+        log.debug(`[debug] Config loaded from: ${path.relative(root, configPath)}`);
+        log.debug(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}`);
       }
 
       return config;
@@ -144,10 +144,9 @@ export async function loadConfig(
 
       // Debug output
       if (options?.debug) {
-        console.error(pc.dim(`[debug] Config file not found, using defaults`));
-        console.error(
-          pc.dim(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}`)
-        );
+        const log = options.logger ?? nullLogger;
+        log.debug(`[debug] Config file not found, using defaults`);
+        log.debug(`[debug] Model: ${config.ai.model}, Concurrency: ${config.ai.concurrency}`);
       }
 
       return config;

@@ -16,6 +16,7 @@ import { access, readdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import pc from 'picocolors';
 import { loadConfig, findProjectRoot } from '../config/loader.js';
+import { consoleLogger } from '../core/logger.js';
 import { collectAgentsDocs, collectAnnexFiles } from '../generation/collector.js';
 import { buildSpecPrompt, writeSpec, SpecExistsError } from '../specify/index.js';
 import {
@@ -189,7 +190,7 @@ export async function specifyCommand(
     maxRetries: config.ai.maxRetries,
     model: effectiveModel,
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
-  });
+  }, consoleLogger);
 
   if (options.debug) {
     aiService.setDebug(true);

@@ -10,8 +10,9 @@
  * 6. Track affected directories for AGENTS.md regeneration
  */
 import * as path from 'node:path';
-import pc from 'picocolors';
 import type { Config } from '../config/schema.js';
+import type { Logger } from '../core/logger.js';
+import { nullLogger } from '../core/logger.js';
 import {
   isGitRepo,
   getCurrentCommit,
@@ -52,16 +53,18 @@ export class UpdateOrchestrator {
   private projectRoot: string;
   private tracer?: ITraceWriter;
   private debug: boolean;
+  private logger: Logger;
 
   constructor(
     config: Config,
     projectRoot: string,
-    options?: { tracer?: ITraceWriter; debug?: boolean }
+    options?: { tracer?: ITraceWriter; debug?: boolean; logger?: Logger }
   ) {
     this.config = config;
     this.projectRoot = projectRoot;
     this.tracer = options?.tracer;
     this.debug = options?.debug ?? false;
+    this.logger = options?.logger ?? nullLogger;
   }
 
   /**
@@ -122,7 +125,7 @@ export class UpdateOrchestrator {
     });
 
     if (this.debug) {
-      console.error(pc.dim('[debug] Creating update plan with change detection...'));
+      this.logger.debug('[debug] Creating update plan with change detection...');
     }
 
     await this.checkPrerequisites();
@@ -131,12 +134,12 @@ export class UpdateOrchestrator {
     const currentCommit = await getCurrentCommit(this.projectRoot);
 
     if (this.debug) {
-      console.error(pc.dim(`[debug] Git commit: ${currentCommit.slice(0, 7)}`));
+      this.logger.debug(`[debug] Git commit: ${currentCommit.slice(0, 7)}`);
     }
 
     // Discover all source files
     if (this.debug) {
-      console.error(pc.dim('[debug] Discovering files...'));
+      this.logger.debug('[debug] Discovering files...');
     }
 
     const allFiles = await this.discoverFiles();
@@ -198,12 +201,10 @@ export class UpdateOrchestrator {
       });
 
     if (this.debug) {
-      console.error(
-        pc.dim(
-          `[debug] Change detection: ${filesToAnalyze.length} changed, ${filesToSkip.length} unchanged, ${cleanup.deletedSumFiles.length} orphaned`
-        )
+      this.logger.debug(
+        `[debug] Change detection: ${filesToAnalyze.length} changed, ${filesToSkip.length} unchanged, ${cleanup.deletedSumFiles.length} orphaned`
       );
-      console.error(pc.dim(`[debug] Affected directories: ${affectedDirs.length}`));
+      this.logger.debug(`[debug] Affected directories: ${affectedDirs.length}`);
     }
 
     // Emit plan created event
@@ -296,7 +297,7 @@ export class UpdateOrchestrator {
 export function createUpdateOrchestrator(
   config: Config,
   projectRoot: string,
-  options?: { tracer?: ITraceWriter; debug?: boolean }
+  options?: { tracer?: ITraceWriter; debug?: boolean; logger?: Logger }
 ): UpdateOrchestrator {
   return new UpdateOrchestrator(config, projectRoot, options);
 }
