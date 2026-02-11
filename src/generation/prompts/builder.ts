@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import type { PromptContext } from './types.js';
 import { FILE_SYSTEM_PROMPT, FILE_USER_PROMPT, FILE_UPDATE_SYSTEM_PROMPT, DIRECTORY_SYSTEM_PROMPT, DIRECTORY_UPDATE_SYSTEM_PROMPT } from './templates.js';
 import { readSumFile, getSumPath } from '../writers/sum.js';
-import { GENERATED_MARKER } from '../writers/agents-md.js';
+import { GENERATED_MARKER_PREFIX } from '../writers/agents-md.js';
 import { extractDirectoryImports, formatImportMap } from '../../imports/index.js';
 import type { Logger } from '../../core/logger.js';
 import { nullLogger } from '../../core/logger.js';
@@ -201,7 +201,7 @@ export async function buildDirectoryPrompt(
     // No AGENTS.local.md — check if current AGENTS.md is user-authored (first run)
     try {
       const agentsContent = await readFile(path.join(dirPath, 'AGENTS.md'), 'utf-8');
-      if (!agentsContent.includes(GENERATED_MARKER)) {
+      if (!agentsContent.includes(GENERATED_MARKER_PREFIX)) {
         localSection = `\n## User Notes (existing AGENTS.md)\n\n${agentsContent}\n\nNote: This user-defined content will be preserved as [AGENTS.local.md](./AGENTS.local.md).`;
       }
     } catch {

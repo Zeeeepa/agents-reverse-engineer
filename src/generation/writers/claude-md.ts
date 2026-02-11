@@ -1,7 +1,7 @@
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { GENERATED_MARKER } from './agents-md.js';
+import { GENERATED_MARKER, GENERATED_MARKER_PREFIX } from './agents-md.js';
 
 /**
  * Write a CLAUDE.md file that imports the companion AGENTS.md via @ reference.
@@ -18,7 +18,7 @@ export async function writeClaudeMdPointer(dirAbsolutePath: string): Promise<str
   if (existsSync(claudeMdPath)) {
     try {
       const existing = await readFile(claudeMdPath, 'utf-8');
-      if (!existing.includes(GENERATED_MARKER)) {
+      if (!existing.includes(GENERATED_MARKER_PREFIX)) {
         // User-authored — preserve as CLAUDE.local.md
         await rename(claudeMdPath, claudeLocalPath);
         hasLocalContent = true;

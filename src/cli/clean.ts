@@ -12,7 +12,7 @@ import fg from 'fast-glob';
 import pc from 'picocolors';
 import { findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
-import { GENERATED_MARKER } from '../generation/writers/agents-md.js';
+import { GENERATED_MARKER_PREFIX } from '../generation/writers/agents-md.js';
 
 /**
  * Options for the clean command.
@@ -107,7 +107,7 @@ export async function cleanCommand(
   for (const file of agentsFiles) {
     try {
       const content = await readFile(file, 'utf-8');
-      if (content.includes(GENERATED_MARKER)) {
+      if (content.includes(GENERATED_MARKER_PREFIX)) {
         generatedAgentsFiles.push(file);
       } else {
         skippedAgentsFiles.push(file);
@@ -123,7 +123,7 @@ export async function cleanCommand(
   for (const file of claudeFiles) {
     try {
       const content = await readFile(file, 'utf-8');
-      if (content.includes(GENERATED_MARKER)) {
+      if (content.includes(GENERATED_MARKER_PREFIX)) {
         generatedClaudeFiles.push(file);
       } else {
         skippedClaudeFiles.push(file);

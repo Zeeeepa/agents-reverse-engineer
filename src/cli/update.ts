@@ -16,7 +16,7 @@ import {
   createUpdateOrchestrator,
   type UpdatePlan,
 } from '../orchestration/orchestrator.js';
-import { writeAgentsMd, GENERATED_MARKER } from '../generation/writers/agents-md.js';
+import { writeAgentsMd, GENERATED_MARKER_PREFIX } from '../generation/writers/agents-md.js';
 import { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 import { buildDirectoryPrompt } from '../generation/prompts/index.js';
 import {
@@ -337,7 +337,7 @@ export async function updateCommand(
           let existingAgentsMd: string | undefined;
           try {
             const agentsContent = await readFile(path.join(dirPath, 'AGENTS.md'), 'utf-8');
-            if (agentsContent.includes(GENERATED_MARKER)) {
+            if (agentsContent.includes(GENERATED_MARKER_PREFIX)) {
               existingAgentsMd = agentsContent;
             }
           } catch {
