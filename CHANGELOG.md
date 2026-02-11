@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.10] - 2026-02-11
+
+### Added
+- **`--force` flag for `generate` command** — Forces full regeneration of all `.sum` and `AGENTS.md` files, skipping nothing. Without `--force`, generate now intelligently skips files with existing artifacts
+- **Incremental generation (skip existing artifacts)** — `generate` command now checks for existing `.sum` files and generated `AGENTS.md` before processing, skipping files and directories that are already documented. Dirty propagation ensures parent directories are regenerated when any child file changes
+- **Skip reporting in generate output** — Plan summary, dry-run output, progress log, and execution plan markdown now show counts of skipped files (existing `.sum`) and skipped directories (existing `AGENTS.md`)
+- **Early exit when fully documented** — `generate` exits immediately with a hint to use `--force` when all files already have documentation artifacts
+
+### Changed
+- **`RunSummary.filesSkipped` reports actual count** — Previously hardcoded to 0, now reflects the number of files skipped due to existing `.sum` artifacts
+
 ## [0.7.9] - 2026-02-11
 
 ### Added
@@ -635,7 +646,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.9...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.10...HEAD
+[0.7.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.9...v0.7.10
 [0.7.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.8...v0.7.9
 [0.7.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.7...v0.7.8
 [0.7.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.6...v0.7.7
