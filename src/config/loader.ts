@@ -34,6 +34,26 @@ export const CONFIG_DIR = '.agents-reverse-engineer';
 export const CONFIG_FILE = 'config.yaml';
 
 /**
+ * Walk up from `startDir` looking for an existing `.agents-reverse-engineer/` directory.
+ * Returns the directory containing it, or `startDir` if none found.
+ */
+export async function findProjectRoot(startDir: string): Promise<string> {
+  let current = path.resolve(startDir);
+  while (true) {
+    try {
+      await access(path.join(current, CONFIG_DIR), constants.F_OK);
+      return current;
+    } catch {
+      // not found here, try parent
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return path.resolve(startDir);
+}
+
+/**
  * Error thrown when configuration parsing or validation fails
  */
 export class ConfigError extends Error {

@@ -9,7 +9,7 @@ import path from 'node:path';
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import pc from 'picocolors';
-import { loadConfig } from '../config/loader.js';
+import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { discoverFiles } from '../discovery/run.js';
 import { createLogger } from '../output/logger.js';
 import { createOrchestrator } from '../generation/orchestrator.js';
@@ -58,8 +58,8 @@ export async function discoverCommand(
   targetPath: string,
   options: DiscoverOptions
 ): Promise<void> {
-  // Resolve to absolute path (default to cwd)
-  const resolvedPath = path.resolve(targetPath || process.cwd());
+  // Resolve to absolute path (default to cwd), then walk up to find project root
+  const resolvedPath = await findProjectRoot(path.resolve(targetPath || process.cwd()));
 
   // Load configuration (uses defaults if no config file)
   const config = await loadConfig(resolvedPath);

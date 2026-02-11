@@ -15,7 +15,7 @@ import * as path from 'node:path';
 import { access, readdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import pc from 'picocolors';
-import { loadConfig } from '../config/loader.js';
+import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { collectAgentsDocs, collectAnnexFiles } from '../generation/collector.js';
 import { buildSpecPrompt, writeSpec, SpecExistsError } from '../specify/index.js';
 import {
@@ -59,7 +59,7 @@ export async function specifyCommand(
   targetPath: string,
   options: SpecifyOptions,
 ): Promise<void> {
-  const absolutePath = path.resolve(targetPath);
+  const absolutePath = await findProjectRoot(path.resolve(targetPath));
   const outputPath = options.output
     ? path.resolve(options.output)
     : path.join(absolutePath, 'specs', 'SPEC.md');

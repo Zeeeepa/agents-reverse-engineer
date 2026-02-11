@@ -9,7 +9,7 @@
 import * as path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import pc from 'picocolors';
-import { loadConfig } from '../config/loader.js';
+import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
 import {
   createUpdateOrchestrator,
@@ -165,7 +165,7 @@ export async function updateCommand(
   targetPath: string,
   options: UpdateCommandOptions
 ): Promise<void> {
-  const absolutePath = path.resolve(targetPath);
+  const absolutePath = await findProjectRoot(path.resolve(targetPath));
   const logger = createLogger({ colors: true });
 
   logger.info(`Checking for updates in: ${absolutePath}`);

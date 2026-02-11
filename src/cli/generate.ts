@@ -13,7 +13,7 @@
 
 import * as path from 'node:path';
 import pc from 'picocolors';
-import { loadConfig } from '../config/loader.js';
+import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
 import { discoverFiles } from '../discovery/run.js';
 import { createOrchestrator, type GenerationPlan } from '../generation/orchestrator.js';
@@ -82,7 +82,7 @@ export async function generateCommand(
   targetPath: string,
   options: GenerateOptions
 ): Promise<void> {
-  const absolutePath = path.resolve(targetPath);
+  const absolutePath = await findProjectRoot(path.resolve(targetPath));
   const logger = createLogger({ colors: true });
 
   logger.info(`Generating documentation plan for: ${absolutePath}`);

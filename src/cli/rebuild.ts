@@ -13,7 +13,7 @@
 
 import * as path from 'node:path';
 import pc from 'picocolors';
-import { loadConfig } from '../config/loader.js';
+import { loadConfig, findProjectRoot } from '../config/loader.js';
 import {
   AIService,
   AIServiceError,
@@ -62,7 +62,7 @@ export async function rebuildCommand(
   targetPath: string,
   options: RebuildOptions,
 ): Promise<void> {
-  const absolutePath = path.resolve(targetPath);
+  const absolutePath = await findProjectRoot(path.resolve(targetPath));
   const outputDir = options.output
     ? path.resolve(options.output)
     : path.join(absolutePath, 'rebuild');

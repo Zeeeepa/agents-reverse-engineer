@@ -10,6 +10,7 @@ import { access, readFile, rename, unlink } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import fg from 'fast-glob';
 import pc from 'picocolors';
+import { findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
 import { GENERATED_MARKER } from '../generation/writers/agents-md.js';
 
@@ -40,7 +41,7 @@ export async function cleanCommand(
   targetPath: string,
   options: CleanOptions
 ): Promise<void> {
-  const resolvedPath = path.resolve(targetPath || process.cwd());
+  const resolvedPath = await findProjectRoot(path.resolve(targetPath || process.cwd()));
 
   const logger = createLogger({ colors: true });
 
