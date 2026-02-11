@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-11
+
+### Added
+- **Public programmatic API** (`agents-reverse-engineer/core`) — New `src/core/index.ts` barrel export exposes the full engine (discovery, generation, update, quality, orchestration, config, change detection) as a library without CLI dependencies (`process.exit`, `ora`, `picocolors`). Package `exports` field in `package.json` maps `./core` to the new entry point
+- **`AIProvider` interface** — Injectable abstraction for AI transport in `src/ai/types.ts`, allowing consumers to swap the underlying AI call mechanism (subprocess, HTTP API, in-memory mock) without changing the pipeline. `AIService` now accepts either an `AIBackend` or an `AIProvider`
+- **`SubprocessProvider`** — Default `AIProvider` implementation in `src/ai/providers/subprocess.ts` that wraps the existing `runSubprocess()` + retry logic into the new provider interface
+- **`Logger` interface** with `consoleLogger` and `nullLogger` — Decouples debug/warn/error output from direct `console.error` calls. Library consumers get zero output by default (`nullLogger`); CLI passes `consoleLogger` to preserve existing behavior
+- **Gemini CLI command files** — Full set of `.gemini/commands/are-*.toml` files for clean, discover, generate, help, init, rebuild, specify, and update commands
+- **OpenCode command files** — Complete `.opencode/commands/are-*.md` command documentation and `are-check-update.js` plugin for background update checks
+
+### Changed
+- **`AIService` refactored for provider abstraction** — Service methods now delegate to the injected `AIProvider` instead of directly calling `runSubprocess()`, simplifying the service layer and enabling custom transport implementations
+- **Unused rate-limit detection and subprocess logging code removed** from `AIService` (moved to `SubprocessProvider`)
+
 ## [0.7.12] - 2026-02-11
 
 ### Added
@@ -659,7 +673,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.12...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.12...v0.8.0
 [0.7.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.11...v0.7.12
 [0.7.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.10...v0.7.11
 [0.7.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.9...v0.7.10
