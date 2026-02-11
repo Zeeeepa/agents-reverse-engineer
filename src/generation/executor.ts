@@ -8,7 +8,7 @@
  */
 
 import * as path from 'node:path';
-import type { GenerationPlan } from './orchestrator.js';
+import type { GenerationPlan } from '../orchestration/orchestrator.js';
 import { sumFileExists } from './writers/sum.js';
 
 /**

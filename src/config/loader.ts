@@ -252,6 +252,18 @@ output:
   colors: true
 
 # ============================================================================
+# GENERATION SETTINGS
+# ============================================================================
+generation:
+  # Target compression ratio for .sum files (0.1-1.0)
+  # - 0.10 = very concise (aggressive compression, ~10% of source size)
+  # - 0.25 = standard (default, ~25% of source size)
+  # - 0.50 = detailed (verbose, ~50% of source size)
+  # Lower values produce more compact summaries but may omit some details.
+  # The annex mechanism bypasses compression for reproduction-critical content.
+  compressionRatio: 0.25
+
+# ============================================================================
 # AI SERVICE CONFIGURATION
 # ============================================================================
 ai:

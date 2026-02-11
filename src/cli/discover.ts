@@ -12,7 +12,7 @@ import pc from 'picocolors';
 import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { discoverFiles } from '../discovery/run.js';
 import { createLogger } from '../output/logger.js';
-import { createOrchestrator } from '../generation/orchestrator.js';
+import { createOrchestrator } from '../orchestration/orchestrator.js';
 import { buildExecutionPlan, formatExecutionPlanAsMarkdown } from '../generation/executor.js';
 import { ProgressLog } from '../orchestration/index.js';
 import type { DiscoveryResult } from '../types/index.js';

@@ -21,10 +21,8 @@ import type { SumFileContent } from '../generation/writers/sum.js';
 import { writeAgentsMd } from '../generation/writers/agents-md.js';
 import { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 import { computeContentHashFromString } from '../change-detection/index.js';
-import type { FileChange } from '../change-detection/types.js';
-import { buildFilePrompt, buildDirectoryPrompt } from '../generation/prompts/index.js';
+import { buildDirectoryPrompt } from '../generation/prompts/index.js';
 import type { Config } from '../config/schema.js';
-import { CONFIG_DIR } from '../config/loader.js';
 import {
   checkCodeVsDoc,
   checkCodeVsCode,
@@ -568,11 +566,11 @@ export class CommandRunner {
    * @returns Aggregated run summary
    */
   async executeUpdate(
-    filesToAnalyze: FileChange[],
+    fileTasks: import('../orchestration/orchestrator.js').AnalysisTask[],
     projectRoot: string,
     config: Config,
   ): Promise<RunSummary> {
-    const reporter = new ProgressReporter(filesToAnalyze.length, 0, this.progressLog);
+    const reporter = new ProgressReporter(fileTasks.length, 0, this.progressLog);
 
     const runStart = Date.now();
     let filesProcessed = 0;
@@ -586,54 +584,34 @@ export class CommandRunner {
     this.tracer?.emit({
       type: 'phase:start',
       phase: 'update-phase-1-files',
-      taskCount: filesToAnalyze.length,
+      taskCount: fileTasks.length,
       concurrency: this.options.concurrency,
     });
 
     // Cache source content during update, reused for inconsistency detection
     const updateSourceCache = new Map<string, string>();
 
-    // Attempt to read existing project plan for bird's-eye context
-    let projectPlan: string | undefined;
-    try {
-      const planPath = path.join(projectRoot, CONFIG_DIR, 'GENERATION-PLAN.md');
-      projectPlan = await readFile(planPath, 'utf-8');
-    } catch {
-      // No plan file from previous generate run — proceed without project structure context
-    }
-
-    const updateTasks = filesToAnalyze.map(
-      (file: FileChange, fileIndex: number) => async (): Promise<FileTaskResult> => {
-        reporter.onFileStart(file.path);
+    const updateTasks = fileTasks.map(
+      (task: import('../orchestration/orchestrator.js').AnalysisTask, fileIndex: number) => async (): Promise<FileTaskResult> => {
+        reporter.onFileStart(task.filePath);
 
         const callStart = Date.now();
-        const absolutePath = `${projectRoot}/${file.path}`;
+        const absolutePath = `${projectRoot}/${task.filePath}`;
 
         // Read the source file
         const sourceContent = await readFile(absolutePath, 'utf-8');
-        updateSourceCache.set(file.path, sourceContent);
+        updateSourceCache.set(task.filePath, sourceContent);
 
-        // Read existing .sum for incremental update context
-        const existingSumContent = await readSumFile(`${absolutePath}.sum`);
-
-        // Build prompt
-        const prompt = buildFilePrompt({
-          filePath: file.path,
-          content: sourceContent,
-          projectPlan,
-          existingSum: existingSumContent?.summary,
-        }, this.options.debug);
-
-        // Call AI
+        // Call AI with pre-built prompts from task
         const response: AIResponse = await this.aiService.call({
-          prompt: prompt.user,
-          systemPrompt: prompt.system,
-          taskLabel: file.path,
+          prompt: task.userPrompt!,
+          systemPrompt: task.systemPrompt!,
+          taskLabel: task.filePath,
         });
 
         // Track file size for telemetry (from in-memory content, avoids stat syscall)
         this.aiService.addFilesReadToLastEntry([{
-          path: file.path,
+          path: task.filePath,
           sizeBytes: Buffer.byteLength(sourceContent, 'utf-8'),
         }]);
 
@@ -662,7 +640,7 @@ export class CommandRunner {
         const durationMs = Date.now() - callStart;
 
         return {
-          path: file.path,
+          path: task.filePath,
           success: true,
           tokensIn: response.inputTokens,
           tokensOut: response.outputTokens,
@@ -681,7 +659,7 @@ export class CommandRunner {
         failFast: this.options.failFast,
         tracer: this.tracer,
         phaseLabel: 'update-phase-1-files',
-        taskLabels: filesToAnalyze.map(f => f.path),
+        taskLabels: fileTasks.map(t => t.filePath),
       },
       (result) => {
         if (result.success && result.value) {
@@ -691,7 +669,7 @@ export class CommandRunner {
         } else {
           filesFailed++;
           const errorMsg = result.error?.message ?? 'Unknown error';
-          const filePath = filesToAnalyze[result.index]?.path ?? `file-${result.index}`;
+          const filePath = fileTasks[result.index]?.filePath ?? `file-${result.index}`;
           reporter.onFileError(filePath, errorMsg);
         }
       },

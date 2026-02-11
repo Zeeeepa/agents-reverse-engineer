@@ -15,6 +15,10 @@ export interface PromptContext {
   projectPlan?: string;
   /** Existing .sum summary text for incremental updates */
   existingSum?: string;
+  /** Source file size in characters for calculating compression target */
+  sourceFileSize?: number;
+  /** Target compression ratio for .sum files (0.1-1.0, from config) */
+  compressionRatio?: number;
 }
 
 /**

@@ -17,7 +17,7 @@ import { loadConfig, findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
 import { consoleLogger } from '../core/logger.js';
 import { discoverFiles } from '../discovery/run.js';
-import { createOrchestrator, type GenerationPlan } from '../generation/orchestrator.js';
+import { createOrchestrator, type GenerationPlan } from '../orchestration/orchestrator.js';
 import { buildExecutionPlan } from '../generation/executor.js';
 import {
   AIService,

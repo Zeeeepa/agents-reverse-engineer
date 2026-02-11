@@ -45,6 +45,26 @@ const OutputSchema = z.object({
 }).default({});
 
 /**
+ * Schema for generation configuration.
+ *
+ * Controls documentation generation behavior including compression ratio
+ * for .sum files. All fields have sensible defaults.
+ */
+const GenerationSchema = z.object({
+  /**
+   * Target compression ratio for .sum files (0.1-1.0, default 0.25).
+   *
+   * - 0.10 = very concise (aggressive compression, ~10% of source size)
+   * - 0.25 = standard (default, ~25% of source size)
+   * - 0.50 = detailed (verbose, ~50% of source size)
+   *
+   * Lower ratios produce more compact summaries but may omit some details.
+   * The annex mechanism bypasses compression for reproduction-critical content.
+   */
+  compressionRatio: z.number().min(0.1).max(1.0).default(0.25),
+}).default({});
+
+/**
  * Schema for AI service configuration.
  *
  * Controls backend selection, model, timeout, retry behavior, and
@@ -93,6 +113,8 @@ export const ConfigSchema = z.object({
   options: OptionsSchema,
   /** Output formatting options */
   output: OutputSchema,
+  /** Generation settings */
+  generation: GenerationSchema,
   /** AI service configuration */
   ai: AISchema,
 }).default({});
@@ -117,6 +139,11 @@ export type OptionsConfig = z.infer<typeof OptionsSchema>;
  * Type for the output section of config
  */
 export type OutputConfig = z.infer<typeof OutputSchema>;
+
+/**
+ * Type for the generation section of config
+ */
+export type GenerationConfig = z.infer<typeof GenerationSchema>;
 
 /**
  * Type for the AI service section of config

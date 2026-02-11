@@ -5,10 +5,10 @@
  * Coordinates state management, change detection, and orphan cleanup.
  */
 export {
-  UpdateOrchestrator,
+  DocumentationOrchestrator as UpdateOrchestrator,
   createUpdateOrchestrator,
   type UpdatePlan,
-} from './orchestrator.js';
+} from '../orchestration/orchestrator.js';
 
 export {
   cleanupOrphans,

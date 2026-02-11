@@ -77,17 +77,55 @@ export function buildFilePrompt(context: PromptContext, debug = false, logger?: 
     userPrompt += `\n\n## Related Files\n${contextSection}`;
   }
 
-  // For incremental updates: include existing summary and use update-specific system prompt
+  // Build system prompt with optional compression instructions
+  const ratio = context.compressionRatio ?? 0.25;
+  const sourceSize = context.sourceFileSize ?? 0;
+  let systemPrompt = context.existingSum ? FILE_UPDATE_SYSTEM_PROMPT : FILE_SYSTEM_PROMPT;
+
+  // Add aggressive compression instructions when ratio < 0.5
+  if (ratio < 0.5 && sourceSize > 0) {
+    const targetSize = Math.round(sourceSize * ratio);
+    const maxSize = Math.round(targetSize * 1.2);
+    const compressionPercentage = Math.round(ratio * 100);
+
+    const aggressiveRules = `
+TARGET LENGTH (MANDATORY):
+- Source file: ${sourceSize} characters
+- Target summary: ~${targetSize} characters (${compressionPercentage}% compression)
+- Maximum: ${maxSize} characters
+- Achieve this by: ultra-dense writing, minimal examples, single-sentence descriptions
+
+ULTRA-COMPRESSION TECHNIQUES:
+- Use telegraphic style: "exports foo, bar, baz" not "this file exports three functions"
+- No code examples unless critical to understanding
+- One sentence per export maximum
+- Omit obvious parameter names ("opts: Options" not "options: Options - configuration object")
+- Use abbreviations: "params" not "parameters", "config" not "configuration"
+- Skip section if empty (don't write "No special concerns" or "N/A")
+
+`;
+    // Insert compression rules before DENSITY RULES section
+    systemPrompt = systemPrompt.replace(
+      'DENSITY RULES (MANDATORY):',
+      aggressiveRules + 'DENSITY RULES (MANDATORY):'
+    );
+
+    if (debug) {
+      (logger ?? nullLogger).debug(`[prompt] Aggressive compression: ${sourceSize} → ${targetSize} chars (${compressionPercentage}%)`);
+    }
+  }
+
+  // For incremental updates: include existing summary
   if (context.existingSum) {
     userPrompt += `\n\n## Existing Summary (update this — preserve stable content, modify only what changed)\n\n${context.existingSum}`;
     return {
-      system: FILE_UPDATE_SYSTEM_PROMPT,
+      system: systemPrompt,
       user: userPrompt,
     };
   }
 
   return {
-    system: FILE_SYSTEM_PROMPT,
+    system: systemPrompt,
     user: userPrompt,
   };
 }

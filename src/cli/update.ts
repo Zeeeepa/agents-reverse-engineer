@@ -15,7 +15,7 @@ import { consoleLogger } from '../core/logger.js';
 import {
   createUpdateOrchestrator,
   type UpdatePlan,
-} from '../update/index.js';
+} from '../orchestration/orchestrator.js';
 import { writeAgentsMd, GENERATED_MARKER } from '../generation/writers/agents-md.js';
 import { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 import { buildDirectoryPrompt } from '../generation/prompts/index.js';
@@ -295,7 +295,7 @@ export async function updateCommand(
     // -------------------------------------------------------------------------
 
     const summary = await runner.executeUpdate(
-      plan.filesToAnalyze,
+      plan.fileTasks,
       absolutePath,
       config,
     );

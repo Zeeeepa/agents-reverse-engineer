@@ -157,6 +157,13 @@ export const DEFAULT_BINARY_EXTENSIONS = [
 export const DEFAULT_MAX_FILE_SIZE = 1024 * 1024;
 
 /**
+ * Default compression ratio for .sum files (0.25 = 25% of source size).
+ * This produces balanced summaries that preserve important details while
+ * reducing token usage. Lower values enable aggressive compression.
+ */
+export const DEFAULT_COMPRESSION_RATIO = 0.25;
+
+/**
  * Default configuration object matching the schema structure.
  * This is used when no config file is present or for missing fields.
  */
@@ -172,5 +179,8 @@ export const DEFAULT_CONFIG = {
   },
   output: {
     colors: true,
+  },
+  generation: {
+    compressionRatio: DEFAULT_COMPRESSION_RATIO,
   },
 } as const;

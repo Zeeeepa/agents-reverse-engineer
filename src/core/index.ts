@@ -71,17 +71,16 @@ export {
 export { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 
 // === Generation: Orchestration ===
-export { GenerationOrchestrator } from '../generation/orchestrator.js';
-export type { GenerationPlan, PreparedFile, AnalysisTask } from '../generation/orchestrator.js';
+export {
+  DocumentationOrchestrator as GenerationOrchestrator,
+  DocumentationOrchestrator as UpdateOrchestrator,
+} from '../orchestration/orchestrator.js';
+export type { GenerationPlan, PreparedFile, AnalysisTask, UpdatePlan } from '../orchestration/orchestrator.js';
 export {
   buildExecutionPlan,
   formatExecutionPlanAsMarkdown,
 } from '../generation/executor.js';
 export type { ExecutionPlan, ExecutionTask } from '../generation/executor.js';
-
-// === Update ===
-export { UpdateOrchestrator } from '../update/orchestrator.js';
-export type { UpdatePlan } from '../update/orchestrator.js';
 
 // === Quality ===
 export {
