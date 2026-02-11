@@ -81,7 +81,9 @@
       "WebSearch",
       "Bash(npm cache clean:*)",
       "Bash(./analyze-sum-ratios.sh:*)",
-      "Bash(./analyze-agents-compression.sh:*)"
+      "Bash(./analyze-agents-compression.sh:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)"
     ]
   }
 }
