@@ -32,6 +32,12 @@ export interface DiscoverOptions {
    * @default false
    */
   debug?: boolean;
+
+  /**
+   * Show excluded files in output.
+   * @default false
+   */
+  showExcluded?: boolean;
 }
 
 /**
@@ -133,11 +139,13 @@ export async function discoverCommand(
     progressLog.write(`  + ${rel}`);
   }
 
-  // Show each excluded file
-  for (const excluded of result.excluded) {
-    const rel = relativePath(excluded.path);
-    logger.excluded(rel, excluded.reason, excluded.filter);
-    progressLog.write(`  - ${rel} (${excluded.reason}: ${excluded.filter})`);
+  // Show each excluded file (only with --show-excluded)
+  if (options.showExcluded) {
+    for (const excluded of result.excluded) {
+      const rel = relativePath(excluded.path);
+      logger.excluded(rel, excluded.reason, excluded.filter);
+      progressLog.write(`  - ${rel} (${excluded.reason}: ${excluded.filter})`);
+    }
   }
 
   // Summary

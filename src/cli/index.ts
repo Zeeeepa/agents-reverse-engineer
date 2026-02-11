@@ -52,6 +52,7 @@ General Options:
   --multi-file      Split specification into multiple files (specify only)
   --model <name>    AI model to use (e.g., sonnet, opus, haiku)
   --concurrency <n> Number of concurrent AI calls (default: auto)
+  --show-excluded   Show excluded files during discovery
   --fail-fast       Stop on first file analysis failure
   --uncommitted     Include uncommitted changes (update only)
   --help, -h        Show this help
@@ -254,7 +255,9 @@ async function main(): Promise<void> {
     }
 
     case 'discover': {
-      await discoverCommand(positional[0] || '.', {});
+      await discoverCommand(positional[0] || '.', {
+        showExcluded: flags.has('show-excluded'),
+      });
       break;
     }
 
