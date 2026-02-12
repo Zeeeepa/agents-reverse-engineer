@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.10] - 2026-02-12
+
+### Changed
+- **Execution plan filters directory tasks to relevant entries only** — `buildExecutionPlan()` now collects planned directory paths from the filtered generation plan and skips directories not in that set, avoiding unnecessary AGENTS.md re-aggregation for directories whose children haven't changed. Improves incremental generation performance
+
 ## [0.8.9] - 2026-02-12
 
 ### Added
@@ -775,7 +780,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.9...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.10...HEAD
+[0.8.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.6...v0.8.7
