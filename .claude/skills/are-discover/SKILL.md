@@ -8,7 +8,7 @@ List files that would be analyzed for documentation.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: `npx agents-reverse-engineer@latest discover $ARGUMENTS`
+1. Run ONLY this exact command: `npx are discover $ARGUMENTS`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after `/are-discover`, run with ZERO flags
 
@@ -23,7 +23,7 @@ List files that would be analyzed for documentation.
 
 3. **Run the discover command in the background** using `run_in_background: true`:
    ```bash
-   npx agents-reverse-engineer@latest discover $ARGUMENTS
+   npx are discover $ARGUMENTS
    ```
 
 4. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:

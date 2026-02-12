@@ -19,7 +19,7 @@ Run the specify command in the background and monitor progress in real time.
 
 3. **Run the specify command in the background** using `run_in_background: true`:
    ```bash
-   npx agents-reverse-engineer@latest specify --backend claude $ARGUMENTS
+   npx are specify --backend claude $ARGUMENTS
    ```
 
 4. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:

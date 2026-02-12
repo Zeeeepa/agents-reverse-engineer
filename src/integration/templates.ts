@@ -30,7 +30,7 @@ Run the generate command in the background and monitor progress in real time.
 
 3. **Run the generate command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest generate BACKEND_FLAG $ARGUMENTS
+   npx are generate BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -79,7 +79,7 @@ Run the update command in the background and monitor progress in real time.
 
 3. **Run the update command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest update BACKEND_FLAG $ARGUMENTS
+   npx are update BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -115,7 +115,7 @@ Run the update command in the background and monitor progress in real time.
 2. Run the agents-reverse-engineer init command:
 
 \`\`\`bash
-npx agents-reverse-engineer@latest init
+npx are init
 \`\`\`
 
 This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
@@ -130,7 +130,7 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: \`npx agents-reverse-engineer@latest discover $ARGUMENTS\`
+1. Run ONLY this exact command: \`npx are discover $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXdiscover\`, run with ZERO flags
 
@@ -145,7 +145,7 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 
 3. **Run the discover command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest discover $ARGUMENTS
+   npx are discover $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -185,14 +185,14 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: \`npx agents-reverse-engineer@latest clean $ARGUMENTS\`
+1. Run ONLY this exact command: \`npx are clean $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXclean\`, run with ZERO flags
 
 **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
 
 \`\`\`bash
-npx agents-reverse-engineer@latest clean $ARGUMENTS
+npx are clean $ARGUMENTS
 \`\`\`
 
 Report number of files deleted.
@@ -218,7 +218,7 @@ Run the specify command in the background and monitor progress in real time.
 
 3. **Run the specify command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest specify BACKEND_FLAG $ARGUMENTS
+   npx are specify BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -265,7 +265,7 @@ Run the rebuild command in the background and monitor progress in real time.
 
 3. **Run the rebuild command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest rebuild BACKEND_FLAG $ARGUMENTS
+   npx are rebuild BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -623,7 +623,7 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 ## Resources
 
 - **Repository:** https://github.com/GeoloeG-IsT/agents-reverse-engineer
-- **Update:** \`npx agents-reverse-engineer@latest install --force\`
+- **Update:** \`npx are install --force\`
 </reference>`,
   },
 } as const;

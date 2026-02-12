@@ -68,11 +68,13 @@ const ARE_PLUGIN_FILENAMES = [
  * Permissions to remove during uninstall (must match operations.ts)
  */
 const ARE_PERMISSIONS = [
-  'Bash(npx agents-reverse-engineer@latest init*)',
-  'Bash(npx agents-reverse-engineer@latest discover*)',
-  'Bash(npx agents-reverse-engineer@latest generate*)',
-  'Bash(npx agents-reverse-engineer@latest update*)',
-  'Bash(npx agents-reverse-engineer@latest clean*)',
+  'Bash(npx are init*)',
+  'Bash(npx are discover*)',
+  'Bash(npx are generate*)',
+  'Bash(npx are update*)',
+  'Bash(npx are specify*)',
+  'Bash(npx are rebuild*)',
+  'Bash(npx are clean*)',
 ];
 
 /**

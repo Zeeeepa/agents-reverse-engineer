@@ -327,5 +327,5 @@ related_files: [./types.ts, ./middleware.ts]
 ## Resources
 
 - **Repository:** https://github.com/GeoloeG-IsT/agents-reverse-engineer
-- **Update:** `npx agents-reverse-engineer@latest install --force`
+- **Update:** `npx are install --force`
 </reference>
