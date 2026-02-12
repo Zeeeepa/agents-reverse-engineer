@@ -125,9 +125,11 @@ export class SubprocessProvider implements AIProvider {
 
     this.activeCount++;
 
+    const stdinInput = this.backend.composeStdinInput?.(options) ?? options.prompt;
+
     const result = await runSubprocess(this.backend.cliCommand, args, {
       timeoutMs,
-      input: options.prompt,
+      input: stdinInput,
       onSpawn: (pid) => {
         this.tracer?.emit({
           type: 'subprocess:spawn',

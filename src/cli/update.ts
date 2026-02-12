@@ -238,6 +238,9 @@ export async function updateCommand(
       throw error;
     }
 
+    // Provision backend-specific resources (e.g., OpenCode agent config)
+    await backend.ensureProjectConfig?.(absolutePath);
+
     // Resolve effective model (CLI flag > config)
     const effectiveModel = options.model ?? config.ai.model;
 

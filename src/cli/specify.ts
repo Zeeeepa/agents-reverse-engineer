@@ -168,6 +168,9 @@ export async function specifyCommand(
     throw error;
   }
 
+  // Provision backend-specific resources (e.g., OpenCode agent config)
+  await backend.ensureProjectConfig?.(absolutePath);
+
   // Resolve effective model: CLI flag > config override > opus default
   // Specify benefits from the best model; upgrade default sonnet to opus
   const effectiveModel = options.model

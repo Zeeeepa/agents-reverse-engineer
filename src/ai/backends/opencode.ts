@@ -14,6 +14,8 @@
  * @module
  */
 
+import { writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import { z } from 'zod';
 import type { AIBackend, AICallOptions, AIResponse } from '../types.js';
 import { AIServiceError } from '../types.js';
@@ -164,6 +166,39 @@ function resolveModelForOpenCode(model: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// OpenCode agent config for ARE
+// ---------------------------------------------------------------------------
+
+/** Agent name used in `.opencode/agents/` and `--agent` flag */
+const OPENCODE_AGENT_NAME = 'are-summarizer';
+
+/**
+ * Content of the `.opencode/agents/are-summarizer.md` agent file.
+ *
+ * Disables all tools and limits to 1 agentic step so the model produces
+ * a single text response rather than entering agentic multi-turn mode.
+ * The dynamic ARE system prompt is delivered via `<system-instructions>`
+ * XML tags in stdin (see {@link OpenCodeBackend.composeStdinInput}).
+ */
+const OPENCODE_AGENT_CONTENT = `---
+description: "ARE documentation summarizer — single-turn, no tools, raw markdown output"
+steps: 1
+tools:
+  "*": false
+---
+
+You are a documentation generator for the agents-reverse-engineer (ARE) tool.
+
+CRITICAL RULES:
+- Output ONLY the raw content requested — your entire response IS the document
+- Do NOT include preamble, thinking, planning, or meta-commentary
+- Do NOT say "Here is...", "I'll generate...", "Let me...", "Perfect!", or similar
+- Do NOT summarize what you did or list changes you made
+- When \`<system-instructions>\` tags are present in the input, follow them exactly
+- The content after \`</system-instructions>\` is the user prompt — respond to it directly
+`;
+
+// ---------------------------------------------------------------------------
 // OpenCode backend
 // ---------------------------------------------------------------------------
 
@@ -206,9 +241,9 @@ export class OpenCodeBackend implements AIBackend {
    * wrapper.
    *
    * OpenCode limitations compared to Claude CLI:
-   * - No `--max-turns` equivalent
-   * - No `--allowedTools` equivalent
-   * - No `--system-prompt` equivalent
+   * - No `--max-turns` equivalent (mitigated via agent `steps: 1`)
+   * - No `--allowedTools` equivalent (mitigated via agent `tools: {"*": false}`)
+   * - No `--system-prompt` equivalent (mitigated via {@link composeStdinInput})
    * - No `--no-session-persistence` equivalent
    *
    * @param options - Call options (model selection supported)
@@ -218,6 +253,7 @@ export class OpenCodeBackend implements AIBackend {
     const args: string[] = [
       'run',
       '--format', 'json',
+      '--agent', OPENCODE_AGENT_NAME,
     ];
 
     if (options.model) {
@@ -225,6 +261,41 @@ export class OpenCodeBackend implements AIBackend {
     }
 
     return args;
+  }
+
+  /**
+   * Compose stdin input, folding the system prompt into the payload.
+   *
+   * OpenCode has no `--system-prompt` CLI flag, so the dynamic system
+   * prompt is wrapped in `<system-instructions>` XML tags and prepended
+   * to the user prompt. The static agent prompt (in the agent markdown
+   * file) instructs the model to follow these tags.
+   */
+  composeStdinInput(options: AICallOptions): string {
+    if (options.systemPrompt) {
+      return `<system-instructions>\n${options.systemPrompt}\n</system-instructions>\n\n${options.prompt}`;
+    }
+    return options.prompt;
+  }
+
+  /**
+   * Ensure the ARE agent config exists in the target project.
+   *
+   * Creates `.opencode/agents/are-summarizer.md` with tool restrictions
+   * (`"*": false`) and step limit (`steps: 1`) so OpenCode runs in
+   * single-turn, non-agentic mode when invoked by ARE.
+   *
+   * Always overwrites — the file is an ARE-owned artifact whose content
+   * may evolve across versions.
+   */
+  async ensureProjectConfig(projectRoot: string): Promise<void> {
+    const agentDir = path.join(projectRoot, '.opencode', 'agents');
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      path.join(agentDir, `${OPENCODE_AGENT_NAME}.md`),
+      OPENCODE_AGENT_CONTENT,
+      'utf-8',
+    );
   }
 
   /**

@@ -149,6 +149,23 @@ export interface AIBackend {
 
   /** Get user-facing install instructions when the CLI is not found */
   getInstallInstructions(): string;
+
+  /**
+   * Compose the stdin input for the subprocess.
+   *
+   * Backends that cannot pass system prompts via CLI flags (e.g., OpenCode)
+   * use this to fold the system prompt into the stdin payload.
+   * When not implemented, {@link SubprocessProvider} falls back to `options.prompt`.
+   */
+  composeStdinInput?(options: AICallOptions): string;
+
+  /**
+   * Provision backend-specific resources in the target project.
+   *
+   * Called once per CLI invocation, before any AI calls.
+   * For example, OpenCode creates an agent config file in `.opencode/agents/`.
+   */
+  ensureProjectConfig?(projectRoot: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
