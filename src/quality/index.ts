@@ -44,9 +44,3 @@ export { buildInconsistencyReport, formatReportForCli, formatReportAsMarkdown } 
 
 export { checkPhantomPaths } from './phantom-paths/index.js';
 
-// ---------------------------------------------------------------------------
-// Density validation
-// ---------------------------------------------------------------------------
-
-export { validateFindability } from './density/validator.js';
-export type { FindabilityResult } from './density/validator.js';

@@ -3,16 +3,6 @@
  */
 
 /**
- * Result of file analysis (populated by LLM via host)
- */
-export interface AnalysisResult {
-  /** Generated summary text */
-  summary: string;
-  /** Extracted metadata */
-  metadata: SummaryMetadata;
-}
-
-/**
  * Metadata extracted during analysis
  */
 export interface SummaryMetadata {
@@ -22,15 +12,5 @@ export interface SummaryMetadata {
   criticalTodos?: string[];
   /** Tightly coupled siblings */
   relatedFiles?: string[];
-}
-
-/**
- * Options for summary generation
- */
-export interface SummaryOptions {
-  /** Target length for generated summaries */
-  targetLength: 'short' | 'standard' | 'detailed';
-  /** Whether to include code snippets in output */
-  includeCodeSnippets: boolean;
 }
 
