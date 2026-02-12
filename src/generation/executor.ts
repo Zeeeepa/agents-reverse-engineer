@@ -138,8 +138,9 @@ export function buildExecutionPlan(
   );
 
   for (const [dir, files] of sortedDirs) {
-    // Skip directories not in the filtered plan (already have up-to-date AGENTS.md)
-    if (plannedDirs.size > 0 && !plannedDirs.has(dir)) continue;
+    // Skip directories not in the filtered plan (already have up-to-date AGENTS.md).
+    // If plannedDirs is empty, no directory work is needed.
+    if (!plannedDirs.has(dir)) continue;
 
     const dirAbsPath = path.join(projectRoot, dir);
     const fileTaskIds = files.map(f => `file:${f}`);
