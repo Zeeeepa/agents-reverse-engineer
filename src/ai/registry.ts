@@ -8,6 +8,7 @@
  * @module
  */
 
+import { readFileSync } from 'node:fs';
 import type { AIBackend } from './types.js';
 import { AIServiceError } from './types.js';
 import { ClaudeBackend } from './backends/claude.js';
@@ -90,6 +91,48 @@ export function createBackendRegistry(): BackendRegistry {
   registry.register(new GeminiBackend());
   registry.register(new OpenCodeBackend());
   return registry;
+}
+
+// ---------------------------------------------------------------------------
+// Calling-runtime detection (Linux /proc)
+// ---------------------------------------------------------------------------
+
+/** Backend names to look for in the process tree */
+const KNOWN_RUNTIMES = ['claude', 'opencode', 'gemini'];
+
+/**
+ * Detect which AI runtime invoked `are` by walking the process tree.
+ *
+ * On Linux (including WSL), reads `/proc/<pid>/cmdline` for each ancestor
+ * process up to 10 levels. Returns the backend name if a known runtime
+ * (claude, opencode, gemini) is found as an ancestor, or `null` otherwise.
+ *
+ * Gracefully returns `null` on non-Linux platforms or if `/proc` is
+ * inaccessible.
+ */
+export function detectCallingRuntime(): string | null {
+  try {
+    let pid = process.ppid;
+    for (let i = 0; i < 10 && pid > 1; i++) {
+      const cmdline = readFileSync(`/proc/${pid}/cmdline`, 'utf-8');
+      // cmdline is null-separated; first element is the executable
+      const exe = cmdline.split('\0')[0] ?? '';
+      const basename = exe.split('/').pop() ?? '';
+
+      for (const name of KNOWN_RUNTIMES) {
+        if (basename === name) return name;
+      }
+
+      // Walk to parent
+      const status = readFileSync(`/proc/${pid}/status`, 'utf-8');
+      const ppidMatch = status.match(/^PPid:\s+(\d+)/m);
+      if (!ppidMatch) break;
+      pid = parseInt(ppidMatch[1], 10);
+    }
+  } catch {
+    // Not Linux or /proc inaccessible
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,6 +229,16 @@ export async function resolveBackend(
   requested: string | 'auto',
 ): Promise<AIBackend> {
   if (requested === 'auto') {
+    // Prefer the runtime that invoked us (process tree detection)
+    const callingRuntime = detectCallingRuntime();
+    if (callingRuntime) {
+      const caller = registry.get(callingRuntime);
+      if (caller && await caller.isAvailable()) {
+        return caller;
+      }
+    }
+
+    // Fall back to PATH scan in registration order
     const detected = await detectBackend(registry);
     if (detected) {
       return detected;
