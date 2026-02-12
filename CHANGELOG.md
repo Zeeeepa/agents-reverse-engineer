@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-02-12
+
+### Added
+- **OpenCode step-limit meta-commentary detection** — When the OpenCode agent hits its step limit and produces "MAXIMUM STEPS REACHED" instead of actual content, a `PARSE_ERROR` is now thrown with a descriptive message instead of silently accepting the meta-commentary as documentation
+- **OpenCode agent file removal during uninstallation** — `uninstall` now deletes the `are-summarizer.md` agent file from `.opencode/agents/` and cleans up the empty `agents/` directory
+- **Additional uninstall permissions** — Added `rm -f .agents-reverse-engineer/progress.log*` and `sleep *` to the permission entries removed during uninstall, matching the full set registered during install
+
+### Changed
+- **OpenCode agent steps increased from 1 to 3** — The `are-summarizer` agent configuration now allows 3 steps instead of 1, giving the model more room to produce complete documentation before hitting the step limit
+- **Context loader hook switched to ES modules** — `hooks/are-context-loader.js` converted from CommonJS (`require()`) to ES module syntax (`import from`), aligning with the project's `"type": "module"` setting
+
 ## [0.8.8] - 2026-02-12
 
 ### Added
@@ -764,7 +775,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.8...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.9...HEAD
+[0.8.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.5...v0.8.6
