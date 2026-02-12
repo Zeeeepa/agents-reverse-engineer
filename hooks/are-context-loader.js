@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * ARE Context Loader Hook (PostToolUse → Read)
@@ -10,14 +9,11 @@
  *
  * Deduplicates per session via temp file keyed by session_id.
  * Skips the project root (already loaded via CLAUDE.md → @AGENTS.md).
- *
- * Uses CJS syntax — this file runs from .claude/hooks/ where no
- * package.json with "type":"module" exists.
  */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 
 let input = '';
 process.stdin.setEncoding('utf8');
