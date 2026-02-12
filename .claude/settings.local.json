@@ -87,7 +87,8 @@
       "Bash(opencode --help:*)",
       "Bash(opencode run --help:*)",
       "Bash(test:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(pgrep:*)"
     ]
   }
 }
