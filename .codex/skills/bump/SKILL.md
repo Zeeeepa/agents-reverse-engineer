@@ -9,14 +9,14 @@ Bump the project version, update documentation, create a git tag, and publish a 
 <execution>
 ## Prerequisites
 
-- Version argument is REQUIRED (e.g., `/bump 0.4.0`)
+- Version argument is REQUIRED (e.g., `$bump 0.4.0`)
 - Must be on `main` branch with clean working tree
 - `gh` CLI must be authenticated
 
 ## Phase 1: Validate
 
 1. **Check version argument**:
-   - If no version provided, STOP and ask: "Please provide a version (e.g., `/bump 0.4.0`)"
+   - If no version provided, STOP and ask: "Please provide a version (e.g., `$bump 0.4.0`)"
    - Version must be valid semver (e.g., `0.4.0`, `1.0.0-beta.1`)
 
 2. **Check git status**:
