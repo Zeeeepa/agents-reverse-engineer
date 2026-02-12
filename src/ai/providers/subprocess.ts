@@ -9,6 +9,7 @@
  */
 
 import { writeFile, mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import type { AIProvider, AIBackend, AICallOptions, AIResponse } from '../types.js';
 import { AIServiceError } from '../types.js';
@@ -127,9 +128,16 @@ export class SubprocessProvider implements AIProvider {
 
     const stdinInput = this.backend.composeStdinInput?.(options) ?? options.prompt;
 
+    const envOverrides = this.getEnvOverrides();
+
+    if (this.debug && envOverrides?.CODEX_HOME) {
+      this.log.debug(`[debug] Using CODEX_HOME override: ${envOverrides.CODEX_HOME}`);
+    }
+
     const result = await runSubprocess(this.backend.cliCommand, args, {
       timeoutMs,
       input: stdinInput,
+      env: envOverrides,
       onSpawn: (pid) => {
         this.tracer?.emit({
           type: 'subprocess:spawn',
@@ -201,6 +209,31 @@ export class SubprocessProvider implements AIProvider {
       const message = error instanceof Error ? error.message : String(error);
       throw new AIServiceError('PARSE_ERROR', `Failed to parse response: ${message}`);
     }
+  }
+
+  /**
+   * Resolve optional environment overrides for backend subprocesses.
+   *
+   * For Codex, prefer project-local `.codex` when present and `CODEX_HOME`
+   * isn't already set by the user.
+   */
+  private getEnvOverrides(): NodeJS.ProcessEnv | undefined {
+    if (this.backend.cliCommand !== 'codex') {
+      return undefined;
+    }
+
+    if (process.env.CODEX_HOME && process.env.CODEX_HOME.trim().length > 0) {
+      return undefined;
+    }
+
+    const localCodexHome = path.join(process.cwd(), '.codex');
+    if (!existsSync(localCodexHome)) {
+      return undefined;
+    }
+
+    return {
+      CODEX_HOME: localCodexHome,
+    };
   }
 
   /**

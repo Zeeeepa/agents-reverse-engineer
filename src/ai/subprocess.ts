@@ -49,6 +49,8 @@ export interface SubprocessOptions {
   timeoutMs: number;
   /** Optional stdin input to pipe to the process */
   input?: string;
+  /** Optional environment variable overrides for the child process */
+  env?: NodeJS.ProcessEnv;
   /**
    * Callback fired synchronously when the child process is spawned.
    * Use this for trace events that need the actual spawn time.
@@ -115,6 +117,7 @@ export function runSubprocess(
         encoding: 'utf-8',
         env: {
           ...process.env,
+          ...(options.env ?? {}),
         },
       },
       (error: ExecFileException | null, stdout: string, stderr: string) => {
