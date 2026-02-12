@@ -1,6 +1,6 @@
 ---
 description: Initialize agents-reverse-engineer configuration
-agent: are-init
+agent: build
 ---
 
 Initialize agents-reverse-engineer configuration in this project.

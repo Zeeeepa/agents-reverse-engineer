@@ -613,8 +613,8 @@ interface PlatformConfig {
   commandPrefix: string; // /are- (claude, opencode) or /are: (gemini)
   pathPrefix: string; // .claude/commands/are/ or .opencode/commands/ etc
   filenameSeparator: string; // . or -
+  extraFrontmatter?: string; // e.g., "agent: build" for OpenCode
   usesName: boolean; // Claude uses "name:" in frontmatter
-  usesAgent: boolean; // OpenCode uses "agent:" in frontmatter
   versionFilePath: string; // .claude/ARE-VERSION, .opencode/ARE-VERSION, etc.
 }
 
@@ -624,15 +624,14 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     pathPrefix: '.claude/skills/',
     filenameSeparator: '.',
     usesName: true,
-    usesAgent: false,
     versionFilePath: '.claude/ARE-VERSION',
   },
   opencode: {
     commandPrefix: '/are-',
     pathPrefix: '.opencode/commands/',
     filenameSeparator: '-',
+    extraFrontmatter: 'agent: build',
     usesName: false,
-    usesAgent: true,
     versionFilePath: '.opencode/ARE-VERSION',
   },
   gemini: {
@@ -640,7 +639,6 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     pathPrefix: '.gemini/commands/',
     filenameSeparator: '-',
     usesName: false,
-    usesAgent: false,
     versionFilePath: '.gemini/ARE-VERSION',
   },
 };
@@ -659,8 +657,8 @@ function buildFrontmatter(
 
   lines.push(`description: ${description}`);
 
-  if (config.usesAgent) {
-    lines.push(`agent: are-${commandName}`);
+  if (config.extraFrontmatter) {
+    lines.push(config.extraFrontmatter);
   }
 
   lines.push('---');

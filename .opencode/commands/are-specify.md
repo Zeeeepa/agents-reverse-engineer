@@ -1,6 +1,6 @@
 ---
 description: Generate project specification from AGENTS.md docs
-agent: are-specify
+agent: build
 ---
 
 Generate a project specification from existing AGENTS.md documentation.
