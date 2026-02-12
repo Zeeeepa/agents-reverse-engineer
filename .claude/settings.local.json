@@ -88,7 +88,8 @@
       "Bash(opencode run --help:*)",
       "Bash(test:*)",
       "Bash(lsof:*)",
-      "Bash(pgrep:*)"
+      "Bash(pgrep:*)",
+      "Bash(env:*)"
     ]
   }
 }
