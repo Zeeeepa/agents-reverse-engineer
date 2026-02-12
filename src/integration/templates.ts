@@ -644,8 +644,6 @@ interface PlatformConfig {
   versionFilePath: string; // .claude/ARE-VERSION, .agents/ARE-VERSION, etc.
 }
 
-const CODEX_NPM_CACHE_PREFIX = 'NPM_CONFIG_CACHE=.agents-reverse-engineer/.npm-cache';
-
 const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
   claude: {
     commandPrefix: '/are-',
@@ -677,16 +675,6 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     versionFilePath: '.gemini/ARE-VERSION',
   },
 };
-
-function applyPlatformCommandFixes(platform: Platform, content: string): string {
-  if (platform !== 'codex') {
-    return content;
-  }
-
-  return content
-    .replace(/\bnpx are\b/g, `${CODEX_NPM_CACHE_PREFIX} npx are`)
-    .replace(/\bnpx agents-reverse-engineer\b/g, `${CODEX_NPM_CACHE_PREFIX} npx agents-reverse-engineer`);
-}
 
 function buildFrontmatter(
   platform: Platform,
@@ -791,12 +779,10 @@ function buildTemplate(
     .replace(/VERSION_FILE_PATH/g, config.versionFilePath)
     .replace(/BACKEND_FLAG/g, `--backend ${platform}`);
 
-  const platformAdjustedContent = applyPlatformCommandFixes(platform, content);
-
   return {
     filename,
     path,
-    content: `${frontmatter}\n\n${platformAdjustedContent}\n`,
+    content: `${frontmatter}\n\n${content}\n`,
   };
 }
 

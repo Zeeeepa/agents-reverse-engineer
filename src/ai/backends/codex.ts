@@ -91,8 +91,6 @@ export class CodexBackend implements AIBackend {
       '--json',
       '--skip-git-repo-check',
       '--ephemeral',
-      '--sandbox',
-      'read-only',
       '--color',
       'never',
     ];

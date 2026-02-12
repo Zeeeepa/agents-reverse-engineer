@@ -75,7 +75,6 @@ export const AreCheckUpdate = async (ctx) => {
         windowsHide: true,
         env: {
           ...process.env,
-          npm_config_cache: npmCacheDir,
         },
       });
 
