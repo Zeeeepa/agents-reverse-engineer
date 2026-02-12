@@ -317,7 +317,6 @@ interface PluginDefinition {
 
 const ARE_PLUGINS: PluginDefinition[] = [
   { srcFilename: 'opencode-are-check-update.js', destFilename: 'are-check-update.js' },
-  // { srcFilename: 'opencode-are-session-end.js', destFilename: 'are-session-end.js' }, // Disabled - causing issues
 ];
 
 /**

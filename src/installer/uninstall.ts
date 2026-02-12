@@ -58,7 +58,6 @@ const ARE_HOOKS: HookDefinition[] = [
  */
 const ARE_PLUGIN_FILENAMES = [
   'are-check-update.js',
-  'are-session-end.js',
 ];
 
 /**
