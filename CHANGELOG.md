@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.11] - 2026-02-12
+
+### Changed
+- **OpenCode agent step limit increased from 3 to 5** — The `are-summarizer` agent configuration now allows 5 steps instead of 3, giving the model more room to produce complete documentation for larger files
+- **Improved handling of OpenCode `MAXIMUM STEPS REACHED` marker** — When the agent hits its step limit, the marker is now stripped from the output and the content is preserved if it contains substantial documentation (>=100 chars). Previously any response containing the marker was rejected entirely, even when the model had already produced useful content before the limit
+
+### Fixed
+- **Removed misleading `--force` hint from generate command** — When all files are already documented, the log message now says "Nothing to do." instead of suggesting `--force` (which is not always the intended action)
+
 ## [0.8.10] - 2026-02-12
 
 ### Changed
@@ -780,7 +789,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.10...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.11...HEAD
+[0.8.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.8...v0.8.9
 [0.8.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.7...v0.8.8
