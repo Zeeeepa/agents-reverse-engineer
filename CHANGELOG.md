@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-02-12
+
+### Changed
+- **Commands delete stale progress logs before execution** — All command templates (generate, update, discover, specify, rebuild) now run `rm -f .agents-reverse-engineer/progress.log` before starting, preventing stale data from previous runs from being read during progress polling
+
 ### Removed
 - **All session hooks and plugins** — Disabled hook/plugin installation for all runtimes (Claude Code, Gemini CLI, OpenCode) due to reliability issues. `ARE_HOOKS` and `ARE_PLUGINS` arrays now empty. Users should manually run `/are-update` when needed
+- **Deprecated ARE slash command files** — Removed all ARE skill files from `.claude/skills/`, Gemini command files from `.gemini/commands/`, and OpenCode command files from `.opencode/commands/` along with associated `ARE-VERSION` files and update check hooks
 
 ## [0.8.2] - 2026-02-12
 
@@ -709,7 +715,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.12...v0.8.0
