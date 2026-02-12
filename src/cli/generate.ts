@@ -145,7 +145,7 @@ export async function generateCommand(
 
   // Early exit if nothing to do
   if (plan.files.length === 0 && plan.tasks.length === 0) {
-    logger.info('All files already documented. Use --force to regenerate.');
+    logger.info('All files already documented. Nothing to do.');
     return;
   }
 
