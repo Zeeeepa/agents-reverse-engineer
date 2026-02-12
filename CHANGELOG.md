@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-02-12
+
+### Changed
+- **ARE context loader now walks full directory ancestry** — When Claude reads a file, the `are-context-loader.js` hook now walks from the file's directory up to (but not including) the project root, collecting all unseen ARE-generated AGENTS.md files along the path. Previously only the immediate directory's AGENTS.md was loaded. Context is injected in root-to-leaf order for hierarchical readability
+- **Updated OpenCode backend documentation** — AGENTS.md files for `src/ai/` and `src/ai/backends/` updated to reflect OpenCode system prompt wrapping (`composeStdinInput()`), model alias resolution (`resolveModelForOpenCode()`), agent config injection (`ensureProjectConfig()`), and step-limit marker stripping. Capitalization normalized from `Opencode` to `OpenCode` throughout
+
 ## [0.8.11] - 2026-02-12
 
 ### Changed
@@ -789,7 +795,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.11...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.12...HEAD
+[0.8.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.11...v0.8.12
 [0.8.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.9...v0.8.10
 [0.8.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.8...v0.8.9
