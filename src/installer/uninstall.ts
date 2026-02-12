@@ -32,6 +32,7 @@ interface SettingsJson {
   hooks?: {
     SessionStart?: HookEvent[];
     SessionEnd?: HookEvent[];
+    PostToolUse?: HookEvent[];
   };
   permissions?: {
     allow?: string[];
@@ -41,14 +42,17 @@ interface SettingsJson {
 }
 
 /**
- * Hook definitions for ARE (must match operations.ts)
+ * Hook definitions for ARE uninstall (includes legacy hooks for cleanup)
  */
 interface HookDefinition {
-  event: 'SessionStart' | 'SessionEnd';
+  event: 'SessionStart' | 'SessionEnd' | 'PostToolUse';
   filename: string;
 }
 
 const ARE_HOOKS: HookDefinition[] = [
+  // Current
+  { event: 'PostToolUse', filename: 'are-context-loader.js' },
+  // Legacy (for cleaning up old installations)
   { event: 'SessionStart', filename: 'are-check-update.js' },
   { event: 'SessionEnd', filename: 'are-session-end.js' },
 ];
@@ -276,7 +280,7 @@ interface GeminiSettingsJson {
 /**
  * Unregister ARE hooks from settings.json
  *
- * Removes all ARE hook entries from SessionStart and SessionEnd arrays.
+ * Removes all ARE hook entries from SessionStart, SessionEnd, and PostToolUse arrays.
  * Cleans up empty hooks structures. Handles both old and new hook paths.
  *
  * @param basePath - Base installation path (e.g., ~/.claude or ~/.gemini)
@@ -337,8 +341,8 @@ function unregisterClaudeHooks(basePath: string, dryRun: boolean): boolean {
   const hookPatterns = getHookPatterns('.claude');
   let removedAny = false;
 
-  // Process both SessionStart and SessionEnd
-  for (const eventType of ['SessionStart', 'SessionEnd'] as const) {
+  // Process all hook event types (including legacy SessionEnd for cleanup)
+  for (const eventType of ['SessionStart', 'SessionEnd', 'PostToolUse'] as const) {
     if (!settings.hooks[eventType]) {
       continue;
     }

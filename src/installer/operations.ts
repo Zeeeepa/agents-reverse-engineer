@@ -44,7 +44,7 @@ function ensureDir(filePath: string): void {
  *
  * Hooks are bundled in hooks/dist/ during npm prepublishOnly.
  *
- * @param hookName - Name of the hook file (e.g., 'are-session-end.js')
+ * @param hookName - Name of the hook file (e.g., 'are-context-loader.js')
  * @returns Absolute path to the bundled hook file
  */
 function getBundledHookPath(hookName: string): string {
@@ -256,13 +256,14 @@ interface SessionHook {
 }
 
 interface HookEvent {
+  matcher?: string;
   hooks: SessionHook[];
 }
 
 interface SettingsJson {
   hooks?: {
     SessionStart?: HookEvent[];
-    SessionEnd?: HookEvent[];
+    PostToolUse?: HookEvent[];
   };
   permissions?: {
     allow?: string[];
@@ -283,23 +284,24 @@ interface GeminiHook {
 interface GeminiSettingsJson {
   hooks?: {
     SessionStart?: GeminiHook[];
-    SessionEnd?: GeminiHook[];
   };
   [key: string]: unknown;
 }
 
 /**
- * Hook definitions for ARE (Claude and Gemini)
+ * Hook definitions for ARE (Claude only — Gemini skips PostToolUse hooks)
  */
 interface HookDefinition {
-  event: 'SessionStart' | 'SessionEnd';
+  event: 'SessionStart' | 'PostToolUse';
   filename: string;
-  name: string; // For Gemini format
+  name: string;
+  /** Regex matcher for tool-scoped hooks (PostToolUse) */
+  matcher?: string;
 }
 
 const ARE_HOOKS: HookDefinition[] = [
-  // { event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' },
-  // { event: 'SessionEnd', filename: 'are-session-end.js', name: 'are-session-end' }, // Disabled - causing issues
+  { event: 'SessionStart', filename: 'are-check-update.js', name: 'are-check-update' },
+  { event: 'PostToolUse', filename: 'are-context-loader.js', name: 'are-context-loader', matcher: 'Read' },
 ];
 
 /**
@@ -323,8 +325,7 @@ const ARE_PLUGINS: PluginDefinition[] = [
 /**
  * Register ARE hooks in settings.json
  *
- * Registers both SessionStart (update check) and SessionEnd (auto-update) hooks.
- * Supports both Claude Code and Gemini CLI formats.
+ * Registers PostToolUse hooks (context loader) for Claude Code.
  * Merges with existing hooks, doesn't overwrite.
  *
  * @param basePath - Base installation path (e.g., ~/.claude or ~/.gemini)
@@ -389,8 +390,9 @@ function registerClaudeHooks(settingsPath: string, runtimeDir: string, dryRun: b
     );
 
     if (!hookExists) {
-      // Define our hook (Claude format: nested hooks array)
+      // Define our hook (Claude format: nested hooks array, optional matcher for PostToolUse)
       const newHook: HookEvent = {
+        ...(hookDef.matcher ? { matcher: hookDef.matcher } : {}),
         hooks: [
           {
             type: 'command',
@@ -511,6 +513,9 @@ function registerGeminiHooks(settingsPath: string, runtimeDir: string, dryRun: b
   let addedAny = false;
 
   for (const hookDef of ARE_HOOKS) {
+    // Gemini only supports SessionStart hooks
+    if (hookDef.event !== 'SessionStart') continue;
+
     const hookCommand = `node ${runtimeDir}/hooks/${hookDef.filename}`;
 
     // Ensure event array exists
@@ -614,7 +619,7 @@ export function formatInstallResult(result: InstallerResult): string[] {
 
   // Hook registration status (Claude only)
   if (result.hookRegistered) {
-    lines.push(`    Registered: SessionEnd hook in settings.json`);
+    lines.push(`    Registered: hooks in settings.json`);
   }
 
   // Summary line

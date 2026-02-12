@@ -618,7 +618,7 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 ## Tips
 
 - **Custom exclusions**: Edit \`.agents-reverse-engineer/config.yaml\` to skip files
-- **Hook auto-update**: Install creates a session-end hook that auto-runs update
+- **Context loading**: Install creates a hook that auto-loads AGENTS.md context when reading project files
 
 ## Resources
 
