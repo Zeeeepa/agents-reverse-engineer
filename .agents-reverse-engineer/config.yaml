@@ -138,8 +138,9 @@ ai:
   backend: auto
 
   # Model identifier (backend-specific)
-  # Examples: "sonnet", "opus", "haiku" (for Claude)
-  model: sonnet
+  # "sonnet", "opus", "haiku" (for Claude)
+  # "gpt-4o" (for OpenCode)
+  model: gpt-4o
 
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)

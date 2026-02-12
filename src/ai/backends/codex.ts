@@ -83,13 +83,16 @@ export class CodexBackend implements AIBackend {
 
   buildArgs(options: AICallOptions): string[] {
     const args: string[] = [
+      // Approval policy is a global codex flag, so it must come before the
+      // `exec` subcommand (newer CLIs reject it after `exec`).
+      '-a',
+      'never',
       'exec',
       '--json',
       '--skip-git-repo-check',
+      '--ephemeral',
       '--sandbox',
       'read-only',
-      '--ask-for-approval',
-      'never',
       '--color',
       'never',
     ];

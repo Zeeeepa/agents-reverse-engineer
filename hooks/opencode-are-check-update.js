@@ -23,6 +23,7 @@ export const AreCheckUpdate = async (ctx) => {
       const cwd = process.cwd();
       const cacheDir = join(homeDir, '.config', 'opencode', 'cache');
       const cacheFile = join(cacheDir, 'are-update-check.json');
+      const npmCacheDir = join(cacheDir, 'npm-cache');
 
       // ARE-VERSION file locations (check project first, then global)
       const projectVersionFile = join(cwd, '.opencode', 'ARE-VERSION');
@@ -31,6 +32,9 @@ export const AreCheckUpdate = async (ctx) => {
       // Ensure cache directory exists
       if (!existsSync(cacheDir)) {
         mkdirSync(cacheDir, { recursive: true });
+      }
+      if (!existsSync(npmCacheDir)) {
+        mkdirSync(npmCacheDir, { recursive: true });
       }
 
       // Run check in background (spawn background process)
@@ -69,6 +73,10 @@ export const AreCheckUpdate = async (ctx) => {
         stdio: 'ignore',
         detached: true,
         windowsHide: true,
+        env: {
+          ...process.env,
+          npm_config_cache: npmCacheDir,
+        },
       });
 
       child.unref();
