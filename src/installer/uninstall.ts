@@ -12,6 +12,7 @@ import type { Runtime, Location, InstallerResult } from './types.js';
 import { resolveInstallPath, getAllRuntimes, getRuntimePaths } from './paths.js';
 import {
   getClaudeTemplates,
+  getCodexTemplates,
   getOpenCodeTemplates,
   getGeminiTemplates,
 } from '../integration/templates.js';
@@ -88,13 +89,15 @@ const ARE_PERMISSIONS = [
 /**
  * Get templates for a specific runtime
  *
- * @param runtime - Target runtime (claude, opencode, or gemini)
+ * @param runtime - Target runtime (claude, codex, opencode, or gemini)
  * @returns Array of template objects for the runtime
  */
 function getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>) {
   switch (runtime) {
     case 'claude':
       return getClaudeTemplates();
+    case 'codex':
+      return getCodexTemplates();
     case 'opencode':
       return getOpenCodeTemplates();
     case 'gemini':
@@ -130,7 +133,7 @@ export function uninstallFiles(
  * Removes command templates, hook files, and VERSION file from the installation directory.
  * Also unregisters hooks from settings.json for Claude global installs.
  *
- * @param runtime - Target runtime (claude, opencode, or gemini)
+ * @param runtime - Target runtime (claude, codex, opencode, or gemini)
  * @param location - Installation location (global or local)
  * @param dryRun - If true, don't actually delete files
  * @returns Uninstallation result with files deleted
@@ -247,8 +250,8 @@ function uninstallFilesForRuntime(
 
   // Try to clean up empty directories
   if (!dryRun) {
-    if (runtime === 'claude') {
-      // Claude uses skills format: clean up skills/are-* directories
+    if (runtime === 'claude' || runtime === 'codex') {
+      // Claude and Codex use skills format: clean up skills/are-* directories
       const skillsDir = path.join(basePath, 'skills');
       cleanupAreSkillDirs(skillsDir);
       cleanupEmptyDirs(skillsDir);
@@ -593,10 +596,11 @@ function cleanupEmptyDirs(dirPath: string): void {
 
       // Try parent directory (but don't go above runtime root)
       const parent = path.dirname(dirPath);
-      // Stop at common runtime roots (.claude, .opencode, .gemini)
+      // Stop at common runtime roots (.claude, .codex, .opencode, .gemini)
       const baseName = path.basename(parent);
       if (
         baseName !== '.claude' &&
+        baseName !== '.codex' &&
         baseName !== '.opencode' &&
         baseName !== '.gemini' &&
         baseName !== '.config'

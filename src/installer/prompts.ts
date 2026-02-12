@@ -205,6 +205,7 @@ export async function selectRuntime(mode: 'install' | 'uninstall' = 'install'): 
   const prompt = mode === 'uninstall' ? 'Select runtime to uninstall:' : 'Select runtime to install:';
   return selectOption<Runtime>(prompt, [
     { label: 'Claude Code', value: 'claude' },
+    { label: 'Codex', value: 'codex' },
     { label: 'OpenCode', value: 'opencode' },
     { label: 'Gemini CLI', value: 'gemini' },
     { label: 'All runtimes', value: 'all' },
@@ -220,8 +221,8 @@ export async function selectRuntime(mode: 'install' | 'uninstall' = 'install'): 
 export async function selectLocation(mode: 'install' | 'uninstall' = 'install'): Promise<Location> {
   const prompt = mode === 'uninstall' ? 'Select uninstallation location:' : 'Select installation location:';
   return selectOption<Location>(prompt, [
-    { label: 'Global (~/.claude, ~/.config/opencode, etc.)', value: 'global' },
-    { label: 'Local (./.claude, ./.opencode, etc.)', value: 'local' },
+    { label: 'Global (~/.claude, ~/.codex, ~/.config/opencode, etc.)', value: 'global' },
+    { label: 'Local (./.claude, ./.codex, ./.opencode, etc.)', value: 'local' },
   ]);
 }
 

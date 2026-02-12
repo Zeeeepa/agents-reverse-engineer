@@ -1,7 +1,7 @@
 /**
  * Template generators for AI coding assistant integration files
  *
- * Generates command file templates for Claude Code, OpenCode, Gemini CLI, and session hooks.
+ * Generates command file templates for Claude Code, Codex, OpenCode, and Gemini CLI.
  */
 
 import type { IntegrationTemplate } from './types.js';
@@ -518,6 +518,7 @@ Install ARE commands to your AI assistant:
 \`\`\`bash
 npx agents-reverse-engineer install              # Interactive mode
 npx agents-reverse-engineer install --runtime claude -g  # Global Claude
+npx agents-reverse-engineer install --runtime codex -g   # Global Codex
 npx agents-reverse-engineer install --runtime claude -l  # Local project
 npx agents-reverse-engineer install --runtime all -g     # All runtimes
 \`\`\`
@@ -525,7 +526,7 @@ npx agents-reverse-engineer install --runtime all -g     # All runtimes
 **Install/Uninstall Options:**
 | Flag | Description |
 |------|-------------|
-| \`--runtime <name>\` | Target: \`claude\`, \`opencode\`, \`gemini\`, \`all\` |
+| \`--runtime <name>\` | Target: \`claude\`, \`codex\`, \`opencode\`, \`gemini\`, \`all\` |
 | \`-g, --global\` | Install to global config directory |
 | \`-l, --local\` | Install to current project directory |
 | \`--force\` | Overwrite existing files (install only) |
@@ -632,15 +633,15 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 // Platform-specific template generators
 // =============================================================================
 
-type Platform = 'claude' | 'opencode' | 'gemini';
+type Platform = 'claude' | 'codex' | 'opencode' | 'gemini';
 
 interface PlatformConfig {
-  commandPrefix: string; // /are- (claude, opencode) or /are: (gemini)
-  pathPrefix: string; // .claude/commands/are/ or .opencode/commands/ etc
+  commandPrefix: string; // /are- command prefix used in generated docs
+  pathPrefix: string; // .claude/skills/, .codex/skills/, .opencode/commands/, etc
   filenameSeparator: string; // . or -
   extraFrontmatter?: string; // e.g., "agent: build" for OpenCode
   usesName: boolean; // Claude uses "name:" in frontmatter
-  versionFilePath: string; // .claude/ARE-VERSION, .opencode/ARE-VERSION, etc.
+  versionFilePath: string; // .claude/ARE-VERSION, .codex/ARE-VERSION, etc.
 }
 
 const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
@@ -650,6 +651,13 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     filenameSeparator: '.',
     usesName: true,
     versionFilePath: '.claude/ARE-VERSION',
+  },
+  codex: {
+    commandPrefix: '/are-',
+    pathPrefix: '.codex/skills/',
+    filenameSeparator: '.',
+    usesName: true,
+    versionFilePath: '.codex/ARE-VERSION',
   },
   opencode: {
     commandPrefix: '/are-',
@@ -671,7 +679,8 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
 function buildFrontmatter(
   platform: Platform,
   commandName: string,
-  description: string
+  description: string,
+  argumentHint?: string,
 ): string {
   const config = PLATFORM_CONFIGS[platform];
   const lines = ['---'];
@@ -681,6 +690,10 @@ function buildFrontmatter(
   }
 
   lines.push(`description: ${description}`);
+
+  if (platform === 'codex' && argumentHint) {
+    lines.push(`argument-hint: ${JSON.stringify(argumentHint)}`);
+  }
 
   if (config.extraFrontmatter) {
     lines.push(config.extraFrontmatter);
@@ -731,6 +744,7 @@ function buildTemplate(
 
   // Platform-specific file naming:
   // - Claude: .claude/skills/are-{command}/SKILL.md
+  // - Codex: .codex/skills/are-{command}/SKILL.md
   // - OpenCode: .opencode/commands/are-{command}.md
   // - Gemini: .gemini/commands/are-{command}.toml (TOML format)
   if (platform === 'gemini') {
@@ -745,16 +759,18 @@ function buildTemplate(
     };
   }
 
-  const filename = platform === 'claude' ? 'SKILL.md' : `are-${commandName}.md`;
+  const usesSkillFile = platform === 'claude' || platform === 'codex';
+  const filename = usesSkillFile ? 'SKILL.md' : `are-${commandName}.md`;
   const path =
-    platform === 'claude'
+    usesSkillFile
       ? `${config.pathPrefix}are-${commandName}/${filename}`
       : `${config.pathPrefix}${filename}`;
 
   const frontmatter = buildFrontmatter(
     platform,
     commandName,
-    command.description
+    command.description,
+    command.argumentHint,
   );
 
   // Replace placeholders in content
@@ -788,6 +804,13 @@ export function getClaudeTemplates(): IntegrationTemplate[] {
 }
 
 /**
+ * Get Codex command file templates
+ */
+export function getCodexTemplates(): IntegrationTemplate[] {
+  return getTemplatesForPlatform('codex');
+}
+
+/**
  * Get OpenCode command file templates
  */
 export function getOpenCodeTemplates(): IntegrationTemplate[] {
@@ -800,4 +823,3 @@ export function getOpenCodeTemplates(): IntegrationTemplate[] {
 export function getGeminiTemplates(): IntegrationTemplate[] {
   return getTemplatesForPlatform('gemini');
 }
-

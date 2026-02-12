@@ -40,9 +40,9 @@ export function showHelp(): void {
   console.log(pc.bold('Usage:') + ' npx agents-reverse-engineer [options]');
   console.log();
   console.log(pc.bold('Options:'));
-  console.log('  --runtime <runtime>  Select runtime: claude, opencode, gemini, or all');
-  console.log('  -g, --global         Install to global config (~/.claude, etc.)');
-  console.log('  -l, --local          Install to local project (./.claude, etc.)');
+  console.log('  --runtime <runtime>  Select runtime: claude, codex, opencode, gemini, or all');
+  console.log('  -g, --global         Install to global config (~/.claude, ~/.codex, etc.)');
+  console.log('  -l, --local          Install to local project (./.claude, ./.codex, etc.)');
   console.log('  -u, --uninstall      Remove installed files');
   console.log('  --force              Overwrite existing files');
   console.log('  -q, --quiet          Suppress banner and info messages');
@@ -54,6 +54,9 @@ export function showHelp(): void {
   console.log();
   console.log('  npx agents-reverse-engineer --runtime claude -g');
   console.log('    Install Claude Code commands globally');
+  console.log();
+  console.log('  npx agents-reverse-engineer --runtime codex -g');
+  console.log('    Install Codex commands globally');
   console.log();
   console.log('  npx agents-reverse-engineer --runtime all -l');
   console.log('    Install commands for all runtimes to local project');

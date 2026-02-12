@@ -13,6 +13,7 @@ import type { Runtime, Location, InstallerResult } from './types.js';
 import { resolveInstallPath, getAllRuntimes } from './paths.js';
 import {
   getClaudeTemplates,
+  getCodexTemplates,
   getOpenCodeTemplates,
   getGeminiTemplates,
 } from '../integration/templates.js';
@@ -73,13 +74,15 @@ function readBundledHook(hookName: string): string {
 /**
  * Get templates for a specific runtime
  *
- * @param runtime - Target runtime (claude, opencode, or gemini)
+ * @param runtime - Target runtime (claude, codex, opencode, or gemini)
  * @returns Array of template objects for the runtime
  */
 function getTemplatesForRuntime(runtime: Exclude<Runtime, 'all'>) {
   switch (runtime) {
     case 'claude':
       return getClaudeTemplates();
+    case 'codex':
+      return getCodexTemplates();
     case 'opencode':
       return getOpenCodeTemplates();
     case 'gemini':
@@ -115,7 +118,7 @@ export function installFiles(
  * Copies command templates and hook files to the installation directory.
  * Skips existing files unless force=true.
  *
- * @param runtime - Target runtime (claude, opencode, or gemini)
+ * @param runtime - Target runtime (claude, codex, opencode, or gemini)
  * @param location - Installation location (global or local)
  * @param options - Install options (force, dryRun)
  * @returns Installation result with files created/skipped

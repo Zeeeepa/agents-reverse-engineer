@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Codex runtime support in installer** — `install`/`uninstall` now accept `--runtime codex`, interactive runtime selection now includes Codex, and `--runtime all` includes Codex in runtime iteration
+- **Codex installer templates and paths** — Added Codex command template generation under `.codex/skills/are-*/SKILL.md` with `--backend codex` wiring, global/local path resolution via `CODEX_HOME` or `~/.codex`, and `.codex/ARE-VERSION` marker support
+
 ## [0.9.0] - 2026-02-12
 
 ### Added

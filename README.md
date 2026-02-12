@@ -61,7 +61,7 @@ The result: Your AI assistant understands your codebase from the first message.
 
 ## Who This Is For
 
-Developers using AI coding assistants (Claude Code, OpenCode, Gemini CLI, or any tool supporting `AGENTS.md`) who want their assistant to actually understand their project structure — without manually writing documentation or repeating context every session.
+Developers using AI coding assistants (Claude Code, Codex, OpenCode, Gemini CLI, or any tool supporting `AGENTS.md`) who want their assistant to actually understand their project structure — without manually writing documentation or repeating context every session.
 
 ---
 
@@ -75,8 +75,8 @@ npx agents-reverse-engineer@latest
 
 The interactive installer prompts you to:
 
-1. **Select runtime** — Claude Code, OpenCode, Gemini CLI, or all
-2. **Select location** — Global (`~/.claude/`) or local (`./.claude/`)
+1. **Select runtime** — Claude Code, Codex, OpenCode, Gemini CLI, or all
+2. **Select location** — Global (`~/.claude/`, `~/.codex/`, etc.) or local (`./.claude/`, `./.codex/`, etc.)
 
 This installs:
 
@@ -108,6 +108,9 @@ The assistant creates the plan and generates all documentation.
 ```bash
 # Install for Claude Code globally
 npx agents-reverse-engineer@latest --runtime claude -g
+
+# Install for Codex globally
+npx agents-reverse-engineer@latest --runtime codex -g
 
 # Install for all runtimes locally
 npx agents-reverse-engineer@latest --runtime all -l
@@ -144,7 +147,7 @@ npx agents-reverse-engineer@latest
 
 Interactive installer installs commands and hooks for your chosen runtime(s).
 
-**Runtimes:** Claude Code, OpenCode, Gemini CLI (or all at once)
+**Runtimes:** Claude Code, Codex, OpenCode, Gemini CLI (or all at once)
 
 ---
 
@@ -220,7 +223,7 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `are rebuild`                   | Reconstruct project from specs   |
 | `are clean`                     | Remove all generated docs        |
 
-**Runtimes:** `claude`, `opencode`, `gemini`, `all`
+**Runtimes:** `claude`, `codex`, `opencode`, `gemini`, `all`
 
 ### General CLI Options
 
@@ -241,13 +244,13 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 
 | Command         | Description                    | Supported Runtimes       |
 | --------------- | ------------------------------ | ------------------------ |
-| `/are-init`     | Initialize config and commands | Claude, OpenCode, Gemini |
-| `/are-discover` | Rediscover and regenerate plan | Claude, OpenCode, Gemini |
-| `/are-generate` | Generate all documentation     | Claude, OpenCode, Gemini |
-| `/are-update`   | Update changed files only      | Claude, OpenCode, Gemini |
-| `/are-specify`  | Generate project specification | Claude, OpenCode, Gemini |
-| `/are-rebuild`  | Reconstruct project from specs | Claude, OpenCode, Gemini |
-| `/are-clean`    | Remove all generated docs      | Claude, OpenCode, Gemini |
+| `/are-init`     | Initialize config and commands | Claude, Codex, OpenCode, Gemini |
+| `/are-discover` | Rediscover and regenerate plan | Claude, Codex, OpenCode, Gemini |
+| `/are-generate` | Generate all documentation     | Claude, Codex, OpenCode, Gemini |
+| `/are-update`   | Update changed files only      | Claude, Codex, OpenCode, Gemini |
+| `/are-specify`  | Generate project specification | Claude, Codex, OpenCode, Gemini |
+| `/are-rebuild`  | Reconstruct project from specs | Claude, Codex, OpenCode, Gemini |
+| `/are-clean`    | Remove all generated docs      | Claude, Codex, OpenCode, Gemini |
 
 ---
 
