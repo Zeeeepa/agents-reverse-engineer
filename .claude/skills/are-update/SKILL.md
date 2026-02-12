@@ -19,7 +19,7 @@ Run the update command in the background and monitor progress in real time.
 
 3. **Run the update command in the background** using `run_in_background: true`:
    ```bash
-   npx agents-reverse-engineer@latest update $ARGUMENTS
+   npx agents-reverse-engineer@latest update --backend claude $ARGUMENTS
    ```
 
 4. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:
