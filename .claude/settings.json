@@ -6,7 +6,12 @@
   "permissions": {
     "allow": [
       "Bash(rm -f .agents-reverse-engineer/progress.log*)",
-      "Bash(sleep *)"
+      "Bash(sleep *)",
+      "Bash(npx agents-reverse-engineer@latest init*)",
+      "Bash(npx agents-reverse-engineer@latest discover*)",
+      "Bash(npx agents-reverse-engineer@latest generate*)",
+      "Bash(npx agents-reverse-engineer@latest update*)",
+      "Bash(npx agents-reverse-engineer@latest clean*)"
     ]
   }
 }
