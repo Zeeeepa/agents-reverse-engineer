@@ -241,6 +241,12 @@ export interface RunLog {
   startTime: string;
   /** ISO 8601 timestamp when the run finished */
   endTime: string;
+  /** Backend used for this run (e.g., "Claude", "Gemini", "OpenCode") */
+  backend: string;
+  /** Model used for this run (e.g., "sonnet", "opus", "haiku") */
+  model: string;
+  /** Command that triggered this run (e.g., "generate", "update", "specify", "rebuild") */
+  command: string;
   /** All individual call entries */
   entries: TelemetryEntry[];
   /** Aggregated summary across all entries */

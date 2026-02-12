@@ -41,6 +41,8 @@ export interface AIServiceOptions {
   maxRetries: number;
   /** Default model identifier (e.g., "sonnet", "opus") applied to all calls unless overridden per-call */
   model?: string;
+  /** Command that triggered this run (e.g., "generate", "update", "specify", "rebuild") */
+  command: string;
   /** Telemetry settings */
   telemetry: {
     /** Number of most recent run logs to keep on disk */
@@ -130,7 +132,6 @@ export class AIService {
    */
   constructor(providerOrBackend: AIProvider | AIBackend, options: AIServiceOptions, debugLogger?: Logger) {
     this.options = options;
-    this.logger = new TelemetryLogger(new Date().toISOString());
     this.log = debugLogger ?? nullLogger;
 
     // Auto-wrap AIBackend in SubprocessProvider for backward compatibility
@@ -140,9 +141,23 @@ export class AIService {
         timeoutMs: options.timeoutMs,
         logger: this.log,
       });
+      // Create logger with backend name, model, and command
+      this.logger = new TelemetryLogger(
+        new Date().toISOString(),
+        providerOrBackend.name,
+        options.model ?? 'unknown',
+        options.command,
+      );
     } else {
       this.backend = null;
       this.provider = providerOrBackend;
+      // For custom providers, use 'custom' as backend name
+      this.logger = new TelemetryLogger(
+        new Date().toISOString(),
+        'custom',
+        options.model ?? 'unknown',
+        options.command,
+      );
     }
   }
 

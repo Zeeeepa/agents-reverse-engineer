@@ -162,6 +162,7 @@ export async function rebuildCommand(
     timeoutMs: Math.max(config.ai.timeoutMs, 900_000), // 15min minimum
     maxRetries: config.ai.maxRetries,
     model: effectiveModel,
+    command: 'rebuild',
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   }, consoleLogger);
 

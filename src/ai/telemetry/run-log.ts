@@ -19,8 +19,8 @@ const LOGS_DIR = '.agents-reverse-engineer/logs';
  * Write a completed run log to disk as pretty-printed JSON.
  *
  * Creates the logs directory if it does not exist. The filename is derived
- * from the run's `startTime` field with `:` and `.` replaced by `-` so
- * that it forms a valid filename on all platforms.
+ * from the run's command, backend, model, and startTime fields with `:` and `.`
+ * replaced by `-` so that it forms a valid filename on all platforms.
  *
  * @param projectRoot - Absolute path to the project root directory
  * @param runLog - The completed run log to write
@@ -29,7 +29,7 @@ const LOGS_DIR = '.agents-reverse-engineer/logs';
  * @example
  * ```typescript
  * const logPath = await writeRunLog('/home/user/project', runLog);
- * // logPath: /home/user/project/.agents-reverse-engineer/logs/run-2026-02-07T12-00-00-000Z.json
+ * // logPath: /home/user/project/.agents-reverse-engineer/logs/run-generate-claude-sonnet-2026-02-07T12-00-00-000Z.json
  * ```
  */
 export async function writeRunLog(projectRoot: string, runLog: RunLog): Promise<string> {
@@ -38,9 +38,13 @@ export async function writeRunLog(projectRoot: string, runLog: RunLog): Promise<
   // Create the logs directory if it does not exist
   await fs.mkdir(logsDir, { recursive: true });
 
-  // Build filename: replace : and . with - so ISO timestamps become valid filenames
+  // Build filename: include command, backend, model, and timestamp
+  // Replace : and . with - so ISO timestamps become valid filenames
   const safeTimestamp = runLog.startTime.replace(/[:.]/g, '-');
-  const filename = `run-${safeTimestamp}.json`;
+  const safeBackend = runLog.backend.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const safeModel = runLog.model.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const safeCommand = runLog.command.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const filename = `run-${safeCommand}-${safeBackend}-${safeModel}-${safeTimestamp}.json`;
   const filePath = path.join(logsDir, filename);
 
   // Write pretty-printed JSON

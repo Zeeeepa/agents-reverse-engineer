@@ -220,6 +220,7 @@ export async function generateCommand(
     timeoutMs: config.ai.timeoutMs,
     maxRetries: config.ai.maxRetries,
     model: effectiveModel,
+    command: 'generate',
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   }, consoleLogger);
 

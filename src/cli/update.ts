@@ -254,6 +254,7 @@ export async function updateCommand(
       timeoutMs: config.ai.timeoutMs,
       maxRetries: config.ai.maxRetries,
       model: effectiveModel,
+      command: 'update',
       telemetry: { keepRuns: config.ai.telemetry.keepRuns },
     }, consoleLogger);
 

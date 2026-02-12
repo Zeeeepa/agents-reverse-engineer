@@ -189,6 +189,7 @@ export async function specifyCommand(
     timeoutMs: Math.max(config.ai.timeoutMs, 900_000),
     maxRetries: config.ai.maxRetries,
     model: effectiveModel,
+    command: 'specify',
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   }, consoleLogger);
 

@@ -16,7 +16,7 @@ import type { TelemetryEntry, RunLog, FileRead } from '../types.js';
  *
  * @example
  * ```typescript
- * const logger = new TelemetryLogger('2026-02-07T12:00:00.000Z');
+ * const logger = new TelemetryLogger('2026-02-07T12:00:00.000Z', 'Claude', 'sonnet', 'generate');
  * logger.addEntry(entry);
  * const summary = logger.getSummary();
  * const runLog = logger.toRunLog();
@@ -29,6 +29,15 @@ export class TelemetryLogger {
   /** ISO 8601 timestamp when the run started */
   readonly startTime: string;
 
+  /** Backend used for this run */
+  readonly backend: string;
+
+  /** Model used for this run */
+  readonly model: string;
+
+  /** Command that triggered this run */
+  readonly command: string;
+
   /** Accumulated telemetry entries */
   private readonly entries: TelemetryEntry[] = [];
 
@@ -36,10 +45,16 @@ export class TelemetryLogger {
    * Create a new telemetry logger for a run.
    *
    * @param runId - Unique run identifier (typically an ISO timestamp)
+   * @param backend - Backend name (e.g., "Claude", "Gemini", "OpenCode")
+   * @param model - Model name (e.g., "sonnet", "opus", "haiku")
+   * @param command - Command name (e.g., "generate", "update", "specify", "rebuild")
    */
-  constructor(runId: string) {
+  constructor(runId: string, backend: string, model: string, command: string) {
     this.runId = runId;
     this.startTime = new Date().toISOString();
+    this.backend = backend;
+    this.model = model;
+    this.command = command;
   }
 
   /**
@@ -132,6 +147,9 @@ export class TelemetryLogger {
       runId: this.runId,
       startTime: this.startTime,
       endTime: new Date().toISOString(),
+      backend: this.backend,
+      model: this.model,
+      command: this.command,
       entries: [...this.entries],
       summary: this.getSummary(),
     };
