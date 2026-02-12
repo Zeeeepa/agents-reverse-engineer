@@ -91,7 +91,10 @@
       "Bash(pgrep:*)",
       "Bash(env:*)",
       "Bash(ARE_CALLING_RUNTIME=opencode node -e:*)",
-      "Bash(CLAUDECODE= node:*)"
+      "Bash(CLAUDECODE= node:*)",
+      "WebFetch(domain:blog.devgenius.io)",
+      "WebFetch(domain:cefboud.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
