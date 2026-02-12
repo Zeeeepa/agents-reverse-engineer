@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-12
+
+### Added
+- **Codex CLI backend support** — Added a new `CodexBackend` adapter (`src/ai/backends/codex.ts`) using `codex exec --json` with robust JSONL parsing and text-output fallback. Auto-detection and backend resolution now include Codex in registry priority order
+- **Codex discoverability in defaults** — Added `.codex` to default vendor directory exclusions so Codex workspace metadata is ignored during file discovery and documentation generation
+
+### Changed
+- **Backend configuration now accepts `codex`** — Updated config schema enum and generated config comments to allow `ai.backend: codex` alongside existing backends
+- **CLI and docs now list Codex backend option** — Updated command help text, command option docs, and README backend descriptions to include `codex` for `--backend`
+
 ## [0.8.13] - 2026-02-12
 
 ### Added
@@ -809,7 +819,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.13...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.13...v0.9.0
 [0.8.13]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.12...v0.8.13
 [0.8.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.11...v0.8.12
 [0.8.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.10...v0.8.11
