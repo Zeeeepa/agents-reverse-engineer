@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-02-12
+
+### Added
+- **OpenCode backend with NDJSON parsing and cost calculation** — New `src/ai/backends/opencode.ts` implementation with comprehensive NDJSON response parsing, cost tracking for DeepSeek models, and token usage extraction from OpenCode CLI output. Includes 358 lines of test coverage in `test/ai/backends/opencode.test.ts`
+- **Benchmark infrastructure for OpenCode** — Added `run-benchmark-opencode.sh`, `run-trial-opencode.sh`, and `analyze-opencode.ts` scripts for systematic ARE performance evaluation with OpenCode runtime. Includes JSON result logging with metrics and verification results for 3 trials (with-ARE and without-ARE configurations)
+- **Benchmark documentation** — New `OPENCODE-IMPLEMENTATION.md`, `OPENCODE-JSON-FORMAT.md`, and `README-OPENCODE.md` documenting OpenCode integration details, output format specifications, and benchmark methodology
+- **Enhanced telemetry logging** — Telemetry run logs now include `command` (discover/generate/update), `backend` (claude/gemini/opencode), and `model` fields for better tracking of usage patterns across different AI backends
+- **Permission settings for development workflows** — Added `lsof` command permission, `git fetch`, and `git pull` commands to Claude Code settings for smoother development experience
+- **OpenCode help commands and test permission** — Added OpenCode-specific help command templates and test execution permissions to settings
+
+### Changed
+- **GENERATED_MARKER refactored to GENERATED_MARKER_PREFIX** — Renamed constant to `GENERATED_MARKER_PREFIX` for version-agnostic generated file detection, improving compatibility across ARE versions
+- **AGENTS documentation refactored** — Updated AGENTS.md files across multiple modules for improved clarity and consistency with current architecture
+- **Updated OpenCode repository link** — README.md now points to correct OpenCode repository URL
+
+### Fixed
+- **VSCode settings .sum file exclusion** — Commented out `**/*.sum` exclusion in VSCode settings to allow viewing generated summary files when needed for debugging
+
+### Removed
+- **OpenCode session end hook** — Removed `opencode-are-session-end.js` hook in favor of improved update check mechanism via `opencode-are-check-update.js` (session end hooks proved unreliable with OpenCode's async execution model)
+
 ## [0.8.1] - 2026-02-11
 
 ### Changed
@@ -685,7 +706,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.12...v0.8.0
 [0.7.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.7.11...v0.7.12
