@@ -63,6 +63,7 @@ exclude:
     - .agents
     - .planning
     - .claude
+    - .codex
     - .opencode
     - .gemini
     - benchmark
