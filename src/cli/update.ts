@@ -300,6 +300,7 @@ export async function updateCommand(
     // Phase 1: File analysis via CommandRunner (concurrent AI calls)
     // -------------------------------------------------------------------------
 
+    const runStart = Date.now();
     const summary = await runner.executeUpdate(
       plan.fileTasks,
       absolutePath,
@@ -310,11 +311,12 @@ export async function updateCommand(
     // Phase 2: AGENTS.md regeneration for affected directories
     // -------------------------------------------------------------------------
 
+    let dirsCompleted = 0;
+    let dirsFailed = 0;
+
     if (plan.affectedDirs.length > 0) {
       const knownDirs = new Set(plan.affectedDirs);
       const phase2Start = Date.now();
-      let dirsCompleted = 0;
-      let dirsFailed = 0;
 
       // Emit phase start
       tracer.emit({
@@ -407,6 +409,26 @@ export async function updateCommand(
         tasksFailed: dirsFailed,
       });
     }
+
+    // -------------------------------------------------------------------------
+    // Print combined summary (files + directories)
+    // -------------------------------------------------------------------------
+
+    const aiSummary = aiService.getSummary();
+    summary.dirsProcessed = dirsCompleted;
+    summary.dirsFailed = dirsFailed;
+    summary.totalCalls = aiSummary.totalCalls;
+    summary.totalInputTokens = aiSummary.totalInputTokens;
+    summary.totalOutputTokens = aiSummary.totalOutputTokens;
+    summary.totalCacheReadTokens = aiSummary.totalCacheReadTokens;
+    summary.totalCacheCreationTokens = aiSummary.totalCacheCreationTokens;
+    summary.totalFilesRead = aiSummary.totalFilesRead;
+    summary.uniqueFilesRead = aiSummary.uniqueFilesRead;
+    summary.errorCount = aiSummary.errorCount;
+    summary.totalDurationMs = Date.now() - runStart;
+
+    const summaryReporter = new ProgressReporter(0, 0, progressLog);
+    summaryReporter.printSummary(summary);
 
     // -------------------------------------------------------------------------
     // Telemetry finalization

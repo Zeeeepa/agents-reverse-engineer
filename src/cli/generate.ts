@@ -268,7 +268,10 @@ export async function generateCommand(
   });
 
   // Execute the two-phase pipeline
-  const summary = await runner.executeGenerate(executionPlan, { skippedFiles: skippedCount });
+  const summary = await runner.executeGenerate(executionPlan, {
+    skippedFiles: skippedCount,
+    skippedDirs: executionPlan.skippedDirs?.length ?? 0,
+  });
 
   // Write telemetry run log
   await aiService.finalize(absolutePath);

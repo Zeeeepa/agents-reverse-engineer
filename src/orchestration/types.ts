@@ -86,6 +86,12 @@ export interface RunSummary {
   inconsistenciesCodeVsDoc?: number;
   /** Number of code-vs-code inconsistencies detected */
   inconsistenciesCodeVsCode?: number;
+  /** Number of directories that were successfully processed */
+  dirsProcessed?: number;
+  /** Number of directories that failed processing */
+  dirsFailed?: number;
+  /** Number of directories that were skipped (unchanged) */
+  dirsSkipped?: number;
   /** Number of phantom path references detected in AGENTS.md files */
   phantomPaths?: number;
   /** Full inconsistency report (undefined if no checks ran) */

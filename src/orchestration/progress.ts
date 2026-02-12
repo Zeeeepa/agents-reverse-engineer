@@ -143,9 +143,6 @@ export class ProgressReporter {
   /** Maximum window size for ETA moving average */
   private readonly windowSize: number = 10;
 
-  /** Timestamp when the reporter was created */
-  private readonly startTime: number = Date.now();
-
   /** Total number of directory tasks in this run */
   private totalDirectories: number = 0;
 
@@ -313,7 +310,7 @@ export class ProgressReporter {
    * @param summary - Aggregated run summary
    */
   printSummary(summary: RunSummary): void {
-    const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);
+    const elapsed = (summary.totalDurationMs / 1000).toFixed(1);
 
     const lines: string[] = [];
     lines.push('');
@@ -325,6 +322,15 @@ export class ProgressReporter {
     }
     if (summary.filesSkipped > 0) {
       lines.push(`  Files skipped:   ${pc.yellow(String(summary.filesSkipped))}`);
+    }
+    if (summary.dirsProcessed != null && summary.dirsProcessed > 0) {
+      lines.push(`  Dirs processed:  ${pc.green(String(summary.dirsProcessed))}`);
+    }
+    if (summary.dirsFailed != null && summary.dirsFailed > 0) {
+      lines.push(`  Dirs failed:     ${pc.red(String(summary.dirsFailed))}`);
+    }
+    if (summary.dirsSkipped != null && summary.dirsSkipped > 0) {
+      lines.push(`  Dirs skipped:    ${pc.yellow(String(summary.dirsSkipped))}`);
     }
     lines.push(`  Total calls:     ${summary.totalCalls}`);
     const totalIn = summary.totalInputTokens + summary.totalCacheReadTokens + summary.totalCacheCreationTokens;

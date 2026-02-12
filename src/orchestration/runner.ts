@@ -107,7 +107,7 @@ export class CommandRunner {
    */
   async executeGenerate(
     plan: ExecutionPlan,
-    options?: { skippedFiles?: number },
+    options?: { skippedFiles?: number; skippedDirs?: number },
   ): Promise<RunSummary> {
     const reporter = new ProgressReporter(plan.fileTasks.length, plan.directoryTasks.length, this.progressLog);
 
@@ -426,6 +426,8 @@ export class CommandRunner {
 
     // Process depth levels in descending order (deepest first = post-order)
     const depthLevels = Array.from(dirsByDepth.keys()).sort((a, b) => b - a);
+    let dirsProcessed = 0;
+    let dirsFailed = 0;
 
     for (const depth of depthLevels) {
       const dirsAtDepth = dirsByDepth.get(depth)!;
@@ -476,6 +478,8 @@ export class CommandRunner {
 
       const phase2Succeeded = phase2Results.filter(r => r.success).length;
       const phase2Failed = phase2Results.filter(r => !r.success).length;
+      dirsProcessed += phase2Succeeded;
+      dirsFailed += phase2Failed;
 
       this.tracer?.emit({
         type: 'phase:end',
@@ -532,6 +536,9 @@ export class CommandRunner {
       filesProcessed,
       filesFailed,
       filesSkipped: options?.skippedFiles ?? 0,
+      dirsProcessed,
+      dirsFailed,
+      dirsSkipped: options?.skippedDirs ?? 0,
       totalCalls: aiSummary.totalCalls,
       totalInputTokens: aiSummary.totalInputTokens,
       totalOutputTokens: aiSummary.totalOutputTokens,
@@ -805,7 +812,7 @@ export class CommandRunner {
       console.error(`[quality] Inconsistency detection failed: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Build and print summary
+    // Build summary (caller is responsible for printing after dir regen)
     const aiSummary = this.aiService.getSummary();
     const totalDurationMs = Date.now() - runStart;
 
@@ -828,8 +835,6 @@ export class CommandRunner {
       inconsistenciesCodeVsCode: updateInconsistenciesCodeVsCode,
       inconsistencyReport: updateInconsistencyReport,
     };
-
-    reporter.printSummary(summary);
 
     return summary;
   }
