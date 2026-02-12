@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-02-12
+
+### Added
+- **OpenCode plugin infrastructure cleanup during uninstallation** — After removing ARE command files from `.opencode/`, the uninstaller now cleans up OpenCode's plugin infrastructure artifacts (`package.json`, `node_modules/`, `bun.lock`, `.gitignore`) when no other commands or plugins remain. Only applies to local installs to avoid disrupting shared global config directories
+
+### Changed
+- **Removed deprecated permission entries from `.claude/settings.json`** — Cleaned up legacy `permissions.allow` entries for ARE bash commands that are no longer needed
+
 ## [0.8.7] - 2026-02-12
 
 ### Added
@@ -756,7 +764,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.7...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.8...HEAD
+[0.8.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.7...v0.8.8
 [0.8.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.4...v0.8.5
