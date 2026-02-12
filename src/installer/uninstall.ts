@@ -248,6 +248,12 @@ function uninstallFilesForRuntime(
     } else if (runtime === 'opencode') {
       const pluginsDir = path.join(basePath, 'plugins');
       cleanupEmptyDirs(pluginsDir);
+
+      // Clean up OpenCode plugin infrastructure files if no user content remains
+      // (package.json, node_modules, bun.lock, .gitignore created by OpenCode's plugin system)
+      if (location === 'local') {
+        cleanupOpenCodeInfrastructure(basePath);
+      }
     }
   }
 
@@ -623,6 +629,69 @@ function cleanupLegacyGeminiFiles(commandsDir: string): void {
     }
   } catch {
     // Ignore errors
+  }
+}
+
+/**
+ * Clean up OpenCode plugin infrastructure files
+ *
+ * When ARE installs plugins to .opencode/, OpenCode's plugin system creates
+ * infrastructure files (package.json, node_modules/, bun.lock, .gitignore).
+ * After removing ARE files, these artifacts remain. This function removes them
+ * if no other commands or plugins exist in the directory.
+ *
+ * Only safe for local installs — global config dirs may have other content.
+ *
+ * @param basePath - Path to the .opencode directory
+ */
+function cleanupOpenCodeInfrastructure(basePath: string): void {
+  // Only clean up if no commands or plugins remain
+  const commandsDir = path.join(basePath, 'commands');
+  const pluginsDir = path.join(basePath, 'plugins');
+
+  if (dirHasContent(commandsDir) || dirHasContent(pluginsDir)) {
+    return;
+  }
+
+  // Remove OpenCode plugin infrastructure files
+  const infraFiles = ['package.json', 'bun.lock', '.gitignore'];
+  for (const file of infraFiles) {
+    const filePath = path.join(basePath, file);
+    try {
+      if (existsSync(filePath)) {
+        unlinkSync(filePath);
+      }
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  // Remove node_modules
+  const nodeModulesDir = path.join(basePath, 'node_modules');
+  if (existsSync(nodeModulesDir)) {
+    try {
+      rmSync(nodeModulesDir, { recursive: true, force: true });
+    } catch {
+      // Ignore errors
+    }
+  }
+
+  // Try to remove the .opencode directory itself if now empty
+  cleanupEmptyDirs(basePath);
+}
+
+/**
+ * Check if a directory exists and has any entries
+ *
+ * @param dirPath - Directory path to check
+ * @returns true if directory exists and is non-empty
+ */
+function dirHasContent(dirPath: string): boolean {
+  try {
+    if (!existsSync(dirPath)) return false;
+    return readdirSync(dirPath).length > 0;
+  } catch {
+    return false;
   }
 }
 
