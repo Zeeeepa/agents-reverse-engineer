@@ -11,8 +11,6 @@ export interface PromptContext {
     path: string;
     content: string;
   }>;
-  /** Project structure listing for bird's-eye context */
-  projectPlan?: string;
   /** Existing .sum summary text for incremental updates */
   existingSum?: string;
   /** Source file size in characters for calculating compression target */

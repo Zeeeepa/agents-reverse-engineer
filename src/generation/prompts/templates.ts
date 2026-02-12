@@ -97,7 +97,7 @@ File: {{FILE_PATH}}
 \`\`\`{{LANG}}
 {{CONTENT}}
 \`\`\`
-{{PROJECT_PLAN_SECTION}}
+
 Lead with a single bold purpose statement: **[FileName] does X.**
 Then use ## headings to organize the remaining content.
 Every file MUST include at minimum:

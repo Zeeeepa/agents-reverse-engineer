@@ -370,7 +370,7 @@ export class DocumentationOrchestrator {
     const projectStructure = this.buildProjectStructure(allFiles);
 
     // Create file tasks only for files to process
-    const fileTasks = await this.createFileTasks(filesToProcess, projectStructure);
+    const fileTasks = await this.createFileTasks(filesToProcess);
 
     // --- Directory skip filtering ---
     // Create directory tasks scoped to files being processed,
@@ -692,12 +692,10 @@ export class DocumentationOrchestrator {
    * Used by both generate (PreparedFile[]) and update (FileChange[]) workflows.
    *
    * @param files - Files to create tasks for (PreparedFile[] or FileChange[])
-   * @param projectStructure - Optional project directory tree for context
    * @returns Array of analysis tasks with pre-built prompts
    */
   async createFileTasks(
     files: PreparedFile[] | FileChange[],
-    projectStructure?: string
   ): Promise<AnalysisTask[]> {
     const tasks: AnalysisTask[] = [];
 
@@ -723,7 +721,6 @@ export class DocumentationOrchestrator {
       const prompt = buildFilePrompt({
         filePath,
         content,
-        projectPlan: projectStructure,
         existingSum: existingSumContent?.summary,
         sourceFileSize: content.length,
         compressionRatio: this.config.generation.compressionRatio,

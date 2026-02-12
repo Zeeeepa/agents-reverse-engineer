@@ -56,15 +56,10 @@ export function buildFilePrompt(context: PromptContext, debug = false, logger?: 
   const lang = detectLanguage(context.filePath);
   if (debug) logTemplate(logger ?? nullLogger, 'buildFilePrompt', context.filePath, `lang=${lang}`);
 
-  const planSection = context.projectPlan
-    ? `\n\n## Project Structure\n\nFull project file listing for context:\n\n<project-structure>\n${context.projectPlan}\n</project-structure>`
-    : '';
-
   let userPrompt = FILE_USER_PROMPT
     .replace(/\{\{FILE_PATH\}\}/g, context.filePath)
     .replace(/\{\{CONTENT\}\}/g, context.content)
-    .replace(/\{\{LANG\}\}/g, lang)
-    .replace(/\{\{PROJECT_PLAN_SECTION\}\}/g, planSection);
+    .replace(/\{\{LANG\}\}/g, lang);
 
   // Add context files if provided
   if (context.contextFiles && context.contextFiles.length > 0) {
