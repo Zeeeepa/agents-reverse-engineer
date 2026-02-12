@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-02-12
+
+### Added
+- **Model name resolution for OpenCode backend** — Short model aliases (`sonnet`, `opus`, `haiku`) are now automatically resolved to OpenCode's fully-qualified `provider/model` format (e.g., `sonnet` → `anthropic/claude-sonnet-4-5`). Model names already containing `/` are passed through unchanged
+
+### Changed
+- **Explicit `--backend` flag in all slash command templates** — All runtime-specific command templates (Claude skills, Gemini commands, OpenCode commands) now include `--backend <runtime>` explicitly in the command invocation (e.g., `--backend claude` for Claude skills, `--backend gemini` for Gemini commands, `--backend opencode` for OpenCode commands), ensuring the correct AI backend is always used regardless of auto-detection
+
 ## [0.8.5] - 2026-02-12
 
 ### Added
@@ -737,7 +745,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.6...HEAD
+[0.8.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.2...v0.8.3
