@@ -182,7 +182,7 @@ const OPENCODE_AGENT_NAME = 'are-summarizer';
  */
 const OPENCODE_AGENT_CONTENT = `---
 description: "ARE documentation summarizer — single-turn, no tools, raw markdown output"
-steps: 1
+steps: 3
 tools:
   "*": false
 ---
@@ -328,6 +328,17 @@ export class OpenCodeBackend implements AIBackend {
         `No text content found in OpenCode CLI output. ` +
         `Parsed ${parsed.events.length} event(s), ${parsed.numTurns} turn(s). ` +
         `Raw output (first 200 chars): ${stdout.slice(0, 200)}`,
+      );
+    }
+
+    // Detect OpenCode step-limit meta-commentary instead of actual content.
+    // When the agent hits its step limit, the model produces an explanation
+    // like "MAXIMUM STEPS REACHED" rather than the requested document.
+    if (parsed.text.includes('MAXIMUM STEPS REACHED')) {
+      throw new AIServiceError(
+        'PARSE_ERROR',
+        `OpenCode hit agent step limit — response is meta-commentary, not content. ` +
+        `Response (first 200 chars): ${parsed.text.slice(0, 200)}`,
       );
     }
 
