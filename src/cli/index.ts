@@ -270,6 +270,7 @@ async function main(): Promise<void> {
         debug: flags.has('debug'),
         trace: flags.has('trace'),
         model: values.get('model'),
+        backend: values.get('backend'),
       };
       await generateCommand(positional[0] || '.', options);
       break;
@@ -284,6 +285,7 @@ async function main(): Promise<void> {
         debug: flags.has('debug'),
         trace: flags.has('trace'),
         model: values.get('model'),
+        backend: values.get('backend'),
       };
       await updateCommand(positional[0] || '.', options);
       break;
@@ -298,6 +300,7 @@ async function main(): Promise<void> {
         debug: flags.has('debug'),
         trace: flags.has('trace'),
         model: values.get('model'),
+        backend: values.get('backend'),
       };
       await specifyCommand(positional[0] || '.', specifyOpts);
       break;
@@ -314,6 +317,7 @@ async function main(): Promise<void> {
         debug: flags.has('debug'),
         trace: flags.has('trace'),
         model: values.get('model'),
+        backend: values.get('backend'),
       };
       await rebuildCommand(positional[0] || '.', rebuildOpts);
       break;

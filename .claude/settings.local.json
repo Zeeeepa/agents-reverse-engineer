@@ -89,7 +89,9 @@
       "Bash(test:*)",
       "Bash(lsof:*)",
       "Bash(pgrep:*)",
-      "Bash(env:*)"
+      "Bash(env:*)",
+      "Bash(ARE_CALLING_RUNTIME=opencode node -e:*)",
+      "Bash(CLAUDECODE= node:*)"
     ]
   }
 }

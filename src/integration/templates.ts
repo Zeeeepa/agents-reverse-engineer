@@ -30,7 +30,7 @@ Run the generate command in the background and monitor progress in real time.
 
 3. **Run the generate command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest generate $ARGUMENTS
+   npx agents-reverse-engineer@latest generate BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -79,7 +79,7 @@ Run the update command in the background and monitor progress in real time.
 
 3. **Run the update command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest update $ARGUMENTS
+   npx agents-reverse-engineer@latest update BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -218,7 +218,7 @@ Run the specify command in the background and monitor progress in real time.
 
 3. **Run the specify command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest specify $ARGUMENTS
+   npx agents-reverse-engineer@latest specify BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -265,7 +265,7 @@ Run the rebuild command in the background and monitor progress in real time.
 
 3. **Run the rebuild command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx agents-reverse-engineer@latest rebuild $ARGUMENTS
+   npx agents-reverse-engineer@latest rebuild BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -704,7 +704,8 @@ function buildGeminiToml(
   // Replace placeholders in content
   const promptContent = command.content
     .replace(/COMMAND_PREFIX/g, config.commandPrefix)
-    .replace(/VERSION_FILE_PATH/g, config.versionFilePath);
+    .replace(/VERSION_FILE_PATH/g, config.versionFilePath)
+    .replace(/BACKEND_FLAG/g, '--backend gemini');
 
   // Build TOML content
   // Use triple quotes for multi-line prompt
@@ -759,7 +760,8 @@ function buildTemplate(
   // Replace placeholders in content
   const content = command.content
     .replace(/COMMAND_PREFIX/g, config.commandPrefix)
-    .replace(/VERSION_FILE_PATH/g, config.versionFilePath);
+    .replace(/VERSION_FILE_PATH/g, config.versionFilePath)
+    .replace(/BACKEND_FLAG/g, `--backend ${platform}`);
 
   return {
     filename,

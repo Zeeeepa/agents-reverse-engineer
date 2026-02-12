@@ -47,6 +47,8 @@ export interface SpecifyOptions {
   trace?: boolean;
   /** Override AI model (defaults to "opus" for specify) */
   model?: string;
+  /** Override AI backend (e.g., "claude", "opencode", "gemini") */
+  backend?: string;
 }
 
 /**
@@ -156,7 +158,7 @@ export async function specifyCommand(
   const registry = createBackendRegistry();
   let backend;
   try {
-    backend = await resolveBackend(registry, config.ai.backend);
+    backend = await resolveBackend(registry, options.backend ?? config.ai.backend);
   } catch (error) {
     if (error instanceof AIServiceError && error.code === 'CLI_NOT_FOUND') {
       console.error(pc.red('Error: No AI CLI found.\n'));

@@ -61,7 +61,6 @@ export {
   createBackendRegistry,
   resolveBackend,
   detectBackend,
-  detectCallingRuntime,
   getInstallInstructions,
 } from './registry.js';
 
