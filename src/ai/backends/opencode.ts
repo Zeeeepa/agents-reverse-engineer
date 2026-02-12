@@ -132,6 +132,38 @@ interface ParsedOpenCodeOutput {
 }
 
 // ---------------------------------------------------------------------------
+// Model name mapping (short form → OpenCode provider/model format)
+// ---------------------------------------------------------------------------
+
+/**
+ * Map of short model names to OpenCode's `provider/model` format.
+ *
+ * OpenCode requires fully-qualified model identifiers (e.g.,
+ * `anthropic/claude-sonnet-4-5`), while ARE config uses short aliases
+ * (e.g., `sonnet`). Names already containing `/` are passed through
+ * unchanged.
+ */
+const MODEL_ALIASES: Record<string, string> = {
+  'sonnet': 'anthropic/claude-sonnet-4-5',
+  'opus': 'anthropic/claude-opus-4-6',
+  'haiku': 'anthropic/claude-haiku-4-5',
+};
+
+/**
+ * Resolve a model name to OpenCode's `provider/model` format.
+ *
+ * If the name already contains `/`, it's assumed to be fully-qualified
+ * and is returned as-is. Otherwise, looks up the short alias.
+ *
+ * @param model - Short alias or fully-qualified model identifier
+ * @returns Fully-qualified model identifier for OpenCode CLI
+ */
+function resolveModelForOpenCode(model: string): string {
+  if (model.includes('/')) return model;
+  return MODEL_ALIASES[model] ?? model;
+}
+
+// ---------------------------------------------------------------------------
 // OpenCode backend
 // ---------------------------------------------------------------------------
 
@@ -189,8 +221,7 @@ export class OpenCodeBackend implements AIBackend {
     ];
 
     if (options.model) {
-      // OpenCode uses provider/model format e.g. "anthropic/claude-sonnet-4-5"
-      args.push('--model', options.model);
+      args.push('--model', resolveModelForOpenCode(options.model));
     }
 
     return args;
