@@ -41,8 +41,8 @@ export function showHelp(): void {
   console.log();
   console.log(pc.bold('Options:'));
   console.log('  --runtime <runtime>  Select runtime: claude, codex, opencode, gemini, or all');
-  console.log('  -g, --global         Install to global config (~/.claude, ~/.codex, etc.)');
-  console.log('  -l, --local          Install to local project (./.claude, ./.codex, etc.)');
+  console.log('  -g, --global         Install to global config (~/.claude, ~/.agents, etc.)');
+  console.log('  -l, --local          Install to local project (./.claude, ./.agents, etc.)');
   console.log('  -u, --uninstall      Remove installed files');
   console.log('  --force              Overwrite existing files');
   console.log('  -q, --quiet          Suppress banner and info messages');

@@ -27,7 +27,7 @@ export function getAllRuntimes(): Array<Exclude<Runtime, 'all'>> {
  *
  * Environment variable overrides (in priority order):
  * - Claude: CLAUDE_CONFIG_DIR
- * - Codex: CODEX_HOME
+ * - Codex: none (Codex skills follow ~/.agents and .agents)
  * - OpenCode: OPENCODE_CONFIG_DIR > XDG_CONFIG_HOME/opencode
  * - Gemini: GEMINI_CONFIG_DIR
  *
@@ -49,11 +49,11 @@ export function getRuntimePaths(runtime: Exclude<Runtime, 'all'>): RuntimePaths 
     }
 
     case 'codex': {
-      // CODEX_HOME overrides default ~/.codex
-      const globalPath = process.env.CODEX_HOME || path.join(home, '.codex');
+      // Codex skills follow ~/.agents and .agents (repo-local)
+      const globalPath = path.join(home, '.agents');
       return {
         global: globalPath,
-        local: '.codex',
+        local: '.agents',
         settingsFile: path.join(globalPath, 'settings.json'),
       };
     }
@@ -123,7 +123,7 @@ export function getSettingsPath(runtime: Exclude<Runtime, 'all'>): string {
 /**
  * Check if a runtime is installed locally in a project.
  *
- * Checks for the presence of the local config directory (e.g., .claude, .codex, .opencode, .gemini).
+ * Checks for the presence of the local config directory (e.g., .claude, .agents, .opencode, .gemini).
  *
  * @param runtime - Target runtime (claude, codex, opencode, or gemini)
  * @param projectRoot - Project root directory to check

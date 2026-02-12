@@ -221,8 +221,8 @@ export async function selectRuntime(mode: 'install' | 'uninstall' = 'install'): 
 export async function selectLocation(mode: 'install' | 'uninstall' = 'install'): Promise<Location> {
   const prompt = mode === 'uninstall' ? 'Select uninstallation location:' : 'Select installation location:';
   return selectOption<Location>(prompt, [
-    { label: 'Global (~/.claude, ~/.codex, ~/.config/opencode, etc.)', value: 'global' },
-    { label: 'Local (./.claude, ./.codex, ./.opencode, etc.)', value: 'local' },
+    { label: 'Global (~/.claude, ~/.agents, ~/.config/opencode, etc.)', value: 'global' },
+    { label: 'Local (./.claude, ./.agents, ./.opencode, etc.)', value: 'local' },
   ]);
 }
 

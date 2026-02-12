@@ -76,7 +76,7 @@ npx agents-reverse-engineer@latest
 The interactive installer prompts you to:
 
 1. **Select runtime** — Claude Code, Codex, OpenCode, Gemini CLI, or all
-2. **Select location** — Global (`~/.claude/`, `~/.codex/`, etc.) or local (`./.claude/`, `./.codex/`, etc.)
+2. **Select location** — Global (`~/.claude/`, `~/.agents/`, etc.) or local (`./.claude/`, `./.agents/`, etc.)
 
 This installs:
 

@@ -596,10 +596,11 @@ function cleanupEmptyDirs(dirPath: string): void {
 
       // Try parent directory (but don't go above runtime root)
       const parent = path.dirname(dirPath);
-      // Stop at common runtime roots (.claude, .codex, .opencode, .gemini)
+      // Stop at common runtime roots (.claude, .agents, .codex, .opencode, .gemini)
       const baseName = path.basename(parent);
       if (
         baseName !== '.claude' &&
+        baseName !== '.agents' &&
         baseName !== '.codex' &&
         baseName !== '.opencode' &&
         baseName !== '.gemini' &&

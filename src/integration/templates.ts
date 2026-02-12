@@ -637,11 +637,11 @@ type Platform = 'claude' | 'codex' | 'opencode' | 'gemini';
 
 interface PlatformConfig {
   commandPrefix: string; // /are- command prefix used in generated docs
-  pathPrefix: string; // .claude/skills/, .codex/skills/, .opencode/commands/, etc
+  pathPrefix: string; // .claude/skills/, .agents/skills/, .opencode/commands/, etc
   filenameSeparator: string; // . or -
   extraFrontmatter?: string; // e.g., "agent: build" for OpenCode
   usesName: boolean; // Claude uses "name:" in frontmatter
-  versionFilePath: string; // .claude/ARE-VERSION, .codex/ARE-VERSION, etc.
+  versionFilePath: string; // .claude/ARE-VERSION, .agents/ARE-VERSION, etc.
 }
 
 const CODEX_NPM_CACHE_PREFIX = 'NPM_CONFIG_CACHE=.agents-reverse-engineer/.npm-cache';
@@ -656,10 +656,10 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
   },
   codex: {
     commandPrefix: '/are-',
-    pathPrefix: '.codex/skills/',
+    pathPrefix: '.agents/skills/',
     filenameSeparator: '.',
     usesName: true,
-    versionFilePath: '.codex/ARE-VERSION',
+    versionFilePath: '.agents/ARE-VERSION',
   },
   opencode: {
     commandPrefix: '/are-',
@@ -756,7 +756,7 @@ function buildTemplate(
 
   // Platform-specific file naming:
   // - Claude: .claude/skills/are-{command}/SKILL.md
-  // - Codex: .codex/skills/are-{command}/SKILL.md
+  // - Codex: .agents/skills/are-{command}/SKILL.md
   // - OpenCode: .opencode/commands/are-{command}.md
   // - Gemini: .gemini/commands/are-{command}.toml (TOML format)
   if (platform === 'gemini') {

@@ -9,7 +9,7 @@
  * Supported AI coding assistant runtimes for installation
  *
  * - 'claude': Claude Code (~/.claude or .claude)
- * - 'codex': Codex (~/.codex or .codex)
+ * - 'codex': Codex (~/.agents or .agents)
  * - 'opencode': OpenCode (~/.config/opencode or .opencode)
  * - 'gemini': Gemini (~/.gemini or .gemini)
  * - 'all': Install to all supported runtimes
@@ -19,8 +19,8 @@ export type Runtime = 'claude' | 'codex' | 'opencode' | 'gemini' | 'all';
 /**
  * Installation location target
  *
- * - 'global': User-level installation (~/.claude, ~/.codex, ~/.config/opencode, etc.)
- * - 'local': Project-level installation (.claude, .codex, .opencode, etc.)
+ * - 'global': User-level installation (~/.claude, ~/.agents, ~/.config/opencode, etc.)
+ * - 'local': Project-level installation (.claude, .agents, .opencode, etc.)
  */
 export type Location = 'global' | 'local';
 
