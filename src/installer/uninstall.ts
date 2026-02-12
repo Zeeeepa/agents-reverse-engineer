@@ -65,6 +65,12 @@ const ARE_PLUGIN_FILENAMES = [
 ];
 
 /**
+ * Agent file created by OpenCode backend's ensureProjectConfig()
+ * (must match OPENCODE_AGENT_NAME in src/ai/backends/opencode.ts)
+ */
+const OPENCODE_AGENT_FILENAME = 'are-summarizer.md';
+
+/**
  * Permissions to remove during uninstall (must match operations.ts)
  */
 const ARE_PERMISSIONS = [
@@ -205,6 +211,21 @@ function uninstallFilesForRuntime(
         }
       }
     }
+
+    // Remove ARE agent file (created by OpenCode backend's ensureProjectConfig())
+    const agentPath = path.join(basePath, 'agents', OPENCODE_AGENT_FILENAME);
+    if (existsSync(agentPath)) {
+      if (!dryRun) {
+        try {
+          unlinkSync(agentPath);
+        } catch (err) {
+          errors.push(`Failed to delete agent ${agentPath}: ${err}`);
+        }
+      }
+      if (!errors.some((e) => e.includes(agentPath))) {
+        filesCreated.push(agentPath);
+      }
+    }
   }
 
   // Remove ARE-VERSION file if exists
@@ -248,6 +269,8 @@ function uninstallFilesForRuntime(
     } else if (runtime === 'opencode') {
       const pluginsDir = path.join(basePath, 'plugins');
       cleanupEmptyDirs(pluginsDir);
+      const agentsDir = path.join(basePath, 'agents');
+      cleanupEmptyDirs(agentsDir);
 
       // Clean up OpenCode plugin infrastructure files if no user content remains
       // (package.json, node_modules, bun.lock, .gitignore created by OpenCode's plugin system)
@@ -645,11 +668,12 @@ function cleanupLegacyGeminiFiles(commandsDir: string): void {
  * @param basePath - Path to the .opencode directory
  */
 function cleanupOpenCodeInfrastructure(basePath: string): void {
-  // Only clean up if no commands or plugins remain
+  // Only clean up if no commands, plugins, or agents remain
   const commandsDir = path.join(basePath, 'commands');
   const pluginsDir = path.join(basePath, 'plugins');
+  const agentsDir = path.join(basePath, 'agents');
 
-  if (dirHasContent(commandsDir) || dirHasContent(pluginsDir)) {
+  if (dirHasContent(commandsDir) || dirHasContent(pluginsDir) || dirHasContent(agentsDir)) {
     return;
   }
 
