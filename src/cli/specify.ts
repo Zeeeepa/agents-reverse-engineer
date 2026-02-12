@@ -47,7 +47,7 @@ export interface SpecifyOptions {
   trace?: boolean;
   /** Override AI model (defaults to "opus" for specify) */
   model?: string;
-  /** Override AI backend (e.g., "claude", "opencode", "gemini") */
+  /** Override AI backend (e.g., "claude", "codex", "opencode", "gemini") */
   backend?: string;
 }
 

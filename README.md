@@ -227,7 +227,7 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | Flag                | Description                                              | Applies to                          |
 | ------------------- | -------------------------------------------------------- | ----------------------------------- |
 | `--model <name>`    | AI model to use (e.g., sonnet, opus, haiku)              | generate, update, specify, rebuild  |
-| `--backend <name>`  | AI backend (claude, gemini, opencode, auto)              | generate, update, specify, rebuild  |
+| `--backend <name>`  | AI backend (claude, codex, gemini, opencode, auto)       | generate, update, specify, rebuild  |
 | `--concurrency <n>` | Number of concurrent AI calls (default: auto)            | generate, update, rebuild           |
 | `--dry-run`         | Show plan without writing files                          | generate, update, specify, rebuild, clean |
 | `--force`           | Overwrite existing files                                 | init, install, generate, specify, rebuild |
@@ -322,7 +322,7 @@ output:
 
 # AI service configuration
 ai:
-  backend: auto             # Backend: 'claude', 'gemini', 'opencode', 'auto'
+  backend: auto             # Backend: 'claude', 'codex', 'gemini', 'opencode', 'auto'
   model: sonnet             # Model identifier (backend-specific)
   timeoutMs: 300000         # Subprocess timeout in ms (5 minutes)
   maxRetries: 3             # Max retries for transient errors

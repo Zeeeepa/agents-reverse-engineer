@@ -152,7 +152,7 @@ export async function initCommand(root: string, options?: { force?: boolean }): 
       logger.info('  - exclude.patterns: Custom glob patterns to exclude');
       logger.info('  - ai.concurrency: Parallel AI calls (1-20, default: auto)');
       logger.info('  - ai.timeoutMs: Subprocess timeout (default: 300,000ms = 5 min)');
-      logger.info('  - ai.backend: AI backend (claude/gemini/opencode/auto)');
+      logger.info('  - ai.backend: AI backend (claude/codex/gemini/opencode/auto)');
       logger.info('');
       logger.info('See README.md for full configuration reference.');
     }

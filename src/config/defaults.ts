@@ -64,6 +64,7 @@ export const DEFAULT_VENDOR_DIRS = [
   '.agents',
   '.planning',
   '.claude',
+  '.codex',
   '.opencode',
   '.gemini',
 ] as const;

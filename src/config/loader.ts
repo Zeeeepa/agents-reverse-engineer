@@ -268,7 +268,7 @@ generation:
 # ============================================================================
 ai:
   # AI CLI backend to use
-  # Options: 'claude', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
+  # Options: 'claude', 'codex', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
   backend: auto
 
   # Model identifier (backend-specific)

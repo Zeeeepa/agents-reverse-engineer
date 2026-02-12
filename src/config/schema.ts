@@ -72,7 +72,7 @@ const GenerationSchema = z.object({
  */
 const AISchema = z.object({
   /** AI CLI backend to use ('auto' detects from PATH) */
-  backend: z.enum(['claude', 'gemini', 'opencode', 'auto']).default('auto'),
+  backend: z.enum(['claude', 'codex', 'gemini', 'opencode', 'auto']).default('auto'),
   /** Model identifier (backend-specific, e.g., "sonnet", "opus") */
   model: z.string().default('sonnet'),
   /** Default subprocess timeout in milliseconds */

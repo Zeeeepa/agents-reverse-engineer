@@ -46,7 +46,7 @@ export interface GenerateOptions {
   trace?: boolean;
   /** Override AI model (e.g., "sonnet", "opus") */
   model?: string;
-  /** Override AI backend (e.g., "claude", "opencode", "gemini") */
+  /** Override AI backend (e.g., "claude", "codex", "opencode", "gemini") */
   backend?: string;
 }
 
