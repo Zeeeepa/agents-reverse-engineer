@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-02-12
+
+### Added
+- **Process-tree runtime detection for `auto` backend** — New `detectCallingRuntime()` function in `src/ai/registry.ts` walks Linux `/proc` process tree (up to 10 ancestors) to identify which AI runtime (claude, opencode, gemini) invoked ARE. When backend is `auto`, the calling runtime is now preferred over PATH-based detection, improving accuracy in multi-runtime environments
+- **Slash command files for all runtimes** — Added ARE skill files (`.claude/skills/are-*/SKILL.md`), Gemini CLI commands (`.gemini/commands/are-*.toml`), and OpenCode commands (`.opencode/commands/are-*.md`) covering init, discover, generate, update, specify, clean, rebuild, and help. Added `ARE-VERSION` tracking files for all three runtimes
+
+### Removed
+- **Project plan context from file analysis prompts** — Removed `projectPlan` parameter from prompt building pipeline (`builder.ts`, `templates.ts`, `types.ts`, `orchestrator.ts`), simplifying prompt construction without affecting output quality
+
 ## [0.8.3] - 2026-02-12
 
 ### Changed
@@ -715,7 +724,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.3...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.4...HEAD
+[0.8.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.0...v0.8.1
