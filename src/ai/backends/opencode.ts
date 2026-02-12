@@ -182,7 +182,7 @@ const OPENCODE_AGENT_NAME = 'are-summarizer';
  */
 const OPENCODE_AGENT_CONTENT = `---
 description: "ARE documentation summarizer — single-turn, no tools, raw markdown output"
-steps: 3
+steps: 5
 tools:
   "*": false
 ---
@@ -282,8 +282,8 @@ export class OpenCodeBackend implements AIBackend {
    * Ensure the ARE agent config exists in the target project.
    *
    * Creates `.opencode/agents/are-summarizer.md` with tool restrictions
-   * (`"*": false`) and step limit (`steps: 1`) so OpenCode runs in
-   * single-turn, non-agentic mode when invoked by ARE.
+   * (`"*": false`) and step limit (`steps: 5`) so OpenCode runs in
+   * a constrained, non-agentic mode when invoked by ARE.
    *
    * Always overwrites — the file is an ARE-owned artifact whose content
    * may evolve across versions.
@@ -331,15 +331,23 @@ export class OpenCodeBackend implements AIBackend {
       );
     }
 
-    // Detect OpenCode step-limit meta-commentary instead of actual content.
-    // When the agent hits its step limit, the model produces an explanation
-    // like "MAXIMUM STEPS REACHED" rather than the requested document.
+    // Handle OpenCode step-limit marker.
+    // When the agent hits its step limit, OpenCode appends "MAXIMUM STEPS
+    // REACHED" to the output. If the model already produced substantial
+    // content before hitting the limit, strip the marker and use the content.
+    // Only reject if stripping leaves nothing useful (< 100 chars).
     if (parsed.text.includes('MAXIMUM STEPS REACHED')) {
-      throw new AIServiceError(
-        'PARSE_ERROR',
-        `OpenCode hit agent step limit — response is meta-commentary, not content. ` +
-        `Response (first 200 chars): ${parsed.text.slice(0, 200)}`,
-      );
+      const cleaned = parsed.text
+        .replace(/\n*MAXIMUM STEPS REACHED\n*/g, '')
+        .trim();
+      if (cleaned.length < 100) {
+        throw new AIServiceError(
+          'PARSE_ERROR',
+          `OpenCode hit agent step limit — response is meta-commentary, not content. ` +
+          `Response (first 200 chars): ${parsed.text.slice(0, 200)}`,
+        );
+      }
+      parsed.text = cleaned;
     }
 
     // Calculate cost if OpenCode didn't provide it
