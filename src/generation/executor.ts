@@ -122,13 +122,25 @@ export function buildExecutionPlan(
     return depthB - depthA;
   });
 
+  // Collect directories that need processing (from filtered plan tasks)
+  const plannedDirs = new Set<string>();
+  for (const task of plan.tasks) {
+    if (task.type === 'directory') {
+      plannedDirs.add(task.filePath);
+    }
+  }
+
   // Create directory tasks in post-order (deepest first)
   // Sort directories by depth descending so children are processed before parents
+  // Only include directories that are in the filtered plan (not skipped)
   const sortedDirs = Object.entries(directoryFileMap).sort(
     ([dirA], [dirB]) => getDirectoryDepth(dirB) - getDirectoryDepth(dirA)
   );
 
   for (const [dir, files] of sortedDirs) {
+    // Skip directories not in the filtered plan (already have up-to-date AGENTS.md)
+    if (plannedDirs.size > 0 && !plannedDirs.has(dir)) continue;
+
     const dirAbsPath = path.join(projectRoot, dir);
     const fileTaskIds = files.map(f => `file:${f}`);
 
