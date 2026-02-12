@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **All session hooks and plugins** — Disabled hook/plugin installation for all runtimes (Claude Code, Gemini CLI, OpenCode) due to reliability issues. `ARE_HOOKS` and `ARE_PLUGINS` arrays now empty. Users should manually run `/are-update` when needed
+
 ## [0.8.2] - 2026-02-12
 
 ### Added

@@ -316,7 +316,8 @@ interface PluginDefinition {
 }
 
 const ARE_PLUGINS: PluginDefinition[] = [
-  { srcFilename: 'opencode-are-check-update.js', destFilename: 'are-check-update.js' },
+  // Disabled - causing issues in OpenCode
+  // { srcFilename: 'opencode-are-check-update.js', destFilename: 'are-check-update.js' },
 ];
 
 /**

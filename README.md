@@ -81,7 +81,6 @@ The interactive installer prompts you to:
 This installs:
 
 - **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`
-- **Session hook** — Auto-updates docs when session ends (Claude/Gemini)
 
 ### 2. Initialize Configuration
 
@@ -122,7 +121,6 @@ npx agents-reverse-engineer@latest uninstall
 
 Removes:
 - Command files (`/are-*` commands)
-- Session hooks (Claude/Gemini)
 - ARE permissions from settings.json
 - `.agents-reverse-engineer` folder (local installs only)
 
@@ -336,8 +334,8 @@ ai:
 
 - **Node.js 18+**
 - **AI Coding Assistant** — One of:
-  - [Claude Code](https://claude.ai/claude-code) (full support + session hooks)
-  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) (full support + session hooks)
+  - [Claude Code](https://claude.ai/claude-code) (full support)
+  - [Gemini CLI](https://github.com/google-gemini/gemini-cli) (full support)
   - [OpenCode](https://github.com/opencode-ai/opencode) (AGENTS.md supported)
   - Any assistant supporting `AGENTS.md` format
 
