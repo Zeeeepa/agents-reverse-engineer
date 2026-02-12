@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-02-12
+
+### Added
+- **OpenCode agent configuration for single-turn mode** — New `are-summarizer` agent config (`.opencode/agents/are-summarizer.md`) with tool restrictions (`"*": false`) and step limit (`steps: 1`), ensuring OpenCode runs in non-agentic mode when invoked by ARE. System prompts delivered via `<system-instructions>` XML tags in stdin through new `composeStdinInput()` method, working around OpenCode's lack of `--system-prompt` flag
+- **ARE context loader hook** — New `hooks/are-context-loader.js` PostToolUse hook that fires after Read tool calls. When a read file's directory contains an ARE-generated AGENTS.md, it outputs the content as `additionalContext` for Claude, providing automatic per-directory context injection with session-level deduplication
+- **`--debug` flag for `discover` command** — Discover command now accepts `--debug` for diagnostic output during file discovery
+
+### Changed
+- **Command syntax simplified to `npx are`** — All slash command skill files (Claude, Gemini, OpenCode), installer templates, and uninstall logic updated from `npx agents-reverse-engineer@latest` to the shorter `npx are` alias
+- **`--backend` option shown in CLI help** — Added `--backend <name>` (claude, gemini, opencode, auto) to the general options section in CLI help text
+
 ## [0.8.6] - 2026-02-12
 
 ### Added
@@ -745,7 +756,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.6...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.7...HEAD
+[0.8.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.3...v0.8.4
