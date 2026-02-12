@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.13] - 2026-02-12
+
+### Added
+- **Directory processing metrics in summary reporting** — `generate` and `update` commands now display dirs processed, dirs failed, and dirs skipped counts alongside existing file metrics in the run summary. New `dirsProcessed`, `dirsFailed`, and `dirsSkipped` fields added to `RunSummary` interface
+
+### Changed
+- **Update command prints combined summary after directory regeneration** — Summary reporting in `update` deferred until after AGENTS.md regeneration completes, so the printed summary includes accurate directory counts and total duration covering both file analysis and directory phases
+- **`ProgressReporter` uses `totalDurationMs` from `RunSummary`** — Elapsed time in summary output now comes from the caller-provided `totalDurationMs` field instead of an internal `startTime` timer, ensuring accurate duration measurement across multi-phase pipelines
+
+### Removed
+- **Deprecated findability validation module** — Removed `src/quality/density/` directory (`validateFindability()` stub, `FindabilityResult` type, and generated AGENTS.md/CLAUDE.md files) and its re-exports from `src/quality/index.ts`
+- **Unused generation types** — Removed `AnalysisResult` and `SummaryOptions` interfaces from `src/generation/types.ts` (unused since v0.5.4 metadata simplification)
+- **`ora` spinner dependency** — Removed `ora@8.1.1` from package.json dependencies (terminal spinner no longer used)
+
 ## [0.8.12] - 2026-02-12
 
 ### Changed
@@ -795,7 +809,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.12...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.13...HEAD
+[0.8.13]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.12...v0.8.13
 [0.8.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.11...v0.8.12
 [0.8.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.10...v0.8.11
 [0.8.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.9...v0.8.10
