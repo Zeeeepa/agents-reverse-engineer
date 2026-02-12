@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-02-12
+
+### Added
+- **Subprocess environment overrides for AI backends** — `runSubprocess()` now accepts optional per-call env overrides, and `SubprocessProvider` can pass backend-specific variables into spawned CLI processes
+- **Automatic local `CODEX_HOME` fallback for Codex backend** — when running with backend `codex`, ARE now auto-uses project-local `.codex` as `CODEX_HOME` if present and no explicit `CODEX_HOME` is set
+
+### Changed
+- **Project config now defaults to Codex backend** — `.agents-reverse-engineer/config.yaml` now sets `ai.backend: codex` instead of `auto` for this repository
+
+### Fixed
+- **Directory task filtering in execution planning** — `buildExecutionPlan()` now always skips directories not present in `plannedDirs`, preventing unintended directory-phase work when no directory tasks are planned
+
 ## [0.9.2] - 2026-02-12
 
 ### Added
@@ -839,7 +851,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.13...v0.9.0
