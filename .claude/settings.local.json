@@ -83,7 +83,10 @@
       "Bash(./analyze-sum-ratios.sh:*)",
       "Bash(./analyze-agents-compression.sh:*)",
       "Bash(git fetch:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(opencode --help:*)",
+      "Bash(opencode run --help:*)",
+      "Bash(test:*)"
     ]
   }
 }
