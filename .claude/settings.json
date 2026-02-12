@@ -1,27 +1,10 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/are-check-update.js"
-          }
-        ]
-      }
-    ]
-  },
   "statusLine": {
     "type": "command",
     "command": "node .claude/hooks/gsd-statusline.js"
   },
   "permissions": {
     "allow": [
-      "Bash(npx agents-reverse-engineer@latest init*)",
-      "Bash(npx agents-reverse-engineer@latest discover*)",
-      "Bash(npx agents-reverse-engineer@latest generate*)",
-      "Bash(npx agents-reverse-engineer@latest update*)",
-      "Bash(npx agents-reverse-engineer@latest clean*)",
       "Bash(rm -f .agents-reverse-engineer/progress.log*)",
       "Bash(sleep *)"
     ]
