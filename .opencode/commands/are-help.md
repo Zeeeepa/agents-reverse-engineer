@@ -47,15 +47,17 @@ Shows included files, excluded files with reasons, and generates a `GENERATION-P
 | Flag | Description |
 |------|-------------|
 | `[path]` | Target directory (default: current directory) |
+| `--show-excluded` | Show excluded files in output |
 | `--debug` | Show verbose debug output |
-| `--trace` | Enable concurrency tracing to `.agents-reverse-engineer/traces/` |
 **Usage:**
 - `/are-discover` — Discover files and generate execution plan
+- `/are-discover --show-excluded` — Include excluded files in output
 
 **CLI:**
 ```bash
 npx are discover
 npx are discover ./src
+npx are discover --show-excluded
 ```
 
 ---
@@ -68,6 +70,9 @@ Generate comprehensive documentation for the codebase.
 |------|-------------|
 | `[path]` | Target directory (default: current directory) |
 | `--concurrency N` | Number of concurrent AI calls (default: auto) |
+| `--model <name>` | AI model to use (e.g., sonnet, opus, haiku) |
+| `--backend <name>` | AI backend to use (claude, gemini, opencode, auto) |
+| `--force` | Overwrite existing documentation |
 | `--dry-run` | Show what would be generated without writing |
 | `--fail-fast` | Stop on first file analysis failure |
 | `--debug` | Show AI prompts and backend details |
@@ -76,12 +81,14 @@ Generate comprehensive documentation for the codebase.
 - `/are-generate` — Generate docs
 - `/are-generate --dry-run` — Preview without writing
 - `/are-generate --concurrency 3` — Limit parallel AI calls
+- `/are-generate --model opus` — Use a specific model
 
 **CLI:**
 ```bash
 npx are generate
 npx are generate --dry-run
 npx are generate ./my-project --concurrency 3
+npx are generate --model opus --backend claude
 npx are generate --debug --trace
 ```
 
@@ -101,6 +108,8 @@ Incrementally update documentation for changed files.
 | `--uncommitted` | Include staged but uncommitted changes |
 | `--dry-run` | Show what would be updated without writing |
 | `--concurrency N` | Number of concurrent AI calls (default: auto) |
+| `--model <name>` | AI model to use (e.g., sonnet, opus, haiku) |
+| `--backend <name>` | AI backend to use (claude, gemini, opencode, auto) |
 | `--fail-fast` | Stop on first file analysis failure |
 | `--debug` | Show AI prompts and backend details |
 | `--trace` | Enable concurrency tracing to `.agents-reverse-engineer/traces/` |
@@ -114,6 +123,7 @@ npx are update
 npx are update --uncommitted
 npx are update --dry-run
 npx are update ./my-project --concurrency 3
+npx are update --model opus --backend claude
 ```
 
 ---
@@ -129,6 +139,8 @@ Collects all AGENTS.md files, synthesizes them via AI, and writes a comprehensiv
 | `[path]` | Target directory (default: current directory) |
 | `--output <path>` | Custom output path (default: specs/SPEC.md) |
 | `--multi-file` | Split specification into multiple files |
+| `--model <name>` | AI model to use (e.g., sonnet, opus, haiku) |
+| `--backend <name>` | AI backend to use (claude, gemini, opencode, auto) |
 | `--force` | Overwrite existing specification |
 | `--dry-run` | Show input statistics without making AI calls |
 | `--debug` | Show AI prompts and backend details |
@@ -144,6 +156,7 @@ npx are specify
 npx are specify --dry-run
 npx are specify --output ./docs/spec.md --force
 npx are specify --multi-file
+npx are specify --model opus --backend claude
 ```
 
 ---
@@ -158,9 +171,11 @@ Reads spec files from `specs/`, partitions them into ordered rebuild units, proc
 |------|-------------|
 | `[path]` | Target directory (default: current directory) |
 | `--output <path>` | Output directory (default: rebuild/) |
+| `--concurrency N` | Number of concurrent AI calls (default: auto) |
+| `--model <name>` | AI model to use (e.g., sonnet, opus, haiku) |
+| `--backend <name>` | AI backend to use (claude, gemini, opencode, auto) |
 | `--force` | Wipe output directory and start fresh |
 | `--dry-run` | Show rebuild plan without making AI calls |
-| `--concurrency N` | Number of concurrent AI calls (default: auto) |
 | `--fail-fast` | Stop on first failure |
 | `--debug` | Show AI prompts and backend details |
 | `--trace` | Enable concurrency tracing to `.agents-reverse-engineer/traces/` |

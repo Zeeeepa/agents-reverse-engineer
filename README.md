@@ -211,15 +211,31 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `are install`                   | Install with prompts             |
 | `are install --runtime <rt> -g` | Install to runtime globally      |
 | `are install --runtime <rt> -l` | Install to runtime locally       |
-| `are install -u`                | Uninstall (remove files/hooks)   |
+| `are uninstall`                 | Uninstall (remove files/hooks)   |
 | `are init`                      | Create configuration file        |
 | `are discover`                  | Scan files and create GENERATION-PLAN.md |
 | `are generate`                  | Generate all documentation       |
 | `are update`                    | Update changed files only        |
 | `are specify`                   | Generate project specification   |
+| `are rebuild`                   | Reconstruct project from specs   |
 | `are clean`                     | Remove all generated docs        |
 
 **Runtimes:** `claude`, `opencode`, `gemini`, `all`
+
+### General CLI Options
+
+| Flag                | Description                                              | Applies to                          |
+| ------------------- | -------------------------------------------------------- | ----------------------------------- |
+| `--model <name>`    | AI model to use (e.g., sonnet, opus, haiku)              | generate, update, specify, rebuild  |
+| `--backend <name>`  | AI backend (claude, gemini, opencode, auto)              | generate, update, specify, rebuild  |
+| `--concurrency <n>` | Number of concurrent AI calls (default: auto)            | generate, update, rebuild           |
+| `--dry-run`         | Show plan without writing files                          | generate, update, specify, rebuild, clean |
+| `--force`           | Overwrite existing files                                 | init, install, generate, specify, rebuild |
+| `--fail-fast`       | Stop on first file analysis failure                      | generate, update, rebuild           |
+| `--show-excluded`   | Show excluded files during discovery                     | discover                            |
+| `--uncommitted`     | Include uncommitted changes                              | update                              |
+| `--debug`           | Show AI prompts and backend details                      | discover, generate, update, specify, rebuild |
+| `--trace`           | Enable concurrency tracing (.agents-reverse-engineer/traces/) | generate, update, specify, rebuild |
 
 ### AI Assistant Commands
 
@@ -230,6 +246,7 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `/are-generate` | Generate all documentation     | Claude, OpenCode, Gemini |
 | `/are-update`   | Update changed files only      | Claude, OpenCode, Gemini |
 | `/are-specify`  | Generate project specification | Claude, OpenCode, Gemini |
+| `/are-rebuild`  | Reconstruct project from specs | Claude, OpenCode, Gemini |
 | `/are-clean`    | Remove all generated docs      | Claude, OpenCode, Gemini |
 
 ---
