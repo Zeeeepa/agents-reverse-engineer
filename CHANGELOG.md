@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-02-12
+
 ### Added
 - **Codex runtime support in installer** — `install`/`uninstall` now accept `--runtime codex`, interactive runtime selection now includes Codex, and `--runtime all` includes Codex in runtime iteration
 - **Codex installer templates and paths** — Added Codex command template generation under `.codex/skills/are-*/SKILL.md` with `--backend codex` wiring, global/local path resolution via `CODEX_HOME` or `~/.codex`, and `.codex/ARE-VERSION` marker support
+- **Repository-local `bump` skill for release automation** — Added `.codex/skills/bump/SKILL.md` with a step-by-step workflow for semver validation, commit-derived changelog extraction, tagging, pushing, and GitHub release creation
 
 ## [0.9.0] - 2026-02-12
 
@@ -823,7 +826,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.13...v0.9.0
 [0.8.13]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.12...v0.8.13
 [0.8.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.8.11...v0.8.12
