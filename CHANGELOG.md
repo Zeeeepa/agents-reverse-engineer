@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-02-12
+
+### Added
+- **Repository-local `bump` skill under `.agents`** — Added `.agents/skills/bump/SKILL.md` to automate version validation, changelog extraction from commits, tagging, and GitHub release creation directly in the Codex `.agents` skill layout
+
+### Changed
+- **Removed forced npm cache overrides from update-check hooks** — `hooks/are-check-update.js` and `hooks/opencode-are-check-update.js` no longer inject `npm_config_cache` into detached update-check subprocesses
+- **Codex templates no longer prepend `NPM_CONFIG_CACHE`** — `src/integration/templates.ts` now emits plain `npx are` / `npx agents-reverse-engineer` commands for Codex skills instead of forcing `.agents-reverse-engineer/.npm-cache`
+- **Codex backend no longer hardcodes read-only sandbox flag** — `src/ai/backends/codex.ts` removed the forced `--sandbox read-only` argument so sandbox behavior follows Codex CLI defaults/configuration
+
 ## [0.9.4] - 2026-02-12
 
 ### Changed
@@ -859,7 +869,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.1...v0.9.2
