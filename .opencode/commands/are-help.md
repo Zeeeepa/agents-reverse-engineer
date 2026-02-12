@@ -1,6 +1,6 @@
 ---
 description: Show available ARE commands and usage guide
-agent: build
+agent: are-help
 ---
 
 <objective>

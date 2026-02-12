@@ -1,6 +1,6 @@
 ---
 description: Discover files in codebase
-agent: build
+agent: are-discover
 ---
 
 List files that would be analyzed for documentation.

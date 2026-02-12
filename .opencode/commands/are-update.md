@@ -1,6 +1,6 @@
 ---
 description: Incrementally update documentation for changed files
-agent: build
+agent: are-update
 ---
 
 Update documentation for files that changed since last run.

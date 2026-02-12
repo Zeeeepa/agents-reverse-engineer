@@ -1,6 +1,6 @@
 ---
 description: Reconstruct project from specification documents
-agent: build
+agent: are-rebuild
 ---
 
 Reconstruct a project from specification documents using agents-reverse-engineer.
