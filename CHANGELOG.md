@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-02-13
+
+### Added
+- **Project-local npm cache configuration for npx reliability** — Added root `.npmrc` with `cache=.agents-reverse-engineer/.npm-cache` and updated `.gitignore` to exclude `.agents-reverse-engineer/.npm-cache/`, preventing failures caused by broken or permission-denied global `~/.npm` caches.
+
+### Changed
+- **Repository Codex model default updated** — Updated `.agents-reverse-engineer/config.yaml` to use `ai.model: gpt-5-nano` instead of `gpt-4o` for Codex runs in this project.
+
+### Fixed
+- **Codex response parsing no longer leaks reasoning content** — `src/ai/backends/codex.ts` now extracts output from `item.completed` entries where `item.type === "agent_message"` and ignores `reasoning` items, preventing thinking text from being written into generated `.sum`/`AGENTS.md` files.
+- **Codex token usage is now captured from CLI events** — `src/ai/backends/codex.ts` now reads `turn.completed.usage` fields (`input_tokens`, `cached_input_tokens`, `output_tokens`) and reports normalized input/output/cache token counts instead of always logging zeros.
+
 ## [0.9.7] - 2026-02-13
 
 ### Changed
@@ -884,7 +896,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.7...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.8...HEAD
+[0.9.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.4...v0.9.5
