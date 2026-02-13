@@ -81,6 +81,7 @@ The interactive installer prompts you to:
 This installs:
 
 - **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`
+- **Codex context rules** — local install writes `./AGENTS.override.md`; global install writes `~/.codex/AGENTS.override.md` with lazy AGENTS hierarchy loading guidance
 
 ### 2. Initialize Configuration
 
