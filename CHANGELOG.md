@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-02-13
+
+### Added
+- **Codex context-rule installation for AGENTS hierarchy loading** — `install --runtime codex` now writes a managed `AGENTS.override.md` rule file in both scopes: local installs create `./AGENTS.override.md` and global installs create `~/.codex/AGENTS.override.md`, so assistants load nearest `AGENTS.override.md`/`AGENTS.md` plus parent directories while working in a repo.
+
+### Changed
+- **Safe overwrite behavior for context rules** — `--force` now overwrites `AGENTS.override.md` only when the file contains ARE's managed marker, preventing accidental replacement of user-authored override files.
+- **Codex uninstall now cleans up managed context rules** — `uninstall --runtime codex` now removes installer-managed `AGENTS.override.md` files (local and global) in addition to deleting `.codex/rules/are.rules`.
+- **Discovery defaults now ignore context-rule files** — `AGENTS.override.md` and `**/AGENTS.override.md` are now excluded by default in `DEFAULT_EXCLUDE_PATTERNS` so installer-managed rules are not analyzed as source docs.
+
 ## [0.9.8] - 2026-02-13
 
 ### Added
@@ -896,7 +906,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.8...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.9...HEAD
+[0.9.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.8...v0.9.9
 [0.9.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.5...v0.9.6
