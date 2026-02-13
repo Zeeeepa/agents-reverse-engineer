@@ -109,6 +109,24 @@ export function resolveInstallPath(
 }
 
 /**
+ * Resolve Codex CLI config directory for global/local scope.
+ *
+ * Codex command rules live under `<config>/rules/*.rules`.
+ * This is separate from ARE skill install paths (`.agents` / `~/.agents`).
+ */
+export function resolveCodexConfigPath(
+  location: Location,
+  projectRoot?: string,
+): string {
+  if (location === 'global') {
+    return path.join(os.homedir(), '.codex');
+  }
+
+  const root = projectRoot || process.cwd();
+  return path.join(root, '.codex');
+}
+
+/**
  * Get the settings file path for a runtime
  *
  * Settings files are used for hook registration (Claude Code uses settings.json).

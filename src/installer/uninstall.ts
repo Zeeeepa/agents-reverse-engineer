@@ -9,7 +9,7 @@ import { existsSync, unlinkSync, readFileSync, writeFileSync, readdirSync, rmdir
 import * as path from 'node:path';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 import type { Runtime, Location, InstallerResult } from './types.js';
-import { resolveInstallPath, getAllRuntimes, getRuntimePaths } from './paths.js';
+import { resolveInstallPath, getAllRuntimes, resolveCodexConfigPath } from './paths.js';
 import {
   getClaudeTemplates,
   getCodexTemplates,
@@ -85,6 +85,14 @@ const ARE_PERMISSIONS = [
   'Bash(rm -f .agents-reverse-engineer/progress.log*)',
   'Bash(sleep *)',
 ];
+
+const CODEX_RULES_FILENAME = 'are.rules';
+
+function getCodexRulesFilePath(location: Location, basePath: string): string {
+  const projectRoot = location === 'local' ? path.dirname(basePath) : undefined;
+  const codexConfigDir = resolveCodexConfigPath(location, projectRoot);
+  return path.join(codexConfigDir, 'rules', CODEX_RULES_FILENAME);
+}
 
 /**
  * Get templates for a specific runtime
@@ -198,6 +206,21 @@ function uninstallFilesForRuntime(
     if (runtime === 'claude') {
       unregisterPermissions(basePath, dryRun);
     }
+  } else if (runtime === 'codex') {
+    // Remove Codex rules file installed by ARE.
+    const rulesPath = getCodexRulesFilePath(location, basePath);
+    if (existsSync(rulesPath)) {
+      if (!dryRun) {
+        try {
+          unlinkSync(rulesPath);
+        } catch (err) {
+          errors.push(`Failed to delete Codex rules ${rulesPath}: ${err}`);
+        }
+      }
+      if (!errors.some((e) => e.includes(rulesPath))) {
+        filesCreated.push(rulesPath);
+      }
+    }
   } else if (runtime === 'opencode') {
     // Remove all ARE plugin files
     for (const pluginFilename of ARE_PLUGIN_FILENAMES) {
@@ -255,6 +278,12 @@ function uninstallFilesForRuntime(
       const skillsDir = path.join(basePath, 'skills');
       cleanupAreSkillDirs(skillsDir);
       cleanupEmptyDirs(skillsDir);
+
+      if (runtime === 'codex') {
+        // Clean up empty .codex/rules tree if ARE installed it.
+        const codexRulesDir = path.dirname(getCodexRulesFilePath(location, basePath));
+        cleanupEmptyDirs(codexRulesDir);
+      }
     } else if (runtime === 'gemini') {
       // Gemini uses flat commands/ directory for TOML files
       const commandsDir = path.join(basePath, 'commands');
