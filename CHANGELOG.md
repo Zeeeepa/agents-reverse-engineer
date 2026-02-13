@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-02-13
+
+### Added
+- **Codex install-time command exceptions via rules file** - `install --runtime codex` now creates `.codex/rules/are.rules` (or `~/.codex/rules/are.rules` for global installs) with `prefix_rule` entries for `npx are` commands and progress-log polling helpers (`rm -f .agents-reverse-engineer/progress.log`, `sleep`)
+
+### Changed
+- **Codex uninstall now removes installer-managed rules** - `uninstall --runtime codex` deletes the generated `are.rules` file and cleans empty `.codex/rules` directories
+- **Installer path resolution now models Codex config root explicitly** - added `resolveCodexConfigPath()` to separate Codex CLI config location (`.codex`/`~/.codex`) from ARE skill installation paths (`.agents`/`~/.agents`)
+
 ## [0.9.5] - 2026-02-12
 
 ### Added
@@ -869,7 +878,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.2...v0.9.3
