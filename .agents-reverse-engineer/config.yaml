@@ -139,8 +139,8 @@ ai:
 
   # Model identifier (backend-specific)
   # "sonnet", "opus", "haiku" (for Claude)
-  # "gpt-4o" (for OpenCode)
-  model: gpt-4o
+  # "gpt-5-nano" (smallest tested Codex model in this environment)
+  model: gpt-5-nano
 
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)
