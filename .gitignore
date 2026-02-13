@@ -26,10 +26,10 @@ npm-debug.log*
 
 # agents-reverse-engineer
 *.sum
+.agents-reverse-engineer/.npm-cache/
 specs/
 rebuild/
 !src/rebuild/
 
 # tmp
 tmp/
-

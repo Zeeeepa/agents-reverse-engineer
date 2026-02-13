@@ -12,6 +12,13 @@ import type { AIBackend, AICallOptions, AIResponse } from '../types.js';
 import { AIServiceError } from '../types.js';
 import { isCommandOnPath } from './claude.js';
 
+interface CodexUsageTotals {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+}
+
 /**
  * Wrap system instructions for CLIs that do not expose a dedicated
  * system-prompt flag.
@@ -23,27 +30,49 @@ function composePromptWithSystem(options: AICallOptions): string {
   return options.prompt;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return null;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 /**
  * Recursively collect textual payloads from parsed JSON events.
  *
  * Codex JSONL can evolve across versions, so extraction intentionally
  * accepts multiple shapes (e.g., `text`, nested arrays, output content).
  */
-function collectText(value: unknown, out: string[]): void {
+function collectText(
+  value: unknown,
+  out: string[],
+  shouldSkipObject?: (obj: Record<string, unknown>) => boolean,
+): void {
   if (typeof value === 'string') {
     return;
   }
   if (Array.isArray(value)) {
     for (const item of value) {
-      collectText(item, out);
+      collectText(item, out, shouldSkipObject);
     }
     return;
   }
-  if (value === null || typeof value !== 'object') {
+  const obj = asRecord(value);
+  if (!obj) {
     return;
   }
 
-  const obj = value as Record<string, unknown>;
+  if (shouldSkipObject?.(obj)) {
+    return;
+  }
 
   // Common payload key used by responses/events.
   if (typeof obj.text === 'string' && obj.text.trim().length > 0) {
@@ -51,8 +80,96 @@ function collectText(value: unknown, out: string[]): void {
   }
 
   for (const nested of Object.values(obj)) {
-    collectText(nested, out);
+    collectText(nested, out, shouldSkipObject);
   }
+}
+
+function shouldSkipTextObject(obj: Record<string, unknown>): boolean {
+  const type = asString(obj.type) ?? '';
+  if (type === 'reasoning' || type.endsWith('.reasoning')) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Extract assistant-facing text from Codex `item.completed` payloads.
+ *
+ * Keeps assistant output (`agent_message`) and drops model reasoning.
+ */
+function extractAssistantTextFromItem(item: unknown): string[] {
+  const itemObj = asRecord(item);
+  if (!itemObj) {
+    return [];
+  }
+
+  const itemType = asString(itemObj.type) ?? '';
+  if (itemType !== 'agent_message') {
+    return [];
+  }
+
+  const textParts: string[] = [];
+
+  const directText = asString(itemObj.text);
+  if (directText && directText.trim().length > 0) {
+    textParts.push(directText.trim());
+  }
+
+  const content = itemObj.content;
+  if (Array.isArray(content)) {
+    for (const part of content) {
+      const partObj = asRecord(part);
+      if (!partObj) continue;
+      const partType = asString(partObj.type) ?? '';
+      const partText = asString(partObj.text);
+      if ((partType === 'text' || partType === 'output_text') && partText && partText.trim().length > 0) {
+        textParts.push(partText.trim());
+      }
+    }
+  }
+
+  return textParts;
+}
+
+/**
+ * Extract token usage from Codex `turn.completed` events.
+ */
+function extractUsageFromTurnCompleted(usage: unknown): CodexUsageTotals {
+  const usageObj = asRecord(usage);
+  if (!usageObj) {
+    return {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    };
+  }
+
+  const rawInput = asNumber(usageObj.input_tokens)
+    ?? asNumber(usageObj.inputTokens)
+    ?? 0;
+  const cacheRead = asNumber(usageObj.cached_input_tokens)
+    ?? asNumber(usageObj.cache_read_input_tokens)
+    ?? asNumber(usageObj.cacheReadInputTokens)
+    ?? 0;
+  const cacheCreation = asNumber(usageObj.cache_creation_input_tokens)
+    ?? asNumber(usageObj.cacheCreationInputTokens)
+    ?? 0;
+  const output = asNumber(usageObj.output_tokens)
+    ?? asNumber(usageObj.outputTokens)
+    ?? 0;
+
+  // Preserve ARE's token semantics:
+  // - inputTokens: non-cached input
+  // - cacheReadTokens/cacheCreationTokens: cached components
+  const nonCachedInput = rawInput >= cacheRead ? rawInput - cacheRead : rawInput;
+
+  return {
+    inputTokens: nonCachedInput,
+    outputTokens: output,
+    cacheReadTokens: cacheRead,
+    cacheCreationTokens: cacheCreation,
+  };
 }
 
 /**
@@ -122,6 +239,13 @@ export class CodexBackend implements AIBackend {
 
     let parsedJsonLines = 0;
     const textParts: string[] = [];
+    const parsedEvents: Record<string, unknown>[] = [];
+    const usageTotals: CodexUsageTotals = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    };
     let model = 'unknown';
 
     for (const line of lines) {
@@ -136,41 +260,90 @@ export class CodexBackend implements AIBackend {
         continue;
       }
 
-      parsedJsonLines++;
-
-      const obj = json as Record<string, unknown>;
-      const type = typeof obj.type === 'string' ? obj.type : '';
-      if (
-        type === 'error' ||
-        type === 'thread.started' ||
-        type === 'turn.started' ||
-        type.endsWith('.error') ||
-        type.endsWith('.failed')
-      ) {
-        continue;
+      const events: Record<string, unknown>[] = [];
+      if (Array.isArray(json)) {
+        for (const item of json) {
+          const obj = asRecord(item);
+          if (obj) events.push(obj);
+        }
+      } else {
+        const obj = asRecord(json);
+        if (obj) events.push(obj);
       }
 
-      if (typeof obj.model === 'string' && obj.model.length > 0) {
-        model = obj.model;
-      }
+      for (const obj of events) {
+        parsedJsonLines++;
+        parsedEvents.push(obj);
 
-      collectText(json, textParts);
+        const type = asString(obj.type) ?? '';
+        if (
+          type === 'error' ||
+          type === 'thread.started' ||
+          type === 'turn.started' ||
+          type.endsWith('.error') ||
+          type.endsWith('.failed')
+        ) {
+          continue;
+        }
+
+        const directModel = asString(obj.model);
+        if (directModel && directModel.length > 0) {
+          model = directModel;
+        }
+
+        // Preferred path: Codex JSON stream emits assistant output as item.completed.
+        if (type === 'item.completed') {
+          textParts.push(...extractAssistantTextFromItem(obj.item));
+          continue;
+        }
+
+        if (type === 'turn.completed') {
+          const usage = extractUsageFromTurnCompleted(obj.usage);
+          usageTotals.inputTokens += usage.inputTokens;
+          usageTotals.outputTokens += usage.outputTokens;
+          usageTotals.cacheReadTokens += usage.cacheReadTokens;
+          usageTotals.cacheCreationTokens += usage.cacheCreationTokens;
+          continue;
+        }
+      }
     }
 
-    // Preferred path: JSONL with extracted textual payloads.
+    // Preferred path: assistant message items only (no reasoning leakage).
     const extracted = uniq(textParts).join('\n').trim();
-    if (parsedJsonLines > 0 && extracted.length > 0) {
+    if (extracted.length > 0) {
       return {
         text: extracted,
         model,
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadTokens: 0,
-        cacheCreationTokens: 0,
+        inputTokens: usageTotals.inputTokens,
+        outputTokens: usageTotals.outputTokens,
+        cacheReadTokens: usageTotals.cacheReadTokens,
+        cacheCreationTokens: usageTotals.cacheCreationTokens,
         durationMs,
         exitCode,
         raw: { format: 'jsonl', lineCount: parsedJsonLines },
       };
+    }
+
+    // Compatibility fallback: extract text from JSON objects while skipping reasoning nodes.
+    if (parsedJsonLines > 0) {
+      const fallbackParts: string[] = [];
+      for (const event of parsedEvents) {
+        collectText(event, fallbackParts, shouldSkipTextObject);
+      }
+      const fallbackExtracted = uniq(fallbackParts).join('\n').trim();
+      if (fallbackExtracted.length > 0) {
+        return {
+          text: fallbackExtracted,
+          model,
+          inputTokens: usageTotals.inputTokens,
+          outputTokens: usageTotals.outputTokens,
+          cacheReadTokens: usageTotals.cacheReadTokens,
+          cacheCreationTokens: usageTotals.cacheCreationTokens,
+          durationMs,
+          exitCode,
+          raw: { format: 'jsonl-fallback', lineCount: parsedJsonLines },
+        };
+      }
     }
 
     // Compatibility fallback: treat stdout as the final message body.
@@ -178,10 +351,10 @@ export class CodexBackend implements AIBackend {
       return {
         text: trimmed,
         model,
-        inputTokens: 0,
-        outputTokens: 0,
-        cacheReadTokens: 0,
-        cacheCreationTokens: 0,
+        inputTokens: usageTotals.inputTokens,
+        outputTokens: usageTotals.outputTokens,
+        cacheReadTokens: usageTotals.cacheReadTokens,
+        cacheCreationTokens: usageTotals.cacheCreationTokens,
         durationMs,
         exitCode,
         raw: { format: 'text' },
