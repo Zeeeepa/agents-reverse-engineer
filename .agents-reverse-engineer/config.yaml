@@ -127,7 +127,7 @@ generation:
   # - 0.50 = detailed (verbose, ~50% of source size)
   # Lower values produce more compact summaries but may omit some details.
   # The annex mechanism bypasses compression for reproduction-critical content.
-  compressionRatio: 0.25
+  compressionRatio: 0.10
 
 # ============================================================================
 # AI SERVICE CONFIGURATION
@@ -135,12 +135,12 @@ generation:
 ai:
   # AI CLI backend to use
   # Options: 'claude', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
-  backend: codex
+  backend: claude
 
   # Model identifier (backend-specific)
   # "sonnet", "opus", "haiku" (for Claude)
   # "gpt-5-nano" (smallest tested Codex model in this environment)
-  model: gpt-5-nano
+  model: haiku
 
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)
