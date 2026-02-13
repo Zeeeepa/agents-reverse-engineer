@@ -10,7 +10,7 @@ Bump the project version, update documentation, create a git tag, and publish a 
 ## Prerequisites
 
 - Version argument is REQUIRED (e.g., `$bump 0.4.0`)
-- Must be on `main` branch with clean working tree
+- Must be on `main` branch with no tracked/staged changes (untracked files are allowed)
 - `gh` CLI must be authenticated
 
 ## Phase 1: Validate
@@ -22,10 +22,11 @@ Bump the project version, update documentation, create a git tag, and publish a 
 2. **Check git status**:
 
    ```bash
-   git status --porcelain
+   git status --porcelain --untracked-files=no
    ```
 
-   - If there are uncommitted changes, STOP and report: "Working tree not clean. Commit or stash changes first."
+   - If there are tracked or staged changes, STOP and report: "Working tree has tracked changes. Commit or stash tracked changes first."
+   - Ignore untracked files (they are allowed for release bumps).
 
 3. **Check current branch**:
 

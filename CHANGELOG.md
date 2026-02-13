@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-02-13
+
+### Changed
+- **Codex subprocesses no longer force project-local `CODEX_HOME`** - ARE now runs Codex CLI with the ambient environment instead of auto-overriding `CODEX_HOME` to `./.codex` when that directory exists. This prevents auth context mismatches where the interactive Codex session is logged in but ARE subprocesses were routed to an unauthenticated local Codex home.
+- **Bump skill now allows untracked files during release checks** - Release validation now treats untracked files as acceptable and only blocks when tracked/staged changes exist, matching real workflows where generated artifacts may be present but not committed.
+
 ## [0.9.6] - 2026-02-13
 
 ### Added
@@ -878,7 +884,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.6...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.7...HEAD
+[0.9.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.3...v0.9.4
