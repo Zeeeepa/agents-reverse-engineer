@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Runtime Support: Claude Code, Gemini CLI, OpenCode, and Codex — ARE Blog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @keyframes float1 { 0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-40px)} }
+  @keyframes float2 { 0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,30px)} }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: linear-gradient(135deg, #1a0533 0%, #0f172a 30%, #1e1b4b 60%, #0c1e3a 100%);
+    color: #e2e8f0;
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-1 { width:400px;height:400px;background:#7c3aed;top:-100px;right:-100px;animation:float1 15s ease-in-out infinite; }
+  .blob-2 { width:350px;height:350px;background:#2563eb;bottom:-50px;left:-100px;animation:float2 18s ease-in-out infinite; }
+  .blob-3 { width:300px;height:300px;background:#db2777;top:50%;left:50%;animation:float1 20s ease-in-out infinite reverse; }
+  article {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 50px 24px 80px;
+  }
+  .glass-card {
+    background: rgba(255,255,255,0.07);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 32px;
+    margin: 24px 0;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #c4b5fd;
+    margin: 36px 0 14px;
+  }
+  h3 {
+    font-size: 18px;
+    color: #a78bfa;
+    margin: 24px 0 10px;
+    font-weight: 500;
+  }
+  p { margin: 12px 0; }
+  a { color: #818cf8; text-decoration: none; transition: color 0.2s; }
+  a:hover { color: #c4b5fd; }
+  code {
+    background: rgba(167,139,250,0.15);
+    border: 1px solid rgba(167,139,250,0.2);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #c4b5fd;
+  }
+  pre {
+    background: rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 20px;
+    border-radius: 12px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code { background: none; border: none; padding: 0; color: #e2e8f0; }
+  ul, ol { padding-left: 24px; margin: 12px 0; }
+  li { margin: 6px 0; }
+  li::marker { color: #a78bfa; }
+  strong { color: #fff; }
+  hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, rgba(167,139,250,0.4), transparent); margin: 28px 0; }
+  blockquote {
+    background: rgba(167,139,250,0.08);
+    border-left: 3px solid #a78bfa;
+    padding: 12px 18px;
+    border-radius: 0 10px 10px 0;
+    margin: 16px 0;
+  }
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,0.1);">
+  <a href="index.html" style="color:#333;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
+  <span style="color:#333;opacity:0.6;font-size:12px;">Article 06/12</span>
+  <span style="display:flex;gap:16px;">
+    <a href="05.html" style="color:#333;text-decoration:none;font-size:14px;">‹ Prev</a>
+    <a href="07.html" style="color:#333;text-decoration:none;font-size:14px;">Next ›</a>
+  </span>
+</nav>
+<div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div><article><h1>Multi-Runtime Support: Claude Code, Gemini CLI, OpenCode, and Codex</h1>
+<p>The AI coding assistant landscape is rapidly diversifying. How do you maintain consistent documentation across different tools? <code>agents-reverse-engineer</code> (ARE) was designed from the ground up to work across multiple AI coding assistants, generating documentation that works seamlessly with all of them.</p>
+<h2>The AGENTS.md Standard</h2>
+<p>Before diving into runtime-specific details, understand that <strong>AGENTS.md is an emerging cross-tool standard</strong> for AI-readable project documentation. Like README.md for humans, AGENTS.md provides AI-readable documentation in a consistent, hierarchical structure. ARE generates this through its two-phase pipeline: parallel file analysis followed by hierarchical directory aggregation. Because AGENTS.md is a standard format, any tool that supports it will automatically benefit—even tools that don&#39;t exist yet.</p>
+<h2>Runtime-by-Runtime Breakdown</h2>
+<h3>Claude Code: Full Integration</h3>
+<p>Claude Code has the most mature integration, with full slash commands (<code>/are-generate</code>, <code>/are-update</code>, etc.) and three automated session hooks. <code>are-check-update.js</code> performs version checks, <code>are-context-loader.js</code> auto-injects parent AGENTS.md files into context, and <code>are-session-end.js</code> triggers auto-updates on git changes. Uses <code>CLAUDE.md</code> pointer file.</p>
+<h3>Gemini CLI: Full Support</h3>
+<p>Receives the same level of support with runtime-specific adaptations. Uses <code>GEMINI.md</code> pointer file, identical slash commands, and equivalent session hooks for version checking, context loading, and session-end updates.</p>
+<h3>OpenCode: AGENTS.md Native</h3>
+<p>Supports AGENTS.md files directly without additional configuration. Uses <code>OPENCODE.md</code> pointer file, full command suite, and hooks stored in <code>.opencode/hooks/</code> directory.</p>
+<h3>Codex: Local Context Rules</h3>
+<p>Uses <code>AGENTS.override.md</code> pattern instead of runtime-specific pointer files. Works with Codex&#39;s local context rule system for integrating generated documentation.</p>
+<h2>Installation for Multiple Runtimes</h2>
+<p>Install for all runtimes simultaneously:</p>
+<pre><code class="language-bash">npx agents-reverse-engineer@latest --runtime all -g
+</code></pre>
+<p>Or target specific runtimes:</p>
+<pre><code class="language-bash">npx agents-reverse-engineer@latest --runtime claude -g
+</code></pre>
+<h2>What&#39;s the Same Across Runtimes</h2>
+<ul>
+<li><strong>Generated Artifacts</strong>: Identical <code>.sum</code> and <code>AGENTS.md</code> files</li>
+<li><strong>Generation Pipeline</strong>: Runtime-independent two-phase process</li>
+<li><strong>Configuration</strong>: Shared <code>.agents-reverse-engineer/config.yaml</code></li>
+<li><strong>Command Interface</strong>: Consistent slash command names and CLI flags</li>
+<li><strong>Quality Gates</strong>: Same validation across all runtimes</li>
+</ul>
+<h2>What&#39;s Different</h2>
+<ul>
+<li><strong>Pointer Files</strong>: CLAUDE.md, GEMINI.md, OPENCODE.md, or AGENTS.override.md</li>
+<li><strong>Hook Locations</strong>: <code>.claude/hooks/</code>, <code>.gemini/hooks/</code>, <code>.opencode/hooks/</code></li>
+<li><strong>Version Files</strong>: Different locations per runtime</li>
+</ul>
+<h2>Backend Selection</h2>
+<p>Runtimes determine where documentation is consumed; backends determine which AI CLI generates it. You can mix and match: generate with Claude for quality, consume with Gemini for speed. This separation provides maximum flexibility.</p>
+</article>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Two-Phase Pipeline: How ARE Understands Your Codebase — ARE Blog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  @keyframes glitch {
+    0%,100% { text-shadow: 2px 0 #ff2d95, -2px 0 #0ff; }
+    25% { text-shadow: -2px -1px #ff2d95, 2px 1px #0ff; }
+    50% { text-shadow: 1px 2px #ff2d95, -1px -2px #0ff; }
+    75% { text-shadow: -1px 1px #ff2d95, 1px -1px #0ff; }
+  }
+  @keyframes neonPulse { 0%,100%{opacity:1}50%{opacity:0.7} }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #0d0221;
+    background-image: radial-gradient(ellipse at 50% 0%, rgba(255,45,149,0.1) 0%, transparent 60%);
+    color: #e0d6ff;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+  article {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 50px 24px 80px;
+  }
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 34px;
+    font-weight: 900;
+    color: #fff;
+    text-transform: uppercase;
+    animation: glitch 3s infinite;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+  }
+  h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    color: #0ff;
+    margin: 40px 0 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-left: 4px solid #ff2d95;
+    padding-left: 16px;
+  }
+  h3 {
+    font-size: 18px;
+    color: #ff2d95;
+    margin: 28px 0 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 500;
+  }
+  p { margin: 12px 0; }
+  a { color: #0ff; text-decoration: none; border-bottom: 1px solid rgba(0,255,255,0.4); }
+  a:hover { text-shadow: 0 0 10px rgba(0,255,255,0.8); }
+  code {
+    background: rgba(255,45,149,0.15);
+    border: 1px solid rgba(255,45,149,0.3);
+    padding: 2px 8px;
+    border-radius: 3px;
+    color: #ff79c6;
+    font-family: 'Fira Code', monospace;
+    font-size: 15px;
+  }
+  pre {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 18px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 16px 0;
+    box-shadow: 0 0 20px rgba(0,255,255,0.05), inset 0 0 20px rgba(255,45,149,0.05);
+  }
+  pre code { background: none; border: none; color: #0ff; padding: 0; }
+  ul, ol { padding-left: 24px; margin: 12px 0; }
+  li { margin: 6px 0; }
+  li::marker { color: #ff2d95; }
+  strong { color: #fff; font-weight: 600; }
+  em { color: #0ff; }
+  hr { border: none; height: 2px; background: linear-gradient(90deg, #ff2d95, #0ff, #ff2d95); margin: 32px 0; animation: neonPulse 2s ease-in-out infinite; }
+  blockquote {
+    border-left: 3px solid #0ff;
+    padding: 10px 18px;
+    margin: 16px 0;
+    background: rgba(0,255,255,0.05);
+  }
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.1);">
+  <a href="index.html" style="color:#fff;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
+  <span style="color:#fff;opacity:0.6;font-size:12px;">Article 04/12</span>
+  <span style="display:flex;gap:16px;">
+    <a href="03.html" style="color:#fff;text-decoration:none;font-size:14px;">‹ Prev</a>
+    <a href="05.html" style="color:#fff;text-decoration:none;font-size:14px;">Next ›</a>
+  </span>
+</nav>
+<article><h1>The Two-Phase Pipeline: How ARE Understands Your Codebase</h1>
+<p>When you run <code>are generate</code>, you see progress bars ticking through files and directories. But what&#39;s happening under the hood? This article takes you inside the pipeline that transforms raw source code into comprehensive, AI-friendly documentation.</p>
+<h2>Why Two Phases?</h2>
+<p>The fundamental insight behind ARE&#39;s architecture is simple: <strong>you can&#39;t summarize a directory without first understanding the files in it.</strong></p>
+<p>Consider a typical project structure with <code>src/auth/</code> containing <code>login.ts</code>, <code>logout.ts</code>, and <code>session.ts</code>. To write a meaningful summary of <code>src/auth/</code>, ARE needs to know what each file does. This requires analyzing files first, then aggregating them into directory summaries.</p>
+<p>This is <strong>post-order traversal</strong>: process children before parents, leaves before branches. Phase 1 handles the leaves (individual files), Phase 2 builds the branches (directory hierarchies).</p>
+<p>The alternative—trying to analyze everything in one pass—would require massive context windows including entire subdirectories (expensive and error-prone) or produce shallow summaries missing important relationships.</p>
+<h2>Phase 1: File Analysis</h2>
+<p>Phase 1 develops understanding of individual source files. The <code>createFileTasks()</code> function extracts import/export metadata for each file, then <code>buildFilePrompt()</code> constructs a carefully crafted prompt including source code, import map, export map, project structure context, and compression directives when needed.</p>
+<p>Tasks execute via <code>runPool()</code>, ARE&#39;s iterator-based concurrency engine. Multiple files are analyzed in parallel, with concurrency automatically tuned to your system&#39;s capabilities.</p>
+<p>After a prompt is built, the original task content is nullified to free memory—critical on large codebases with thousands of files.</p>
+<p>Each successful analysis produces a <code>.sum</code> file with YAML frontmatter including <code>file_type</code>, <code>generated_at</code>, and <code>content_hash</code>—which enables incremental updates by detecting when source files change.</p>
+<h2>Phase 2: Directory Aggregation</h2>
+<p>With all files analyzed, Phase 2 builds the hierarchical view. The <code>createDirectoryTasks()</code> function constructs a dependency graph where each directory task knows which child tasks must complete before it can run.</p>
+<p>Directories are sorted by depth, <strong>descending</strong>—deepest directories process first. This ensures <code>src/auth/utils/</code> completes before <code>src/auth/</code>, which completes before <code>src/</code>.</p>
+<p>The <code>buildDirectoryPrompt()</code> reads all child <code>.sum</code> files in parallel and feeds them to the LLM for synthesis.</p>
+<h2>The Concurrency Engine</h2>
+<p>Both phases use <code>runPool&lt;T&gt;()</code>, an <strong>iterator-based worker pool</strong>. Workers pull tasks from a <strong>shared iterator</strong>—when one finishes early, it immediately grabs the next task, maintaining full utilization despite variable task durations.</p>
+<h2>Error Handling</h2>
+<p>ARE&#39;s retry logic is surgical. Rate limit errors trigger exponential backoff plus random jitter to prevent thundering herd problems.</p>
+<p>Crucially, <strong>timeouts are NOT retried</strong>. Retrying would spawn more expensive subprocesses on an already-strained system.</p>
+<h2>What This Enables</h2>
+<p>The two-phase architecture unlocks: <strong>Incremental Updates</strong> regenerate only affected files and parent directories, <strong>Quality Validation</strong> detects undocumented exports between phases, <strong>Scalability</strong> processes thousands of files without memory issues, <strong>Observability</strong> provides natural instrumentation boundaries.</p>
+</article>
+</body>
+</html>

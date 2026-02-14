@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10 Tips for Getting the Best Documentation from ARE — ARE Blog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #fafafa;
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 31px,
+        #c8daf0 31px,
+        #c8daf0 32px
+      );
+    background-size: 100% 32px;
+    background-position: 0 60px;
+    color: #333;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 19px;
+    line-height: 32px;
+    min-height: 100vh;
+    position: relative;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 80px;
+    width: 2px;
+    height: 100%;
+    background: #e74c3c;
+    opacity: 0.4;
+    z-index: 0;
+  }
+  article {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 60px 24px 80px 100px;
+  }
+  h1 {
+    font-family: 'Caveat', cursive;
+    font-size: 42px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    line-height: 1.2;
+    border-bottom: 3px solid #2c3e50;
+    padding-bottom: 8px;
+  }
+  h2 {
+    font-family: 'Caveat', cursive;
+    font-size: 30px;
+    font-weight: 600;
+    color: #e74c3c;
+    margin: 32px 0 12px;
+    text-decoration: underline;
+    text-decoration-style: wavy;
+    text-underline-offset: 4px;
+  }
+  h3 {
+    font-family: 'Caveat', cursive;
+    font-size: 24px;
+    color: #2980b9;
+    margin: 24px 0 8px;
+  }
+  p { margin: 8px 0; }
+  a { color: #2980b9; text-decoration: underline; }
+  a:hover { color: #e74c3c; }
+  code {
+    background: #fff8c5;
+    border: 1px dashed #e6c200;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    color: #555;
+  }
+  pre {
+    background: #fff;
+    border: 2px dashed #aaa;
+    padding: 16px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 15px;
+    line-height: 24px;
+    transform: rotate(-0.3deg);
+  }
+  pre code { background: none; border: none; padding: 0; color: #333; font-size: 15px; }
+  ul, ol { padding-left: 24px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  li::marker { color: #e74c3c; }
+  strong { color: #000; text-decoration: underline; }
+  em { color: #2980b9; }
+  hr { border: none; border-top: 2px dashed #aaa; margin: 24px 0; }
+  blockquote {
+    background: #fffde7;
+    border: 1px solid #e6c200;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+    transform: rotate(0.5deg);
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.08);
+  }
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,0.1);">
+  <a href="index.html" style="color:#333;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
+  <span style="color:#333;opacity:0.6;font-size:12px;">Article 10/12</span>
+  <span style="display:flex;gap:16px;">
+    <a href="09.html" style="color:#333;text-decoration:none;font-size:14px;">‹ Prev</a>
+    <a href="11.html" style="color:#333;text-decoration:none;font-size:14px;">Next ›</a>
+  </span>
+</nav>
+<article><h1>10 Tips for Getting the Best Documentation from ARE</h1>
+<p>You&#39;ve installed agents-reverse-engineer (ARE) and run generate, but the output disappoints. The difference between mediocre and exceptional AI-generated documentation often comes down to how you use the tool. Here are 10 practical tips from real-world usage.</p>
+<h2>1. Structure Code for Better Summaries</h2>
+<p>Single-responsibility files produce dramatically better <code>.sum</code> files than kitchen-sink modules. When a file does five things, AI summaries become vague. Split code into focused files like <code>jwt-token-validator.ts</code>, <code>password-hasher.ts</code>, and <code>date-formatter.ts</code> instead of one <code>utils.ts</code>. You&#39;ll get sharp, specific summaries. This isn&#39;t just good for ARE—it&#39;s good software design.</p>
+<h2>2. Use Meaningful Names</h2>
+<p>ARE&#39;s AI reads your function, class, and file names to understand code. A file named <code>utils.ts</code> produces generic summaries because the name conveys nothing. Name it <code>jwt-token-validator.ts</code> and the AI has context before reading code. The same applies to exports: <code>export function process(data)</code> tells the AI nothing, while <code>export function validateUserRegistration(userData)</code> tells it everything.</p>
+<h2>3. Exclude the Noise</h2>
+<p>Don&#39;t let ARE analyze everything. Test fixtures, generated code, migrations, and vendored dependencies create noise. Add patterns to <code>.agents-reverse-engineer/config.yaml</code>:</p>
+<pre><code class="language-yaml">exclude:
+  patterns:
+    - &quot;**/__fixtures__/**&quot;
+    - &quot;**/*.generated.ts&quot;
+    - &quot;**/migrations/**&quot;
+    - &quot;**/vendor/**&quot;
+</code></pre>
+<p>Less noise equals better signal.</p>
+<h2>4. Choose the Right Model</h2>
+<p>ARE supports multiple AI models. Use <code>sonnet</code> (default) for most codebases. Use <code>haiku</code> for large projects needing speed and lower costs. Use <code>opus</code> for complex, critical code like core algorithms and security modules. Specify with <code>--model haiku</code> or in config.yaml.</p>
+<h2>5. Review and Edit .sum Files</h2>
+<p>Generated <code>.sum</code> files are starting points. If ARE misses the point, edit files manually. ARE won&#39;t overwrite edits unless source files change or you use <code>--force</code>. YAML frontmatter tracks content hashes to detect changes.</p>
+<h2>6. Leverage AGENTS.local.md</h2>
+<p>Put custom instructions in <code>AGENTS.local.md</code> at any directory level. ARE preserves it by injecting an <code>@AGENTS.local.md</code> directive, merging your guidance with generated documentation.</p>
+<h2>7. Tune Compression for Large Files</h2>
+<p>ARE automatically compresses documentation for large files. If summaries feel sparse, adjust compression settings in config.yaml.</p>
+<h2>8. Run Quality Checks</h2>
+<p>Review ARE&#39;s quality reports. Code-vs-doc checks find undocumented exports. Code-vs-code checks find duplicate symbols. Phantom-path validation catches broken links.</p>
+<h2>9. Use --trace for Large Projects</h2>
+<p>When things feel slow, use <code>--trace</code> to write detailed logs to <code>.agents-reverse-engineer/traces/</code>. Identify bottlenecks and debug failures.</p>
+<h2>10. Iterate, Don&#39;t Perfectionist</h2>
+<p>The first run won&#39;t be perfect. Run ARE, review output, adjust exclusions and config, then regenerate. After 2-3 iterations, you&#39;ll have genuinely useful documentation.</p>
+</article>
+</body>
+</html>

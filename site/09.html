@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rebuilding from Specs: ARE's Code Reconstruction Pipeline — ARE Blog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Exo+2:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #1a0533;
+    background-image:
+      linear-gradient(180deg, #1a0533 0%, #0f0326 40%, #1a0533 60%, #2d0a4e 100%);
+    color: #e8d5f5;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    min-height: 100vh;
+    position: relative;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 35vh;
+    background:
+      linear-gradient(180deg, transparent 0%, rgba(255,100,200,0.05) 100%),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 79px,
+        rgba(255,100,200,0.15) 79px,
+        rgba(255,100,200,0.15) 80px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 79px,
+        rgba(255,100,200,0.1) 79px,
+        rgba(255,100,200,0.1) 80px
+      );
+    background-size: 100% 100%, 80px 80px, 80px 80px;
+    transform: perspective(400px) rotateX(45deg);
+    transform-origin: bottom;
+    pointer-events: none;
+    z-index: 0;
+  }
+  article {
+    position: relative;
+    z-index: 1;
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 50px 24px 80px;
+  }
+  h1 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 32px;
+    background: linear-gradient(180deg, #fff 0%, #f472b6 50%, #c026d3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+  }
+  h2 {
+    font-family: 'Audiowide', sans-serif;
+    font-size: 20px;
+    color: #f0abfc;
+    margin: 38px 0 14px;
+    text-shadow: 0 0 20px rgba(244,114,182,0.5);
+  }
+  h3 {
+    font-size: 18px;
+    color: #e879f9;
+    margin: 28px 0 10px;
+    font-weight: 600;
+  }
+  p { margin: 12px 0; }
+  a { color: #f0abfc; text-decoration: none; border-bottom: 1px solid rgba(244,114,182,0.4); }
+  a:hover { text-shadow: 0 0 8px rgba(244,114,182,0.6); }
+  code {
+    background: rgba(192,38,211,0.2);
+    border: 1px solid rgba(192,38,211,0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #f0abfc;
+    font-size: 14px;
+  }
+  pre {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(244,114,182,0.2);
+    padding: 18px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 16px 0;
+    box-shadow: 0 0 30px rgba(192,38,211,0.1);
+  }
+  pre code { background: none; border: none; color: #e8d5f5; padding: 0; }
+  ul, ol { padding-left: 24px; margin: 12px 0; }
+  li { margin: 6px 0; }
+  li::marker { color: #f472b6; }
+  strong { color: #fff; }
+  hr { border: none; height: 2px; background: linear-gradient(90deg, transparent, #f472b6, #c026d3, transparent); margin: 30px 0; }
+  blockquote {
+    border-left: 3px solid #c026d3;
+    padding: 10px 18px;
+    margin: 16px 0;
+    background: rgba(192,38,211,0.08);
+  }
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.1);">
+  <a href="index.html" style="color:#fff;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
+  <span style="color:#fff;opacity:0.6;font-size:12px;">Article 09/12</span>
+  <span style="display:flex;gap:16px;">
+    <a href="08.html" style="color:#fff;text-decoration:none;font-size:14px;">‹ Prev</a>
+    <a href="10.html" style="color:#fff;text-decoration:none;font-size:14px;">Next ›</a>
+  </span>
+</nav>
+<article><h1>Rebuilding from Specs: ARE&#39;s Code Reconstruction Pipeline</h1>
+<p>Documentation tools typically operate in one direction: they extract information from your codebase and produce documentation. agents-reverse-engineer goes further. The <code>are rebuild</code> command takes project specifications and reconstructs source code, completing the full circle from code to documentation and back.</p>
+<p>This experimental feature challenges the traditional relationship between specification and implementation, opening new possibilities for development workflows.</p>
+<h2>When Would You Use This?</h2>
+<p>Several compelling scenarios make the rebuild pipeline invaluable:</p>
+<p><strong>Scaffolding from specifications.</strong> When you&#39;ve documented an architecture but haven&#39;t implemented it, <code>are rebuild</code> generates a working starting point. This proves particularly useful when exploring multiple implementation approaches to the same architectural design.</p>
+<p><strong>Framework migration.</strong> Modify your specification to reference a new framework, adjust architectural decisions accordingly, and use <code>are rebuild</code> to generate migration scaffolding. The specification becomes the invariant; implementation becomes the variable.</p>
+<p><strong>Disaster recovery.</strong> Lost source code but retained specifications? <code>are rebuild</code> reconstructs a working implementation, dramatically reducing recovery time from catastrophic data loss.</p>
+<p><strong>Exploring alternatives.</strong> What would your microservices architecture look like as a monolith? Modify specifications, run <code>are rebuild</code>, and rapidly explore architectural alternatives without manual rewriting.</p>
+<h2>How It Works</h2>
+<p>The rebuild pipeline orchestrates a multi-stage transformation from specification to implementation.</p>
+<h3>Discovery and Parsing</h3>
+<p>The process begins with <code>readSpecFiles()</code> discovering markdown files in <code>specs/</code>. Then <code>partitionSpec()</code> extracts Build Plan phases using <code>/^### Phase (\d+):\s*(.+)$/gm</code> to find headings defining sequential build phases.</p>
+<h3>Checkpoint Validation</h3>
+<p>Before generation, <code>CheckpointManager.load()</code> checks <code>.rebuild-checkpoint</code> tracking completed phases and SHA-256 hashes of specification files.</p>
+<h3>Orchestrated Execution</h3>
+<p>With checkpoint validated, <code>executeRebuild()</code> begins generation. It groups rebuild units by <code>order</code>, creating sequential groups. Within groups, tasks run concurrently using <code>runPool()</code> concurrency.</p>
+<h2>The Rebuild Prompt</h2>
+<p>The <code>buildRebuildPrompt()</code> function includes your project&#39;s Architecture section from AGENTS.md, extracts relevant subsections, and accumulates a <code>builtContext</code> buffer capped at 100KB for later phases to reference earlier output.</p>
+<h2>Output Parsing</h2>
+<p>AI-generated code uses strict delimiter format:</p>
+<pre><code>===FILE: src/models/user.ts===
+export interface User {
+  id: string;
+  name: string;
+}
+===END_FILE===
+</code></pre>
+<p>If delimiters aren&#39;t found, ARE falls back to fenced code block parsing.</p>
+<h2>Limitations</h2>
+<p>AI-generated code requires review—treat output as scaffolding, not production code. Specification quality is critical. The 100KB context cap means large projects lose visibility into earlier files. Not all code is rebuildable from specifications alone.</p>
+</article>
+</body>
+</html>

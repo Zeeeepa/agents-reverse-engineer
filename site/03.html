@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anatomy of Generated Documentation: .sum Files and AGENTS.md Explained — ARE Blog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #0d2137;
+    background-image:
+      linear-gradient(rgba(100,181,246,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(100,181,246,0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: #c5e1f5;
+    font-family: 'Roboto', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+  article {
+    max-width: 740px;
+    margin: 0 auto;
+    padding: 50px 24px 80px;
+  }
+  h1 {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 30px;
+    color: #e3f2fd;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    border: 2px solid #2196f3;
+    padding: 20px;
+    margin-bottom: 24px;
+    text-align: center;
+    position: relative;
+  }
+  h1::before {
+    content: 'BLUEPRINT';
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    background: #0d2137;
+    padding: 0 10px;
+    font-size: 11px;
+    color: #64b5f6;
+    letter-spacing: 4px;
+  }
+  h2 {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 18px;
+    color: #90caf9;
+    margin: 36px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(33,150,243,0.3);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  h3 {
+    font-size: 16px;
+    color: #64b5f6;
+    margin: 28px 0 10px;
+    font-family: 'Roboto Mono', monospace;
+  }
+  p { margin: 12px 0; }
+  a { color: #64b5f6; text-decoration: none; border-bottom: 1px dashed #64b5f6; }
+  a:hover { color: #e3f2fd; }
+  code {
+    background: rgba(33,150,243,0.15);
+    border: 1px solid rgba(33,150,243,0.3);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    color: #90caf9;
+  }
+  pre {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(33,150,243,0.3);
+    padding: 18px;
+    border-radius: 2px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code { background: none; border: none; padding: 0; color: #b3e5fc; }
+  ul, ol { padding-left: 24px; margin: 12px 0; }
+  li { margin: 6px 0; }
+  li::marker { color: #2196f3; }
+  strong { color: #e3f2fd; }
+  hr { border: none; border-top: 1px dashed rgba(33,150,243,0.4); margin: 28px 0; }
+  blockquote {
+    border-left: 3px solid #2196f3;
+    padding: 10px 18px;
+    margin: 16px 0;
+    background: rgba(33,150,243,0.08);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.1);">
+  <a href="index.html" style="color:#fff;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
+  <span style="color:#fff;opacity:0.6;font-size:12px;">Article 03/12</span>
+  <span style="display:flex;gap:16px;">
+    <a href="02.html" style="color:#fff;text-decoration:none;font-size:14px;">‹ Prev</a>
+    <a href="04.html" style="color:#fff;text-decoration:none;font-size:14px;">Next ›</a>
+  </span>
+</nav>
+<article><h1>Anatomy of Generated Documentation: .sum Files and AGENTS.md Explained</h1>
+<p>After running <code>agents-reverse-engineer</code> on your codebase, new files appear: <code>.sum</code> files alongside source code, <code>AGENTS.md</code> files in directories, and pointer files like <code>CLAUDE.md</code> at the root. This article dissects ARE&#39;s generated documentation anatomy.</p>
+<h2>.sum Files: Per-File Intelligence</h2>
+<p>For every source file, ARE generates a corresponding <code>.sum</code> file. Each <code>.sum</code> file has two parts:</p>
+<p><strong>YAML Frontmatter</strong> contains:</p>
+<ul>
+<li><strong><code>file_type</code></strong>: Categorizes the file (service, util, type, test)</li>
+<li><strong><code>generated_at</code></strong>: ISO 8601 timestamp</li>
+<li><strong><code>content_hash</code></strong>: SHA-256 hash enabling incremental updates. When running <code>are update</code>, ARE compares stored hash against current source. Only changed files get regenerated.</li>
+</ul>
+<p><strong>Markdown Sections</strong> provide documentation:</p>
+<ol>
+<li><strong>Purpose</strong>: What the file does</li>
+<li><strong>Public Interface</strong>: Exported functions, classes, types with signatures</li>
+<li><strong>Dependencies</strong>: What the file imports</li>
+<li><strong>Implementation Notes</strong>: Algorithms, patterns, limitations</li>
+</ol>
+<p>ARE places <code>.sum</code> files next to source files for proximity. When AI reads <code>token-service.ts</code>, having <code>token-service.ts.sum</code> adjacent makes discovery trivial.</p>
+<h2>AGENTS.md: Directory Overviews</h2>
+<p>Every directory containing source files gets an <code>AGENTS.md</code> providing high-level overviews:</p>
+<ol>
+<li><strong>Directory description</strong>: Paragraph explaining the directory&#39;s role</li>
+<li><strong>Files section</strong>: Groups files by purpose with bolded links and descriptions</li>
+<li><strong>Subdirectories section</strong>: Lists child directories creating navigable hierarchy</li>
+</ol>
+<p><code>AGENTS.md</code> is an emerging cross-tool standard recognized by Claude Code, Gemini CLI, and OpenCode.</p>
+<p>When ARE encounters existing <code>AGENTS.md</code> files:</p>
+<ol>
+<li>Renames your file to <code>AGENTS.local.md</code></li>
+<li>Creates new generated <code>AGENTS.md</code></li>
+<li>Injects <code>@AGENTS.local.md</code> directive at top</li>
+</ol>
+<p>Your hand-written context is preserved through the directive.</p>
+<h2>Pointer Files: Runtime Bridges</h2>
+<p>At project root, you&#39;ll find <code>CLAUDE.md</code>, <code>GEMINI.md</code>, or <code>OPENCODE.md</code>. These pointer files contain one line: <code>@AGENTS.md</code>. Each AI runtime has auto-load conventions. ARE uses lightweight adapters pointing to universal <code>AGENTS.md</code> format.</p>
+<h2>The Hierarchy</h2>
+<p>An AI assistant&#39;s journey:</p>
+<ol>
+<li>Claude Code loads <code>/CLAUDE.md</code></li>
+<li><code>CLAUDE.md</code> references <code>@AGENTS.md</code>, loading <code>/AGENTS.md</code></li>
+<li><code>/AGENTS.md</code> references subdirectories like <code>src/</code></li>
+<li>Claude loads <code>/src/AGENTS.md</code></li>
+<li>When details needed, Claude reads individual <code>.sum</code> files</li>
+</ol>
+<p>Each level provides progressively more detail.</p>
+<h2>Quality Indicators</h2>
+<p>ARE runs quality gates: Code-vs-Doc Consistency verifies exported symbols are documented. Phantom Path Validation ensures file references exist. Code-vs-Code Checks detects duplicate symbols.</p>
+<h2>Customizing Output</h2>
+<p>Configure via <code>.agents-reverse-engineer/config.yaml</code>: Compression Ratio controls summary size. Exclude Patterns skip files from documentation. Use <code>AGENTS.local.md</code> for persistent custom documentation.</p>
+<hr>
+<p><strong>Next</strong>: <a href="./04-two-phase-pipeline.md">The Two-Phase Pipeline: How ARE Generates Documentation</a></p>
+</article>
+</body>
+</html>

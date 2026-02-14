@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Integrating ARE into Your Team Workflow: CI/CD, Hooks, and Automation — ARE Blog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #f5f5f5;
+    color: #212121;
+    font-family: 'Roboto', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+  article {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+    padding: 32px;
+    margin: 20px 0;
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.06); }
+  .hero-card {
+    background: linear-gradient(135deg, #1976d2, #1565c0);
+    color: #fff;
+    border-radius: 16px;
+    padding: 40px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(25,118,210,0.3);
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 300;
+    letter-spacing: -0.5px;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 500;
+    color: #1976d2;
+    margin: 32px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 500;
+    color: #424242;
+    margin: 24px 0 10px;
+  }
+  p { margin: 12px 0; color: #616161; }
+  a { color: #1976d2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: #e3f2fd;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    color: #1565c0;
+  }
+  pre {
+    background: #263238;
+    color: #eeffff;
+    padding: 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 16px 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  }
+  pre code { background: none; padding: 0; color: #eeffff; }
+  ul, ol { padding-left: 24px; margin: 12px 0; color: #616161; }
+  li { margin: 6px 0; }
+  li::marker { color: #1976d2; }
+  strong { color: #212121; font-weight: 500; }
+  hr { border: none; height: 1px; background: #e0e0e0; margin: 28px 0; }
+  blockquote {
+    background: #e3f2fd;
+    border-left: 4px solid #1976d2;
+    padding: 12px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    color: #424242;
+  }
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,0.1);">
+  <a href="index.html" style="color:#333;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
+  <span style="color:#333;opacity:0.6;font-size:12px;">Article 12/12</span>
+  <span style="display:flex;gap:16px;">
+    <a href="11.html" style="color:#333;text-decoration:none;font-size:14px;">‹ Prev</a>
+    <span></span>
+  </span>
+</nav>
+<article><div class="hero-card"><h1>Integrating ARE into Your Team Workflow: CI/CD, Hooks, and Automation</h1>
+<p>You&#39;ve mastered agents-reverse-engineer (ARE) individually. Now it&#39;s time to make it a team tool. Here&#39;s how to scale from personal use to shared infrastructure.</p>
+</div><div class="card"><h2>Session Hooks: Zero-Effort Maintenance</h2>
+<p>ARE ships with three hooks that run automatically during AI sessions:</p>
+<ul>
+<li><strong>are-check-update.js</strong> (SessionStart): Checks npm for newer ARE versions in the background, caches results. Pin a team version by committing <code>.claude/ARE-VERSION</code> to your repo.</li>
+<li><strong>are-context-loader.js</strong> (PostToolUse): Injects parent <code>AGENTS.md</code> into context whenever your AI reads a file. Your assistant automatically understands the broader architecture.</li>
+<li><strong>are-session-end.js</strong> (SessionEnd): Detects git changes via <code>git status --porcelain</code> and runs <code>are update --quiet</code> in the background. Documentation stays fresh without manual intervention.</li>
+</ul>
+<p>All hooks use detached spawning (<code>child.unref()</code>) so they never block your session. Disable them with <code>ARE_DISABLE_HOOK=1</code> or <code>hook_enabled: false</code> in config.</p>
+</div><div class="card"><h2>CI/CD Integration</h2>
+<p>Add documentation validation to your pipeline. A minimal GitHub Actions example:</p>
+<pre><code class="language-yaml">- name: Check docs are current
+  run: |
+    npx are update --dry-run
+    if git status --porcelain | grep -q &#39;\.sum$\|AGENTS\.md$&#39;; then
+      echo &quot;Docs out of date. Run &#39;npx are update&#39; locally.&quot;
+      exit 1
+    fi
+</code></pre>
+<p>ARE&#39;s exit codes map cleanly to CI: 0 (success), 1 (partial failure), 2 (total failure).</p>
+</div><div class="card"><h2>Shared Configuration</h2>
+<p>Commit <code>.agents-reverse-engineer/config.yaml</code> to standardize behavior across the team: exclusion patterns, concurrency limits, model selection, and compression ratios. Everyone generates consistent documentation.</p>
+<p>For monorepos, either run ARE per-workspace or use aggressive exclusion patterns to scope discovery to the packages that matter.</p>
+</div><div class="card"><h2>The Programmatic API</h2>
+<p>For custom integrations, import from <code>agents-reverse-engineer/core</code> (@beta):</p>
+<pre><code class="language-typescript">import { updateDocumentation, readConfig } from &#39;agents-reverse-engineer/core&#39;;
+const config = await readConfig(process.cwd());
+await updateDocumentation(process.cwd(), config);
+</code></pre>
+<p>The API exposes 60+ symbols for discovery, generation, orchestration, and telemetry.</p>
+</div><div class="card"><h2>Team Conventions</h2>
+<p>Agree on the basics: commit generated docs or gitignore them, regeneration cadence (per-session via hooks, weekly, or as a CI gate), and who reviews generated output. Use <code>AGENTS.local.md</code> for team-specific instructions that survive regeneration.</p>
+</div><div class="card"><h2>Series Wrap-Up</h2>
+<p>Over twelve articles, we&#39;ve covered ARE from installation through advanced usage. The fastest path to value:</p>
+<pre><code class="language-bash">npx agents-reverse-engineer@latest
+</code></pre>
+<p>ARE is MIT-licensed and open source at <a href="https://github.com/GeoloeG-IsT/agents-reverse-engineer">github.com/GeoloeG-IsT/agents-reverse-engineer</a>. Contributions welcome.</p>
+<p>The goal isn&#39;t perfect documentation. It&#39;s documentation that&#39;s good enough, fresh enough, and automatic enough to actually help. ARE gets you there.</p>
+</div></article>
+</body>
+</html>

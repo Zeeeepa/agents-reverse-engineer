@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARE Blog — agents-reverse-engineer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #09090b;
+    color: #fafafa;
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  .hero {
+    text-align: center;
+    padding: 80px 24px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; width: 800px; height: 600px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse, rgba(99,102,241,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero h1 {
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 0%, #a5b4fc 50%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .hero p {
+    font-size: 18px;
+    color: #71717a;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  .hero .subtitle {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: #6366f1;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .grid {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    display: flex;
+    align-items: stretch;
+    text-decoration: none;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--card-bg);
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    position: relative;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+  }
+  .card-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    min-height: 140px;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--card-accent);
+    opacity: 0.7;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .card-content {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .card-theme {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--card-accent);
+  }
+  .card-content h2 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--card-fg);
+    line-height: 1.3;
+  }
+  .card-content p {
+    font-size: 13px;
+    color: var(--card-fg);
+    opacity: 0.6;
+    margin-top: auto;
+  }
+  .footer {
+    text-align: center;
+    padding: 40px 24px;
+    color: #52525b;
+    font-size: 14px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .footer a { color: #6366f1; text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 36px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="subtitle">Blog Series</div>
+  <h1>agents-reverse-engineer</h1>
+  <p>A 12-part deep dive into AI-powered codebase documentation. Each article features a unique visual style.</p>
+</div>
+<div class="grid">
+
+    <a href="01.html" class="card" style="--card-bg:#0a0a0a;--card-fg:#00ff41;--card-accent:#00ff41;">
+      <div class="card-number">01</div>
+      <div class="card-content">
+        <div class="card-theme">Terminal</div>
+        <h2>Your AI Assistant Forgets Everything: Here's the Fix</h2>
+        <p>The context problem nobody talks about</p>
+      </div>
+    </a>
+
+    <a href="02.html" class="card" style="--card-bg:#f8f9fb;--card-fg:#1a1a2e;--card-accent:#6366f1;">
+      <div class="card-number">02</div>
+      <div class="card-content">
+        <div class="card-theme">Minimal</div>
+        <h2>Getting Started with agents-reverse-engineer in 5 Minutes</h2>
+        <p>Zero to documented in minutes</p>
+      </div>
+    </a>
+
+    <a href="03.html" class="card" style="--card-bg:#0d2137;--card-fg:#c5e1f5;--card-accent:#2196f3;">
+      <div class="card-number">03</div>
+      <div class="card-content">
+        <div class="card-theme">Blueprint</div>
+        <h2>Anatomy of Generated Documentation: .sum Files and AGENTS.md Explained</h2>
+        <p>Inside .sum files and AGENTS.md</p>
+      </div>
+    </a>
+
+    <a href="04.html" class="card" style="--card-bg:#0d0221;--card-fg:#e0d6ff;--card-accent:#ff2d95;">
+      <div class="card-number">04</div>
+      <div class="card-content">
+        <div class="card-theme">Cyberpunk</div>
+        <h2>The Two-Phase Pipeline: How ARE Understands Your Codebase</h2>
+        <p>How ARE understands your codebase</p>
+      </div>
+    </a>
+
+    <a href="05.html" class="card" style="--card-bg:#f5f0e8;--card-fg:#3d3229;--card-accent:#4a7c59;">
+      <div class="card-number">05</div>
+      <div class="card-content">
+        <div class="card-theme">Nature</div>
+        <h2>Incremental Updates: Keep Docs Fresh Without Regenerating Everything</h2>
+        <p>Keep docs fresh effortlessly</p>
+      </div>
+    </a>
+
+    <a href="06.html" class="card" style="--card-bg:#1a0533;--card-fg:#e2e8f0;--card-accent:#a78bfa;">
+      <div class="card-number">06</div>
+      <div class="card-content">
+        <div class="card-theme">Glassmorphism</div>
+        <h2>Multi-Runtime Support: Claude Code, Gemini CLI, OpenCode, and Codex</h2>
+        <p>One tool, every AI runtime</p>
+      </div>
+    </a>
+
+    <a href="07.html" class="card" style="--card-bg:#f4f1ea;--card-fg:#2c2c2c;--card-accent:#8b0000;">
+      <div class="card-number">07</div>
+      <div class="card-content">
+        <div class="card-theme">Newspaper</div>
+        <h2>Configuration Mastery: Tuning ARE for Your Project</h2>
+        <p>Tuning ARE for your project</p>
+      </div>
+    </a>
+
+    <a href="08.html" class="card" style="--card-bg:#ff0;--card-fg:#000;--card-accent:#ff0000;">
+      <div class="card-number">08</div>
+      <div class="card-content">
+        <div class="card-theme">Brutalist</div>
+        <h2>From Docs to Specs: Using are-specify to Generate Project Specifications</h2>
+        <p>Transform docs into specifications</p>
+      </div>
+    </a>
+
+    <a href="09.html" class="card" style="--card-bg:#1a0533;--card-fg:#e8d5f5;--card-accent:#f472b6;">
+      <div class="card-number">09</div>
+      <div class="card-content">
+        <div class="card-theme">Synthwave</div>
+        <h2>Rebuilding from Specs: ARE's Code Reconstruction Pipeline</h2>
+        <p>Code reconstruction from specs</p>
+      </div>
+    </a>
+
+    <a href="10.html" class="card" style="--card-bg:#fafafa;--card-fg:#333;--card-accent:#e74c3c;">
+      <div class="card-number">10</div>
+      <div class="card-content">
+        <div class="card-theme">Notebook</div>
+        <h2>10 Tips for Getting the Best Documentation from ARE</h2>
+        <p>10 tips for better results</p>
+      </div>
+    </a>
+
+    <a href="11.html" class="card" style="--card-bg:#fff;--card-fg:#1a1a1a;--card-accent:#ff0000;">
+      <div class="card-number">11</div>
+      <div class="card-content">
+        <div class="card-theme">Swiss Design</div>
+        <h2>Quality Gates and Debugging: ARE's Built-in Validation System</h2>
+        <p>Built-in validation and debugging</p>
+      </div>
+    </a>
+
+    <a href="12.html" class="card" style="--card-bg:#1976d2;--card-fg:#fff;--card-accent:#1976d2;">
+      <div class="card-number">12</div>
+      <div class="card-content">
+        <div class="card-theme">Material</div>
+        <h2>Integrating ARE into Your Team Workflow: CI/CD, Hooks, and Automation</h2>
+        <p>CI/CD, hooks, and automation</p>
+      </div>
+    </a>
+</div>
+<div class="footer">
+  <p>Built with <a href="https://github.com/nicobailon/agents-reverse-engineer">agents-reverse-engineer</a> — giving AI assistants persistent codebase memory.</p>
+</div>
+</body>
+</html>

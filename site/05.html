@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incremental Updates: Keep Docs Fresh Without Regenerating Everything — ARE Blog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: #f5f0e8;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23a89060' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    color: #3d3229;
+    font-family: 'Lora', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.8;
+  }
+  article {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 50px 24px 80px;
+  }
+  h1 {
+    font-size: 36px;
+    font-weight: 600;
+    color: #2d5016;
+    margin-bottom: 16px;
+    line-height: 1.25;
+  }
+  h1::first-letter {
+    font-size: 52px;
+    float: left;
+    margin-right: 8px;
+    line-height: 1;
+    color: #4a7c59;
+  }
+  h2 {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 22px;
+    color: #4a7c59;
+    margin: 40px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #c5d8b0;
+  }
+  h3 {
+    font-size: 18px;
+    color: #5a8a5a;
+    margin: 28px 0 10px;
+  }
+  p { margin: 14px 0; }
+  a { color: #4a7c59; text-decoration: none; border-bottom: 1px solid #9bb88d; }
+  a:hover { color: #2d5016; border-color: #4a7c59; }
+  code {
+    background: #e8e0d0;
+    border: 1px solid #d4c8b0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 15px;
+    color: #5a4a38;
+  }
+  pre {
+    background: #ede7db;
+    border: 1px solid #d4c8b0;
+    padding: 18px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 18px 0;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  ul, ol { padding-left: 24px; margin: 14px 0; }
+  li { margin: 8px 0; }
+  li::marker { color: #4a7c59; }
+  strong { color: #2d5016; }
+  em { color: #5a8a5a; }
+  hr { border: none; height: 3px; background: linear-gradient(90deg, transparent, #c5d8b0, transparent); margin: 32px 0; }
+  blockquote {
+    border-left: 4px solid #4a7c59;
+    padding: 10px 18px;
+    margin: 18px 0;
+    background: rgba(74,124,89,0.06);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(255,255,255,0.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,0,0,0.1);">
+  <a href="index.html" style="color:#333;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
+  <span style="color:#333;opacity:0.6;font-size:12px;">Article 05/12</span>
+  <span style="display:flex;gap:16px;">
+    <a href="04.html" style="color:#333;text-decoration:none;font-size:14px;">‹ Prev</a>
+    <a href="06.html" style="color:#333;text-decoration:none;font-size:14px;">Next ›</a>
+  </span>
+</nav>
+<article><h1>Incremental Updates: Keep Docs Fresh Without Regenerating Everything</h1>
+<p>Your codebase evolves daily with new features, bug fixes, and API refactors. Each change potentially invalidates your documentation. Regenerating all documentation from scratch after every change wastes time, API calls, and computational resources.</p>
+<p>The agents-reverse-engineer (ARE) update system solves this by intelligently detecting what changed and regenerating only what&#39;s needed. Instead of re-analyzing hundreds of files, it identifies the handful that actually changed and propagates those updates through the documentation tree efficiently.</p>
+<h2>The Update Command</h2>
+<p>Running incremental updates is straightforward:</p>
+<pre><code class="language-bash">npx agents-reverse-engineer update
+</code></pre>
+<p>The update command:</p>
+<ol>
+<li>Scans existing <code>.sum</code> files to detect which source files changed</li>
+<li>Regenerates documentation for changed files (Phase 1)</li>
+<li>Propagates changes up the directory tree by regenerating affected <code>AGENTS.md</code> files (Phase 2)</li>
+<li>Cleans up orphaned documentation for deleted files</li>
+</ol>
+<p>This selective regeneration is orders of magnitude faster than a full <code>are generate</code> run.</p>
+<h2>How Change Detection Works</h2>
+<p>The heart of the update system is content-based change detection. Every <code>.sum</code> file contains YAML frontmatter with a <code>content_hash</code> field—a SHA-256 hex digest of the source file&#39;s contents.</p>
+<p>When you run <code>are update</code>, the system:</p>
+<ol>
+<li>Reads existing frontmatter from all <code>.sum</code> files</li>
+<li>Computes current SHA-256 hashes for each source file</li>
+<li>Compares stored versus current hashes</li>
+<li>Regenerates only files where hashes don&#39;t match</li>
+</ol>
+<p>This approach is efficient and accurate. It doesn&#39;t rely on modification timestamps (unreliable with git operations) or git diffs (requiring a repository). It works purely on content—if the bytes changed, documentation gets updated.</p>
+<h2>Directory Propagation</h2>
+<p>When a file&#39;s documentation changes, its parent directory&#39;s <code>AGENTS.md</code> file needs updating too. ARE handles this with <code>getAffectedDirectories()</code>, which collects all ancestor directories, sorts them by depth descending, and regenerates each <code>AGENTS.md</code> sequentially.</p>
+<h2>Orphan Cleanup</h2>
+<p>When files get deleted, their <code>.sum</code> files become orphans. The <code>cleanupOrphans()</code> function automatically removes <code>.sum</code> and <code>.annex.sum</code> files for deleted source files. If a directory has no remaining source files, its <code>AGENTS.md</code> is also removed.</p>
+<h2>The --uncommitted Flag</h2>
+<p>The <code>--uncommitted</code> flag filters to only files that <code>git status</code> reports as modified:</p>
+<pre><code class="language-bash">are update --uncommitted
+</code></pre>
+<p>Useful during active development when you want to preview documentation changes before committing.</p>
+<h2>Automatic Updates with Session Hooks</h2>
+<p>The <code>are-session-end.js</code> hook runs when your AI session ends. It checks for git changes and runs <code>are update --quiet</code> in the background using detached spawning. Disable via <code>ARE_DISABLE_HOOK=1</code> or <code>hook_enabled: false</code> in config.</p>
+<h2>Best Practices</h2>
+<ol>
+<li>Run updates after merging feature branches</li>
+<li>Enable session hooks for automatic maintenance</li>
+<li>Periodically run full regeneration (<code>are generate --force</code>)</li>
+<li>Review orphan cleanup output to catch config issues</li>
+<li>Use --uncommitted during active development</li>
+</ol>
+</article>
+</body>
+</html>
