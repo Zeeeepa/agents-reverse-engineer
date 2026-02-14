@@ -10,8 +10,9 @@ Bump the project version, update documentation, create a git tag, and publish a 
 ## Prerequisites
 
 - Version argument is REQUIRED (e.g., `/bump 0.4.0`)
-- Must be on `main` branch with clean working tree
+- Should be on `main` branch (warn if not, but proceed)
 - `gh` CLI must be authenticated
+- Dirty working tree is allowed — uncommitted changes will be included in the release commit
 
 ## Phase 1: Validate
 
@@ -25,7 +26,7 @@ Bump the project version, update documentation, create a git tag, and publish a 
    git status --porcelain
    ```
 
-   - If there are uncommitted changes, STOP and report: "Working tree not clean. Commit or stash changes first."
+   - If there are uncommitted changes, WARN the user but **proceed anyway** — these changes will be staged and included in the release commit.
 
 3. **Check current branch**:
 
@@ -121,10 +122,10 @@ Scan `README.md` for any hardcoded version references that need updating:
 
 ## Phase 4: Commit and Tag
 
-1. **Stage changes**:
+1. **Stage all changes** (including any pre-existing dirty files):
 
    ```bash
-   git add package.json CHANGELOG.md README.md
+   git add -A
    ```
 
 2. **Create commit**:
