@@ -1,0 +1,49 @@
+Multi-Runtime Support: Claude Code, Gemini CLI, OpenCode, and Codex
+
+The AI coding assistant landscape is diversifying fast. agents-reverse-engineer (ARE) was designed to work across multiple AI assistants, generating documentation that works seamlessly with all of them.
+
+THE AGENTS.MD STANDARD
+
+AGENTS.md is an emerging cross-tool standard for AI-readable project documentation. Like README.md for humans, AGENTS.md provides AI-readable documentation in a consistent, hierarchical structure. ARE generates this through its two-phase pipeline: parallel file analysis followed by hierarchical directory aggregation. Because AGENTS.md is a standard format, any tool that supports it will automatically benefit — even tools that don't exist yet.
+
+RUNTIME-BY-RUNTIME BREAKDOWN
+
+Claude Code: Full Integration
+The most mature integration, with full slash commands (/are-generate, /are-update, etc.) and three automated session hooks. are-check-update.js performs version checks, are-context-loader.js auto-injects parent AGENTS.md files into context, and are-session-end.js triggers auto-updates on git changes. Uses CLAUDE.md pointer file.
+
+Gemini CLI: Full Support
+Same level of support with runtime-specific adaptations. Uses GEMINI.md pointer file, identical slash commands, and equivalent session hooks.
+
+OpenCode: AGENTS.md Native
+Supports AGENTS.md files directly without additional configuration. Uses OPENCODE.md pointer file, full command suite, and hooks stored in .opencode/hooks/ directory.
+
+Codex: Local Context Rules
+Uses AGENTS.override.md pattern instead of runtime-specific pointer files. Works with Codex's local context rule system.
+
+INSTALLATION FOR MULTIPLE RUNTIMES
+
+Install for all runtimes simultaneously:
+npx agents-reverse-engineer@latest --runtime all -g
+
+Or target specific runtimes:
+npx agents-reverse-engineer@latest --runtime claude -g
+
+WHAT'S THE SAME ACROSS RUNTIMES
+
+  Generated Artifacts: Identical .sum and AGENTS.md files
+  Generation Pipeline: Runtime-independent two-phase process
+  Configuration: Shared .agents-reverse-engineer/config.yaml
+  Command Interface: Consistent slash command names and CLI flags
+  Quality Gates: Same validation across all runtimes
+
+WHAT'S DIFFERENT
+
+  Pointer Files: CLAUDE.md, GEMINI.md, OPENCODE.md, or AGENTS.override.md
+  Hook Locations: .claude/hooks/, .gemini/hooks/, .opencode/hooks/
+  Version Files: Different locations per runtime
+
+BACKEND SELECTION
+
+Runtimes determine where docs are consumed; backends determine which AI generates them. You can mix and match: generate with Claude for quality, consume with Gemini for speed.
+
+#AI #DeveloperTools #OpenSource #ClaudeCode #GeminiCLI #OpenCode #Codex #Documentation #AIEngineering

@@ -1,0 +1,45 @@
+From Docs to Specs: Using are-specify to Generate Project Specifications
+
+After running are generate, your codebase has documentation distributed across .sum files and AGENTS.md directories. But understanding the full architecture requires stitching together dozens of files. What if you need a single document for onboarding or project handoffs?
+
+That's what are specify does — it synthesizes distributed documentation into unified project specifications.
+
+WHAT IS ARE-SPECIFY?
+
+The specify command reads all AGENTS.md files and synthesizes them into a comprehensive specification at specs/SPEC.md. Instead of navigating individual directory summaries, you get a bird's-eye view.
+
+Unlike bottom-up AGENTS.md files, SPEC.md is centralized and top-down. The AI analyzes component relationships, identifies architectural patterns, extracts API surfaces, and organizes everything into a coherent narrative.
+
+RUNNING THE COMMAND
+
+npx agents-reverse-engineer specify
+
+ARE discovers all AGENTS.md files, sends aggregated documentation to your AI backend, generates a structured specification, and writes it to specs/SPEC.md.
+
+THE 12-SECTION STRUCTURE
+
+The spec covers: Project Overview, Architecture, Components/Modules, Data Flow, API Surface, Dependencies, Configuration, Deployment, Testing Strategy, Security Considerations, Performance Characteristics, and Extension Points.
+
+MULTI-FILE MODE
+
+For large projects, --multi-file splits the spec into separate files from specs/01-overview.md through specs/12-extensions.md, enabling granular version control.
+
+DRY RUN
+
+Preview what will be processed before consuming API credits with --dry-run. This discovers files, calculates input size, shows planned sections, and exits without calling the AI.
+
+USE CASES
+
+Developer Onboarding — New team members understand architecture before diving into code.
+
+Architecture Reviews — Shared artifact for design discussions and decision records.
+
+Project Handoffs — Preserve institutional knowledge when transitioning between teams.
+
+AI Context — Feed to ChatGPT, Copilot, or other AI tools that don't support AGENTS.md natively.
+
+TIPS FOR BETTER SPECS
+
+Run quality checks first. Ensure critical components aren't excluded. Review and edit the generated spec. Regenerate regularly as your codebase evolves. Commit specs to version control.
+
+#AI #DeveloperTools #OpenSource #Documentation #ProjectSpecs #AIEngineering #CodingAssistant

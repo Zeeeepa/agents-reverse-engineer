@@ -1,0 +1,43 @@
+The Two-Phase Pipeline: How ARE Understands Your Codebase
+
+When you run are generate, progress bars tick through files and directories. What's happening under the hood? Here's how raw source code becomes AI-friendly documentation.
+
+WHY TWO PHASES?
+
+You can't summarize a directory without first understanding its files.
+
+Consider src/auth/ containing login.ts, logout.ts, and session.ts. To write a meaningful summary of src/auth/, ARE needs to know what each file does — files first, then directories.
+
+This is post-order traversal: process children before parents, leaves before branches. Phase 1 handles leaves (individual files), Phase 2 builds branches (directory hierarchies).
+
+PHASE 1: FILE ANALYSIS
+
+Phase 1 develops understanding of individual source files. createFileTasks() extracts import/export metadata, then buildFilePrompt() constructs a prompt including source code, import map, export map, project structure, and compression directives.
+
+Tasks execute via runPool(), ARE's iterator-based concurrency engine. Multiple files analyze in parallel, with concurrency tuned to your system's capabilities.
+
+After prompt building, task content is nullified to free memory — critical on large codebases.
+
+Each analysis produces a .sum file with YAML frontmatter including content_hash, enabling incremental updates by detecting source changes.
+
+PHASE 2: DIRECTORY AGGREGATION
+
+With all files analyzed, Phase 2 builds the hierarchy. createDirectoryTasks() constructs a dependency graph where each directory task knows which child tasks must complete first.
+
+Directories sort by depth descending — deepest first. This ensures src/auth/utils/ completes before src/auth/, which completes before src/.
+
+buildDirectoryPrompt() reads child .sum files in parallel and feeds them to the LLM for synthesis.
+
+THE CONCURRENCY ENGINE
+
+Both phases use runPool(), an iterator-based worker pool. Workers pull from a shared iterator — when one finishes early, it grabs the next task, maintaining full utilization despite variable durations.
+
+ERROR HANDLING
+
+Rate limit errors trigger exponential backoff plus random jitter to prevent thundering herd problems. Timeouts are NOT retried — retrying spawns more subprocesses on an already-strained system.
+
+WHAT THIS ENABLES
+
+The two-phase architecture unlocks incremental updates (regenerate only affected files), quality validation (detect undocumented exports between phases), scalability (thousands of files without memory issues), and observability (natural instrumentation boundaries).
+
+#AI #DeveloperTools #OpenSource #Documentation #AIEngineering #CodingAssistant #SystemDesign

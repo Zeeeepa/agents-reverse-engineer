@@ -1,0 +1,47 @@
+Rebuilding from Specs: ARE's Code Reconstruction Pipeline
+
+Documentation tools typically work one way: code to docs. agents-reverse-engineer goes further — are rebuild takes project specifications and reconstructs source code, completing the full circle.
+
+WHEN WOULD YOU USE THIS?
+
+Scaffolding from specifications. Document an architecture, then use are rebuild to generate a working starting point. Useful for exploring multiple implementation approaches.
+
+Framework migration. Modify your specification for a new framework and use are rebuild to generate migration scaffolding. The spec becomes the invariant; implementation becomes the variable.
+
+Disaster recovery. Lost source code but retained specifications? are rebuild reconstructs a working implementation.
+
+Exploring alternatives. What would your microservices look like as a monolith? Modify specs, run are rebuild, and explore architectural alternatives without manual rewriting.
+
+HOW IT WORKS
+
+Discovery and Parsing
+readSpecFiles() discovers markdown files in specs/. Then partitionSpec() extracts Build Plan phases using regex to find headings defining sequential build phases.
+
+Checkpoint Validation
+Before generation, CheckpointManager.load() checks .rebuild-checkpoint tracking completed phases and SHA-256 hashes of specification files.
+
+Orchestrated Execution
+executeRebuild() groups rebuild units by order, creating sequential groups. Within groups, tasks run concurrently using runPool().
+
+THE REBUILD PROMPT
+
+buildRebuildPrompt() includes your project's Architecture section from AGENTS.md, extracts relevant subsections, and accumulates a builtContext buffer capped at 100KB for later phases to reference earlier output.
+
+OUTPUT PARSING
+
+AI-generated code uses strict delimiter format:
+
+===FILE: src/models/user.ts===
+export interface User {
+  id: string;
+  name: string;
+}
+===END_FILE===
+
+If delimiters aren't found, ARE falls back to fenced code block parsing.
+
+LIMITATIONS
+
+AI-generated code requires review — treat output as scaffolding, not production code. Specification quality is critical. The 100KB context cap means large projects lose visibility into earlier files.
+
+#AI #DeveloperTools #OpenSource #CodeGeneration #AIEngineering #CodingAssistant #Scaffolding

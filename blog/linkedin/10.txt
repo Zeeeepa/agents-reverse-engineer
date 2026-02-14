@@ -1,0 +1,45 @@
+10 Tips for Getting the Best Documentation from ARE
+
+You've installed agents-reverse-engineer (ARE) and run generate, but the output disappoints. The difference between mediocre and exceptional documentation comes down to how you use the tool. Here are 10 practical tips.
+
+1. STRUCTURE CODE FOR BETTER SUMMARIES
+
+Single-responsibility files produce better .sum files than kitchen-sink modules. When a file does five things, summaries become vague. Split code into focused files like jwt-token-validator.ts, password-hasher.ts, and date-formatter.ts instead of one utils.ts. That's also good software design.
+
+2. USE MEANINGFUL NAMES
+
+ARE's AI reads your function, class, and file names to understand code. A file named utils.ts produces generic summaries because the name conveys nothing. Name it jwt-token-validator.ts and the AI has context before reading code. Same for exports: export function process(data) tells the AI nothing, while export function validateUserRegistration(userData) tells it everything.
+
+3. EXCLUDE THE NOISE
+
+Don't let ARE analyze everything. Test fixtures, generated code, migrations, and vendored dependencies create noise. Add patterns to .agents-reverse-engineer/config.yaml. Less noise equals better signal.
+
+4. CHOOSE THE RIGHT MODEL
+
+ARE supports multiple AI models. Use sonnet (default) for most codebases. Use haiku for large projects needing speed. Use opus for complex, critical code. Specify with --model haiku or in config.yaml.
+
+5. REVIEW AND EDIT .SUM FILES
+
+Generated .sum files are starting points. If ARE misses the point, edit manually. ARE won't overwrite edits unless source files change or you use --force.
+
+6. LEVERAGE AGENTS.LOCAL.MD
+
+Put custom instructions in AGENTS.local.md at any directory level. ARE preserves it by injecting an @AGENTS.local.md directive, merging your guidance with generated documentation.
+
+7. TUNE COMPRESSION FOR LARGE FILES
+
+ARE automatically compresses documentation for large files. If summaries feel sparse, adjust compression settings in config.yaml.
+
+8. RUN QUALITY CHECKS
+
+Review ARE's quality reports. Code-vs-doc checks find undocumented exports. Code-vs-code checks find duplicate symbols. Phantom-path validation catches broken links.
+
+9. USE --TRACE FOR LARGE PROJECTS
+
+When things feel slow, use --trace to write detailed logs to .agents-reverse-engineer/traces/. Identify bottlenecks and debug failures.
+
+10. ITERATE, DON'T PERFECTIONIST
+
+The first run won't be perfect. Run ARE, review output, adjust exclusions and config, then regenerate. After 2-3 iterations, you'll have genuinely useful documentation.
+
+#AI #DeveloperTools #OpenSource #Documentation #AIEngineering #CodingAssistant #BestPractices #Tips

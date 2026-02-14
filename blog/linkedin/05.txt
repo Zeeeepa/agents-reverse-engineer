@@ -1,0 +1,55 @@
+Incremental Updates: Keep Docs Fresh Without Regenerating Everything
+
+Your codebase evolves daily. Each change potentially invalidates documentation. Regenerating everything from scratch wastes time and API calls.
+
+The agents-reverse-engineer (ARE) update system detects what changed and regenerates only what's needed.
+
+THE UPDATE COMMAND
+
+npx agents-reverse-engineer update
+
+The update command:
+  1. Scans existing .sum files to detect which source files changed
+  2. Regenerates documentation for changed files (Phase 1)
+  3. Propagates changes up the directory tree by regenerating affected AGENTS.md files (Phase 2)
+  4. Cleans up orphaned documentation for deleted files
+
+This selective regeneration is orders of magnitude faster than a full are generate run.
+
+HOW CHANGE DETECTION WORKS
+
+Every .sum file contains YAML frontmatter with a content_hash — a SHA-256 digest of the source file. When you run are update:
+
+  1. Reads existing frontmatter from all .sum files
+  2. Computes current SHA-256 hashes for each source file
+  3. Compares stored versus current hashes
+  4. Regenerates only files where hashes don't match
+
+This doesn't rely on timestamps (unreliable with git) or git diffs (requiring a repo). It works purely on content — if bytes changed, docs get updated.
+
+DIRECTORY PROPAGATION
+
+When a file's documentation changes, parent AGENTS.md files need updating too. ARE collects all ancestor directories, sorts by depth descending, and regenerates each sequentially.
+
+ORPHAN CLEANUP
+
+When files get deleted, cleanupOrphans() removes their .sum and .annex.sum files. If a directory has no remaining source files, its AGENTS.md is also removed.
+
+THE --UNCOMMITTED FLAG
+
+are update --uncommitted
+
+Filters to only files git status reports as modified. Useful during active development to preview documentation changes before committing.
+
+AUTOMATIC UPDATES WITH SESSION HOOKS
+
+The are-session-end.js hook runs when your AI session ends, checks for git changes, and runs are update --quiet in the background using detached spawning. Disable via ARE_DISABLE_HOOK=1 or hook_enabled: false in config.
+
+BEST PRACTICES
+
+  1. Run updates after merging feature branches
+  2. Enable session hooks for automatic maintenance
+  3. Periodically run full regeneration (are generate --force)
+  4. Use --uncommitted during active development
+
+#AI #DeveloperTools #OpenSource #Documentation #AIEngineering #CodingAssistant #IncrementalUpdates
