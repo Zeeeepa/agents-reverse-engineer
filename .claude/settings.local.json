@@ -96,7 +96,8 @@
       "WebFetch(domain:cefboud.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:support.claude.com)",
-      "WebFetch(domain:ccusage.com)"
+      "WebFetch(domain:ccusage.com)",
+      "Bash(git status:*)"
     ]
   }
 }
