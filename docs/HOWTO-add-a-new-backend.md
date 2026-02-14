@@ -135,10 +135,10 @@ export interface AIResponse {
 
 ### 1a. `isAvailable()` — PATH detection
 
-Use the shared `isCommandOnPath()` utility exported from `src/ai/backends/claude.ts`:
+Use the shared `isCommandOnPath()` utility exported from `src/ai/backends/common.ts`:
 
 ```typescript
-import { isCommandOnPath } from './claude.js';
+import { isCommandOnPath } from './common.js';
 
 export class GooseBackend implements AIBackend {
   readonly name = 'goose';

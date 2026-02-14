@@ -19,7 +19,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { AIBackend, AICallOptions, AIResponse } from '../types.js';
 import { AIServiceError } from '../types.js';
-import { isCommandOnPath } from './claude.js';
+import { isCommandOnPath } from './common.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for OpenCode NDJSON events

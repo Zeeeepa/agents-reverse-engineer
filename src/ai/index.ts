@@ -87,5 +87,5 @@ export type { SubprocessProviderOptions } from './providers/subprocess.js';
 // Backend utilities
 // ---------------------------------------------------------------------------
 
-export { isCommandOnPath } from './backends/claude.js';
+export { isCommandOnPath } from './backends/common.js';
 
