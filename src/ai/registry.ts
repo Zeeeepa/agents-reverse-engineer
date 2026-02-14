@@ -75,7 +75,7 @@ export class BackendRegistry {
  * Registration order determines auto-detection priority:
  * 1. Claude (recommended, fully implemented)
  * 2. Codex (production)
- * 3. Gemini (experimental, stub)
+ * 3. Gemini (production)
  * 4. OpenCode (production)
  *
  * @returns A populated {@link BackendRegistry}
