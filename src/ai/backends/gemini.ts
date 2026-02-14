@@ -2,7 +2,7 @@
  * Gemini CLI backend.
  *
  * Implements the {@link AIBackend} interface for the Gemini CLI (`gemini`).
- * Parses the JSON output format produced by `gemini -p --output-format json`,
+ * Parses the JSON output format produced by `gemini -p <prompt> --output-format json`,
  * extracts token metrics from `stats.models`, and maps ARE model aliases
  * to Gemini model identifiers.
  *
@@ -73,7 +73,7 @@ function resolveModelForGemini(model: string): string {
  * const backend = new GeminiBackend();
  * if (await backend.isAvailable()) {
  *   const args = backend.buildArgs({ prompt: 'Hello', model: 'flash' });
- *   // → ['-p', '--output-format', 'json', '-m', 'gemini-3-flash-preview']
+ *   // → ['-p', 'Hello', '--output-format', 'json', '-m', 'gemini-3-flash-preview']
  * }
  * ```
  */
@@ -88,11 +88,21 @@ export class GeminiBackend implements AIBackend {
   /**
    * Build CLI arguments for a Gemini invocation.
    *
-   * Uses `-p` for headless mode and `--output-format json` for structured
-   * output. The prompt goes to stdin via the subprocess wrapper.
+   * Uses `-p <prompt>` for headless mode and `--output-format json` for
+   * structured output. Unlike the Claude CLI (where `-p` means
+   * "non-interactive mode" and the prompt goes to stdin), Gemini CLI's
+   * `-p`/`--prompt` flag requires the prompt text as its argument value.
+   *
+   * The system prompt is folded into the prompt using XML tags since
+   * Gemini CLI has no `--system-prompt` flag.
    */
   buildArgs(options: AICallOptions): string[] {
-    const args: string[] = ['-p', '--output-format', 'json'];
+    let prompt = options.prompt;
+    if (options.systemPrompt) {
+      prompt = `<system-instructions>\n${options.systemPrompt}\n</system-instructions>\n\n${prompt}`;
+    }
+
+    const args: string[] = ['-p', prompt, '--output-format', 'json'];
 
     if (options.model) {
       args.push('-m', resolveModelForGemini(options.model));
@@ -102,17 +112,13 @@ export class GeminiBackend implements AIBackend {
   }
 
   /**
-   * Compose stdin input with system prompt wrapping.
+   * Compose stdin input for the subprocess.
    *
-   * Gemini CLI has no `--system-prompt` flag, so the system prompt is
-   * folded into the stdin payload using XML tags (same convention as
-   * the Codex and OpenCode backends).
+   * Returns an empty string because Gemini CLI receives the prompt via
+   * the `-p` argument, not stdin.
    */
-  composeStdinInput(options: AICallOptions): string {
-    if (options.systemPrompt) {
-      return `<system-instructions>\n${options.systemPrompt}\n</system-instructions>\n\n${options.prompt}`;
-    }
-    return options.prompt;
+  composeStdinInput(_options: AICallOptions): string {
+    return '';
   }
 
   /**
