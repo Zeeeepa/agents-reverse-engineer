@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-02-14
+
+### Added
+- **Comprehensive backend integration guide** — New `docs/HOWTO-add-a-new-backend.md` with step-by-step instructions for adding a new AI CLI backend to ARE
+- **Full AGENTS.md and CLAUDE.md documentation across all modules** — Generated 93 documentation files covering every source directory, providing AI-navigable context for the entire codebase
+- **medium.com added to WebFetch permissions** — Expanded allowed domains in Claude Code settings
+
+### Changed
+- **Gemini backend promoted from experimental stub to full production** — Complete rewrite of `src/ai/backends/gemini.ts` with Zod schema validation for JSON output parsing, model alias resolution (ARE aliases like `sonnet`/`opus` mapped to Gemini equivalents), and token metrics extraction from `stats.models`
+- **Command path utility refactored to shared module** — Extracted `isCommandOnPath()` from Claude backend into `src/ai/backends/common.ts`, used by all backends (Claude, Codex, Gemini, OpenCode) for consistent PATH detection
+- **Skills enhanced with `--eval` option** — Generate and update skill files now support `--eval` flag for variant-specific output comparison
+
 ## [0.9.10] - 2026-02-14
 
 ### Added
@@ -924,7 +936,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.10...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.10...v1.0.0
 [0.9.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.9...v0.9.10
 [0.9.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.8...v0.9.9
 [0.9.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.7...v0.9.8
