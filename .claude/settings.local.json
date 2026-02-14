@@ -98,7 +98,10 @@
       "WebFetch(domain:support.claude.com)",
       "WebFetch(domain:ccusage.com)",
       "Bash(git status:*)",
-      "WebFetch(domain:medium.com)"
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:developers.openai.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:open-code.ai)"
     ]
   }
 }

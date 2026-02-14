@@ -146,7 +146,7 @@ ai:
 
   # Model identifier (backend-specific)
   # Examples: "sonnet", "opus", "haiku" (for Claude)
-  model: gemini-3.0-flash
+  model: gemini-2.5-flash
 
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)

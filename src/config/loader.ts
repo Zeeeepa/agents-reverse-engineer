@@ -272,7 +272,14 @@ ai:
   backend: auto
 
   # Model identifier (backend-specific)
-  # Examples: "sonnet", "opus", "haiku" (for Claude)
+  # Claude:   sonnet | opus | haiku | sonnet[1m] | opusplan
+  #           claude-opus-4-6, claude-sonnet-4-5-20250929, claude-haiku-4-5
+  # Codex:    gpt-5.3-codex | gpt-5.2-codex | gpt-5.1-codex-max | gpt-5.1-codex
+  #           gpt-5-codex | gpt-5-codex-mini
+  # Gemini:   gemini-3-pro-preview | gemini-3-flash-preview
+  #           gemini-2.5-pro | gemini-2.5-flash
+  # OpenCode: provider/model format — e.g. anthropic/claude-sonnet-4-5,
+  #           openai/gpt-5, google/gemini-2.5, groq/..., ollama/...
   model: sonnet
 
   # Subprocess timeout in milliseconds
