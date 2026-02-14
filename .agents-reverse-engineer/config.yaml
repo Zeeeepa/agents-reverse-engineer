@@ -68,6 +68,9 @@ exclude:
     - .gemini
     - benchmark
     - specs
+    - blog
+    - docs
+    - site
 
   # Binary file extensions to exclude from analysis
   # These files cannot be meaningfully analyzed as text
