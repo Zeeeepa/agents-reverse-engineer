@@ -37,6 +37,7 @@ Run the update command in the background and monitor progress in real time.
 **Options:**
 - `--uncommitted`: Include staged but uncommitted changes
 - `--dry-run`: Show what would be updated without writing
+- `--eval`: Namespace output by backend.model for side-by-side comparison
 - `--concurrency N`: Control number of parallel AI calls (default: auto)
 - `--fail-fast`: Stop on first file analysis failure
 - `--debug`: Show AI prompts and backend details

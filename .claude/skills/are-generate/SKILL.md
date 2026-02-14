@@ -42,6 +42,7 @@ This executes a two-phase pipeline:
 
 **Options:**
 - `--dry-run`: Preview the plan without making AI calls
+- `--eval`: Namespace output by backend.model for side-by-side comparison (e.g., `file.ts.claude.haiku.sum`, `AGENTS.claude.haiku.md`)
 - `--concurrency N`: Control number of parallel AI calls (default: auto)
 - `--fail-fast`: Stop on first file analysis failure
 - `--debug`: Show AI prompts and backend details

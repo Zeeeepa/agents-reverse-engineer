@@ -69,12 +69,14 @@ Generate comprehensive documentation for the codebase.
 | `[path]` | Target directory (default: current directory) |
 | `--concurrency N` | Number of concurrent AI calls (default: auto) |
 | `--dry-run` | Show what would be generated without writing |
+| `--eval` | Namespace output by backend.model for comparison |
 | `--fail-fast` | Stop on first file analysis failure |
 | `--debug` | Show AI prompts and backend details |
 | `--trace` | Enable concurrency tracing to `.agents-reverse-engineer/traces/` |
 **Usage:**
 - `/are-generate` — Generate docs
 - `/are-generate --dry-run` — Preview without writing
+- `/are-generate --eval` — Generate variant docs for comparison
 - `/are-generate --concurrency 3` — Limit parallel AI calls
 
 **CLI:**
@@ -100,6 +102,7 @@ Incrementally update documentation for changed files.
 | `[path]` | Target directory (default: current directory) |
 | `--uncommitted` | Include staged but uncommitted changes |
 | `--dry-run` | Show what would be updated without writing |
+| `--eval` | Namespace output by backend.model for comparison |
 | `--concurrency N` | Number of concurrent AI calls (default: auto) |
 | `--fail-fast` | Stop on first file analysis failure |
 | `--debug` | Show AI prompts and backend details |
@@ -196,8 +199,8 @@ Remove all generated documentation artifacts.
 
 **What gets deleted:**
 - `.agents-reverse-engineer/GENERATION-PLAN.md`
-- All `*.sum` files
-- All `AGENTS.md` files
+- All `*.sum` files (including eval variant `.sum` files)
+- All `AGENTS.md` and `AGENTS.*.md` variant files
 - Pointers: `CLAUDE.md`
 
 **Usage:**
