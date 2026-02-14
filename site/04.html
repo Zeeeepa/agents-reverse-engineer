@@ -124,28 +124,26 @@
 <div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
 <div class="are-blur-wrap">
 <article><h1>The Two-Phase Pipeline: How ARE Understands Your Codebase</h1>
-<p>When you run <code>are generate</code>, you see progress bars ticking through files and directories. But what&#39;s happening under the hood? This article takes you inside the pipeline that transforms raw source code into comprehensive, AI-friendly documentation.</p>
+<p>When you run <code>are generate</code>, progress bars tick through files and directories. What&#39;s happening under the hood? Here&#39;s how raw source code becomes AI-friendly documentation.</p>
 <h2>Why Two Phases?</h2>
-<p>The fundamental insight behind ARE&#39;s architecture is simple: <strong>you can&#39;t summarize a directory without first understanding the files in it.</strong></p>
-<p>Consider a typical project structure with <code>src/auth/</code> containing <code>login.ts</code>, <code>logout.ts</code>, and <code>session.ts</code>. To write a meaningful summary of <code>src/auth/</code>, ARE needs to know what each file does. This requires analyzing files first, then aggregating them into directory summaries.</p>
-<p>This is <strong>post-order traversal</strong>: process children before parents, leaves before branches. Phase 1 handles the leaves (individual files), Phase 2 builds the branches (directory hierarchies).</p>
-<p>The alternative—trying to analyze everything in one pass—would require massive context windows including entire subdirectories (expensive and error-prone) or produce shallow summaries missing important relationships.</p>
+<p><strong>You can&#39;t summarize a directory without first understanding its files.</strong></p>
+<p>Consider <code>src/auth/</code> containing <code>login.ts</code>, <code>logout.ts</code>, and <code>session.ts</code>. To write a meaningful summary of <code>src/auth/</code>, ARE needs to know what each file does — files first, then directories.</p>
+<p>This is <strong>post-order traversal</strong>: process children before parents, leaves before branches. Phase 1 handles leaves (individual files), Phase 2 builds branches (directory hierarchies).</p>
 <h2>Phase 1: File Analysis</h2>
-<p>Phase 1 develops understanding of individual source files. The <code>createFileTasks()</code> function extracts import/export metadata for each file, then <code>buildFilePrompt()</code> constructs a carefully crafted prompt including source code, import map, export map, project structure context, and compression directives when needed.</p>
-<p>Tasks execute via <code>runPool()</code>, ARE&#39;s iterator-based concurrency engine. Multiple files are analyzed in parallel, with concurrency automatically tuned to your system&#39;s capabilities.</p>
-<p>After a prompt is built, the original task content is nullified to free memory—critical on large codebases with thousands of files.</p>
-<p>Each successful analysis produces a <code>.sum</code> file with YAML frontmatter including <code>file_type</code>, <code>generated_at</code>, and <code>content_hash</code>—which enables incremental updates by detecting when source files change.</p>
+<p>Phase 1 develops understanding of individual source files. <code>createFileTasks()</code> extracts import/export metadata, then <code>buildFilePrompt()</code> constructs a prompt including source code, import map, export map, project structure, and compression directives.</p>
+<p>Tasks execute via <code>runPool()</code>, ARE&#39;s iterator-based concurrency engine. Multiple files analyze in parallel, with concurrency tuned to your system&#39;s capabilities.</p>
+<p>After prompt building, task content is nullified to free memory — critical on large codebases.</p>
+<p>Each analysis produces a <code>.sum</code> file with YAML frontmatter including <code>content_hash</code>, enabling incremental updates by detecting source changes.</p>
 <h2>Phase 2: Directory Aggregation</h2>
-<p>With all files analyzed, Phase 2 builds the hierarchical view. The <code>createDirectoryTasks()</code> function constructs a dependency graph where each directory task knows which child tasks must complete before it can run.</p>
-<p>Directories are sorted by depth, <strong>descending</strong>—deepest directories process first. This ensures <code>src/auth/utils/</code> completes before <code>src/auth/</code>, which completes before <code>src/</code>.</p>
-<p>The <code>buildDirectoryPrompt()</code> reads all child <code>.sum</code> files in parallel and feeds them to the LLM for synthesis.</p>
+<p>With all files analyzed, Phase 2 builds the hierarchy. <code>createDirectoryTasks()</code> constructs a dependency graph where each directory task knows which child tasks must complete first.</p>
+<p>Directories sort by depth <strong>descending</strong> — deepest first. This ensures <code>src/auth/utils/</code> completes before <code>src/auth/</code>, which completes before <code>src/</code>.</p>
+<p><code>buildDirectoryPrompt()</code> reads child <code>.sum</code> files in parallel and feeds them to the LLM for synthesis.</p>
 <h2>The Concurrency Engine</h2>
-<p>Both phases use <code>runPool&lt;T&gt;()</code>, an <strong>iterator-based worker pool</strong>. Workers pull tasks from a <strong>shared iterator</strong>—when one finishes early, it immediately grabs the next task, maintaining full utilization despite variable task durations.</p>
+<p>Both phases use <code>runPool&lt;T&gt;()</code>, an <strong>iterator-based worker pool</strong>. Workers pull from a shared iterator — when one finishes early, it grabs the next task, maintaining full utilization despite variable durations.</p>
 <h2>Error Handling</h2>
-<p>ARE&#39;s retry logic is surgical. Rate limit errors trigger exponential backoff plus random jitter to prevent thundering herd problems.</p>
-<p>Crucially, <strong>timeouts are NOT retried</strong>. Retrying would spawn more expensive subprocesses on an already-strained system.</p>
+<p>Rate limit errors trigger exponential backoff plus random jitter to prevent thundering herd problems. <strong>Timeouts are NOT retried</strong> — retrying spawns more subprocesses on an already-strained system.</p>
 <h2>What This Enables</h2>
-<p>The two-phase architecture unlocks: <strong>Incremental Updates</strong> regenerate only affected files and parent directories, <strong>Quality Validation</strong> detects undocumented exports between phases, <strong>Scalability</strong> processes thousands of files without memory issues, <strong>Observability</strong> provides natural instrumentation boundaries.</p>
+<p>The two-phase architecture unlocks <strong>incremental updates</strong> (regenerate only affected files), <strong>quality validation</strong> (detect undocumented exports between phases), <strong>scalability</strong> (thousands of files without memory issues), and <strong>observability</strong> (natural instrumentation boundaries).</p>
 </article>
 </div>
 </body>

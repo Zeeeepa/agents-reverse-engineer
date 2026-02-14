@@ -128,7 +128,7 @@
 <div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
 <div class="are-blur-wrap">
 <article><div class="hero-card"><h1>Integrating ARE into Your Team Workflow: CI/CD, Hooks, and Automation</h1>
-<p>You&#39;ve mastered agents-reverse-engineer (ARE) individually. Now it&#39;s time to make it a team tool. Here&#39;s how to scale from personal use to shared infrastructure.</p>
+<p>You&#39;ve mastered agents-reverse-engineer (ARE) individually. Now make it a team tool. Here&#39;s how to scale from personal use to shared infrastructure.</p>
 </div><div class="card"><h2>Session Hooks: Zero-Effort Maintenance</h2>
 <p>ARE ships with three hooks that run automatically during AI sessions:</p>
 <ul>
@@ -136,7 +136,7 @@
 <li><strong>are-context-loader.js</strong> (PostToolUse): Injects parent <code>AGENTS.md</code> into context whenever your AI reads a file. Your assistant automatically understands the broader architecture.</li>
 <li><strong>are-session-end.js</strong> (SessionEnd): Detects git changes via <code>git status --porcelain</code> and runs <code>are update --quiet</code> in the background. Documentation stays fresh without manual intervention.</li>
 </ul>
-<p>All hooks use detached spawning (<code>child.unref()</code>) so they never block your session. Disable them with <code>ARE_DISABLE_HOOK=1</code> or <code>hook_enabled: false</code> in config.</p>
+<p>All hooks use detached spawning (<code>child.unref()</code>) so they never block your session. Disable with <code>ARE_DISABLE_HOOK=1</code> or <code>hook_enabled: false</code> in config.</p>
 </div><div class="card"><h2>CI/CD Integration</h2>
 <p>Add documentation validation to your pipeline. A minimal GitHub Actions example:</p>
 <pre><code class="language-yaml">- name: Check docs are current
@@ -149,8 +149,8 @@
 </code></pre>
 <p>ARE&#39;s exit codes map cleanly to CI: 0 (success), 1 (partial failure), 2 (total failure).</p>
 </div><div class="card"><h2>Shared Configuration</h2>
-<p>Commit <code>.agents-reverse-engineer/config.yaml</code> to standardize behavior across the team: exclusion patterns, concurrency limits, model selection, and compression ratios. Everyone generates consistent documentation.</p>
-<p>For monorepos, either run ARE per-workspace or use aggressive exclusion patterns to scope discovery to the packages that matter.</p>
+<p>Commit <code>.agents-reverse-engineer/config.yaml</code> to standardize behavior: exclusion patterns, concurrency limits, model selection, and compression ratios. Everyone generates consistent documentation.</p>
+<p>For monorepos, either run ARE per-workspace or use aggressive exclusion patterns to scope discovery.</p>
 </div><div class="card"><h2>The Programmatic API</h2>
 <p>For custom integrations, import from <code>agents-reverse-engineer/core</code> (@beta):</p>
 <pre><code class="language-typescript">import { updateDocumentation, readConfig } from &#39;agents-reverse-engineer/core&#39;;
@@ -159,13 +159,13 @@ await updateDocumentation(process.cwd(), config);
 </code></pre>
 <p>The API exposes 60+ symbols for discovery, generation, orchestration, and telemetry.</p>
 </div><div class="card"><h2>Team Conventions</h2>
-<p>Agree on the basics: commit generated docs or gitignore them, regeneration cadence (per-session via hooks, weekly, or as a CI gate), and who reviews generated output. Use <code>AGENTS.local.md</code> for team-specific instructions that survive regeneration.</p>
+<p>Agree on basics: commit generated docs or gitignore them, regeneration cadence (per-session via hooks, weekly, or CI gate), and who reviews output. Use <code>AGENTS.local.md</code> for team-specific instructions that survive regeneration.</p>
 </div><div class="card"><h2>Series Wrap-Up</h2>
-<p>Over twelve articles, we&#39;ve covered ARE from installation through advanced usage. The fastest path to value:</p>
+<p>Over twelve articles, we&#39;ve covered ARE from installation through advanced usage:</p>
 <pre><code class="language-bash">npx agents-reverse-engineer@latest
 </code></pre>
-<p>ARE is MIT-licensed and open source at <a href="https://github.com/GeoloeG-IsT/agents-reverse-engineer">github.com/GeoloeG-IsT/agents-reverse-engineer</a>. Contributions welcome.</p>
-<p>The goal isn&#39;t perfect documentation. It&#39;s documentation that&#39;s good enough, fresh enough, and automatic enough to actually help. ARE gets you there.</p>
+<p>ARE is MIT-licensed and open source at <a href="https://github.com/GeoloeG-IsT/agents-reverse-engineer">github.com/GeoloeG-IsT/agents-reverse-engineer</a>.</p>
+<p>The goal isn&#39;t perfect documentation. It&#39;s documentation that&#39;s good enough, fresh enough, and automatic enough to actually help.</p>
 </div></article>
 </div>
 </body>

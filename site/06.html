@@ -135,9 +135,9 @@
 <div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
 <div class="are-blur-wrap">
 <div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div><article><h1>Multi-Runtime Support: Claude Code, Gemini CLI, OpenCode, and Codex</h1>
-<p>The AI coding assistant landscape is rapidly diversifying. How do you maintain consistent documentation across different tools? <code>agents-reverse-engineer</code> (ARE) was designed from the ground up to work across multiple AI coding assistants, generating documentation that works seamlessly with all of them.</p>
+<p>The AI coding assistant landscape is diversifying fast. <code>agents-reverse-engineer</code> (ARE) was designed to work across multiple AI assistants, generating documentation that works seamlessly with all of them.</p>
 <h2>The AGENTS.md Standard</h2>
-<p>Before diving into runtime-specific details, understand that <strong>AGENTS.md is an emerging cross-tool standard</strong> for AI-readable project documentation. Like README.md for humans, AGENTS.md provides AI-readable documentation in a consistent, hierarchical structure. ARE generates this through its two-phase pipeline: parallel file analysis followed by hierarchical directory aggregation. Because AGENTS.md is a standard format, any tool that supports it will automatically benefit—even tools that don&#39;t exist yet.</p>
+<p><strong>AGENTS.md is an emerging cross-tool standard</strong> for AI-readable project documentation. Like README.md for humans, AGENTS.md provides AI-readable documentation in a consistent, hierarchical structure. ARE generates this through its two-phase pipeline: parallel file analysis followed by hierarchical directory aggregation. Because AGENTS.md is a standard format, any tool that supports it will automatically benefit — even tools that don&#39;t exist yet.</p>
 <h2>Runtime-by-Runtime Breakdown</h2>
 <h3>Claude Code: Full Integration</h3>
 <p>Claude Code has the most mature integration, with full slash commands (<code>/are-generate</code>, <code>/are-update</code>, etc.) and three automated session hooks. <code>are-check-update.js</code> performs version checks, <code>are-context-loader.js</code> auto-injects parent AGENTS.md files into context, and <code>are-session-end.js</code> triggers auto-updates on git changes. Uses <code>CLAUDE.md</code> pointer file.</p>
@@ -169,7 +169,7 @@
 <li><strong>Version Files</strong>: Different locations per runtime</li>
 </ul>
 <h2>Backend Selection</h2>
-<p>Runtimes determine where documentation is consumed; backends determine which AI CLI generates it. You can mix and match: generate with Claude for quality, consume with Gemini for speed. This separation provides maximum flexibility.</p>
+<p>Runtimes determine where docs are consumed; backends determine which AI generates them. You can mix and match: generate with Claude for quality, consume with Gemini for speed.</p>
 </article>
 </div>
 </body>

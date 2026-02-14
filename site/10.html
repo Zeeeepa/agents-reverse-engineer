@@ -145,9 +145,9 @@
 <div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
 <div class="are-blur-wrap">
 <article><h1>10 Tips for Getting the Best Documentation from ARE</h1>
-<p>You&#39;ve installed agents-reverse-engineer (ARE) and run generate, but the output disappoints. The difference between mediocre and exceptional AI-generated documentation often comes down to how you use the tool. Here are 10 practical tips from real-world usage.</p>
+<p>You&#39;ve installed agents-reverse-engineer (ARE) and run generate, but the output disappoints. The difference between mediocre and exceptional documentation comes down to how you use the tool. Here are 10 practical tips.</p>
 <h2>1. Structure Code for Better Summaries</h2>
-<p>Single-responsibility files produce dramatically better <code>.sum</code> files than kitchen-sink modules. When a file does five things, AI summaries become vague. Split code into focused files like <code>jwt-token-validator.ts</code>, <code>password-hasher.ts</code>, and <code>date-formatter.ts</code> instead of one <code>utils.ts</code>. You&#39;ll get sharp, specific summaries. This isn&#39;t just good for ARE—it&#39;s good software design.</p>
+<p>Single-responsibility files produce better <code>.sum</code> files than kitchen-sink modules. When a file does five things, summaries become vague. Split code into focused files like <code>jwt-token-validator.ts</code>, <code>password-hasher.ts</code>, and <code>date-formatter.ts</code> instead of one <code>utils.ts</code>. You&#39;ll get sharp, specific summaries. That&#39;s also good software design.</p>
 <h2>2. Use Meaningful Names</h2>
 <p>ARE&#39;s AI reads your function, class, and file names to understand code. A file named <code>utils.ts</code> produces generic summaries because the name conveys nothing. Name it <code>jwt-token-validator.ts</code> and the AI has context before reading code. The same applies to exports: <code>export function process(data)</code> tells the AI nothing, while <code>export function validateUserRegistration(userData)</code> tells it everything.</p>
 <h2>3. Exclude the Noise</h2>
@@ -161,9 +161,9 @@
 </code></pre>
 <p>Less noise equals better signal.</p>
 <h2>4. Choose the Right Model</h2>
-<p>ARE supports multiple AI models. Use <code>sonnet</code> (default) for most codebases. Use <code>haiku</code> for large projects needing speed and lower costs. Use <code>opus</code> for complex, critical code like core algorithms and security modules. Specify with <code>--model haiku</code> or in config.yaml.</p>
+<p>ARE supports multiple AI models. Use <code>sonnet</code> (default) for most codebases. Use <code>haiku</code> for large projects needing speed. Use <code>opus</code> for complex, critical code. Specify with <code>--model haiku</code> or in config.yaml.</p>
 <h2>5. Review and Edit .sum Files</h2>
-<p>Generated <code>.sum</code> files are starting points. If ARE misses the point, edit files manually. ARE won&#39;t overwrite edits unless source files change or you use <code>--force</code>. YAML frontmatter tracks content hashes to detect changes.</p>
+<p>Generated <code>.sum</code> files are starting points. If ARE misses the point, edit manually. ARE won&#39;t overwrite edits unless source files change or you use <code>--force</code>.</p>
 <h2>6. Leverage AGENTS.local.md</h2>
 <p>Put custom instructions in <code>AGENTS.local.md</code> at any directory level. ARE preserves it by injecting an <code>@AGENTS.local.md</code> directive, merging your guidance with generated documentation.</p>
 <h2>7. Tune Compression for Large Files</h2>

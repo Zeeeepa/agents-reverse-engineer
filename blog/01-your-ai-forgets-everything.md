@@ -8,17 +8,17 @@ Sound familiar? This scenario is rarer now than it used to be — but it still h
 
 ## The Real Problem: Discovery Is Expensive
 
-Modern AI assistants have gotten good at exploring codebases on their own. Tools like `grep`, `find`, and `Read` let them crawl through your project, trace imports, and piece together the architecture. They'll get there eventually.
+Modern AI assistants have gotten good at exploring codebases on their own. Tools like `grep`, `find`, and `Read` let them crawl through your project and piece together the architecture. They'll get there eventually.
 
-But "eventually" has a cost. Every file read burns tokens. Every search round-trip adds latency. A single question like "how does auth work here?" can trigger dozens of tool calls — the AI grepping for patterns, reading file after file, backtracking when it follows the wrong lead. You're paying for that exploration in both time and money, and it happens **every single session**.
+But "eventually" has a cost. Every file read burns tokens. Every search adds latency. A question like "how does auth work?" can trigger dozens of tool calls — the AI grepping, reading file after file, backtracking. You're paying for that exploration in time and money, **every session**.
 
 The AI isn't broken. It's just doing archaeology every time it opens your project.
 
 ## What If Your AI Already Knew?
 
-Imagine typing: "Add password reset functionality." No preamble. No architecture explanation. No waiting while the AI reads 30 files to understand your auth setup.
+Imagine typing: "Add password reset functionality." No preamble. No waiting while the AI reads 30 files to understand your auth setup.
 
-Your AI responds with code that follows your patterns, uses your middleware, fits your structure — in seconds, not minutes. Because it already knows, from message one.
+Your AI responds with code that follows your patterns, uses your middleware, fits your structure — in seconds. Because it already knows.
 
 ## Introducing agents-reverse-engineer
 
@@ -43,22 +43,22 @@ npx are discover   # Scan your project
 npx are generate   # Generate documentation
 ```
 
-Under the hood, `are` runs a two-phase pipeline: **file analysis** spawns parallel AI calls producing `.sum` files, then **directory aggregation** performs post-order traversal building `AGENTS.md` from deepest directories upward.
+Under the hood, `are` runs a two-phase pipeline: parallel file analysis producing `.sum` files, then post-order directory aggregation building `AGENTS.md` from deepest directories upward.
 
-Session hooks inject parent directory context after Read tool calls. The `are-context-loader` hook tracks loaded directories, preventing redundant loads. Updates run incrementally — `npx are update` re-analyzes only changed files using SHA-256 content hashing.
+Session hooks inject context automatically. Updates run incrementally — `are update` re-analyzes only changed files using content hashing.
 
 ## The Result
 
-Your next AI session is fundamentally different. Ask architectural questions and get informed answers. Request features and get implementations that fit your patterns. Documentation stays in sync automatically.
+Your next AI session is different. Ask architectural questions and get informed answers. Request features and get code that fits your patterns.
 
-No more explaining your codebase. No more waiting while the AI greps its way through your project. No more burning tokens on rediscovery.
+No more explaining your codebase. No more burning tokens on rediscovery.
 
 ```bash
 npx agents-reverse-engineer@latest
 ```
 
-Fewer tokens. Faster answers. Better code. Stop paying for rediscovery. Start building.
+Fewer tokens. Faster answers. Better code.
 
 ---
 
-**agents-reverse-engineer** — MIT licensed | [GitHub](https://github.com/GeoloeG-IsT/agents-reverse-engineer) | npm: `agents-reverse-engineer` v0.9.9
+**agents-reverse-engineer** — MIT licensed | [GitHub](https://github.com/GeoloeG-IsT/agents-reverse-engineer)

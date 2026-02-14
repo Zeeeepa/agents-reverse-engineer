@@ -1,10 +1,10 @@
 # Anatomy of Generated Documentation: .sum Files and AGENTS.md Explained
 
-After running `agents-reverse-engineer` on your codebase, new files appear: `.sum` files alongside source code, `AGENTS.md` files in directories, and pointer files like `CLAUDE.md` at the root. This article dissects ARE's generated documentation anatomy.
+After running `agents-reverse-engineer`, new files appear: `.sum` files alongside source code, `AGENTS.md` in directories, and pointer files like `CLAUDE.md` at the root. Here's what they contain.
 
 ## .sum Files: Per-File Intelligence
 
-For every source file, ARE generates a corresponding `.sum` file. Each `.sum` file has two parts:
+For every source file, ARE generates a corresponding `.sum` file with two parts:
 
 **YAML Frontmatter** contains:
 - **`file_type`**: Categorizes the file (service, util, type, test)
@@ -38,7 +38,7 @@ Your hand-written context is preserved through the directive.
 
 ## Pointer Files: Runtime Bridges
 
-At project root, you'll find `CLAUDE.md`, `GEMINI.md`, or `OPENCODE.md`. These pointer files contain one line: `@AGENTS.md`. Each AI runtime has auto-load conventions. ARE uses lightweight adapters pointing to universal `AGENTS.md` format.
+At project root, you'll find `CLAUDE.md`, `GEMINI.md`, or `OPENCODE.md` — single-line pointer files containing `@AGENTS.md`. Each AI runtime has auto-load conventions; ARE uses lightweight adapters pointing to universal `AGENTS.md` format.
 
 ## The Hierarchy
 
@@ -58,7 +58,7 @@ ARE runs quality gates: Code-vs-Doc Consistency verifies exported symbols are do
 
 ## Customizing Output
 
-Configure via `.agents-reverse-engineer/config.yaml`: Compression Ratio controls summary size. Exclude Patterns skip files from documentation. Use `AGENTS.local.md` for persistent custom documentation.
+Configure via `.agents-reverse-engineer/config.yaml`: compression ratio, exclude patterns, and `AGENTS.local.md` for persistent custom context.
 
 ---
 

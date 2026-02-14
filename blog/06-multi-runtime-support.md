@@ -1,10 +1,10 @@
 # Multi-Runtime Support: Claude Code, Gemini CLI, OpenCode, and Codex
 
-The AI coding assistant landscape is rapidly diversifying. How do you maintain consistent documentation across different tools? `agents-reverse-engineer` (ARE) was designed from the ground up to work across multiple AI coding assistants, generating documentation that works seamlessly with all of them.
+The AI coding assistant landscape is diversifying fast. `agents-reverse-engineer` (ARE) was designed to work across multiple AI assistants, generating documentation that works seamlessly with all of them.
 
 ## The AGENTS.md Standard
 
-Before diving into runtime-specific details, understand that **AGENTS.md is an emerging cross-tool standard** for AI-readable project documentation. Like README.md for humans, AGENTS.md provides AI-readable documentation in a consistent, hierarchical structure. ARE generates this through its two-phase pipeline: parallel file analysis followed by hierarchical directory aggregation. Because AGENTS.md is a standard format, any tool that supports it will automatically benefit—even tools that don't exist yet.
+**AGENTS.md is an emerging cross-tool standard** for AI-readable project documentation. Like README.md for humans, AGENTS.md provides AI-readable documentation in a consistent, hierarchical structure. ARE generates this through its two-phase pipeline: parallel file analysis followed by hierarchical directory aggregation. Because AGENTS.md is a standard format, any tool that supports it will automatically benefit — even tools that don't exist yet.
 
 ## Runtime-by-Runtime Breakdown
 
@@ -52,4 +52,4 @@ npx agents-reverse-engineer@latest --runtime claude -g
 
 ## Backend Selection
 
-Runtimes determine where documentation is consumed; backends determine which AI CLI generates it. You can mix and match: generate with Claude for quality, consume with Gemini for speed. This separation provides maximum flexibility.
+Runtimes determine where docs are consumed; backends determine which AI generates them. You can mix and match: generate with Claude for quality, consume with Gemini for speed.

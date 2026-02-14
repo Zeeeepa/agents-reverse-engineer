@@ -115,10 +115,9 @@
 <div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
 <div class="are-blur-wrap">
 <article><h1>Incremental Updates: Keep Docs Fresh Without Regenerating Everything</h1>
-<p>Your codebase evolves daily with new features, bug fixes, and API refactors. Each change potentially invalidates your documentation. Regenerating all documentation from scratch after every change wastes time, API calls, and computational resources.</p>
-<p>The agents-reverse-engineer (ARE) update system solves this by intelligently detecting what changed and regenerating only what&#39;s needed. Instead of re-analyzing hundreds of files, it identifies the handful that actually changed and propagates those updates through the documentation tree efficiently.</p>
+<p>Your codebase evolves daily. Each change potentially invalidates documentation. Regenerating everything from scratch wastes time and API calls.</p>
+<p>The agents-reverse-engineer (ARE) update system detects what changed and regenerates only what&#39;s needed.</p>
 <h2>The Update Command</h2>
-<p>Running incremental updates is straightforward:</p>
 <pre><code class="language-bash">npx agents-reverse-engineer update
 </code></pre>
 <p>The update command:</p>
@@ -130,32 +129,29 @@
 </ol>
 <p>This selective regeneration is orders of magnitude faster than a full <code>are generate</code> run.</p>
 <h2>How Change Detection Works</h2>
-<p>The heart of the update system is content-based change detection. Every <code>.sum</code> file contains YAML frontmatter with a <code>content_hash</code> field—a SHA-256 hex digest of the source file&#39;s contents.</p>
-<p>When you run <code>are update</code>, the system:</p>
+<p>Every <code>.sum</code> file contains YAML frontmatter with a <code>content_hash</code> — a SHA-256 digest of the source file. When you run <code>are update</code>:</p>
 <ol>
 <li>Reads existing frontmatter from all <code>.sum</code> files</li>
 <li>Computes current SHA-256 hashes for each source file</li>
 <li>Compares stored versus current hashes</li>
 <li>Regenerates only files where hashes don&#39;t match</li>
 </ol>
-<p>This approach is efficient and accurate. It doesn&#39;t rely on modification timestamps (unreliable with git operations) or git diffs (requiring a repository). It works purely on content—if the bytes changed, documentation gets updated.</p>
+<p>This doesn&#39;t rely on timestamps (unreliable with git) or git diffs (requiring a repo). It works purely on content — if bytes changed, docs get updated.</p>
 <h2>Directory Propagation</h2>
-<p>When a file&#39;s documentation changes, its parent directory&#39;s <code>AGENTS.md</code> file needs updating too. ARE handles this with <code>getAffectedDirectories()</code>, which collects all ancestor directories, sorts them by depth descending, and regenerates each <code>AGENTS.md</code> sequentially.</p>
+<p>When a file&#39;s documentation changes, parent <code>AGENTS.md</code> files need updating too. ARE collects all ancestor directories, sorts by depth descending, and regenerates each sequentially.</p>
 <h2>Orphan Cleanup</h2>
-<p>When files get deleted, their <code>.sum</code> files become orphans. The <code>cleanupOrphans()</code> function automatically removes <code>.sum</code> and <code>.annex.sum</code> files for deleted source files. If a directory has no remaining source files, its <code>AGENTS.md</code> is also removed.</p>
+<p>When files get deleted, <code>cleanupOrphans()</code> removes their <code>.sum</code> and <code>.annex.sum</code> files. If a directory has no remaining source files, its <code>AGENTS.md</code> is also removed.</p>
 <h2>The --uncommitted Flag</h2>
-<p>The <code>--uncommitted</code> flag filters to only files that <code>git status</code> reports as modified:</p>
 <pre><code class="language-bash">are update --uncommitted
 </code></pre>
-<p>Useful during active development when you want to preview documentation changes before committing.</p>
+<p>Filters to only files <code>git status</code> reports as modified. Useful during active development to preview documentation changes before committing.</p>
 <h2>Automatic Updates with Session Hooks</h2>
-<p>The <code>are-session-end.js</code> hook runs when your AI session ends. It checks for git changes and runs <code>are update --quiet</code> in the background using detached spawning. Disable via <code>ARE_DISABLE_HOOK=1</code> or <code>hook_enabled: false</code> in config.</p>
+<p>The <code>are-session-end.js</code> hook runs when your AI session ends, checks for git changes, and runs <code>are update --quiet</code> in the background using detached spawning. Disable via <code>ARE_DISABLE_HOOK=1</code> or <code>hook_enabled: false</code> in config.</p>
 <h2>Best Practices</h2>
 <ol>
 <li>Run updates after merging feature branches</li>
 <li>Enable session hooks for automatic maintenance</li>
 <li>Periodically run full regeneration (<code>are generate --force</code>)</li>
-<li>Review orphan cleanup output to catch config issues</li>
 <li>Use --uncommitted during active development</li>
 </ol>
 </article>

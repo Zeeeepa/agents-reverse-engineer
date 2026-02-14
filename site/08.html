@@ -115,41 +115,28 @@
 <div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
 <div class="are-blur-wrap">
 <article><h1>From Docs to Specs: Using are-specify to Generate Project Specifications</h1>
-<p>After running <code>are generate</code>, your codebase has comprehensive documentation distributed across <code>.sum</code> files and <code>AGENTS.md</code> directories. Every file is documented, every directory has a summary. But understanding the full architecture requires mentally stitching together dozens of files. What if you need a single, coherent document for onboarding, architecture reviews, or project handoffs?</p>
-<p>That&#39;s what <code>are specify</code> does—it synthesizes distributed documentation into unified project specifications.</p>
+<p>After running <code>are generate</code>, your codebase has documentation distributed across <code>.sum</code> files and <code>AGENTS.md</code> directories. But understanding the full architecture requires stitching together dozens of files. What if you need a single document for onboarding or project handoffs?</p>
+<p>That&#39;s what <code>are specify</code> does — it synthesizes distributed documentation into unified project specifications.</p>
 <h2>What is are-specify?</h2>
-<p>The <code>specify</code> command reads all <code>AGENTS.md</code> files across your project and synthesizes them into a comprehensive specification at <code>specs/SPEC.md</code>. It&#39;s the &quot;zoom out&quot; command—instead of navigating individual directory summaries, you get a bird&#39;s-eye view of your entire system.</p>
-<p>Unlike distributed, bottom-up <code>AGENTS.md</code> files, <code>SPEC.md</code> is centralized and top-down. The AI analyzes component relationships, identifies architectural patterns, extracts API surfaces, maps data flows, and organizes everything into a coherent narrative.</p>
+<p>The <code>specify</code> command reads all <code>AGENTS.md</code> files and synthesizes them into a comprehensive specification at <code>specs/SPEC.md</code>. Instead of navigating individual directory summaries, you get a bird&#39;s-eye view.</p>
+<p>Unlike bottom-up <code>AGENTS.md</code> files, <code>SPEC.md</code> is centralized and top-down. The AI analyzes component relationships, identifies architectural patterns, extracts API surfaces, and organizes everything into a coherent narrative.</p>
 <h2>Running the Command</h2>
 <pre><code class="language-bash">npx agents-reverse-engineer specify
 </code></pre>
 <p>ARE discovers all <code>AGENTS.md</code> files, sends aggregated documentation to your AI backend, generates a structured specification, and writes it to <code>specs/SPEC.md</code>.</p>
 <h2>The 12-Section Structure</h2>
-<ol>
-<li><strong>Project Overview</strong> — Purpose and scope</li>
-<li><strong>Architecture</strong> — Design patterns and structural decisions</li>
-<li><strong>Components/Modules</strong> — Key subsystems and interactions</li>
-<li><strong>Data Flow</strong> — Information movement and transformation</li>
-<li><strong>API Surface</strong> — Public interfaces and integration points</li>
-<li><strong>Dependencies</strong> — External libraries and tools</li>
-<li><strong>Configuration</strong> — Config files and runtime options</li>
-<li><strong>Deployment</strong> — Build process and installation</li>
-<li><strong>Testing Strategy</strong> — Test organization and quality gates</li>
-<li><strong>Security Considerations</strong> — Authentication and threat mitigations</li>
-<li><strong>Performance Characteristics</strong> — Concurrency and optimization</li>
-<li><strong>Extension Points</strong> — Plugin systems and customization hooks</li>
-</ol>
+<p>The spec covers: Project Overview, Architecture, Components/Modules, Data Flow, API Surface, Dependencies, Configuration, Deployment, Testing Strategy, Security Considerations, Performance Characteristics, and Extension Points.</p>
 <h2>Multi-File Mode</h2>
-<p>For large projects, use <code>--multi-file</code> to split the spec into separate files from <code>specs/01-overview.md</code> through <code>specs/12-extensions.md</code>, making navigation easier and enabling granular version control.</p>
+<p>For large projects, <code>--multi-file</code> splits the spec into separate files from <code>specs/01-overview.md</code> through <code>specs/12-extensions.md</code>, enabling granular version control.</p>
 <h2>Dry Run</h2>
 <p>Preview what will be processed before consuming API credits with <code>--dry-run</code>. This discovers files, calculates input size, shows planned sections, and exits without calling the AI.</p>
 <h2>Use Cases</h2>
 <p><strong>Developer Onboarding</strong> — New team members understand architecture before diving into code.</p>
-<p><strong>Architecture Reviews</strong> — Shared artifact for design discussions and architectural decision records.</p>
+<p><strong>Architecture Reviews</strong> — Shared artifact for design discussions and decision records.</p>
 <p><strong>Project Handoffs</strong> — Preserve institutional knowledge when transitioning between teams.</p>
 <p><strong>AI Context</strong> — Feed to ChatGPT, Copilot, or other AI tools that don&#39;t support <code>AGENTS.md</code> natively.</p>
 <h2>Tips for Better Specs</h2>
-<p>Run quality checks first to validate documentation. Ensure critical components aren&#39;t excluded. Review and edit the generated spec—it&#39;s a starting point. Regenerate regularly as your codebase evolves. Commit specs to version control to track architectural evolution.</p>
+<p>Run quality checks first. Ensure critical components aren&#39;t excluded. Review and edit the generated spec. Regenerate regularly as your codebase evolves. Commit specs to version control.</p>
 </article>
 </div>
 </body>

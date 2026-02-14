@@ -1,10 +1,10 @@
 # 10 Tips for Getting the Best Documentation from ARE
 
-You've installed agents-reverse-engineer (ARE) and run generate, but the output disappoints. The difference between mediocre and exceptional AI-generated documentation often comes down to how you use the tool. Here are 10 practical tips from real-world usage.
+You've installed agents-reverse-engineer (ARE) and run generate, but the output disappoints. The difference between mediocre and exceptional documentation comes down to how you use the tool. Here are 10 practical tips.
 
 ## 1. Structure Code for Better Summaries
 
-Single-responsibility files produce dramatically better `.sum` files than kitchen-sink modules. When a file does five things, AI summaries become vague. Split code into focused files like `jwt-token-validator.ts`, `password-hasher.ts`, and `date-formatter.ts` instead of one `utils.ts`. You'll get sharp, specific summaries. This isn't just good for ARE—it's good software design.
+Single-responsibility files produce better `.sum` files than kitchen-sink modules. When a file does five things, summaries become vague. Split code into focused files like `jwt-token-validator.ts`, `password-hasher.ts`, and `date-formatter.ts` instead of one `utils.ts`. You'll get sharp, specific summaries. That's also good software design.
 
 ## 2. Use Meaningful Names
 
@@ -27,11 +27,11 @@ Less noise equals better signal.
 
 ## 4. Choose the Right Model
 
-ARE supports multiple AI models. Use `sonnet` (default) for most codebases. Use `haiku` for large projects needing speed and lower costs. Use `opus` for complex, critical code like core algorithms and security modules. Specify with `--model haiku` or in config.yaml.
+ARE supports multiple AI models. Use `sonnet` (default) for most codebases. Use `haiku` for large projects needing speed. Use `opus` for complex, critical code. Specify with `--model haiku` or in config.yaml.
 
 ## 5. Review and Edit .sum Files
 
-Generated `.sum` files are starting points. If ARE misses the point, edit files manually. ARE won't overwrite edits unless source files change or you use `--force`. YAML frontmatter tracks content hashes to detect changes.
+Generated `.sum` files are starting points. If ARE misses the point, edit manually. ARE won't overwrite edits unless source files change or you use `--force`.
 
 ## 6. Leverage AGENTS.local.md
 
