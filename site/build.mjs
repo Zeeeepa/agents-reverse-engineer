@@ -1309,8 +1309,12 @@ const cardItems = articles.map(art => {
   const md = readFileSync(join(blogDir, art.file), 'utf-8');
   const title = extractTitle(md);
   const c = themeColors[art.theme];
+  const isAvailable = art.id === '01';
+  const cls = isAvailable ? 'card' : 'card coming-soon';
+  const badge = isAvailable ? '' : '<div class="coming-soon-badge">Coming Soon</div>';
   return `
-    <a href="${art.id}.html" class="card" style="--card-bg:${c.bg};--card-fg:${c.fg};--card-accent:${c.accent};">
+    <a href="${art.id}.html" class="${cls}" style="--card-bg:${c.bg};--card-fg:${c.fg};--card-accent:${c.accent};">
+      ${badge}
       <div class="card-number">${art.id}</div>
       <div class="card-content">
         <div class="card-theme">${themeLabels[art.theme]}</div>
@@ -1401,6 +1405,30 @@ const indexPage = `<!DOCTYPE html>
   .card:hover {
     transform: translateY(-4px);
     box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+  }
+  .card.coming-soon {
+    filter: blur(1.5px) grayscale(0.4);
+    opacity: 0.5;
+    transition: filter 0.3s ease, opacity 0.3s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .card.coming-soon:hover {
+    filter: blur(0.5px) grayscale(0.2);
+    opacity: 0.75;
+  }
+  .coming-soon-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.12);
+    color: #a1a1aa;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    z-index: 1;
   }
   .card-number {
     display: flex;

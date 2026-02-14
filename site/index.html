@@ -80,6 +80,30 @@
     transform: translateY(-4px);
     box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
   }
+  .card.coming-soon {
+    filter: blur(1.5px) grayscale(0.4);
+    opacity: 0.5;
+    transition: filter 0.3s ease, opacity 0.3s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .card.coming-soon:hover {
+    filter: blur(0.5px) grayscale(0.2);
+    opacity: 0.75;
+  }
+  .coming-soon-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.12);
+    color: #a1a1aa;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+    z-index: 1;
+  }
   .card-number {
     display: flex;
     align-items: center;
@@ -143,6 +167,7 @@
 <div class="grid">
 
     <a href="01.html" class="card" style="--card-bg:#0a0a0a;--card-fg:#00ff41;--card-accent:#00ff41;">
+      
       <div class="card-number">01</div>
       <div class="card-content">
         <div class="card-theme">Terminal</div>
@@ -151,7 +176,8 @@
       </div>
     </a>
 
-    <a href="02.html" class="card" style="--card-bg:#f8f9fb;--card-fg:#1a1a2e;--card-accent:#6366f1;">
+    <a href="02.html" class="card coming-soon" style="--card-bg:#f8f9fb;--card-fg:#1a1a2e;--card-accent:#6366f1;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">02</div>
       <div class="card-content">
         <div class="card-theme">Minimal</div>
@@ -160,7 +186,8 @@
       </div>
     </a>
 
-    <a href="03.html" class="card" style="--card-bg:#0d2137;--card-fg:#c5e1f5;--card-accent:#2196f3;">
+    <a href="03.html" class="card coming-soon" style="--card-bg:#0d2137;--card-fg:#c5e1f5;--card-accent:#2196f3;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">03</div>
       <div class="card-content">
         <div class="card-theme">Blueprint</div>
@@ -169,7 +196,8 @@
       </div>
     </a>
 
-    <a href="04.html" class="card" style="--card-bg:#0d0221;--card-fg:#e0d6ff;--card-accent:#ff2d95;">
+    <a href="04.html" class="card coming-soon" style="--card-bg:#0d0221;--card-fg:#e0d6ff;--card-accent:#ff2d95;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">04</div>
       <div class="card-content">
         <div class="card-theme">Cyberpunk</div>
@@ -178,7 +206,8 @@
       </div>
     </a>
 
-    <a href="05.html" class="card" style="--card-bg:#f5f0e8;--card-fg:#3d3229;--card-accent:#4a7c59;">
+    <a href="05.html" class="card coming-soon" style="--card-bg:#f5f0e8;--card-fg:#3d3229;--card-accent:#4a7c59;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">05</div>
       <div class="card-content">
         <div class="card-theme">Nature</div>
@@ -187,7 +216,8 @@
       </div>
     </a>
 
-    <a href="06.html" class="card" style="--card-bg:#1a0533;--card-fg:#e2e8f0;--card-accent:#a78bfa;">
+    <a href="06.html" class="card coming-soon" style="--card-bg:#1a0533;--card-fg:#e2e8f0;--card-accent:#a78bfa;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">06</div>
       <div class="card-content">
         <div class="card-theme">Glassmorphism</div>
@@ -196,7 +226,8 @@
       </div>
     </a>
 
-    <a href="07.html" class="card" style="--card-bg:#f4f1ea;--card-fg:#2c2c2c;--card-accent:#8b0000;">
+    <a href="07.html" class="card coming-soon" style="--card-bg:#f4f1ea;--card-fg:#2c2c2c;--card-accent:#8b0000;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">07</div>
       <div class="card-content">
         <div class="card-theme">Newspaper</div>
@@ -205,7 +236,8 @@
       </div>
     </a>
 
-    <a href="08.html" class="card" style="--card-bg:#ff0;--card-fg:#000;--card-accent:#ff0000;">
+    <a href="08.html" class="card coming-soon" style="--card-bg:#ff0;--card-fg:#000;--card-accent:#ff0000;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">08</div>
       <div class="card-content">
         <div class="card-theme">Brutalist</div>
@@ -214,7 +246,8 @@
       </div>
     </a>
 
-    <a href="09.html" class="card" style="--card-bg:#1a0533;--card-fg:#e8d5f5;--card-accent:#f472b6;">
+    <a href="09.html" class="card coming-soon" style="--card-bg:#1a0533;--card-fg:#e8d5f5;--card-accent:#f472b6;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">09</div>
       <div class="card-content">
         <div class="card-theme">Synthwave</div>
@@ -223,7 +256,8 @@
       </div>
     </a>
 
-    <a href="10.html" class="card" style="--card-bg:#fafafa;--card-fg:#333;--card-accent:#e74c3c;">
+    <a href="10.html" class="card coming-soon" style="--card-bg:#fafafa;--card-fg:#333;--card-accent:#e74c3c;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">10</div>
       <div class="card-content">
         <div class="card-theme">Notebook</div>
@@ -232,7 +266,8 @@
       </div>
     </a>
 
-    <a href="11.html" class="card" style="--card-bg:#fff;--card-fg:#1a1a1a;--card-accent:#ff0000;">
+    <a href="11.html" class="card coming-soon" style="--card-bg:#fff;--card-fg:#1a1a1a;--card-accent:#ff0000;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">11</div>
       <div class="card-content">
         <div class="card-theme">Swiss Design</div>
@@ -241,7 +276,8 @@
       </div>
     </a>
 
-    <a href="12.html" class="card" style="--card-bg:#1976d2;--card-fg:#fff;--card-accent:#1976d2;">
+    <a href="12.html" class="card coming-soon" style="--card-bg:#1976d2;--card-fg:#fff;--card-accent:#1976d2;">
+      <div class="coming-soon-badge">Coming Soon</div>
       <div class="card-number">12</div>
       <div class="card-content">
         <div class="card-theme">Material</div>
