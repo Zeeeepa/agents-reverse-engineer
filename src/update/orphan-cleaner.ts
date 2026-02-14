@@ -10,6 +10,7 @@ import { unlink, readdir, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import type { FileChange } from '../change-detection/types.js';
 import type { CleanupResult } from './types.js';
+import { getSumPath, getAnnexPath } from '../generation/writers/sum.js';
 
 /**
  * Files to ignore when checking if a directory has source files.
@@ -31,7 +32,8 @@ const GENERATED_FILES = new Set([
 export async function cleanupOrphans(
   projectRoot: string,
   changes: FileChange[],
-  dryRun: boolean = false
+  dryRun: boolean = false,
+  variant?: string,
 ): Promise<CleanupResult> {
   const result: CleanupResult = {
     deletedSumFiles: [],
@@ -52,17 +54,16 @@ export async function cleanupOrphans(
 
   // Delete .sum and .annex.sum files for deleted/renamed source files
   for (const relativePath of pathsToClean) {
-    const sumPath = path.join(projectRoot, `${relativePath}.sum`);
+    const absoluteFilePath = path.join(projectRoot, relativePath);
+    const sumPath = getSumPath(absoluteFilePath, variant);
     const deleted = await deleteIfExists(sumPath, dryRun);
     if (deleted) {
-      result.deletedSumFiles.push(relativePath + '.sum');
+      result.deletedSumFiles.push(path.relative(projectRoot, sumPath));
     }
-    const parsed = path.parse(relativePath);
-    const annexRelative = path.join(parsed.dir, `${parsed.name}.annex.sum`);
-    const annexPath = path.join(projectRoot, annexRelative);
+    const annexPath = getAnnexPath(absoluteFilePath, variant);
     const annexDeleted = await deleteIfExists(annexPath, dryRun);
     if (annexDeleted) {
-      result.deletedSumFiles.push(annexRelative);
+      result.deletedSumFiles.push(path.relative(projectRoot, annexPath));
     }
   }
 
@@ -76,11 +77,12 @@ export async function cleanupOrphans(
   }
 
   // Check each affected directory for empty AGENTS.md
+  const agentsFilename = variant ? `AGENTS.${variant}.md` : 'AGENTS.md';
   for (const dir of affectedDirs) {
     const dirPath = path.join(projectRoot, dir);
-    const cleaned = await cleanupEmptyDirectoryDocs(dirPath, dryRun);
+    const cleaned = await cleanupEmptyDirectoryDocs(dirPath, dryRun, agentsFilename);
     if (cleaned) {
-      result.deletedAgentsMd.push(path.join(dir, 'AGENTS.md'));
+      result.deletedAgentsMd.push(path.join(dir, agentsFilename));
     }
   }
 
@@ -115,7 +117,8 @@ async function deleteIfExists(filePath: string, dryRun: boolean): Promise<boolea
  */
 export async function cleanupEmptyDirectoryDocs(
   dirPath: string,
-  dryRun: boolean = false
+  dryRun: boolean = false,
+  agentsFilename: string = 'AGENTS.md',
 ): Promise<boolean> {
   try {
     const entries = await readdir(dirPath);
@@ -125,16 +128,18 @@ export async function cleanupEmptyDirectoryDocs(
     const hasSourceFiles = entries.some(entry => {
       // Skip hidden files
       if (entry.startsWith('.')) return false;
-      // Skip .sum files (includes .annex.sum)
+      // Skip .sum files (includes .annex.sum and variant .sum)
       if (entry.endsWith('.sum')) return false;
       // Skip known generated files
       if (GENERATED_FILES.has(entry)) return false;
+      // Skip variant AGENTS files (AGENTS.*.md)
+      if (entry.startsWith('AGENTS.') && entry.endsWith('.md')) return false;
       // Everything else counts as a source file
       return true;
     });
 
     if (!hasSourceFiles) {
-      const agentsPath = path.join(dirPath, 'AGENTS.md');
+      const agentsPath = path.join(dirPath, agentsFilename);
       return await deleteIfExists(agentsPath, dryRun);
     }
 

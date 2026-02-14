@@ -29,7 +29,7 @@ import {
 } from '../change-detection/index.js';
 import { cleanupOrphans, getAffectedDirectories } from '../update/orphan-cleaner.js';
 import { readSumFile, getSumPath } from '../generation/writers/sum.js';
-import type { UpdateOptions, CleanupResult } from '../update/types.js';
+import type { UpdatePlanOptions, CleanupResult } from '../update/types.js';
 import { discoverFiles as runDiscovery } from '../discovery/run.js';
 
 // ---------------------------------------------------------------------------
@@ -496,7 +496,7 @@ export class DocumentationOrchestrator {
    * @param options - Update options
    * @returns Update plan with files to analyze and cleanup actions
    */
-  async preparePlan(options: UpdateOptions = {}): Promise<UpdatePlan> {
+  async preparePlan(options: UpdatePlanOptions = {}): Promise<UpdatePlan> {
     const planStartTime = process.hrtime.bigint();
 
     // Emit phase start
@@ -535,9 +535,10 @@ export class DocumentationOrchestrator {
     const seenSumFiles = new Set<string>();
 
     // Check each file against its .sum file
+    const variant = options.variant;
     for (const relativePath of allFiles) {
       const filePath = path.join(this.projectRoot, relativePath);
-      const sumPath = getSumPath(filePath);
+      const sumPath = getSumPath(filePath, variant);
       seenSumFiles.add(sumPath);
 
       try {
@@ -571,7 +572,8 @@ export class DocumentationOrchestrator {
     const cleanup = await cleanupOrphans(
       this.projectRoot,
       deletedOrRenamed,
-      options.dryRun ?? false
+      options.dryRun ?? false,
+      variant,
     );
 
     // Get directories affected by changes (for AGENTS.md regeneration)
@@ -616,7 +618,7 @@ export class DocumentationOrchestrator {
     // (Skip if dry run or first run - no point building tasks we won't execute)
     const fileTasks = options.dryRun || isFirstRun
       ? []
-      : await this.createFileTasks(filesToAnalyze);
+      : await this.createFileTasks(filesToAnalyze, variant);
 
     return {
       filesToAnalyze,
@@ -696,6 +698,7 @@ export class DocumentationOrchestrator {
    */
   async createFileTasks(
     files: PreparedFile[] | FileChange[],
+    variant?: string,
   ): Promise<AnalysisTask[]> {
     const tasks: AnalysisTask[] = [];
 
@@ -714,7 +717,7 @@ export class DocumentationOrchestrator {
 
       // For updates, read existing .sum for incremental update context
       const existingSumContent = isFileChange
-        ? await readSumFile(getSumPath(absolutePath))
+        ? await readSumFile(getSumPath(absolutePath, variant))
         : undefined;
 
       // Build prompt (same logic for both, with optional existingSum for updates)

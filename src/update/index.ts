@@ -17,7 +17,7 @@ export {
 } from './orphan-cleaner.js';
 
 export type {
-  UpdateOptions,
+  UpdatePlanOptions,
   UpdateResult,
   UpdateProgress,
   CleanupResult,

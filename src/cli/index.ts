@@ -14,7 +14,7 @@
 import { initCommand } from './init.js';
 import { discoverCommand } from './discover.js';
 import { generateCommand, type GenerateOptions } from './generate.js';
-import { updateCommand, type UpdateCommandOptions } from './update.js';
+import { updateCommand, type UpdateOptions } from './update.js';
 import { cleanCommand, type CleanOptions } from './clean.js';
 import { specifyCommand, type SpecifyOptions } from './specify.js';
 import { rebuildCommand, type RebuildOptions } from './rebuild.js';
@@ -50,6 +50,7 @@ General Options:
   --dry-run         Show plan without writing files (generate, update, specify, rebuild)
   --output <path>   Output path (specify: spec file, rebuild: output directory)
   --multi-file      Split specification into multiple files (specify only)
+  --eval            Eval mode: namespace output by backend.model for comparison
   --model <name>    AI model to use (e.g., sonnet, opus, haiku)
   --backend <name>  AI backend to use (claude, codex, gemini, opencode, auto)
   --concurrency <n> Number of concurrent AI calls (default: auto)
@@ -274,13 +275,14 @@ async function main(): Promise<void> {
         trace: flags.has('trace'),
         model: values.get('model'),
         backend: values.get('backend'),
+        eval: flags.has('eval'),
       };
       await generateCommand(positional[0] || '.', options);
       break;
     }
 
     case 'update': {
-      const options: UpdateCommandOptions = {
+      const options: UpdateOptions = {
         uncommitted: flags.has('uncommitted'),
         dryRun: flags.has('dry-run'),
         concurrency: values.has('concurrency') ? parseInt(values.get('concurrency')!, 10) : undefined,
@@ -289,6 +291,7 @@ async function main(): Promise<void> {
         trace: flags.has('trace'),
         model: values.get('model'),
         backend: values.get('backend'),
+        eval: flags.has('eval'),
       };
       await updateCommand(positional[0] || '.', options);
       break;

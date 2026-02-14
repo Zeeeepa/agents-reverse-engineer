@@ -16,9 +16,9 @@ import { readFile } from 'node:fs/promises';
 import type { AIService } from '../ai/index.js';
 import type { AIResponse } from '../ai/types.js';
 import type { ExecutionPlan, ExecutionTask } from '../generation/executor.js';
-import { writeSumFile, readSumFile, writeAnnexFile } from '../generation/writers/sum.js';
+import { writeSumFile, readSumFile, writeAnnexFile, getSumPath } from '../generation/writers/sum.js';
 import type { SumFileContent } from '../generation/writers/sum.js';
-import { writeAgentsMd } from '../generation/writers/agents-md.js';
+import { writeAgentsMd, writeAgentsMdHub } from '../generation/writers/agents-md.js';
 import { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 import { computeContentHashFromString } from '../change-detection/index.js';
 import { buildDirectoryPrompt } from '../generation/prompts/index.js';
@@ -75,6 +75,9 @@ export class CommandRunner {
   /** Trace writer for concurrency debugging */
   private readonly tracer: ITraceWriter | undefined;
 
+  /** Eval variant name for side-by-side model comparison */
+  private readonly variant: string | undefined;
+
   /**
    * Create a new command runner.
    *
@@ -85,6 +88,7 @@ export class CommandRunner {
     this.aiService = aiService;
     this.options = options;
     this.tracer = options.tracer;
+    this.variant = options.variant;
 
     // Wire the tracer into the AI service for subprocess/retry events
     if (this.tracer) {
@@ -139,7 +143,7 @@ export class CommandRunner {
     const sumReadTasks = plan.fileTasks.map(
       (task) => async () => {
         try {
-          const existing = await readSumFile(`${task.absolutePath}.sum`);
+          const existing = await readSumFile(getSumPath(task.absolutePath, this.variant));
           if (existing) {
             oldSumCache.set(task.path, existing);
           }
@@ -216,11 +220,11 @@ export class CommandRunner {
         };
 
         // Write .sum file
-        await writeSumFile(task.absolutePath, sumContent);
+        await writeSumFile(task.absolutePath, sumContent, this.variant);
 
         // Write annex file if LLM identified reproduction-critical constants
         if (cleanedText.includes('## Annex References')) {
-          await writeAnnexFile(task.absolutePath, sourceContent);
+          await writeAnnexFile(task.absolutePath, sourceContent, this.variant);
         }
 
         const durationMs = Date.now() - callStart;
@@ -346,7 +350,7 @@ export class CommandRunner {
 
             // New-doc check: detects LLM omissions in freshly generated .sum
             try {
-              const newSum = await readSumFile(`${absoluteFilePath}.sum`);
+              const newSum = await readSumFile(getSumPath(absoluteFilePath, this.variant));
               if (newSum) {
                 const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
                 if (newIssue) {
@@ -446,13 +450,16 @@ export class CommandRunner {
         (dirTask) => async () => {
           reporter.onDirectoryStart(dirTask.path);
           const dirCallStart = Date.now();
-          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug, knownDirs, plan.projectStructure);
+          const prompt = await buildDirectoryPrompt(dirTask.absolutePath, plan.projectRoot, this.options.debug, knownDirs, plan.projectStructure, undefined, undefined, this.variant);
           const dirResponse: AIResponse = await this.aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,
             taskLabel: `${dirTask.path}/AGENTS.md`,
           });
-          await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text);
+          await writeAgentsMd(dirTask.absolutePath, plan.projectRoot, dirResponse.text, this.variant);
+          if (this.variant) {
+            await writeAgentsMdHub(dirTask.absolutePath, this.variant);
+          }
           await writeClaudeMdPointer(dirTask.absolutePath);
           const dirDurationMs = Date.now() - dirCallStart;
           reporter.onDirectoryDone(
@@ -495,10 +502,11 @@ export class CommandRunner {
     // -------------------------------------------------------------------
 
     let phantomPathCount = 0;
+    const phantomAgentsFilename = this.variant ? `AGENTS.${this.variant}.md` : 'AGENTS.md';
     try {
       const phantomIssues: Inconsistency[] = [];
       for (const dirTask of plan.directoryTasks) {
-        const agentsMdPath = path.join(dirTask.absolutePath, 'AGENTS.md');
+        const agentsMdPath = path.join(dirTask.absolutePath, phantomAgentsFilename);
         try {
           const content = await readFile(agentsMdPath, 'utf-8');
           const issues = checkPhantomPaths(agentsMdPath, content, plan.projectRoot);
@@ -637,11 +645,11 @@ export class CommandRunner {
         };
 
         // Write .sum file
-        await writeSumFile(absolutePath, sumContent);
+        await writeSumFile(absolutePath, sumContent, this.variant);
 
         // Write annex file if LLM identified reproduction-critical constants
         if (cleanedText.includes('## Annex References')) {
-          await writeAnnexFile(absolutePath, sourceContent);
+          await writeAnnexFile(absolutePath, sourceContent, this.variant);
         }
 
         const durationMs = Date.now() - callStart;
@@ -755,7 +763,7 @@ export class CommandRunner {
 
             // New-doc check: detects LLM omissions in freshly generated .sum
             try {
-              const newSum = await readSumFile(`${absoluteFilePath}.sum`);
+              const newSum = await readSumFile(getSumPath(absoluteFilePath, this.variant));
               if (newSum) {
                 const newIssue = checkCodeVsDoc(sourceContent, newSum, filePath);
                 if (newIssue) {

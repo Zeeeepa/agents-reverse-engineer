@@ -62,6 +62,12 @@ const GenerationSchema = z.object({
    * The annex mechanism bypasses compression for reproduction-critical content.
    */
   compressionRatio: z.number().min(0.1).max(1.0).default(0.25),
+  /**
+   * Active eval variant (e.g., "claude.haiku").
+   * When set, AGENTS.md hub files will reference this variant.
+   * Set automatically by `--eval` flag.
+   */
+  activeVariant: z.string().optional(),
 }).default({});
 
 /**

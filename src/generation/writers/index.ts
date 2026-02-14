@@ -3,11 +3,14 @@ export {
   readSumFile,
   getSumPath,
   sumFileExists,
+  getAnnexPath,
+  writeAnnexFile,
   type SumFileContent,
 } from './sum.js';
 
 export {
   writeAgentsMd,
+  writeAgentsMdHub,
 } from './agents-md.js';
 
 export {

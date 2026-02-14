@@ -139,6 +139,7 @@ export async function buildDirectoryPrompt(
   projectStructure?: string,
   existingAgentsMd?: string,
   logger?: Logger,
+  variant?: string,
 ): Promise<{ system: string; user: string }> {
   const relativePath = path.relative(projectRoot, dirPath) || '.';
   const dirName = path.basename(dirPath) || 'root';
@@ -160,7 +161,7 @@ export async function buildDirectoryPrompt(
   const fileResults = await Promise.all(
     fileEntries.map(async (entry) => {
       const entryPath = path.join(dirPath, entry.name);
-      const sumPath = getSumPath(entryPath);
+      const sumPath = getSumPath(entryPath, variant);
       const sumContent = await readSumFile(sumPath);
       if (sumContent) {
         return `### ${entry.name}\n**Purpose:** ${sumContent.metadata.purpose}\n\n${sumContent.summary}`;
@@ -171,9 +172,10 @@ export async function buildDirectoryPrompt(
   const fileSummaries = fileResults.filter((r): r is string => r !== null);
 
   // Read all child AGENTS.md in parallel
+  const childAgentsFilename = variant ? `AGENTS.${variant}.md` : 'AGENTS.md';
   const subdirResults = await Promise.all(
     dirEntries.map(async (entry) => {
-      const childAgentsPath = path.join(dirPath, entry.name, 'AGENTS.md');
+      const childAgentsPath = path.join(dirPath, entry.name, childAgentsFilename);
       try {
         const childContent = await readFile(childAgentsPath, 'utf-8');
         return `### ${entry.name}/\n${childContent}`;

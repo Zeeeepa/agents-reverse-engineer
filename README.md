@@ -238,6 +238,7 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `--fail-fast`       | Stop on first file analysis failure                      | generate, update, rebuild           |
 | `--show-excluded`   | Show excluded files during discovery                     | discover                            |
 | `--uncommitted`     | Include uncommitted changes                              | update                              |
+| `--eval`            | Namespace output by backend.model for comparison         | generate, update                    |
 | `--debug`           | Show AI prompts and backend details                      | discover, generate, update, specify, rebuild |
 | `--trace`           | Enable concurrency tracing (.agents-reverse-engineer/traces/) | generate, update, specify, rebuild |
 

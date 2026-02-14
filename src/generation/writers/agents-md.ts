@@ -29,16 +29,41 @@ export async function isGeneratedAgentsMd(filePath: string): Promise<boolean> {
  * preserved as AGENTS.local.md. The user content is then prepended
  * verbatim above the generated content so AI agents see it first.
  *
+ * With variant: writes to AGENTS.${variant}.md (no user-preservation needed).
+ * Without variant: current behavior unchanged.
+ *
  * @param dirPath - Directory to write AGENTS.md for
  * @param projectRoot - Project root for relative paths
  * @param content - LLM-generated AGENTS.md content
- * @returns Path to written AGENTS.md
+ * @param variant - Optional eval variant name (e.g., "claude.haiku")
+ * @returns Path to written file
  */
 export async function writeAgentsMd(
   dirPath: string,
   _projectRoot: string,
   content: string,
+  variant?: string,
 ): Promise<string> {
+  // Strip marker from LLM content (we add it ourselves)
+  let llmContent = content;
+  if (llmContent.startsWith(GENERATED_MARKER_PREFIX)) {
+    const markerEnd = llmContent.indexOf('-->');
+    if (markerEnd !== -1) {
+      llmContent = llmContent.slice(markerEnd + 3).replace(/^\n+/, '');
+    }
+  }
+
+  // Variant mode: write directly to AGENTS.${variant}.md, no user-preservation
+  if (variant) {
+    const variantPath = path.join(dirPath, `AGENTS.${variant}.md`);
+    const parts: string[] = [GENERATED_MARKER, '', llmContent];
+    const finalContent = parts.join('\n');
+    await mkdir(path.dirname(variantPath), { recursive: true });
+    await writeFile(variantPath, finalContent, 'utf-8');
+    return variantPath;
+  }
+
+  // Standard mode: preserve user-authored AGENTS.md
   const agentsPath = path.join(dirPath, 'AGENTS.md');
   const localPath = path.join(dirPath, 'AGENTS.local.md');
 
@@ -59,17 +84,7 @@ export async function writeAgentsMd(
     hasLocalContent = true;
   }
 
-  // Step 3: Strip marker from LLM content (we add it ourselves)
-  let llmContent = content;
-  if (llmContent.startsWith(GENERATED_MARKER_PREFIX)) {
-    // Find the end of the marker (-->)
-    const markerEnd = llmContent.indexOf('-->');
-    if (markerEnd !== -1) {
-      llmContent = llmContent.slice(markerEnd + 3).replace(/^\n+/, '');
-    }
-  }
-
-  // Step 4: Build final content with marker + optional @import + LLM content
+  // Step 3: Build final content with marker + optional @import + LLM content
   const parts: string[] = [GENERATED_MARKER, ''];
 
   if (hasLocalContent) {
@@ -77,6 +92,55 @@ export async function writeAgentsMd(
   }
 
   parts.push(llmContent);
+
+  const finalContent = parts.join('\n');
+
+  await mkdir(path.dirname(agentsPath), { recursive: true });
+  await writeFile(agentsPath, finalContent, 'utf-8');
+
+  return agentsPath;
+}
+
+/**
+ * Write a hub AGENTS.md that @-references the active eval variant.
+ *
+ * Handles AGENTS.local.md preservation (same as writeAgentsMd).
+ *
+ * @param dirPath - Directory to write AGENTS.md hub for
+ * @param activeVariant - Variant name to reference (e.g., "claude.haiku")
+ * @returns Path to written AGENTS.md hub
+ */
+export async function writeAgentsMdHub(
+  dirPath: string,
+  activeVariant: string,
+): Promise<string> {
+  const agentsPath = path.join(dirPath, 'AGENTS.md');
+  const localPath = path.join(dirPath, 'AGENTS.local.md');
+
+  // Preserve user-authored AGENTS.md (rename to AGENTS.local.md)
+  let hasLocalContent = false;
+  try {
+    const existingContent = await readFile(agentsPath, 'utf-8');
+    if (!existingContent.includes(GENERATED_MARKER_PREFIX)) {
+      await rename(agentsPath, localPath);
+      hasLocalContent = true;
+    }
+  } catch {
+    // No existing AGENTS.md
+  }
+
+  if (!hasLocalContent && existsSync(localPath)) {
+    hasLocalContent = true;
+  }
+
+  // Build hub content
+  const parts: string[] = [GENERATED_MARKER, ''];
+
+  if (hasLocalContent) {
+    parts.push('@AGENTS.local.md', '');
+  }
+
+  parts.push(`@AGENTS.${activeVariant}.md`, '');
 
   const finalContent = parts.join('\n');
 

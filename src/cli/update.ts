@@ -16,7 +16,7 @@ import {
   createUpdateOrchestrator,
   type UpdatePlan,
 } from '../orchestration/orchestrator.js';
-import { writeAgentsMd, GENERATED_MARKER_PREFIX } from '../generation/writers/agents-md.js';
+import { writeAgentsMd, writeAgentsMdHub, GENERATED_MARKER_PREFIX } from '../generation/writers/agents-md.js';
 import { writeClaudeMdPointer } from '../generation/writers/claude-md.js';
 import { buildDirectoryPrompt } from '../generation/prompts/index.js';
 import {
@@ -31,7 +31,7 @@ import { CommandRunner, ProgressReporter, ProgressLog, createTraceWriter, cleanu
 /**
  * Options for the update command.
  */
-export interface UpdateCommandOptions {
+export interface UpdateOptions {
   /** Include uncommitted changes (staged + working directory) */
   uncommitted?: boolean;
   /** Dry run - show plan without making changes */
@@ -48,6 +48,8 @@ export interface UpdateCommandOptions {
   model?: string;
   /** Override AI backend (e.g., "claude", "codex", "opencode", "gemini") */
   backend?: string;
+  /** Eval mode: namespace output by backend.model for comparison */
+  eval?: boolean;
 }
 
 /**
@@ -166,7 +168,7 @@ function formatPlan(plan: UpdatePlan): string {
  */
 export async function updateCommand(
   targetPath: string,
-  options: UpdateCommandOptions
+  options: UpdateOptions
 ): Promise<void> {
   const absolutePath = await findProjectRoot(path.resolve(targetPath));
   const logger = createLogger({ colors: true });
@@ -192,10 +194,16 @@ export async function updateCommand(
   });
 
   try {
+    // Compute preliminary variant for plan creation (uses config/CLI values before backend resolution)
+    const preliminaryVariant = options.eval
+      ? `${options.backend ?? config.ai.backend}.${options.model ?? config.ai.model}`
+      : undefined;
+
     // Prepare update plan
     const plan = await orchestrator.preparePlan({
       includeUncommitted: options.uncommitted,
       dryRun: options.dryRun,
+      variant: preliminaryVariant,
     });
 
     // Display plan
@@ -244,11 +252,22 @@ export async function updateCommand(
     // Resolve effective model (CLI flag > config)
     const effectiveModel = options.model ?? config.ai.model;
 
+    // Compute eval variant
+    const variant = options.eval ? `${backend.name}.${effectiveModel}` : undefined;
+
     // Debug: log backend info
     if (options.debug) {
       console.log(pc.dim(`[debug] Backend: ${backend.name}`));
       console.log(pc.dim(`[debug] CLI command: ${backend.cliCommand}`));
       console.log(pc.dim(`[debug] Model: ${effectiveModel}`));
+      if (variant) {
+        console.log(pc.dim(`[debug] Eval variant: ${variant}`));
+      }
+    }
+
+    if (variant) {
+      console.log(pc.cyan(`[eval] Variant: ${variant}`));
+      console.log(pc.dim(`[eval] Output files: *.${variant}.sum, AGENTS.${variant}.md`));
     }
 
     // -------------------------------------------------------------------------
@@ -294,6 +313,7 @@ export async function updateCommand(
       debug: options.debug,
       tracer,
       progressLog,
+      variant,
     });
 
     // -------------------------------------------------------------------------
@@ -343,8 +363,9 @@ export async function updateCommand(
         try {
           // Read existing generated AGENTS.md for incremental update context
           let existingAgentsMd: string | undefined;
+          const agentsFilename = variant ? `AGENTS.${variant}.md` : 'AGENTS.md';
           try {
-            const agentsContent = await readFile(path.join(dirPath, 'AGENTS.md'), 'utf-8');
+            const agentsContent = await readFile(path.join(dirPath, agentsFilename), 'utf-8');
             if (agentsContent.includes(GENERATED_MARKER_PREFIX)) {
               existingAgentsMd = agentsContent;
             }
@@ -352,12 +373,15 @@ export async function updateCommand(
             // No existing AGENTS.md — will generate from scratch
           }
 
-          const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug, knownDirs, undefined, existingAgentsMd);
+          const prompt = await buildDirectoryPrompt(dirPath, absolutePath, options.debug, knownDirs, undefined, existingAgentsMd, undefined, variant);
           const response = await aiService.call({
             prompt: prompt.user,
             systemPrompt: prompt.system,
           });
-          await writeAgentsMd(dirPath, absolutePath, response.text);
+          await writeAgentsMd(dirPath, absolutePath, response.text, variant);
+          if (variant) {
+            await writeAgentsMdHub(dirPath, variant);
+          }
           await writeClaudeMdPointer(dirPath);
           const dirDurationMs = Date.now() - taskStart;
           dirReporter.onDirectoryDone(

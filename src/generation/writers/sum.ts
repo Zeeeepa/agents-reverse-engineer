@@ -146,17 +146,19 @@ function formatSumFile(content: SumFileContent): string {
 
 /**
  * Write a .sum file alongside a source file.
- * Creates: foo.ts -> foo.ts.sum
+ * Creates: foo.ts -> foo.ts.sum (or foo.ts.claude.haiku.sum with variant)
  *
  * @param sourcePath - Path to the source file
  * @param content - Summary content to write
+ * @param variant - Optional eval variant name (e.g., "claude.haiku")
  * @returns Path to the written .sum file
  */
 export async function writeSumFile(
   sourcePath: string,
-  content: SumFileContent
+  content: SumFileContent,
+  variant?: string,
 ): Promise<string> {
-  const sumPath = `${sourcePath}.sum`;
+  const sumPath = getSumPath(sourcePath, variant);
   const dir = path.dirname(sumPath);
 
   // Ensure directory exists
@@ -171,16 +173,25 @@ export async function writeSumFile(
 
 /**
  * Get the .sum path for a source file.
+ *
+ * @param sourcePath - Path to the source file
+ * @param variant - Optional eval variant name (e.g., "claude.haiku")
  */
-export function getSumPath(sourcePath: string): string {
+export function getSumPath(sourcePath: string, variant?: string): string {
+  if (variant) {
+    return `${sourcePath}.${variant}.sum`;
+  }
   return `${sourcePath}.sum`;
 }
 
 /**
  * Check if a .sum file exists for a source file.
+ *
+ * @param sourcePath - Path to the source file
+ * @param variant - Optional eval variant name (e.g., "claude.haiku")
  */
-export async function sumFileExists(sourcePath: string): Promise<boolean> {
-  const sumPath = getSumPath(sourcePath);
+export async function sumFileExists(sourcePath: string, variant?: string): Promise<boolean> {
+  const sumPath = getSumPath(sourcePath, variant);
   const content = await readSumFile(sumPath);
   return content !== null;
 }
@@ -190,17 +201,19 @@ export async function sumFileExists(sourcePath: string): Promise<boolean> {
  * Contains the full source content for reproduction-critical files
  * whose verbatim constants cannot fit within .sum word limits.
  *
- * Example: foo.ts -> foo.annex.sum
+ * Example: foo.ts -> foo.annex.sum (or foo.annex.claude.haiku.sum with variant)
  *
  * @param sourcePath - Absolute path to the source file
  * @param sourceContent - Full source file content
+ * @param variant - Optional eval variant name (e.g., "claude.haiku")
  * @returns Path to the written annex file
  */
 export async function writeAnnexFile(
   sourcePath: string,
   sourceContent: string,
+  variant?: string,
 ): Promise<string> {
-  const annexPath = getAnnexPath(sourcePath);
+  const annexPath = getAnnexPath(sourcePath, variant);
   const fileName = path.basename(sourcePath);
   const content = [
     GENERATED_MARKER,
@@ -221,9 +234,15 @@ export async function writeAnnexFile(
 /**
  * Get the .annex.sum path for a source file.
  *
- * Strips the source extension: foo.ts -> foo.annex.sum
+ * Strips the source extension: foo.ts -> foo.annex.sum (or foo.annex.claude.haiku.sum with variant)
+ *
+ * @param sourcePath - Path to the source file
+ * @param variant - Optional eval variant name (e.g., "claude.haiku")
  */
-export function getAnnexPath(sourcePath: string): string {
+export function getAnnexPath(sourcePath: string, variant?: string): string {
   const parsed = path.parse(sourcePath);
+  if (variant) {
+    return path.join(parsed.dir, `${parsed.name}.annex.${variant}.sum`);
+  }
   return path.join(parsed.dir, `${parsed.name}.annex.sum`);
 }

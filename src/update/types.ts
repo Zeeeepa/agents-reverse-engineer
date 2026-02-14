@@ -16,11 +16,13 @@ export interface CleanupResult {
 /**
  * Options for the update command
  */
-export interface UpdateOptions {
+export interface UpdatePlanOptions {
   /** Include uncommitted changes (staged + working directory) */
   includeUncommitted?: boolean;
   /** Dry run - show what would change without making changes */
   dryRun?: boolean;
+  /** Eval variant (e.g., "claude.haiku") — checks variant-specific .sum files */
+  variant?: string;
 }
 
 /**

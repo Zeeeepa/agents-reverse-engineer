@@ -9,7 +9,7 @@
 
 import * as path from 'node:path';
 import type { GenerationPlan } from '../orchestration/orchestrator.js';
-import { sumFileExists } from './writers/sum.js';
+import { getSumPath, sumFileExists } from './writers/sum.js';
 
 /**
  * Execution task ready for AI processing.
@@ -77,10 +77,15 @@ function getDirectoryDepth(dir: string): number {
  *
  * Directory tasks are sorted using post-order traversal (deepest directories first)
  * so child AGENTS.md files are generated before their parents.
+ *
+ * @param plan - Generation plan from orchestrator
+ * @param projectRoot - Absolute path to project root
+ * @param variant - Optional eval variant name (e.g., "claude.haiku")
  */
 export function buildExecutionPlan(
   plan: GenerationPlan,
-  projectRoot: string
+  projectRoot: string,
+  variant?: string,
 ): ExecutionPlan {
   const fileTasks: ExecutionTask[] = [];
   const directoryTasks: ExecutionTask[] = [];
@@ -109,7 +114,7 @@ export function buildExecutionPlan(
         systemPrompt: task.systemPrompt!,
         userPrompt: task.userPrompt!,
         dependencies: [],
-        outputPath: `${absolutePath}.sum`,
+        outputPath: getSumPath(absolutePath, variant),
         metadata: {},
       });
     }
@@ -145,6 +150,7 @@ export function buildExecutionPlan(
     const dirAbsPath = path.join(projectRoot, dir);
     const fileTaskIds = files.map(f => `file:${f}`);
 
+    const agentsFilename = variant ? `AGENTS.${variant}.md` : 'AGENTS.md';
     directoryTasks.push({
       id: `dir:${dir}`,
       type: 'directory',
@@ -153,7 +159,7 @@ export function buildExecutionPlan(
       systemPrompt: 'Built at execution time by buildDirectoryPrompt()',
       userPrompt: `Directory "${dir}" — ${files.length} files. Prompt populated from .sum files at runtime.`,
       dependencies: fileTaskIds,
-      outputPath: path.join(dirAbsPath, 'AGENTS.md'),
+      outputPath: path.join(dirAbsPath, agentsFilename),
       metadata: {
         directoryFiles: files,
         depth: getDirectoryDepth(dir),
@@ -175,17 +181,23 @@ export function buildExecutionPlan(
 
 /**
  * Check if all files in a directory have been analyzed (.sum files exist).
+ *
+ * @param dirPath - Directory path
+ * @param expectedFiles - Relative file paths expected in this directory
+ * @param projectRoot - Absolute path to project root
+ * @param variant - Optional eval variant name
  */
 export async function isDirectoryComplete(
   dirPath: string,
   expectedFiles: string[],
-  projectRoot: string
+  projectRoot: string,
+  variant?: string,
 ): Promise<{ complete: boolean; missing: string[] }> {
   const missing: string[] = [];
 
   for (const relativePath of expectedFiles) {
     const absolutePath = path.join(projectRoot, relativePath);
-    const exists = await sumFileExists(absolutePath);
+    const exists = await sumFileExists(absolutePath, variant);
     if (!exists) {
       missing.push(relativePath);
     }
@@ -200,9 +212,13 @@ export async function isDirectoryComplete(
 /**
  * Get all directories that are ready for AGENTS.md generation.
  * A directory is ready when all its files have .sum files.
+ *
+ * @param executionPlan - The execution plan
+ * @param variant - Optional eval variant name
  */
 export async function getReadyDirectories(
-  executionPlan: ExecutionPlan
+  executionPlan: ExecutionPlan,
+  variant?: string,
 ): Promise<string[]> {
   const ready: string[] = [];
 
@@ -210,7 +226,8 @@ export async function getReadyDirectories(
     const { complete } = await isDirectoryComplete(
       dir,
       files,
-      executionPlan.projectRoot
+      executionPlan.projectRoot,
+      variant,
     );
     if (complete) {
       ready.push(dir);

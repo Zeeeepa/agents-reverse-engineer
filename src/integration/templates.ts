@@ -13,7 +13,7 @@ import type { IntegrationTemplate } from './types.js';
 const COMMANDS = {
   generate: {
     description: 'Generate AI-friendly documentation for the entire codebase',
-    argumentHint: '[path] [--dry-run] [--concurrency N] [--fail-fast] [--debug] [--trace]',
+    argumentHint: '[path] [--dry-run] [--eval] [--concurrency N] [--fail-fast] [--debug] [--trace]',
     content: `Generate comprehensive documentation for this codebase using agents-reverse-engineer.
 
 <execution>
@@ -53,6 +53,7 @@ This executes a two-phase pipeline:
 
 **Options:**
 - \`--dry-run\`: Preview the plan without making AI calls
+- \`--eval\`: Namespace output by backend.model for side-by-side comparison (e.g., \`file.ts.claude.haiku.sum\`, \`AGENTS.claude.haiku.md\`)
 - \`--concurrency N\`: Control number of parallel AI calls (default: auto)
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
@@ -62,7 +63,7 @@ This executes a two-phase pipeline:
 
   update: {
     description: 'Incrementally update documentation for changed files',
-    argumentHint: '[path] [--uncommitted] [--dry-run] [--concurrency N] [--fail-fast] [--debug] [--trace]',
+    argumentHint: '[path] [--uncommitted] [--dry-run] [--eval] [--concurrency N] [--fail-fast] [--debug] [--trace]',
     content: `Update documentation for files that changed since last run.
 
 <execution>
@@ -97,6 +98,7 @@ Run the update command in the background and monitor progress in real time.
 **Options:**
 - \`--uncommitted\`: Include staged but uncommitted changes
 - \`--dry-run\`: Show what would be updated without writing
+- \`--eval\`: Namespace output by backend.model for side-by-side comparison
 - \`--concurrency N\`: Control number of parallel AI calls (default: auto)
 - \`--fail-fast\`: Stop on first file analysis failure
 - \`--debug\`: Show AI prompts and backend details
@@ -365,12 +367,14 @@ Generate comprehensive documentation for the codebase.
 | \`[path]\` | Target directory (default: current directory) |
 | \`--concurrency N\` | Number of concurrent AI calls (default: auto) |
 | \`--dry-run\` | Show what would be generated without writing |
+| \`--eval\` | Namespace output by backend.model for comparison |
 | \`--fail-fast\` | Stop on first file analysis failure |
 | \`--debug\` | Show AI prompts and backend details |
 | \`--trace\` | Enable concurrency tracing to \`.agents-reverse-engineer/traces/\` |
 **Usage:**
 - \`COMMAND_PREFIXgenerate\` — Generate docs
 - \`COMMAND_PREFIXgenerate --dry-run\` — Preview without writing
+- \`COMMAND_PREFIXgenerate --eval\` — Generate variant docs for comparison
 - \`COMMAND_PREFIXgenerate --concurrency 3\` — Limit parallel AI calls
 
 **CLI:**
@@ -396,6 +400,7 @@ Incrementally update documentation for changed files.
 | \`[path]\` | Target directory (default: current directory) |
 | \`--uncommitted\` | Include staged but uncommitted changes |
 | \`--dry-run\` | Show what would be updated without writing |
+| \`--eval\` | Namespace output by backend.model for comparison |
 | \`--concurrency N\` | Number of concurrent AI calls (default: auto) |
 | \`--fail-fast\` | Stop on first file analysis failure |
 | \`--debug\` | Show AI prompts and backend details |
@@ -492,8 +497,8 @@ Remove all generated documentation artifacts.
 
 **What gets deleted:**
 - \`.agents-reverse-engineer/GENERATION-PLAN.md\`
-- All \`*.sum\` files
-- All \`AGENTS.md\` files
+- All \`*.sum\` files (including eval variant \`.sum\` files)
+- All \`AGENTS.md\` and \`AGENTS.*.md\` variant files
 - Pointers: \`CLAUDE.md\`
 
 **Usage:**

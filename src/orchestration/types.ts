@@ -155,4 +155,6 @@ export interface CommandRunOptions {
   tracer?: ITraceWriter;
   /** Progress log for file-based output mirroring (tail -f monitoring) */
   progressLog?: ProgressLog;
+  /** Eval variant name for side-by-side model comparison (e.g., "claude.haiku") */
+  variant?: string;
 }

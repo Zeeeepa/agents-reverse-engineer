@@ -62,10 +62,13 @@ export {
   readSumFile,
   getSumPath,
   sumFileExists,
+  getAnnexPath,
+  writeAnnexFile,
 } from '../generation/writers/sum.js';
 export type { SumFileContent } from '../generation/writers/sum.js';
 export {
   writeAgentsMd,
+  writeAgentsMdHub,
   isGeneratedAgentsMd,
 } from '../generation/writers/agents-md.js';
 export { writeClaudeMdPointer } from '../generation/writers/claude-md.js';

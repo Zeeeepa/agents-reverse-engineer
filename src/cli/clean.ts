@@ -62,7 +62,7 @@ export async function cleanCommand(
   }
 
   // Find all artifacts (*.sum glob catches both .sum and .annex.sum)
-  const [sumFiles, agentsFiles, localAgentsFiles, claudeFiles, localClaudeFiles] = await Promise.all([
+  const [sumFiles, agentsFiles, variantAgentsFiles, localAgentsFiles, claudeFiles, localClaudeFiles] = await Promise.all([
     fg.glob('**/*.sum', {
       cwd: resolvedPath,
       absolute: true,
@@ -76,6 +76,13 @@ export async function cleanCommand(
       onlyFiles: true,
       dot: true,
       ignore: ['**/node_modules/**', '**/.git/**'],
+    }),
+    fg.glob('**/AGENTS.*.md', {
+      cwd: resolvedPath,
+      absolute: true,
+      onlyFiles: true,
+      dot: true,
+      ignore: ['**/node_modules/**', '**/.git/**', '**/AGENTS.local.md'],
     }),
     fg.glob('**/AGENTS.local.md', {
       cwd: resolvedPath,
@@ -105,6 +112,20 @@ export async function cleanCommand(
   const generatedAgentsFiles: string[] = [];
   const skippedAgentsFiles: string[] = [];
   for (const file of agentsFiles) {
+    try {
+      const content = await readFile(file, 'utf-8');
+      if (content.includes(GENERATED_MARKER_PREFIX)) {
+        generatedAgentsFiles.push(file);
+      } else {
+        skippedAgentsFiles.push(file);
+      }
+    } catch {
+      // Can't read — skip silently
+    }
+  }
+
+  // Filter variant AGENTS.*.md files by generated marker
+  for (const file of variantAgentsFiles) {
     try {
       const content = await readFile(file, 'utf-8');
       if (content.includes(GENERATED_MARKER_PREFIX)) {
@@ -189,7 +210,7 @@ export async function cleanCommand(
   logger.info('');
   logger.info(
     `${pc.bold(String(sumFiles.length))} .sum file(s), ` +
-    `${pc.bold(String(generatedAgentsFiles.length))} AGENTS.md file(s), ` +
+    `${pc.bold(String(generatedAgentsFiles.length))} AGENTS*.md file(s), ` +
     `${pc.bold(String(generatedClaudeFiles.length))} CLAUDE.md file(s), ` +
     `${pc.bold(String(allLocalFiles.length))} local file(s) to restore`
   );

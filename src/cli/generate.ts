@@ -48,6 +48,8 @@ export interface GenerateOptions {
   model?: string;
   /** Override AI backend (e.g., "claude", "codex", "opencode", "gemini") */
   backend?: string;
+  /** Eval mode: namespace output by backend.model for comparison */
+  eval?: boolean;
 }
 
 /**
@@ -157,7 +159,9 @@ export async function generateCommand(
   // ---------------------------------------------------------------------------
 
   if (options.dryRun) {
-    const executionPlan = buildExecutionPlan(plan, absolutePath);
+    // Dry-run doesn't resolve backend, so compute variant from config defaults
+    const dryRunVariant = options.eval ? `${options.backend ?? config.ai.backend}.${options.model ?? config.ai.model}` : undefined;
+    const executionPlan = buildExecutionPlan(plan, absolutePath, dryRunVariant);
     const dirCount = Object.keys(executionPlan.directoryFileMap).length;
 
     console.log(pc.bold('\n--- Dry Run Summary ---\n'));
@@ -213,11 +217,22 @@ export async function generateCommand(
   // Resolve effective model (CLI flag > config)
   const effectiveModel = options.model ?? config.ai.model;
 
+  // Compute eval variant
+  const variant = options.eval ? `${backend.name}.${effectiveModel}` : undefined;
+
   // Debug: log backend info
   if (options.debug) {
     console.log(pc.dim(`[debug] Backend: ${backend.name}`));
     console.log(pc.dim(`[debug] CLI command: ${backend.cliCommand}`));
     console.log(pc.dim(`[debug] Model: ${effectiveModel}`));
+    if (variant) {
+      console.log(pc.dim(`[debug] Eval variant: ${variant}`));
+    }
+  }
+
+  if (variant) {
+    console.log(pc.cyan(`[eval] Variant: ${variant}`));
+    console.log(pc.dim(`[eval] Output files: *.${variant}.sum, AGENTS.${variant}.md`));
   }
 
   // Create AI service
@@ -234,7 +249,7 @@ export async function generateCommand(
   }
 
   // Build execution plan
-  const executionPlan = buildExecutionPlan(plan, absolutePath);
+  const executionPlan = buildExecutionPlan(plan, absolutePath, variant);
 
   // Determine concurrency
   const concurrency = options.concurrency ?? config.ai.concurrency;
@@ -265,6 +280,7 @@ export async function generateCommand(
     debug: options.debug,
     tracer,
     progressLog,
+    variant,
   });
 
   // Execute the two-phase pipeline

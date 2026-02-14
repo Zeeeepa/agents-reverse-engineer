@@ -87,6 +87,9 @@ export const DEFAULT_EXCLUDE_PATTERNS = [
   '**/GEMINI.md',
   '*.local.md',
   '**/*.local.md',
+  // Eval variant AGENTS files (e.g., AGENTS.claude.haiku.md)
+  'AGENTS.*.md',
+  '**/AGENTS.*.md',
   // Lock files (not useful for documentation, can be very large)
   '*.lock',
   'package-lock.json',
