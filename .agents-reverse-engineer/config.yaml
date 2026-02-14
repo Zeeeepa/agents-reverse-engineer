@@ -9,15 +9,19 @@ exclude:
   # Default patterns exclude AI-generated documentation files
   patterns:
     - AGENTS.md
+    - AGENTS.override.md
     - CLAUDE.md
     - OPENCODE.md
     - GEMINI.md
     - "**/AGENTS.md"
+    - "**/AGENTS.override.md"
     - "**/CLAUDE.md"
     - "**/OPENCODE.md"
     - "**/GEMINI.md"
     - "*.local.md"
     - "**/*.local.md"
+    - "AGENTS.*.md"
+    - "**/AGENTS.*.md"
     - "*.lock"
     - package-lock.json
     - yarn.lock
@@ -130,20 +134,19 @@ generation:
   # - 0.50 = detailed (verbose, ~50% of source size)
   # Lower values produce more compact summaries but may omit some details.
   # The annex mechanism bypasses compression for reproduction-critical content.
-  compressionRatio: 0.10
+  compressionRatio: 0.2
 
 # ============================================================================
 # AI SERVICE CONFIGURATION
 # ============================================================================
 ai:
   # AI CLI backend to use
-  # Options: 'claude', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
-  backend: claude
+  # Options: 'claude', 'codex', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
+  backend: gemini
 
   # Model identifier (backend-specific)
-  # "sonnet", "opus", "haiku" (for Claude)
-  # "gpt-5-nano" (smallest tested Codex model in this environment)
-  model: haiku
+  # Examples: "sonnet", "opus", "haiku" (for Claude)
+  model: gemini-3.0-flash
 
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)
