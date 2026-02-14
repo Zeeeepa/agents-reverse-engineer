@@ -1258,7 +1258,7 @@ for (const art of articles) {
   const htmlContent = marked.parse(md);
   const themeCSS = themes[art.theme]();
 
-  const isAvailable = art.id === '01';
+  const isAvailable = ['01','02','03','04'].includes(art.id);
   const blurOverlay = isAvailable ? '' : `<style>
 .are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
 .are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
@@ -1324,7 +1324,7 @@ const cardItems = articles.map(art => {
   const md = readFileSync(join(blogDir, art.file), 'utf-8');
   const title = extractTitle(md);
   const c = themeColors[art.theme];
-  const isAvailable = art.id === '01';
+  const isAvailable = ['01','02','03','04'].includes(art.id);
   const cls = isAvailable ? 'card' : 'card coming-soon';
   const badge = isAvailable ? '' : '<div class="coming-soon-badge">Coming Soon</div>';
   return `
@@ -1503,7 +1503,6 @@ const indexPage = `<!DOCTYPE html>
 <div class="hero">
   <div class="subtitle">Blog Series</div>
   <h1>agents-reverse-engineer</h1>
-  <p>A 12-part deep dive into AI-powered codebase documentation. Each article features a unique visual style.</p>
 </div>
 <div class="grid">
 ${cardItems}
