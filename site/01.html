@@ -107,30 +107,44 @@
 </style>
 </head>
 <body>
-<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.1);">
-  <a href="index.html" style="color:#fff;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
-  <span style="color:#fff;opacity:0.6;font-size:12px;">Article 01/12</span>
-  <span style="display:flex;gap:16px;">
-    <span></span>
-    <a href="02.html" style="color:#fff;text-decoration:none;font-size:14px;">Next ›</a>
-  </span>
+<style>
+.are-nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;padding:10px 20px;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.08);font-family:system-ui,-apple-system,sans-serif}
+.are-nav-side{flex:1;min-width:0}
+.are-nav-center{display:flex;align-items:center;gap:6px}
+.are-nav-btn{display:inline-flex;align-items:center;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#fff;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);transition:background 0.15s;position:relative;cursor:pointer;white-space:nowrap}
+.are-nav-btn:hover{background:rgba(255,255,255,0.16)}
+.are-nav-btn.is-disabled{opacity:0.25;pointer-events:none}
+.are-nav-count{color:#fff;opacity:0.5;font-size:12px;font-weight:500;padding:0 6px;font-family:system-ui,sans-serif}
+.are-nav-btn[data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:400;white-space:nowrap;background:#111;color:#fff;pointer-events:none;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+.are-nav-btn[data-tip]:hover::before{content:'';position:absolute;top:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#111;pointer-events:none;z-index:200}
+</style>
+<nav class="are-nav">
+  <div class="are-nav-side"><a href="index.html" class="are-nav-btn">← All Articles</a></div>
+  <div class="are-nav-center">
+    <span class="are-nav-btn is-disabled">← Prev</span>
+    <span class="are-nav-count">01 / 12</span>
+    <a href="02.html" class="are-nav-btn" data-tip="Getting Started with agents-reverse-engineer in 5 Minutes">Next →</a>
+  </div>
+  <div class="are-nav-side"></div>
 </nav>
 <article><h1>Your AI Assistant Forgets Everything: Here&#39;s the Fix</h1>
 <p>You open a new chat. Again.</p>
 <p>&quot;It&#39;s a Next.js 15 app using App Router with tRPC and Drizzle ORM. Auth is handled by Supabase in <code>src/lib/auth/</code>, the database schema is in <code>src/db/schema.ts</code>, and all inputs are validated with Zod...&quot;</p>
-<p>Sound familiar? Every conversation starts from zero. You&#39;re the tour guide to your own codebase.</p>
-<h2>The Context Problem</h2>
-<p>AI coding tools work in isolated sessions. They can&#39;t remember your codebase between conversations. The workarounds — pasting code into every chat, maintaining docs that go stale, hoping the AI reads the right files — aren&#39;t real solutions.</p>
+<p>Sound familiar? This scenario is rarer now than it used to be — but it still happens, and it&#39;s not the only problem.</p>
+<h2>The Real Problem: Discovery Is Expensive</h2>
+<p>Modern AI assistants have gotten good at exploring codebases on their own. Tools like <code>grep</code>, <code>find</code>, and <code>Read</code> let them crawl through your project, trace imports, and piece together the architecture. They&#39;ll get there eventually.</p>
+<p>But &quot;eventually&quot; has a cost. Every file read burns tokens. Every search round-trip adds latency. A single question like &quot;how does auth work here?&quot; can trigger dozens of tool calls — the AI grepping for patterns, reading file after file, backtracking when it follows the wrong lead. You&#39;re paying for that exploration in both time and money, and it happens <strong>every single session</strong>.</p>
+<p>The AI isn&#39;t broken. It&#39;s just doing archaeology every time it opens your project.</p>
 <h2>What If Your AI Already Knew?</h2>
-<p>Imagine typing: &quot;Add password reset functionality.&quot; No preamble. No architecture explanation.</p>
-<p>Your AI responds with code that follows your patterns, uses your middleware, fits your structure. Because it already knows, from message one.</p>
+<p>Imagine typing: &quot;Add password reset functionality.&quot; No preamble. No architecture explanation. No waiting while the AI reads 30 files to understand your auth setup.</p>
+<p>Your AI responds with code that follows your patterns, uses your middleware, fits your structure — in seconds, not minutes. Because it already knows, from message one.</p>
 <h2>Introducing agents-reverse-engineer</h2>
 <p><strong>agents-reverse-engineer</strong> (<code>are</code>) is a CLI tool that solves this. It generates AI-friendly documentation your assistant automatically reads:</p>
 <ol>
 <li><strong>Analyzes every file</strong> using AI to understand purpose, exports, and dependencies</li>
 <li><strong>Generates <code>.sum</code> files</strong> — compact summaries per source file</li>
 <li><strong>Creates <code>AGENTS.md</code> files</strong> — directory-level overviews aggregating child summaries</li>
-<li><strong>Installs session hooks</strong> — automatic integration with Claude Code, Gemini CLI, and OpenCode</li>
+<li><strong>Installs session hooks</strong> — automatic integration with Claude Code, Codex, Gemini CLI, and OpenCode</li>
 </ol>
 <h2>How It Works</h2>
 <pre><code class="language-bash">npx agents-reverse-engineer@latest
@@ -140,14 +154,14 @@
 npx are discover   # Scan your project
 npx are generate   # Generate documentation
 </code></pre>
-<p>Under the hood, <code>are</code> runs a two-phase pipeline: <strong>file analysis</strong> spawns parallel AI calls producing <code>.sum</code> files, then <strong>directory aggregation</strong> performs post-order traversal building <code>AGENTS.md</code> from deepest directories upward. Claude Code natively reads <code>AGENTS.md</code>, so context loads automatically.</p>
+<p>Under the hood, <code>are</code> runs a two-phase pipeline: <strong>file analysis</strong> spawns parallel AI calls producing <code>.sum</code> files, then <strong>directory aggregation</strong> performs post-order traversal building <code>AGENTS.md</code> from deepest directories upward.</p>
 <p>Session hooks inject parent directory context after Read tool calls. The <code>are-context-loader</code> hook tracks loaded directories, preventing redundant loads. Updates run incrementally — <code>npx are update</code> re-analyzes only changed files using SHA-256 content hashing.</p>
 <h2>The Result</h2>
 <p>Your next AI session is fundamentally different. Ask architectural questions and get informed answers. Request features and get implementations that fit your patterns. Documentation stays in sync automatically.</p>
-<p>No more explaining your codebase. No more pasting boilerplate. No more &quot;which file was that in?&quot;</p>
+<p>No more explaining your codebase. No more waiting while the AI greps its way through your project. No more burning tokens on rediscovery.</p>
 <pre><code class="language-bash">npx agents-reverse-engineer@latest
 </code></pre>
-<p>Your next AI session will feel like magic. Stop explaining. Start building.</p>
+<p>Fewer tokens. Faster answers. Better code. Stop paying for rediscovery. Start building.</p>
 <hr>
 <p><strong>agents-reverse-engineer</strong> — MIT licensed | <a href="https://github.com/GeoloeG-IsT/agents-reverse-engineer">GitHub</a> | npm: <code>agents-reverse-engineer</code> v0.9.9</p>
 </article>

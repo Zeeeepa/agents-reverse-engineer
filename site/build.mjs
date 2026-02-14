@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Marked } from 'marked';
@@ -49,16 +49,37 @@ function nav(currentId, theme) {
   const idx = articles.findIndex(a => a.id === currentId);
   const prev = idx > 0 ? articles[idx - 1] : null;
   const next = idx < articles.length - 1 ? articles[idx + 1] : null;
-  const isDark = ['terminal','cyberpunk','synthwave','blueprint'].includes(theme);
-  const bg = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)';
+  const isDark = ['terminal','cyberpunk','synthwave','blueprint','glass'].includes(theme);
   const fg = isDark ? '#fff' : '#333';
-  return `<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:${bg};backdrop-filter:blur(10px);border-bottom:1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'};">
-  <a href="index.html" style="color:${fg};text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
-  <span style="color:${fg};opacity:0.6;font-size:12px;">Article ${currentId}/12</span>
-  <span style="display:flex;gap:16px;">
-    ${prev ? `<a href="${prev.id}.html" style="color:${fg};text-decoration:none;font-size:14px;">‹ Prev</a>` : '<span></span>'}
-    ${next ? `<a href="${next.id}.html" style="color:${fg};text-decoration:none;font-size:14px;">Next ›</a>` : '<span></span>'}
-  </span>
+  const bg = isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.95)';
+  const border = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+  const btnBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)';
+  const btnHover = isDark ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.1)';
+  const btnBorder = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)';
+  const tipBg = isDark ? '#111' : '#333';
+
+  const prevTitle = prev ? extractTitle(readFileSync(join(blogDir, prev.file), 'utf-8')).replace(/"/g, '&quot;') : '';
+  const nextTitle = next ? extractTitle(readFileSync(join(blogDir, next.file), 'utf-8')).replace(/"/g, '&quot;') : '';
+
+  return `<style>
+.are-nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;padding:10px 20px;background:${bg};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid ${border};font-family:system-ui,-apple-system,sans-serif}
+.are-nav-side{flex:1;min-width:0}
+.are-nav-center{display:flex;align-items:center;gap:6px}
+.are-nav-btn{display:inline-flex;align-items:center;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:${fg};background:${btnBg};border:1px solid ${btnBorder};transition:background 0.15s;position:relative;cursor:pointer;white-space:nowrap}
+.are-nav-btn:hover{background:${btnHover}}
+.are-nav-btn.is-disabled{opacity:0.25;pointer-events:none}
+.are-nav-count{color:${fg};opacity:0.5;font-size:12px;font-weight:500;padding:0 6px;font-family:system-ui,sans-serif}
+.are-nav-btn[data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:400;white-space:nowrap;background:${tipBg};color:#fff;pointer-events:none;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+.are-nav-btn[data-tip]:hover::before{content:'';position:absolute;top:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:${tipBg};pointer-events:none;z-index:200}
+</style>
+<nav class="are-nav">
+  <div class="are-nav-side"><a href="index.html" class="are-nav-btn">← All Articles</a></div>
+  <div class="are-nav-center">
+    ${prev ? `<a href="${prev.id}.html" class="are-nav-btn" data-tip="${prevTitle}">← Prev</a>` : '<span class="are-nav-btn is-disabled">← Prev</span>'}
+    <span class="are-nav-count">${currentId} / ${articles.length}</span>
+    ${next ? `<a href="${next.id}.html" class="are-nav-btn" data-tip="${nextTitle}">Next →</a>` : '<span class="are-nav-btn is-disabled">Next →</span>'}
+  </div>
+  <div class="are-nav-side"></div>
 </nav>`;
 }
 
@@ -1417,7 +1438,7 @@ const indexPage = `<!DOCTYPE html>
   .card-content p {
     font-size: 13px;
     color: var(--card-fg);
-    opacity: 0.6;
+    opacity: 0.75;
     margin-top: auto;
   }
   .footer {

@@ -95,13 +95,25 @@
 </style>
 </head>
 <body>
-<nav style="position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;padding:12px 24px;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.1);">
-  <a href="index.html" style="color:#fff;text-decoration:none;font-weight:bold;font-size:14px;">← All Articles</a>
-  <span style="color:#fff;opacity:0.6;font-size:12px;">Article 04/12</span>
-  <span style="display:flex;gap:16px;">
-    <a href="03.html" style="color:#fff;text-decoration:none;font-size:14px;">‹ Prev</a>
-    <a href="05.html" style="color:#fff;text-decoration:none;font-size:14px;">Next ›</a>
-  </span>
+<style>
+.are-nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;padding:10px 20px;background:rgba(0,0,0,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,0.08);font-family:system-ui,-apple-system,sans-serif}
+.are-nav-side{flex:1;min-width:0}
+.are-nav-center{display:flex;align-items:center;gap:6px}
+.are-nav-btn{display:inline-flex;align-items:center;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:500;color:#fff;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);transition:background 0.15s;position:relative;cursor:pointer;white-space:nowrap}
+.are-nav-btn:hover{background:rgba(255,255,255,0.16)}
+.are-nav-btn.is-disabled{opacity:0.25;pointer-events:none}
+.are-nav-count{color:#fff;opacity:0.5;font-size:12px;font-weight:500;padding:0 6px;font-family:system-ui,sans-serif}
+.are-nav-btn[data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);padding:5px 10px;border-radius:6px;font-size:11px;font-weight:400;white-space:nowrap;background:#111;color:#fff;pointer-events:none;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+.are-nav-btn[data-tip]:hover::before{content:'';position:absolute;top:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:#111;pointer-events:none;z-index:200}
+</style>
+<nav class="are-nav">
+  <div class="are-nav-side"><a href="index.html" class="are-nav-btn">← All Articles</a></div>
+  <div class="are-nav-center">
+    <a href="03.html" class="are-nav-btn" data-tip="Anatomy of Generated Documentation: .sum Files and AGENTS.md Explained">← Prev</a>
+    <span class="are-nav-count">04 / 12</span>
+    <a href="05.html" class="are-nav-btn" data-tip="Incremental Updates: Keep Docs Fresh Without Regenerating Everything">Next →</a>
+  </div>
+  <div class="are-nav-side"></div>
 </nav>
 <article><h1>The Two-Phase Pipeline: How ARE Understands Your Codebase</h1>
 <p>When you run <code>are generate</code>, you see progress bars ticking through files and directories. But what&#39;s happening under the hood? This article takes you inside the pipeline that transforms raw source code into comprehensive, AI-friendly documentation.</p>
