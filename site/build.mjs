@@ -1258,12 +1258,27 @@ for (const art of articles) {
   const htmlContent = marked.parse(md);
   const themeCSS = themes[art.theme]();
 
+  const isAvailable = art.id === '01';
+  const blurOverlay = isAvailable ? '' : `<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>`;
+
+  const contentOpen = isAvailable ? '' : '<div class="are-blur-wrap">';
+  const contentClose = isAvailable ? '' : '</div>';
+
   const page = `${commonHead(title)}
 ${themeCSS}
 </head>
 <body>
 ${nav(art.id, art.theme)}
+${blurOverlay}
+${contentOpen}
 ${wrapContent(art.theme, htmlContent)}
+${contentClose}
 </body>
 </html>`;
 
@@ -1407,13 +1422,13 @@ const indexPage = `<!DOCTYPE html>
     box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
   }
   .card.coming-soon {
-    filter: blur(1.5px) grayscale(0.4);
-    opacity: 0.5;
-    transition: filter 0.3s ease, opacity 0.3s ease, transform 0.25s ease, box-shadow 0.25s ease;
+    filter: blur(4px) grayscale(0.5);
+    opacity: 0.45;
   }
   .card.coming-soon:hover {
-    filter: blur(0.5px) grayscale(0.2);
-    opacity: 0.75;
+    transform: translateY(-4px);
+    opacity: 0.55;
+    filter: blur(4px) grayscale(0.5);
   }
   .coming-soon-badge {
     position: absolute;

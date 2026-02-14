@@ -106,6 +106,14 @@
   </div>
   <div class="are-nav-side"></div>
 </nav>
+<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
+<div class="are-blur-wrap">
 <article><h1>From Docs to Specs: Using are-specify to Generate Project Specifications</h1>
 <p>After running <code>are generate</code>, your codebase has comprehensive documentation distributed across <code>.sum</code> files and <code>AGENTS.md</code> directories. Every file is documented, every directory has a summary. But understanding the full architecture requires mentally stitching together dozens of files. What if you need a single, coherent document for onboarding, architecture reviews, or project handoffs?</p>
 <p>That&#39;s what <code>are specify</code> does—it synthesizes distributed documentation into unified project specifications.</p>
@@ -143,5 +151,6 @@
 <h2>Tips for Better Specs</h2>
 <p>Run quality checks first to validate documentation. Ensure critical components aren&#39;t excluded. Review and edit the generated spec—it&#39;s a starting point. Regenerate regularly as your codebase evolves. Commit specs to version control to track architectural evolution.</p>
 </article>
+</div>
 </body>
 </html>

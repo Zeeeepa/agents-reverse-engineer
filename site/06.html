@@ -126,6 +126,14 @@
   </div>
   <div class="are-nav-side"></div>
 </nav>
+<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
+<div class="are-blur-wrap">
 <div class="blob blob-1"></div><div class="blob blob-2"></div><div class="blob blob-3"></div><article><h1>Multi-Runtime Support: Claude Code, Gemini CLI, OpenCode, and Codex</h1>
 <p>The AI coding assistant landscape is rapidly diversifying. How do you maintain consistent documentation across different tools? <code>agents-reverse-engineer</code> (ARE) was designed from the ground up to work across multiple AI coding assistants, generating documentation that works seamlessly with all of them.</p>
 <h2>The AGENTS.md Standard</h2>
@@ -163,5 +171,6 @@
 <h2>Backend Selection</h2>
 <p>Runtimes determine where documentation is consumed; backends determine which AI CLI generates it. You can mix and match: generate with Claude for quality, consume with Gemini for speed. This separation provides maximum flexibility.</p>
 </article>
+</div>
 </body>
 </html>

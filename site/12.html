@@ -119,6 +119,14 @@
   </div>
   <div class="are-nav-side"></div>
 </nav>
+<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
+<div class="are-blur-wrap">
 <article><div class="hero-card"><h1>Integrating ARE into Your Team Workflow: CI/CD, Hooks, and Automation</h1>
 <p>You&#39;ve mastered agents-reverse-engineer (ARE) individually. Now it&#39;s time to make it a team tool. Here&#39;s how to scale from personal use to shared infrastructure.</p>
 </div><div class="card"><h2>Session Hooks: Zero-Effort Maintenance</h2>
@@ -159,5 +167,6 @@ await updateDocumentation(process.cwd(), config);
 <p>ARE is MIT-licensed and open source at <a href="https://github.com/GeoloeG-IsT/agents-reverse-engineer">github.com/GeoloeG-IsT/agents-reverse-engineer</a>. Contributions welcome.</p>
 <p>The goal isn&#39;t perfect documentation. It&#39;s documentation that&#39;s good enough, fresh enough, and automatic enough to actually help. ARE gets you there.</p>
 </div></article>
+</div>
 </body>
 </html>

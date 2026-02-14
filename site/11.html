@@ -117,6 +117,14 @@
   </div>
   <div class="are-nav-side"></div>
 </nav>
+<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
+<div class="are-blur-wrap">
 <article><h1>Quality Gates and Debugging: ARE&#39;s Built-in Validation System</h1>
 <p>Generated documentation is only valuable if it&#39;s accurate. A beautifully formatted AGENTS.md file that references non-existent functions or misses critical exports creates more problems than it solves. This is why agents-reverse-engineer includes a multi-layered validation system that catches common issues automatically.</p>
 <h2>The Five Execution Phases</h2>
@@ -151,5 +159,6 @@
 <h2>Troubleshooting Common Issues</h2>
 <p>All tasks failed? Check if the AI backend CLI is installed. Timeout errors? Increase <code>ai.timeoutMs</code> in config or split large files. Rate limit errors? Reduce concurrency. Empty <code>.sum</code> files? Check debug output for prompts and responses.</p>
 </article>
+</div>
 </body>
 </html>

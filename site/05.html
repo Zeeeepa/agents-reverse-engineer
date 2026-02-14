@@ -106,6 +106,14 @@
   </div>
   <div class="are-nav-side"></div>
 </nav>
+<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
+<div class="are-blur-wrap">
 <article><h1>Incremental Updates: Keep Docs Fresh Without Regenerating Everything</h1>
 <p>Your codebase evolves daily with new features, bug fixes, and API refactors. Each change potentially invalidates your documentation. Regenerating all documentation from scratch after every change wastes time, API calls, and computational resources.</p>
 <p>The agents-reverse-engineer (ARE) update system solves this by intelligently detecting what changed and regenerating only what&#39;s needed. Instead of re-analyzing hundreds of files, it identifies the handful that actually changed and propagates those updates through the documentation tree efficiently.</p>
@@ -151,5 +159,6 @@
 <li>Use --uncommitted during active development</li>
 </ol>
 </article>
+</div>
 </body>
 </html>

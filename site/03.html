@@ -122,6 +122,14 @@
   </div>
   <div class="are-nav-side"></div>
 </nav>
+<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
+<div class="are-blur-wrap">
 <article><h1>Anatomy of Generated Documentation: .sum Files and AGENTS.md Explained</h1>
 <p>After running <code>agents-reverse-engineer</code> on your codebase, new files appear: <code>.sum</code> files alongside source code, <code>AGENTS.md</code> files in directories, and pointer files like <code>CLAUDE.md</code> at the root. This article dissects ARE&#39;s generated documentation anatomy.</p>
 <h2>.sum Files: Per-File Intelligence</h2>
@@ -174,5 +182,6 @@
 <hr>
 <p><strong>Next</strong>: <a href="./04-two-phase-pipeline.md">The Two-Phase Pipeline: How ARE Generates Documentation</a></p>
 </article>
+</div>
 </body>
 </html>

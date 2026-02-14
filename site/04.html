@@ -115,6 +115,14 @@
   </div>
   <div class="are-nav-side"></div>
 </nav>
+<style>
+.are-blur-wrap{filter:blur(5px);pointer-events:none;user-select:none}
+.are-coming-soon-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);color:#fff;padding:20px 40px;border-radius:12px;font-family:system-ui,-apple-system,sans-serif;text-align:center;pointer-events:auto}
+.are-coming-soon-banner h2{font-size:22px;font-weight:600;margin-bottom:6px}
+.are-coming-soon-banner p{font-size:14px;opacity:0.7;margin:0}
+</style>
+<div class="are-coming-soon-banner"><h2>Coming Soon</h2><p>This article is not yet available</p></div>
+<div class="are-blur-wrap">
 <article><h1>The Two-Phase Pipeline: How ARE Understands Your Codebase</h1>
 <p>When you run <code>are generate</code>, you see progress bars ticking through files and directories. But what&#39;s happening under the hood? This article takes you inside the pipeline that transforms raw source code into comprehensive, AI-friendly documentation.</p>
 <h2>Why Two Phases?</h2>
@@ -139,5 +147,6 @@
 <h2>What This Enables</h2>
 <p>The two-phase architecture unlocks: <strong>Incremental Updates</strong> regenerate only affected files and parent directories, <strong>Quality Validation</strong> detects undocumented exports between phases, <strong>Scalability</strong> processes thousands of files without memory issues, <strong>Observability</strong> provides natural instrumentation boundaries.</p>
 </article>
+</div>
 </body>
 </html>
