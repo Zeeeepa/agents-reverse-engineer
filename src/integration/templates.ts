@@ -297,6 +297,47 @@ This reads spec files from \`specs/\`, partitions them into ordered rebuild unit
 </execution>`,
   },
 
+  dashboard: {
+    description: 'Show telemetry dashboard (costs, tokens, traces)',
+    argumentHint: '[path] [--run <id>] [--trace <id>] [--trends] [--format <table|json|html>]',
+    content: `Show the ARE telemetry dashboard with cost analysis, token usage, and trace timelines.
+
+<execution>
+## STRICT RULES - VIOLATION IS FORBIDDEN
+
+1. Run ONLY the exact command shown: \`npx are dashboard $ARGUMENTS\`
+2. DO NOT add ANY flags the user did not explicitly type
+3. If user typed nothing after \`COMMAND_PREFIXdashboard\`, run with ZERO flags
+
+## Steps
+
+1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+
+2. **Run the dashboard command**:
+   \`\`\`bash
+   npx are dashboard $ARGUMENTS
+   \`\`\`
+
+3. **Present the output** to the user. The dashboard has several modes:
+
+   - **Default (no flags)**: Shows a summary table of all runs with costs, tokens, duration, and errors
+   - **\`--run <id>\`**: Drill-down into a specific run showing per-entry details (latency, tokens, cost per file)
+   - **\`--trace <id>\`**: ASCII Gantt timeline showing concurrent phase execution and worker utilization
+   - **\`--trends\`**: Cost and usage trends across all runs (daily aggregation, cache savings, error rates)
+   - **\`--format html\`**: Generate a self-contained HTML report with Chart.js visualizations — pipe to a file: \`npx are dashboard --format html > report.html\`
+   - **\`--format json\`**: Output raw run log data as JSON
+
+4. **If no runs found**, suggest the user run \`COMMAND_PREFIXgenerate\` or \`COMMAND_PREFIXupdate\` first to create telemetry data.
+
+**Options:**
+- \`--run <id>\`: Show per-entry detail for a specific run (partial timestamp match)
+- \`--trace <id>\`: Show ASCII timeline from a trace file (partial timestamp match)
+- \`--trends\`: Show cost & usage trends across all runs
+- \`--format html\`: Generate self-contained HTML report with charts
+- \`--format json\`: Output raw data as JSON
+</execution>`,
+  },
+
   help: {
     description: 'Show available ARE commands and usage guide',
     argumentHint: '',
@@ -323,6 +364,7 @@ Display the complete ARE command reference.
 1. \`COMMAND_PREFIXinit\` — Create configuration file
 2. \`COMMAND_PREFIXgenerate\` — Generate documentation for the codebase
 3. \`COMMAND_PREFIXupdate\` — Keep docs in sync after code changes
+4. \`COMMAND_PREFIXdashboard\` — View costs and telemetry
 
 ## Commands Reference
 
@@ -513,6 +555,35 @@ npx are clean
 
 ---
 
+### \`COMMAND_PREFIXdashboard\`
+Show telemetry dashboard with cost analysis, token usage, and trace timelines.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| \`--run <id>\` | Per-entry drill-down for a specific run (partial timestamp match) |
+| \`--trace <id>\` | ASCII timeline from trace file (partial timestamp match) |
+| \`--trends\` | Cost & usage trends across all runs |
+| \`--format html\` | Self-contained HTML report with Chart.js charts |
+| \`--format json\` | Raw data as JSON |
+
+**Usage:**
+- \`COMMAND_PREFIXdashboard\` — Show run summary table
+- \`COMMAND_PREFIXdashboard --run 2026-02-14\` — Drill into a specific run
+- \`COMMAND_PREFIXdashboard --trace 2026-02-14\` — Show execution timeline
+- \`COMMAND_PREFIXdashboard --trends\` — Cost trends over time
+
+**CLI:**
+\`\`\`bash
+npx are dashboard
+npx are dashboard --run 2026-02-14
+npx are dashboard --trace 2026-02-14
+npx are dashboard --trends
+npx are dashboard --format html > report.html
+\`\`\`
+
+---
+
 ### \`COMMAND_PREFIXhelp\`
 Show this command reference.
 
@@ -625,6 +696,7 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 
 - **Custom exclusions**: Edit \`.agents-reverse-engineer/config.yaml\` to skip files
 - **Context loading**: Install creates a hook that auto-loads AGENTS.md context when reading project files
+- **Total session costs**: Use CCUSAGE_HINT, not just ARE subprocesses
 
 ## Resources
 
@@ -647,6 +719,7 @@ interface PlatformConfig {
   extraFrontmatter?: string; // e.g., "agent: build" for OpenCode
   usesName: boolean; // Claude uses "name:" in frontmatter
   versionFilePath: string; // .claude/ARE-VERSION, .agents/ARE-VERSION, etc.
+  ccusageHint: string; // Runtime-specific ccusage tip (package varies by runtime)
 }
 
 const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
@@ -656,6 +729,7 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     filenameSeparator: '.',
     usesName: true,
     versionFilePath: '.claude/ARE-VERSION',
+    ccusageHint: '`npx ccusage@latest` (https://github.com/ryoppippi/ccusage) to see ALL Claude Code session costs',
   },
   codex: {
     commandPrefix: '/are-',
@@ -663,6 +737,7 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     filenameSeparator: '.',
     usesName: true,
     versionFilePath: '.agents/ARE-VERSION',
+    ccusageHint: '`npx @ccusage/codex@latest` (https://github.com/ryoppippi/ccusage) to see ALL Codex session costs',
   },
   opencode: {
     commandPrefix: '/are-',
@@ -671,6 +746,7 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     extraFrontmatter: 'agent: build',
     usesName: false,
     versionFilePath: '.opencode/ARE-VERSION',
+    ccusageHint: '`npx @ccusage/opencode@latest` (https://github.com/ryoppippi/ccusage) to see ALL OpenCode session costs',
   },
   gemini: {
     commandPrefix: '/are-',
@@ -678,6 +754,7 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     filenameSeparator: '-',
     usesName: false,
     versionFilePath: '.gemini/ARE-VERSION',
+    ccusageHint: '`npx ccusage@latest` (https://github.com/ryoppippi/ccusage) to see session costs for other AI runtimes (Gemini not yet supported)',
   },
 };
 
@@ -723,7 +800,8 @@ function buildGeminiToml(
   const promptContent = command.content
     .replace(/COMMAND_PREFIX/g, config.commandPrefix)
     .replace(/VERSION_FILE_PATH/g, config.versionFilePath)
-    .replace(/BACKEND_FLAG/g, '--backend gemini');
+    .replace(/BACKEND_FLAG/g, '--backend gemini')
+    .replace(/CCUSAGE_HINT/g, config.ccusageHint);
 
   // Build TOML content
   // Use triple quotes for multi-line prompt
@@ -782,7 +860,8 @@ function buildTemplate(
   const content = command.content
     .replace(/COMMAND_PREFIX/g, config.commandPrefix)
     .replace(/VERSION_FILE_PATH/g, config.versionFilePath)
-    .replace(/BACKEND_FLAG/g, `--backend ${platform}`);
+    .replace(/BACKEND_FLAG/g, `--backend ${platform}`)
+    .replace(/CCUSAGE_HINT/g, config.ccusageHint);
 
   return {
     filename,
