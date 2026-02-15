@@ -18,6 +18,7 @@ import { updateCommand, type UpdateOptions } from './update.js';
 import { cleanCommand, type CleanOptions } from './clean.js';
 import { specifyCommand, type SpecifyOptions } from './specify.js';
 import { rebuildCommand, type RebuildOptions } from './rebuild.js';
+import { dashboardCommand, type DashboardOptions } from '../dashboard/index.js';
 
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
 import { getVersion } from '../version.js';
@@ -37,6 +38,7 @@ Commands:
   specify [path]    Generate project specification from AGENTS.md docs
   rebuild [path]    Reconstruct project from specification
   clean [path]      Delete all generated artifacts (.sum, AGENTS.md, etc.)
+  dashboard [path]  Show telemetry dashboard (costs, tokens, traces)
 
 Install/Uninstall Options:
   --runtime <name>  Runtime to target (claude, codex, opencode, gemini, all)
@@ -57,6 +59,9 @@ General Options:
   --show-excluded   Show excluded files during discovery
   --fail-fast       Stop on first file analysis failure
   --uncommitted     Include uncommitted changes (update only)
+  --run <id>        Show per-entry detail for a specific run (dashboard)
+  --trace <id>      Show ASCII timeline from trace file (dashboard)
+  --trends          Show cost & usage trends across runs (dashboard)
   --help, -h        Show this help
   --version, -V     Show version number
 
@@ -77,6 +82,11 @@ Examples:
   are specify --output ./docs/spec.md --force
   are rebuild --dry-run
   are rebuild --output ./out --force
+  are dashboard
+  are dashboard --run 2026-02-14
+  are dashboard --trace 2026-02-14
+  are dashboard --trends
+  are dashboard --format html > report.html
 `;
 
 /**
@@ -224,8 +234,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Show version banner
-  showVersionBanner();
+  // Show version banner (suppress for piped output formats)
+  const format = values.get('format');
+  if (!(command === 'dashboard' && (format === 'html' || format === 'json'))) {
+    showVersionBanner();
+  }
 
   // Route to command handlers
   switch (command) {
@@ -326,6 +339,17 @@ async function main(): Promise<void> {
         backend: values.get('backend'),
       };
       await rebuildCommand(positional[0] || '.', rebuildOpts);
+      break;
+    }
+
+    case 'dashboard': {
+      const dashOpts: DashboardOptions = {
+        run: values.get('run'),
+        trace: values.get('trace'),
+        format: values.get('format') as DashboardOptions['format'],
+        trends: flags.has('trends'),
+      };
+      await dashboardCommand(positional[0] || '.', dashOpts);
       break;
     }
 

@@ -101,7 +101,9 @@
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:developers.openai.com)",
       "WebFetch(domain:ai.google.dev)",
-      "WebFetch(domain:open-code.ai)"
+      "WebFetch(domain:open-code.ai)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:platform.openai.com)"
     ]
   }
 }
