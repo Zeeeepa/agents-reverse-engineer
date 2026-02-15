@@ -198,7 +198,7 @@ export class DocumentationOrchestrator {
   /**
    * Filter prepared files, removing those that already have .sum artifacts.
    */
-  async filterExistingFiles(files: PreparedFile[]): Promise<{
+  async filterExistingFiles(files: PreparedFile[], variant?: string): Promise<{
     filesToProcess: PreparedFile[];
     skippedFiles: string[];
   }> {
@@ -206,7 +206,7 @@ export class DocumentationOrchestrator {
     const skippedFiles: string[] = [];
 
     for (const file of files) {
-      const exists = await sumFileExists(file.filePath);
+      const exists = await sumFileExists(file.filePath, variant);
       if (exists) {
         skippedFiles.push(file.relativePath);
       } else {
@@ -241,6 +241,7 @@ export class DocumentationOrchestrator {
   async filterExistingDirectories(
     allFiles: PreparedFile[],
     processedFiles: PreparedFile[],
+    variant?: string,
   ): Promise<{ dirsToProcess: Set<string>; skippedDirs: string[] }> {
     // Directories that had files processed → dirty, must regenerate
     const dirtyDirs = new Set<string>();
@@ -261,8 +262,9 @@ export class DocumentationOrchestrator {
       if (dirtyDirs.has(dir)) {
         dirsToProcess.add(dir);
       } else {
-        // Check if generated AGENTS.md already exists
-        const agentsPath = path.join(this.projectRoot, dir, 'AGENTS.md');
+        // Check if generated AGENTS.md (or variant) already exists
+        const agentsFilename = variant ? `AGENTS.${variant}.md` : 'AGENTS.md';
+        const agentsPath = path.join(this.projectRoot, dir, agentsFilename);
         const isGenerated = await isGeneratedAgentsMd(agentsPath);
         if (isGenerated) {
           skippedDirs.push(dir);
@@ -320,9 +322,10 @@ export class DocumentationOrchestrator {
    */
   async createPlan(
     discoveryResult: DiscoveryResult,
-    options?: { force?: boolean },
+    options?: { force?: boolean; variant?: string },
   ): Promise<GenerationPlan> {
     const force = options?.force ?? false;
+    const variant = options?.variant;
     const planStartTime = process.hrtime.bigint();
 
     // Emit phase start
@@ -348,7 +351,7 @@ export class DocumentationOrchestrator {
       if (this.debug) {
         this.logger.debug('[debug] Checking for existing .sum files...');
       }
-      const fileFilter = await this.filterExistingFiles(allFiles);
+      const fileFilter = await this.filterExistingFiles(allFiles, variant);
       filesToProcess = fileFilter.filesToProcess;
       skippedFiles = fileFilter.skippedFiles;
     }
@@ -381,7 +384,7 @@ export class DocumentationOrchestrator {
       if (this.debug) {
         this.logger.debug('[debug] Checking for existing AGENTS.md files...');
       }
-      const dirFilter = await this.filterExistingDirectories(allFiles, filesToProcess);
+      const dirFilter = await this.filterExistingDirectories(allFiles, filesToProcess, variant);
       skippedDirs = dirFilter.skippedDirs;
 
       // Create directory tasks only for directories that need processing

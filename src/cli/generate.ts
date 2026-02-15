@@ -135,7 +135,17 @@ export async function generateCommand(
     absolutePath,
     { tracer, debug: options.debug }
   );
-  const plan = await orchestrator.createPlan(discoveryResult, { force: options.force });
+
+  // Compute preliminary variant before plan creation so skip filtering
+  // checks eval-namespaced artifacts (e.g., file.ts.claude.sonnet.sum)
+  const preliminaryVariant = options.eval
+    ? `${options.backend ?? config.ai.backend}.${options.model ?? config.ai.model}`
+    : undefined;
+
+  const plan = await orchestrator.createPlan(discoveryResult, {
+    force: options.force,
+    variant: preliminaryVariant,
+  });
 
   // Report skip stats
   if (plan.skippedFiles && plan.skippedFiles.length > 0) {
