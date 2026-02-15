@@ -142,11 +142,11 @@ generation:
 ai:
   # AI CLI backend to use
   # Options: 'claude', 'codex', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
-  backend: gemini
+  backend: claude
 
   # Model identifier (backend-specific)
   # Examples: "sonnet", "opus", "haiku" (for Claude)
-  model: gemini-2.5-flash
+  model: sonnet
 
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)
