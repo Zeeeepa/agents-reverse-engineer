@@ -25,6 +25,7 @@ Display the complete ARE command reference.
 1. `/are-init` — Create configuration file
 2. `/are-generate` — Generate documentation for the codebase
 3. `/are-update` — Keep docs in sync after code changes
+4. `/are-dashboard` — View costs and telemetry
 
 ## Commands Reference
 
@@ -215,6 +216,35 @@ npx are clean
 
 ---
 
+### `/are-dashboard`
+Show telemetry dashboard with cost analysis, token usage, and trace timelines.
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| `--run <id>` | Per-entry drill-down for a specific run (partial timestamp match) |
+| `--trace <id>` | ASCII timeline from trace file (partial timestamp match) |
+| `--trends` | Cost & usage trends across all runs |
+| `--format html` | Self-contained HTML report with Chart.js charts |
+| `--format json` | Raw data as JSON |
+
+**Usage:**
+- `/are-dashboard` — Show run summary table
+- `/are-dashboard --run 2026-02-14` — Drill into a specific run
+- `/are-dashboard --trace 2026-02-14` — Show execution timeline
+- `/are-dashboard --trends` — Cost trends over time
+
+**CLI:**
+```bash
+npx are dashboard
+npx are dashboard --run 2026-02-14
+npx are dashboard --trace 2026-02-14
+npx are dashboard --trends
+npx are dashboard --format html > report.html
+```
+
+---
+
 ### `/are-help`
 Show this command reference.
 
@@ -327,6 +357,7 @@ related_files: [./types.ts, ./middleware.ts]
 
 - **Custom exclusions**: Edit `.agents-reverse-engineer/config.yaml` to skip files
 - **Context loading**: Install creates a hook that auto-loads AGENTS.md context when reading project files
+- **Total session costs**: Use `npx ccusage@latest` (https://github.com/ryoppippi/ccusage) to see ALL Claude Code session costs, not just ARE subprocesses
 
 ## Resources
 

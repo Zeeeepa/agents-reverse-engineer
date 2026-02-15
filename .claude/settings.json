@@ -35,6 +35,7 @@
       "Bash(npx are specify*)",
       "Bash(npx are rebuild*)",
       "Bash(npx are clean*)",
+      "Bash(npx are dashboard*)",
       "Bash(rm -f .agents-reverse-engineer/progress.log*)",
       "Bash(sleep *)"
     ]
