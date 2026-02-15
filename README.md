@@ -80,7 +80,7 @@ The interactive installer prompts you to:
 
 This installs:
 
-- **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`
+- **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`, `/are-dashboard`
 - **Codex context rules** — local install writes `./AGENTS.override.md`; global install writes `~/.codex/AGENTS.override.md` with lazy AGENTS hierarchy loading guidance
 
 ### 2. Initialize Configuration
@@ -223,6 +223,7 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `are specify`                   | Generate project specification   |
 | `are rebuild`                   | Reconstruct project from specs   |
 | `are clean`                     | Remove all generated docs        |
+| `are dashboard`                 | Show telemetry dashboard (costs, tokens, traces) |
 
 **Runtimes:** `claude`, `codex`, `opencode`, `gemini`, `all`
 
@@ -241,6 +242,9 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `--eval`            | Namespace output by backend.model for comparison         | generate, update                    |
 | `--debug`           | Show AI prompts and backend details                      | discover, generate, update, specify, rebuild |
 | `--trace`           | Enable concurrency tracing (.agents-reverse-engineer/traces/) | generate, update, specify, rebuild |
+| `--run <id>`        | Show per-entry detail for a specific run                     | dashboard                          |
+| `--trends`          | Show cost & usage trends across runs                         | dashboard                          |
+| `--format <fmt>`    | Output format: table (default), json, html                   | dashboard                          |
 
 ### AI Assistant Commands
 
@@ -253,6 +257,28 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `/are-specify`  | Generate project specification | Claude, Codex, OpenCode, Gemini |
 | `/are-rebuild`  | Reconstruct project from specs | Claude, Codex, OpenCode, Gemini |
 | `/are-clean`    | Remove all generated docs      | Claude, Codex, OpenCode, Gemini |
+| `/are-dashboard`| Show telemetry dashboard       | Claude, Codex, OpenCode, Gemini |
+
+---
+
+## Telemetry Dashboard
+
+ARE logs telemetry for every run (costs, tokens, latency, traces). Use the dashboard to analyze costs and performance.
+
+```bash
+are dashboard                           # Summary table of all runs
+are dashboard --run 2026-02-14          # Per-entry drill-down for a run
+are dashboard --trace 2026-02-14        # ASCII Gantt timeline of execution
+are dashboard --trends                  # Cost trends over time
+are dashboard --format html > report.html  # Self-contained HTML report with charts
+```
+
+In your AI assistant: `/are-dashboard`, `/are-dashboard --trends`, etc.
+
+**Tip:** For total session costs (not just ARE), use [ccusage](https://github.com/ryoppippi/ccusage):
+- Claude Code: `npx ccusage@latest`
+- Codex: `npx @ccusage/codex@latest`
+- OpenCode: `npx @ccusage/opencode@latest`
 
 ---
 

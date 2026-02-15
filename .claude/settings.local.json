@@ -103,7 +103,8 @@
       "WebFetch(domain:ai.google.dev)",
       "WebFetch(domain:open-code.ai)",
       "WebFetch(domain:openai.com)",
-      "WebFetch(domain:platform.openai.com)"
+      "WebFetch(domain:platform.openai.com)",
+      "Bash(command -v:*)"
     ]
   }
 }
