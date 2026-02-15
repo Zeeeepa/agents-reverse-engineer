@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-02-15
+
+### Added
+- **Dashboard skill and settings registered** — Added `/are-dashboard` skill file and `dashboard` Bash permission to Claude Code settings for native IDE integration
+- **New `src/dashboard/` documentation** — Generated `AGENTS.md`, `CLAUDE.md`, and `AGENTS.claude.sonnet.md` for the dashboard module and its `views/` subdirectory
+
+### Changed
+- **Variant-aware skip filtering in generate command** — `--eval` mode now computes a preliminary `backend.model` variant and passes it to `createPlan()`, so skip checks correctly look for variant-namespaced artifacts (e.g., `file.ts.claude.sonnet.sum`, `AGENTS.claude.sonnet.md`) instead of the default filenames
+- **Regenerated documentation across all modules** — Updated `AGENTS.md`, `CLAUDE.md`, and `AGENTS.claude.sonnet.md` files across 30+ directories with improved content
+
+### Removed
+- **Gemini CLI command templates** — Deleted `.gemini/ARE-VERSION` and all `.gemini/commands/are-*.toml` files (Gemini CLI commands no longer maintained as separate TOML files)
+
 ## [1.1.0] - 2026-02-15
 
 ### Added
@@ -962,7 +975,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.10...v1.0.0
