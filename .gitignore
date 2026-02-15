@@ -27,6 +27,10 @@ npm-debug.log*
 # agents-reverse-engineer
 *.sum
 .agents-reverse-engineer/.npm-cache/
+.agents-reverse-engineer/logs/
+.agents-reverse-engineer/subprocess-logs/
+.agents-reverse-engineer/traces/
+.agents-reverse-engineer/GENERATION_PLAN.md
 specs/
 rebuild/
 !src/rebuild/
