@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-15
+
+### Added
+- **`dashboard` command** — New `are dashboard` CLI command with telemetry analysis views: run summary table, per-entry drill-down (`--run <id>`), ASCII Gantt timeline from trace files (`--trace <id>`), cost & usage trends (`--trends`), and self-contained HTML report generation with Chart.js (`--format html`). Includes cost calculator, log/trace readers, and multiple view renderers (`src/dashboard/`)
+- **Dashboard registered in installer and help** — `dashboard` command template added to all platform configs with full documentation in `/are-help`, including CLI examples and option reference
+- **Multi-backend model reference in config template** — Default `config.yaml` now documents model identifiers for all four backends (Claude: `sonnet`/`opus`/`haiku`/`claude-opus-4-6`, Codex: `gpt-5.3-codex`/`gpt-5-codex-mini`, Gemini: `gemini-3-pro-preview`/`gemini-2.5-flash`, OpenCode: `provider/model` format)
+- **Claude Sonnet documentation variant** — Generated `AGENTS.claude.sonnet.md` files across all project directories for Claude Sonnet-specific documentation consumption
+- **Gemini 2.5 Flash documentation variant** — Generated `AGENTS.gemini.gemini-2.5-flash.md` files across all project directories
+- **ccusage cost tracking hints** — Help and command templates now reference `ccusage` packages for viewing total session costs per runtime (Claude Code, Codex, OpenCode)
+
+### Changed
+- **AI model default switched from Gemini 3.0 Flash to Gemini 2.5 Flash** — Updated `config.yaml` model reference to use `gemini-2.5-flash`
+- **Version banner suppressed for piped output** — `dashboard` command with `--format html` or `--format json` no longer prints the version banner, allowing clean pipe-to-file output
+- **Config exclusion patterns expanded** — Added logs, subprocess logs, traces, and `GENERATION-PLAN.md` to `.gitignore`
+
+### Removed
+- **Gemini runtime hook and settings files** — Deleted `.gemini/hooks/are-check-update.js`, `.gemini/hooks/are-context-loader.js`, and `.gemini/settings.json` (Gemini CLI hooks no longer maintained separately)
+
 ## [1.0.1] - 2026-02-14
 
 ### Added
@@ -944,7 +962,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.10...v1.0.0
 [0.9.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v0.9.9...v0.9.10
