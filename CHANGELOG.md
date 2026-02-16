@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-02-16
+
+### Added
+- **A/B implementation comparison command** — New `are implement` CLI command that executes AI-generated plans in isolated git worktrees (with and without ARE docs), extracts implementation metrics (files created, lines changed, commits), and optionally runs test/build/lint suites. Includes AI-driven quality evaluation, result storage, and structured comparison views
+- **Model identifier documentation in config** — Default `config.yaml` now includes backend-specific model identifier examples for Claude, Codex, Gemini, and OpenCode
+- **Skill and version updates** — Updated all skill templates with improved command execution patterns and pinned versioning via `ARE-VERSION`
+
+### Fixed
+- **Subprocess stdin stream leak** — `runSubprocess` now always closes the stdin stream after writing input, preventing potential resource leaks during AI backend calls
+- **Buffer overflow in long-running agentic sessions** — Increased `maxBuffer` from 10MB to 100MB for subprocess output, preventing crashes during multi-turn agentic exploration sessions
+- **Agentic exploration timeout too aggressive** — Increased timeout from 10 to 20 minutes to accommodate longer AI exploration sessions in plan execution
+- **Timeout detection false positives** — Improved timeout detection logic to more reliably distinguish actual timeouts from other subprocess failures
+- **Diagnostic logging on plan execution failure** — Added detailed diagnostic output when `executePlanRun` fails, showing subprocess exit code, signal, and stderr for easier debugging
+- **Missing `ps` permission** — Added `ps` command to `settings.local.json` permissions for Claude Code
+- **Repository link in default config** — Corrected the repository URL in default config comments
+
+### Changed
+- **README updated for new commands** — Added documentation for `are plan` and `are implement` commands, including CLI flags (`--eval`, `--eval-model`, `--task-slug`, `--list`, `--show`, `--run-tests`, `--run-build`, `--run-lint`) and slash command references
+- **CONTRIBUTING.md updated** — Added `plan/` and `implement/` modules to the source tree overview
+
 ## [1.2.0] - 2026-02-16
 
 ### Added
@@ -1005,7 +1025,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.4...v1.2.0
 [1.1.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.2...v1.1.3

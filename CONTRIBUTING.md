@@ -37,6 +37,8 @@ src/
   generation/   # Documentation generation (AI-driven)
   orchestration/# Concurrency pool, tracing, process management
   ai/           # AI service abstraction and subprocess management
+  plan/         # A/B plan comparison (are plan)
+  implement/    # A/B implementation comparison (are implement)
 ```
 
 ## Making Changes

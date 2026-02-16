@@ -80,7 +80,7 @@ The interactive installer prompts you to:
 
 This installs:
 
-- **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-clean`, `/are-dashboard`
+- **Commands** — `/are-init`, `/are-discover`, `/are-generate`, `/are-update`, `/are-specify`, `/are-plan`, `/are-implement`, `/are-clean`, `/are-dashboard`
 - **Codex context rules** — local install writes `./AGENTS.override.md`; global install writes `~/.codex/AGENTS.override.md` with lazy AGENTS hierarchy loading guidance
 
 ### 2. Initialize Configuration
@@ -207,6 +207,32 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 
 ---
 
+### 7. Plan Comparison (A/B Test)
+
+```
+are plan "Add user authentication with JWT"
+```
+
+Runs AI planning **twice** on the same task — once with ARE documentation and once without — then compares output quality (detail, file references, actionable steps). Use `--eval` for blind AI quality scoring.
+
+---
+
+### 8. Implement Comparison (A/B Test)
+
+```
+are implement "Add user authentication with JWT"
+```
+
+Requires a prior `are plan` run. Executes the AI plans in isolated git worktrees, extracts implementation metrics (files created, lines changed, commits), and optionally runs test/build/lint. Use `--eval` for blind AI quality evaluation.
+
+```bash
+are implement "Add auth" --run-tests --run-build --eval
+are implement --list                    # List saved comparisons
+are implement --show 2026-02-16         # View a comparison
+```
+
+---
+
 ## Commands
 
 | Command                         | Description                      |
@@ -222,6 +248,8 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `are update`                    | Update changed files only        |
 | `are specify`                   | Generate project specification   |
 | `are rebuild`                   | Reconstruct project from specs   |
+| `are plan "<task>"`             | Compare AI planning with vs without docs |
+| `are implement "<task>"`        | Compare AI implementation with vs without docs |
 | `are clean`                     | Remove all generated docs        |
 | `are dashboard`                 | Show telemetry dashboard (costs, tokens, traces) |
 
@@ -239,8 +267,15 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `--fail-fast`       | Stop on first file analysis failure                      | generate, update, rebuild           |
 | `--show-excluded`   | Show excluded files during discovery                     | discover                            |
 | `--uncommitted`     | Include uncommitted changes                              | update                              |
-| `--eval`            | Namespace output by backend.model for comparison         | generate, update                    |
-| `--debug`           | Show AI prompts and backend details                      | discover, generate, update, specify, rebuild |
+| `--eval`            | Run AI quality evaluator on both results                 | plan, implement                     |
+| `--eval-model <m>`  | Model for AI evaluator (defaults to --model)             | plan, implement                     |
+| `--task-slug <slug>`| Override auto-generated task slug                        | plan, implement                     |
+| `--list`            | List saved comparisons                                   | plan, implement                     |
+| `--show <id>`       | Show a previous comparison by ID                         | plan, implement                     |
+| `--run-tests`       | Run test suite and extract metrics                       | implement                           |
+| `--run-build`       | Run build and check success                              | implement                           |
+| `--run-lint`        | Run linter and extract metrics                           | implement                           |
+| `--debug`           | Show AI prompts and backend details                      | discover, generate, update, specify, rebuild, plan, implement |
 | `--trace`           | Enable concurrency tracing (.agents-reverse-engineer/traces/) | generate, update, specify, rebuild |
 | `--run <id>`        | Show per-entry detail for a specific run                     | dashboard                          |
 | `--trends`          | Show cost & usage trends across runs                         | dashboard                          |
@@ -256,6 +291,8 @@ Synthesizes all AGENTS.md documentation into a single project specification docu
 | `/are-update`   | Update changed files only      | Claude, Codex, OpenCode, Gemini |
 | `/are-specify`  | Generate project specification | Claude, Codex, OpenCode, Gemini |
 | `/are-rebuild`  | Reconstruct project from specs | Claude, Codex, OpenCode, Gemini |
+| `/are-plan`     | Compare planning with vs without docs | Claude, Codex, OpenCode, Gemini |
+| `/are-implement`| Compare implementation with vs without docs | Claude, Codex, OpenCode, Gemini |
 | `/are-clean`    | Remove all generated docs      | Claude, Codex, OpenCode, Gemini |
 | `/are-dashboard`| Show telemetry dashboard       | Claude, Codex, OpenCode, Gemini |
 
