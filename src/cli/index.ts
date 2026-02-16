@@ -21,6 +21,8 @@ import { rebuildCommand, type RebuildOptions } from './rebuild.js';
 import { dashboardCommand, type DashboardOptions } from '../dashboard/index.js';
 import { planCommand } from './plan.js';
 import type { PlanOptions } from '../plan/types.js';
+import { implementCommand } from './implement.js';
+import type { ImplementOptions } from '../implement/types.js';
 
 import { runInstaller, parseInstallerArgs } from '../installer/index.js';
 import { getVersion } from '../version.js';
@@ -41,6 +43,7 @@ Commands:
   rebuild [path]    Reconstruct project from specification
   clean [path]      Delete all generated artifacts (.sum, AGENTS.md, etc.)
   plan <task>       Compare AI planning quality with/without ARE docs
+  implement <task>  Execute implementation with/without ARE docs
   dashboard [path]  Show telemetry dashboard (costs, tokens, traces)
 
 Install/Uninstall Options:
@@ -62,9 +65,13 @@ General Options:
   --show-excluded   Show excluded files during discovery
   --fail-fast       Stop on first file analysis failure
   --uncommitted     Include uncommitted changes (update only)
-  --list            List all plan comparisons (plan only)
-  --show <id>       View a previous plan comparison (plan only)
-  --eval-model <n>  Model for evaluator (plan only)
+  --list            List all comparisons (plan, implement)
+  --show <id>       View a previous comparison (plan, implement)
+  --eval-model <n>  Model for evaluator (plan, implement)
+  --task-slug <s>   Reference existing plan by slug (implement only)
+  --run-tests       Run test suite during implementation (implement only)
+  --run-build       Run build during implementation (implement only)
+  --run-lint        Run linter during implementation (implement only)
   --run <id>        Show per-entry detail for a specific run (dashboard)
   --trace <id>      Show ASCII timeline from trace file (dashboard)
   --trends          Show cost & usage trends across runs (dashboard)
@@ -92,6 +99,10 @@ Examples:
   are plan "Refactor auth module" --eval
   are plan --list
   are plan --show 2026-02-16
+  are implement "Add rate limiting" --eval
+  are implement "Refactor auth module" --run-tests --run-build
+  are implement --list
+  are implement --show 2026-02-16
   are dashboard
   are dashboard --run 2026-02-14
   are dashboard --trace 2026-02-14
@@ -366,6 +377,27 @@ async function main(): Promise<void> {
         force: flags.has('force'),
       };
       await planCommand(positional[0] || '', positional[1] || '.', planOpts);
+      break;
+    }
+
+    case 'implement': {
+      const implOpts: ImplementOptions = {
+        model: values.get('model'),
+        backend: values.get('backend'),
+        eval: flags.has('eval'),
+        evalModel: values.get('eval-model'),
+        dryRun: flags.has('dry-run'),
+        show: values.get('show'),
+        list: flags.has('list'),
+        debug: flags.has('debug'),
+        trace: flags.has('trace'),
+        taskSlug: values.get('task-slug'),
+        runTests: flags.has('run-tests'),
+        runBuild: flags.has('run-build'),
+        runLint: flags.has('run-lint'),
+        force: flags.has('force'),
+      };
+      await implementCommand(positional[0] || '', positional[1] || '.', implOpts);
       break;
     }
 
