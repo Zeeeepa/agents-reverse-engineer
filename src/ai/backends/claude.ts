@@ -104,7 +104,9 @@ export class ClaudeBackend implements AIBackend {
       '-p',                        // Non-interactive print mode
       '--output-format', 'json',   // Structured JSON output
       '--no-session-persistence',  // Don't save session to disk
-      '--allowedTools', 'Read', 'Write',  // Pre-approve minimal tools; avoids bypassPermissions (blocked as root)
+      '--tools', '',               // Disable all tools (content passed inline via stdin)
+      '--disable-slash-commands',  // No skills needed in subprocesses
+      '--max-turns', String(options.maxTurns ?? 1),  // Single turn by default
     ];
 
     if (options.model) {
@@ -113,10 +115,6 @@ export class ClaudeBackend implements AIBackend {
 
     if (options.systemPrompt) {
       args.push('--system-prompt', options.systemPrompt);
-    }
-
-    if (options.maxTurns !== undefined) {
-      args.push('--max-turns', String(options.maxTurns));
     }
 
     return args;

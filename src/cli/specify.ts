@@ -11,6 +11,7 @@
  * With --dry-run, shows input statistics without making any AI calls.
  */
 
+import os from 'node:os';
 import * as path from 'node:path';
 import { access, readdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -197,6 +198,7 @@ export async function specifyCommand(
     command: 'specify',
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   }, consoleLogger);
+  aiService.setSubprocessCwd(os.tmpdir());
 
   if (options.debug) {
     aiService.setDebug(true);

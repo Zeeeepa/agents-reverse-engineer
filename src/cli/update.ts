@@ -6,6 +6,7 @@
  * changed files concurrently via the CommandRunner orchestration engine.
  * Regenerates AGENTS.md for affected directories after analysis.
  */
+import os from 'node:os';
 import * as path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import pc from 'picocolors';
@@ -281,6 +282,7 @@ export async function updateCommand(
       command: 'update',
       telemetry: { keepRuns: config.ai.telemetry.keepRuns },
     }, consoleLogger);
+    aiService.setSubprocessCwd(os.tmpdir());
 
     if (options.debug) {
       aiService.setDebug(true);

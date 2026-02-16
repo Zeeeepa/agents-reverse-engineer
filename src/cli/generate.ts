@@ -11,6 +11,7 @@
  * With --dry-run, shows the plan without making any AI calls.
  */
 
+import os from 'node:os';
 import * as path from 'node:path';
 import pc from 'picocolors';
 import { loadConfig, findProjectRoot } from '../config/loader.js';
@@ -253,6 +254,7 @@ export async function generateCommand(
     command: 'generate',
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   }, consoleLogger);
+  aiService.setSubprocessCwd(os.tmpdir());
 
   if (options.debug) {
     aiService.setDebug(true);

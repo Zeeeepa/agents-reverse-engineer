@@ -202,6 +202,21 @@ export class AIService {
   }
 
   /**
+   * Set the working directory for all spawned subprocesses.
+   *
+   * Prevents AI CLIs from discovering project-level context files
+   * (e.g., CLAUDE.md chains) that waste cache tokens on unnecessary
+   * context loading.
+   *
+   * @param cwd - Absolute path to use as subprocess CWD (e.g., os.tmpdir())
+   */
+  setSubprocessCwd(cwd: string): void {
+    if (this.provider instanceof SubprocessProvider) {
+      this.provider.setSubprocessCwd(cwd);
+    }
+  }
+
+  /**
    * Make an AI call with retry logic and telemetry recording.
    *
    * The call flow:

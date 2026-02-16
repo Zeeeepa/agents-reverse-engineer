@@ -11,6 +11,7 @@
  * With --dry-run, shows the rebuild plan without making any AI calls.
  */
 
+import os from 'node:os';
 import * as path from 'node:path';
 import pc from 'picocolors';
 import { loadConfig, findProjectRoot } from '../config/loader.js';
@@ -170,6 +171,7 @@ export async function rebuildCommand(
     command: 'rebuild',
     telemetry: { keepRuns: config.ai.telemetry.keepRuns },
   }, consoleLogger);
+  aiService.setSubprocessCwd(os.tmpdir());
 
   if (options.debug) {
     aiService.setDebug(true);

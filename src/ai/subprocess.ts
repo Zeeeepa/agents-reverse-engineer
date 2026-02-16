@@ -51,6 +51,8 @@ export interface SubprocessOptions {
   input?: string;
   /** Optional environment variable overrides for the child process */
   env?: NodeJS.ProcessEnv;
+  /** Optional working directory for the child process */
+  cwd?: string;
   /**
    * Callback fired synchronously when the child process is spawned.
    * Use this for trace events that need the actual spawn time.
@@ -115,6 +117,7 @@ export function runSubprocess(
         killSignal: 'SIGTERM',
         maxBuffer: 10 * 1024 * 1024, // 10MB for large AI responses
         encoding: 'utf-8',
+        cwd: options.cwd,
         env: {
           ...process.env,
           ...(options.env ?? {}),

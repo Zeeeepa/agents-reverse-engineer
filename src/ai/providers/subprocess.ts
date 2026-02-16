@@ -82,6 +82,9 @@ export class SubprocessProvider implements AIProvider {
   /** Directory for subprocess output logs (null = disabled) */
   private subprocessLogDir: string | null = null;
 
+  /** Working directory for subprocesses (null = inherit parent CWD) */
+  private subprocessCwd: string | null = null;
+
   /** Serializes log writes so concurrent workers don't interleave mkdirs */
   private logWriteQueue: Promise<void> = Promise.resolve();
 
@@ -107,6 +110,16 @@ export class SubprocessProvider implements AIProvider {
     this.subprocessLogDir = dir;
   }
 
+  /**
+   * Set the working directory for spawned subprocesses.
+   *
+   * Use os.tmpdir() to prevent AI CLIs from discovering project-level
+   * context files (e.g., CLAUDE.md) that waste cache tokens.
+   */
+  setSubprocessCwd(cwd: string): void {
+    this.subprocessCwd = cwd;
+  }
+
   async call(options: AICallOptions): Promise<AIResponse> {
     const taskLabel = options.taskLabel ?? 'unknown';
     const timeoutMs = options.timeoutMs ?? this.timeoutMs;
@@ -130,6 +143,7 @@ export class SubprocessProvider implements AIProvider {
     const result = await runSubprocess(this.backend.cliCommand, args, {
       timeoutMs,
       input: stdinInput,
+      cwd: this.subprocessCwd ?? undefined,
       onSpawn: (pid) => {
         this.tracer?.emit({
           type: 'subprocess:spawn',
