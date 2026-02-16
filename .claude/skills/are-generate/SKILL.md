@@ -19,7 +19,7 @@ Run the generate command in the background and monitor progress in real time.
 
 3. **Run the generate command in the background** using `run_in_background: true`:
    ```bash
-   npx are generate --backend claude $ARGUMENTS
+   npx agents-reverse-engineer generate --backend claude $ARGUMENTS
    ```
 
 4. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:

@@ -449,27 +449,27 @@ Ensure the hook is copied to `hooks/dist/` during the build step (see `scripts/b
 
 ```bash
 # 1. Auto-detection: your CLI should be found if on PATH
-npx are generate --dry-run
+npx agents-reverse-engineer generate --dry-run
 # Should show: "Using <name> backend"
 
 # 2. Explicit selection
-npx are generate --backend goose --dry-run
+npx agents-reverse-engineer generate --backend goose --dry-run
 
 # 3. Full generation run
-npx are generate --backend goose
+npx agents-reverse-engineer generate --backend goose
 
 # 4. Incremental update
 # (make a code change first)
-npx are update --backend goose
+npx agents-reverse-engineer update --backend goose
 
 # 5. Specification
-npx are specify --backend goose
+npx agents-reverse-engineer specify --backend goose
 
 # 6. Eval mode (variant comparison)
-npx are generate --backend goose --eval
+npx agents-reverse-engineer generate --backend goose --eval
 
 # 7. Error handling: unavailable backend
-npx are generate --backend nonexistent
+npx agents-reverse-engineer generate --backend nonexistent
 # Should show install instructions
 
 # 8. Verify telemetry
@@ -723,9 +723,9 @@ composeStdinInput(options: AICallOptions): string {
 #### 5. Test end-to-end
 
 ```bash
-npx are generate --backend gemini --dry-run
-npx are generate --backend gemini
-npx are update --backend gemini
+npx agents-reverse-engineer generate --backend gemini --dry-run
+npx agents-reverse-engineer generate --backend gemini
+npx agents-reverse-engineer update --backend gemini
 ```
 
 ### Risks and unknowns

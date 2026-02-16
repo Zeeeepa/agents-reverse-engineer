@@ -30,7 +30,7 @@ Run the generate command in the background and monitor progress in real time.
 
 3. **Run the generate command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx are generate BACKEND_FLAG $ARGUMENTS
+   npx agents-reverse-engineer generate BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -80,7 +80,7 @@ Run the update command in the background and monitor progress in real time.
 
 3. **Run the update command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx are update BACKEND_FLAG $ARGUMENTS
+   npx agents-reverse-engineer update BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -117,7 +117,7 @@ Run the update command in the background and monitor progress in real time.
 2. Run the agents-reverse-engineer init command:
 
 \`\`\`bash
-npx are init
+npx agents-reverse-engineer init
 \`\`\`
 
 This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
@@ -132,7 +132,7 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: \`npx are discover $ARGUMENTS\`
+1. Run ONLY this exact command: \`npx agents-reverse-engineer discover $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXdiscover\`, run with ZERO flags
 
@@ -147,7 +147,7 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 
 3. **Run the discover command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx are discover $ARGUMENTS
+   npx agents-reverse-engineer discover $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -187,14 +187,14 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: \`npx are clean $ARGUMENTS\`
+1. Run ONLY this exact command: \`npx agents-reverse-engineer clean $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXclean\`, run with ZERO flags
 
 **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
 
 \`\`\`bash
-npx are clean $ARGUMENTS
+npx agents-reverse-engineer clean $ARGUMENTS
 \`\`\`
 
 Report number of files deleted.
@@ -220,7 +220,7 @@ Run the specify command in the background and monitor progress in real time.
 
 3. **Run the specify command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx are specify BACKEND_FLAG $ARGUMENTS
+   npx agents-reverse-engineer specify BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -267,7 +267,7 @@ Run the rebuild command in the background and monitor progress in real time.
 
 3. **Run the rebuild command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   npx are rebuild BACKEND_FLAG $ARGUMENTS
+   npx agents-reverse-engineer rebuild BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
 4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
@@ -305,7 +305,7 @@ This reads spec files from \`specs/\`, partitions them into ordered rebuild unit
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY the exact command shown: \`npx are dashboard $ARGUMENTS\`
+1. Run ONLY the exact command shown: \`npx agents-reverse-engineer dashboard $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXdashboard\`, run with ZERO flags
 
@@ -315,7 +315,7 @@ This reads spec files from \`specs/\`, partitions them into ordered rebuild unit
 
 2. **Run the dashboard command**:
    \`\`\`bash
-   npx are dashboard $ARGUMENTS
+   npx agents-reverse-engineer dashboard $ARGUMENTS
    \`\`\`
 
 3. **Present the output** to the user. The dashboard has several modes:
@@ -324,7 +324,7 @@ This reads spec files from \`specs/\`, partitions them into ordered rebuild unit
    - **\`--run <id>\`**: Drill-down into a specific run showing per-entry details (latency, tokens, cost per file)
    - **\`--trace <id>\`**: ASCII Gantt timeline showing concurrent phase execution and worker utilization
    - **\`--trends\`**: Cost and usage trends across all runs (daily aggregation, cache savings, error rates)
-   - **\`--format html\`**: Generate a self-contained HTML report with Chart.js visualizations — pipe to a file: \`npx are dashboard --format html > report.html\`
+   - **\`--format html\`**: Generate a self-contained HTML report with Chart.js visualizations — pipe to a file: \`npx agents-reverse-engineer dashboard --format html > report.html\`
    - **\`--format json\`**: Output raw run log data as JSON
 
 4. **If no runs found**, suggest the user run \`COMMAND_PREFIXgenerate\` or \`COMMAND_PREFIXupdate\` first to create telemetry data.
@@ -374,7 +374,7 @@ Initialize configuration in this project.
 Creates \`.agents-reverse-engineer/config.yaml\` with customizable settings.
 
 **Usage:** \`COMMAND_PREFIXinit\`
-**CLI:** \`npx are init\`
+**CLI:** \`npx agents-reverse-engineer init\`
 
 ---
 
@@ -394,8 +394,8 @@ Shows included files, excluded files with reasons, and generates a \`GENERATION-
 
 **CLI:**
 \`\`\`bash
-npx are discover
-npx are discover ./src
+npx agents-reverse-engineer discover
+npx agents-reverse-engineer discover ./src
 \`\`\`
 
 ---
@@ -421,10 +421,10 @@ Generate comprehensive documentation for the codebase.
 
 **CLI:**
 \`\`\`bash
-npx are generate
-npx are generate --dry-run
-npx are generate ./my-project --concurrency 3
-npx are generate --debug --trace
+npx agents-reverse-engineer generate
+npx agents-reverse-engineer generate --dry-run
+npx agents-reverse-engineer generate ./my-project --concurrency 3
+npx agents-reverse-engineer generate --debug --trace
 \`\`\`
 
 **How it works:**
@@ -453,10 +453,10 @@ Incrementally update documentation for changed files.
 
 **CLI:**
 \`\`\`bash
-npx are update
-npx are update --uncommitted
-npx are update --dry-run
-npx are update ./my-project --concurrency 3
+npx agents-reverse-engineer update
+npx agents-reverse-engineer update --uncommitted
+npx agents-reverse-engineer update --dry-run
+npx agents-reverse-engineer update ./my-project --concurrency 3
 \`\`\`
 
 ---
@@ -483,10 +483,10 @@ Collects all AGENTS.md files, synthesizes them via AI, and writes a comprehensiv
 
 **CLI:**
 \`\`\`bash
-npx are specify
-npx are specify --dry-run
-npx are specify --output ./docs/spec.md --force
-npx are specify --multi-file
+npx agents-reverse-engineer specify
+npx agents-reverse-engineer specify --dry-run
+npx agents-reverse-engineer specify --output ./docs/spec.md --force
+npx agents-reverse-engineer specify --multi-file
 \`\`\`
 
 ---
@@ -513,9 +513,9 @@ Reads spec files from \`specs/\`, partitions them into ordered rebuild units, pr
 
 **CLI:**
 \`\`\`bash
-npx are rebuild --dry-run
-npx are rebuild --output ./out --force
-npx are rebuild --concurrency 3
+npx agents-reverse-engineer rebuild --dry-run
+npx agents-reverse-engineer rebuild --output ./out --force
+npx agents-reverse-engineer rebuild --concurrency 3
 \`\`\`
 
 **How it works:**
@@ -549,8 +549,8 @@ Remove all generated documentation artifacts.
 
 **CLI:**
 \`\`\`bash
-npx are clean --dry-run
-npx are clean
+npx agents-reverse-engineer clean --dry-run
+npx agents-reverse-engineer clean
 \`\`\`
 
 ---
@@ -575,11 +575,11 @@ Show telemetry dashboard with cost analysis, token usage, and trace timelines.
 
 **CLI:**
 \`\`\`bash
-npx are dashboard
-npx are dashboard --run 2026-02-14
-npx are dashboard --trace 2026-02-14
-npx are dashboard --trends
-npx are dashboard --format html > report.html
+npx agents-reverse-engineer dashboard
+npx agents-reverse-engineer dashboard --run 2026-02-14
+npx agents-reverse-engineer dashboard --trace 2026-02-14
+npx agents-reverse-engineer dashboard --trends
+npx agents-reverse-engineer dashboard --format html > report.html
 \`\`\`
 
 ---
@@ -701,7 +701,7 @@ COMMAND_PREFIXgenerate --dry-run         # Preview generation
 ## Resources
 
 - **Repository:** https://github.com/GeoloeG-IsT/agents-reverse-engineer
-- **Update:** \`npx are install --force\`
+- **Update:** \`npx agents-reverse-engineer install --force\`
 </reference>`,
   },
 } as const;

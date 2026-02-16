@@ -35,7 +35,7 @@ Initialize configuration in this project.
 Creates `.agents-reverse-engineer/config.yaml` with customizable settings.
 
 **Usage:** `/are-init`
-**CLI:** `npx are init`
+**CLI:** `npx agents-reverse-engineer init`
 
 ---
 
@@ -55,8 +55,8 @@ Shows included files, excluded files with reasons, and generates a `GENERATION-P
 
 **CLI:**
 ```bash
-npx are discover
-npx are discover ./src
+npx agents-reverse-engineer discover
+npx agents-reverse-engineer discover ./src
 ```
 
 ---
@@ -82,10 +82,10 @@ Generate comprehensive documentation for the codebase.
 
 **CLI:**
 ```bash
-npx are generate
-npx are generate --dry-run
-npx are generate ./my-project --concurrency 3
-npx are generate --debug --trace
+npx agents-reverse-engineer generate
+npx agents-reverse-engineer generate --dry-run
+npx agents-reverse-engineer generate ./my-project --concurrency 3
+npx agents-reverse-engineer generate --debug --trace
 ```
 
 **How it works:**
@@ -114,10 +114,10 @@ Incrementally update documentation for changed files.
 
 **CLI:**
 ```bash
-npx are update
-npx are update --uncommitted
-npx are update --dry-run
-npx are update ./my-project --concurrency 3
+npx agents-reverse-engineer update
+npx agents-reverse-engineer update --uncommitted
+npx agents-reverse-engineer update --dry-run
+npx agents-reverse-engineer update ./my-project --concurrency 3
 ```
 
 ---
@@ -144,10 +144,10 @@ Collects all AGENTS.md files, synthesizes them via AI, and writes a comprehensiv
 
 **CLI:**
 ```bash
-npx are specify
-npx are specify --dry-run
-npx are specify --output ./docs/spec.md --force
-npx are specify --multi-file
+npx agents-reverse-engineer specify
+npx agents-reverse-engineer specify --dry-run
+npx agents-reverse-engineer specify --output ./docs/spec.md --force
+npx agents-reverse-engineer specify --multi-file
 ```
 
 ---
@@ -174,9 +174,9 @@ Reads spec files from `specs/`, partitions them into ordered rebuild units, proc
 
 **CLI:**
 ```bash
-npx are rebuild --dry-run
-npx are rebuild --output ./out --force
-npx are rebuild --concurrency 3
+npx agents-reverse-engineer rebuild --dry-run
+npx agents-reverse-engineer rebuild --output ./out --force
+npx agents-reverse-engineer rebuild --concurrency 3
 ```
 
 **How it works:**
@@ -210,8 +210,8 @@ Remove all generated documentation artifacts.
 
 **CLI:**
 ```bash
-npx are clean --dry-run
-npx are clean
+npx agents-reverse-engineer clean --dry-run
+npx agents-reverse-engineer clean
 ```
 
 ---
@@ -236,11 +236,11 @@ Show telemetry dashboard with cost analysis, token usage, and trace timelines.
 
 **CLI:**
 ```bash
-npx are dashboard
-npx are dashboard --run 2026-02-14
-npx are dashboard --trace 2026-02-14
-npx are dashboard --trends
-npx are dashboard --format html > report.html
+npx agents-reverse-engineer dashboard
+npx agents-reverse-engineer dashboard --run 2026-02-14
+npx agents-reverse-engineer dashboard --trace 2026-02-14
+npx agents-reverse-engineer dashboard --trends
+npx agents-reverse-engineer dashboard --format html > report.html
 ```
 
 ---
@@ -362,5 +362,5 @@ related_files: [./types.ts, ./middleware.ts]
 ## Resources
 
 - **Repository:** https://github.com/GeoloeG-IsT/agents-reverse-engineer
-- **Update:** `npx are install --force`
+- **Update:** `npx agents-reverse-engineer install --force`
 </reference>

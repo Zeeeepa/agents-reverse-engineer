@@ -8,7 +8,7 @@ Show the ARE telemetry dashboard with cost analysis, token usage, and trace time
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY the exact command shown: `npx are dashboard $ARGUMENTS`
+1. Run ONLY the exact command shown: `npx agents-reverse-engineer dashboard $ARGUMENTS`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after `/are-dashboard`, run with ZERO flags
 
@@ -18,7 +18,7 @@ Show the ARE telemetry dashboard with cost analysis, token usage, and trace time
 
 2. **Run the dashboard command**:
    ```bash
-   npx are dashboard $ARGUMENTS
+   npx agents-reverse-engineer dashboard $ARGUMENTS
    ```
 
 3. **Present the output** to the user. The dashboard has several modes:
@@ -27,7 +27,7 @@ Show the ARE telemetry dashboard with cost analysis, token usage, and trace time
    - **`--run <id>`**: Drill-down into a specific run showing per-entry details (latency, tokens, cost per file)
    - **`--trace <id>`**: ASCII Gantt timeline showing concurrent phase execution and worker utilization
    - **`--trends`**: Cost and usage trends across all runs (daily aggregation, cache savings, error rates)
-   - **`--format html`**: Generate a self-contained HTML report with Chart.js visualizations — pipe to a file: `npx are dashboard --format html > report.html`
+   - **`--format html`**: Generate a self-contained HTML report with Chart.js visualizations — pipe to a file: `npx agents-reverse-engineer dashboard --format html > report.html`
    - **`--format json`**: Output raw run log data as JSON
 
 4. **If no runs found**, suggest the user run `/are-generate` or `/are-update` first to create telemetry data.

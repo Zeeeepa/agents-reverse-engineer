@@ -75,13 +75,14 @@ const OPENCODE_AGENT_FILENAME = 'are-summarizer.md';
  * Permissions to remove during uninstall (must match operations.ts)
  */
 const ARE_PERMISSIONS = [
-  'Bash(npx are init*)',
-  'Bash(npx are discover*)',
-  'Bash(npx are generate*)',
-  'Bash(npx are update*)',
-  'Bash(npx are specify*)',
-  'Bash(npx are rebuild*)',
-  'Bash(npx are clean*)',
+  'Bash(npx agents-reverse-engineer init*)',
+  'Bash(npx agents-reverse-engineer discover*)',
+  'Bash(npx agents-reverse-engineer generate*)',
+  'Bash(npx agents-reverse-engineer update*)',
+  'Bash(npx agents-reverse-engineer specify*)',
+  'Bash(npx agents-reverse-engineer rebuild*)',
+  'Bash(npx agents-reverse-engineer clean*)',
+  'Bash(npx agents-reverse-engineer dashboard*)',
   'Bash(rm -f .agents-reverse-engineer/progress.log*)',
   'Bash(sleep *)',
 ];
