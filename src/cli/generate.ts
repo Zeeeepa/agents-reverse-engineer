@@ -277,7 +277,7 @@ export async function generateCommand(
   }
 
   // Create progress log for tail -f monitoring
-  const progressLog = ProgressLog.create(absolutePath);
+  const progressLog = ProgressLog.create(absolutePath, 'generate', backend.name, effectiveModel);
   progressLog.write(`=== ARE Generate (${new Date().toISOString()}) ===`);
   progressLog.write(`Project: ${absolutePath}`);
   const skippedCount = plan.skippedFiles?.length ?? 0;

@@ -83,7 +83,6 @@ const ARE_PERMISSIONS = [
   'Bash(npx agents-reverse-engineer rebuild*)',
   'Bash(npx agents-reverse-engineer clean*)',
   'Bash(npx agents-reverse-engineer dashboard*)',
-  'Bash(rm -f .agents-reverse-engineer/progress.log*)',
   'Bash(sleep *)',
 ];
 

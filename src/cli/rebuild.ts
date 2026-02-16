@@ -188,7 +188,7 @@ export async function rebuildCommand(
   }
 
   // Create progress log for tail -f monitoring
-  const progressLog = ProgressLog.create(absolutePath);
+  const progressLog = ProgressLog.create(absolutePath, 'rebuild', backend.name, effectiveModel);
   progressLog.write(`=== ARE Rebuild (${new Date().toISOString()}) ===`);
   progressLog.write(`Project: ${absolutePath}`);
   progressLog.write(`Output: ${outputDir}`);

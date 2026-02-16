@@ -21,26 +21,21 @@ Run the generate command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
-2. **Delete stale progress log** (prevents reading leftover data from a previous run):
+2. **Run the generate command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   rm -f .agents-reverse-engineer/progress.log
+   npx agents-reverse-engineer@$VERSION generate BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
-3. **Run the generate command in the background** using \`run_in_background: true\`:
-   \`\`\`bash
-   npx agents-reverse-engineer generate BACKEND_FLAG $ARGUMENTS
-   \`\`\`
-
-4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
-   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
+3. **Monitor progress** by polling the latest progress log:
+   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use **Glob** to find the latest \`.agents-reverse-engineer/progress-*.log\` file, and **Read** it (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update (e.g. "32/96 files analyzed, ~12m remaining")
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
-   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+   - **Important**: Keep polling even if no progress log exists yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and summarize:
+4. **On completion**, read the full background task output and summarize:
    - Number of files analyzed and any failures
    - Number of directories documented
    - Any inconsistency warnings from the quality report
@@ -71,26 +66,21 @@ Run the update command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
-2. **Delete stale progress log** (prevents reading leftover data from a previous run):
+2. **Run the update command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   rm -f .agents-reverse-engineer/progress.log
+   npx agents-reverse-engineer@$VERSION update BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
-3. **Run the update command in the background** using \`run_in_background: true\`:
-   \`\`\`bash
-   npx agents-reverse-engineer update BACKEND_FLAG $ARGUMENTS
-   \`\`\`
-
-4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
-   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
+3. **Monitor progress** by polling the latest progress log:
+   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use **Glob** to find the latest \`.agents-reverse-engineer/progress-*.log\` file, and **Read** it (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update (e.g. "12/30 files updated, ~5m remaining")
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
-   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+   - **Important**: Keep polling even if no progress log exists yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and summarize:
+4. **On completion**, read the full background task output and summarize:
    - Files updated
    - Files unchanged
    - Any orphaned docs cleaned up
@@ -112,12 +102,12 @@ Run the update command in the background and monitor progress in real time.
     content: `Initialize agents-reverse-engineer configuration in this project.
 
 <execution>
-1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
 2. Run the agents-reverse-engineer init command:
 
 \`\`\`bash
-npx agents-reverse-engineer init
+npx agents-reverse-engineer@$VERSION init
 \`\`\`
 
 This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
@@ -132,32 +122,27 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: \`npx agents-reverse-engineer discover $ARGUMENTS\`
+1. Run ONLY this exact command: \`npx agents-reverse-engineer@$VERSION discover $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXdiscover\`, run with ZERO flags
 
 ## Steps
 
-1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
-2. **Delete stale progress log** (prevents reading leftover data from a previous run):
+2. **Run the discover command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   rm -f .agents-reverse-engineer/progress.log
+   npx agents-reverse-engineer@$VERSION discover $ARGUMENTS
    \`\`\`
 
-3. **Run the discover command in the background** using \`run_in_background: true\`:
-   \`\`\`bash
-   npx agents-reverse-engineer discover $ARGUMENTS
-   \`\`\`
-
-4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
-   - Wait ~10 seconds (use \`sleep 10\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
+3. **Monitor progress** by polling the latest progress log:
+   - Wait ~10 seconds (use \`sleep 10\` in Bash), then use **Glob** to find the latest \`.agents-reverse-engineer/progress-*.log\` file, and **Read** it (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
-   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+   - **Important**: Keep polling even if no progress log exists yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and report number of files found.
+4. **On completion**, read the full background task output and report number of files found.
 
 6. **Review plan and suggest exclusions**:
    - Read \`.agents-reverse-engineer/GENERATION-PLAN.md\` and \`.agents-reverse-engineer/config.yaml\`
@@ -187,14 +172,15 @@ This creates \`.agents-reverse-engineer/config.yaml\` configuration file.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: \`npx agents-reverse-engineer clean $ARGUMENTS\`
+1. Run ONLY this exact command: \`npx agents-reverse-engineer@$VERSION clean $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXclean\`, run with ZERO flags
 
-**Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
+2. **Run the clean command**:
 \`\`\`bash
-npx agents-reverse-engineer clean $ARGUMENTS
+npx agents-reverse-engineer@$VERSION clean $ARGUMENTS
 \`\`\`
 
 Report number of files deleted.
@@ -211,26 +197,21 @@ Run the specify command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
-2. **Delete stale progress log** (prevents reading leftover data from a previous run):
+2. **Run the specify command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   rm -f .agents-reverse-engineer/progress.log
+   npx agents-reverse-engineer@$VERSION specify BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
-3. **Run the specify command in the background** using \`run_in_background: true\`:
-   \`\`\`bash
-   npx agents-reverse-engineer specify BACKEND_FLAG $ARGUMENTS
-   \`\`\`
-
-4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
-   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
+3. **Monitor progress** by polling the latest progress log:
+   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use **Glob** to find the latest \`.agents-reverse-engineer/progress-*.log\` file, and **Read** it (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
-   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+   - **Important**: Keep polling even if no progress log exists yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and summarize:
+4. **On completion**, read the full background task output and summarize:
    - Number of AGENTS.md files collected
    - Output file(s) written
 
@@ -258,26 +239,21 @@ Run the rebuild command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
-2. **Delete stale progress log** (prevents reading leftover data from a previous run):
+2. **Run the rebuild command in the background** using \`run_in_background: true\`:
    \`\`\`bash
-   rm -f .agents-reverse-engineer/progress.log
+   npx agents-reverse-engineer@$VERSION rebuild BACKEND_FLAG $ARGUMENTS
    \`\`\`
 
-3. **Run the rebuild command in the background** using \`run_in_background: true\`:
-   \`\`\`bash
-   npx agents-reverse-engineer rebuild BACKEND_FLAG $ARGUMENTS
-   \`\`\`
-
-4. **Monitor progress by polling** \`.agents-reverse-engineer/progress.log\`:
-   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use the **Read** tool to read \`.agents-reverse-engineer/progress.log\` (use the \`offset\` parameter to read only the last ~20 lines for long files)
+3. **Monitor progress** by polling the latest progress log:
+   - Wait ~15 seconds (use \`sleep 15\` in Bash), then use **Glob** to find the latest \`.agents-reverse-engineer/progress-*.log\` file, and **Read** it (use the \`offset\` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update (e.g. "4/12 rebuild units completed")
    - Check whether the background task has completed using \`TaskOutput\` with \`block: false\`
    - Repeat until the background task finishes
-   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+   - **Important**: Keep polling even if no progress log exists yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and summarize:
+4. **On completion**, read the full background task output and summarize:
    - Number of rebuild units processed
    - Files generated and output directory
    - Any failures or partial completions
@@ -305,17 +281,17 @@ This reads spec files from \`specs/\`, partitions them into ordered rebuild unit
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY the exact command shown: \`npx agents-reverse-engineer dashboard $ARGUMENTS\`
+1. Run ONLY the exact command shown: \`npx agents-reverse-engineer@$VERSION dashboard $ARGUMENTS\`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after \`COMMAND_PREFIXdashboard\`, run with ZERO flags
 
 ## Steps
 
-1. **Display version**: Read \`VERSION_FILE_PATH\` and show the user: \`agents-reverse-engineer vX.Y.Z\`
+1. **Read version**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
 2. **Run the dashboard command**:
    \`\`\`bash
-   npx agents-reverse-engineer dashboard $ARGUMENTS
+   npx agents-reverse-engineer@$VERSION dashboard $ARGUMENTS
    \`\`\`
 
 3. **Present the output** to the user. The dashboard has several modes:
@@ -345,7 +321,7 @@ This reads spec files from \`specs/\`, partitions them into ordered rebuild unit
     content: `<objective>
 Display the complete ARE command reference.
 
-**First**: Read \`VERSION_FILE_PATH\` and show the user the version: \`agents-reverse-engineer vX.Y.Z\`
+**First**: Read \`VERSION_FILE_PATH\` → store as \`$VERSION\`. Show the user: \`agents-reverse-engineer v$VERSION\`
 
 **Then**: Output ONLY the reference content below. Do NOT add:
 - Project-specific analysis

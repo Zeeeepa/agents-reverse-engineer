@@ -9,15 +9,15 @@
  * ETA is computed via a moving average of the last 10 completion times,
  * displayed after 2 or more files have completed.
  *
- * Optionally mirrors all output to a plain-text progress log file
- * (`.agents-reverse-engineer/progress.log`) via {@link ProgressLog},
- * enabling `tail -f` monitoring when running inside buffered environments
- * (e.g. Claude Code's Bash tool).
+ * Optionally mirrors all output to a timestamped plain-text progress log file
+ * (`.agents-reverse-engineer/progress-{cmd}-{backend}-{model}-{ts}.log`)
+ * via {@link ProgressLog}, enabling real-time monitoring when running
+ * inside buffered environments (e.g. Claude Code's Bash tool).
  *
  * @module
  */
 
-import { open, mkdir } from 'node:fs/promises';
+import { open, mkdir, readdir, unlink } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import * as path from 'node:path';
 import pc from 'picocolors';
@@ -38,22 +38,26 @@ function stripAnsi(str: string): string {
 // ProgressLog
 // ---------------------------------------------------------------------------
 
-/** Relative path for the progress log file */
-const PROGRESS_LOG_FILENAME = 'progress.log';
+/** Directory for progress log files (relative to project root) */
+const PROGRESS_DIR = '.agents-reverse-engineer';
+
+/** Default number of progress log files to retain */
+const DEFAULT_KEEP_COUNT = 20;
 
 /**
  * Plain-text progress log file writer.
  *
- * Mirrors console progress output to `.agents-reverse-engineer/progress.log`
- * without ANSI escape codes, enabling real-time monitoring via `tail -f`
- * when the CLI runs inside buffered environments (e.g. Claude Code).
+ * Mirrors console progress output to a timestamped file in
+ * `.agents-reverse-engineer/` without ANSI escape codes, enabling
+ * real-time monitoring via Glob + Read when running inside
+ * buffered environments (e.g. Claude Code's Bash tool).
  *
  * Uses promise-chain serialization (same pattern as {@link TraceWriter})
  * to handle concurrent writes from multiple pool workers safely.
  *
  * @example
  * ```typescript
- * const log = new ProgressLog('/project/.agents-reverse-engineer/progress.log');
+ * const log = ProgressLog.create('/project', 'generate', 'claude', 'sonnet');
  * log.write('=== ARE Generate (2026-02-09) ===');
  * log.write('[1/10] ANALYZING src/index.ts');
  * await log.finalize();
@@ -66,15 +70,102 @@ export class ProgressLog {
   constructor(private readonly filePath: string) {}
 
   /**
-   * Create a ProgressLog for a project root.
+   * Create a ProgressLog for a project root with a timestamped filename.
+   *
+   * Filename follows the same convention as run logs:
+   * `progress-{command}-{backend}-{model}-{timestamp}.log`
    *
    * @param projectRoot - Absolute path to the project root directory
+   * @param command - CLI command name (e.g. 'generate', 'update')
+   * @param backend - Backend name (e.g. 'claude', 'gemini'); defaults to 'none'
+   * @param model - Model name (e.g. 'sonnet', 'opus'); defaults to 'default'
    * @returns A new ProgressLog instance
    */
-  static create(projectRoot: string): ProgressLog {
-    return new ProgressLog(
-      path.join(projectRoot, '.agents-reverse-engineer', PROGRESS_LOG_FILENAME),
+  static create(
+    projectRoot: string,
+    command: string,
+    backend: string = 'none',
+    model: string = 'default',
+  ): ProgressLog {
+    const safeCommand = command.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const safeBackend = backend.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const safeModel = model.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const safeTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `progress-${safeCommand}-${safeBackend}-${safeModel}-${safeTimestamp}.log`;
+
+    const log = new ProgressLog(
+      path.join(projectRoot, PROGRESS_DIR, filename),
     );
+
+    // Fire-and-forget cleanup of old progress logs
+    ProgressLog.cleanup(projectRoot).catch(() => { /* non-critical */ });
+
+    return log;
+  }
+
+  /**
+   * Get the path of the most recent progress log file.
+   *
+   * Reads the directory for `progress-*.log` files and returns the
+   * most recent one (sorted lexicographically by filename, which
+   * contains an ISO timestamp).
+   *
+   * @param projectRoot - Absolute path to the project root directory
+   * @returns Absolute path to the latest progress log, or null if none exist
+   */
+  static async getLatestPath(projectRoot: string): Promise<string | null> {
+    const dir = path.join(projectRoot, PROGRESS_DIR);
+    try {
+      const entries = await readdir(dir);
+      const progressFiles = entries.filter(
+        (name) => name.startsWith('progress-') && name.endsWith('.log'),
+      );
+      if (progressFiles.length === 0) return null;
+      progressFiles.sort();
+      return path.join(dir, progressFiles[progressFiles.length - 1]);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Remove old progress log files, keeping only the most recent ones.
+   *
+   * Same retention pattern as {@link cleanupOldLogs} in telemetry.
+   *
+   * @param projectRoot - Absolute path to the project root directory
+   * @param keepCount - Number of most recent progress logs to retain
+   * @returns Number of files deleted
+   */
+  static async cleanup(
+    projectRoot: string,
+    keepCount: number = DEFAULT_KEEP_COUNT,
+  ): Promise<number> {
+    const dir = path.join(projectRoot, PROGRESS_DIR);
+    let entries: string[];
+    try {
+      const allEntries = await readdir(dir);
+      entries = allEntries.filter(
+        (name) => name.startsWith('progress-') && name.endsWith('.log'),
+      );
+    } catch {
+      return 0;
+    }
+
+    // Sort newest-first (lexicographic on ISO timestamp filenames)
+    entries.sort();
+    entries.reverse();
+
+    const toDelete = entries.slice(keepCount);
+    for (const filename of toDelete) {
+      try {
+        await unlink(path.join(dir, filename));
+      } catch {
+        // Non-critical -- stale progress logs are harmless
+      }
+    }
+
+    return toDelete.length;
   }
 
   /**

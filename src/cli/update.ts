@@ -302,7 +302,7 @@ export async function updateCommand(
     }
 
     // Create progress log for tail -f monitoring
-    const progressLog = ProgressLog.create(absolutePath);
+    const progressLog = ProgressLog.create(absolutePath, 'update', backend.name, effectiveModel);
     progressLog.write(`=== ARE Update (${new Date().toISOString()}) ===`);
     progressLog.write(`Project: ${absolutePath}`);
     progressLog.write(`Files to analyze: ${plan.filesToAnalyze.length} | Directories: ${plan.affectedDirs.length}`);

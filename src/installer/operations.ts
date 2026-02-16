@@ -53,7 +53,6 @@ const CODEX_PREFIX_RULES: string[][] = [
   ['npx', 'agents-reverse-engineer', 'rebuild'],
   ['npx', 'agents-reverse-engineer', 'clean'],
   ['npx', 'agents-reverse-engineer', 'dashboard'],
-  ['rm', '-f', '.agents-reverse-engineer/progress.log'],
   ['sleep'],
 ];
 
@@ -563,7 +562,6 @@ const ARE_PERMISSIONS = [
   'Bash(npx agents-reverse-engineer rebuild*)',
   'Bash(npx agents-reverse-engineer clean*)',
   'Bash(npx agents-reverse-engineer dashboard*)',
-  'Bash(rm -f .agents-reverse-engineer/progress.log*)',
   'Bash(sleep *)',
 ];
 

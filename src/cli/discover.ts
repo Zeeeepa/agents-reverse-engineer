@@ -83,7 +83,7 @@ export async function discoverCommand(
   }
 
   // Create progress log for tail -f monitoring
-  const progressLog = ProgressLog.create(resolvedPath);
+  const progressLog = ProgressLog.create(resolvedPath, 'discover');
   progressLog.write(`=== ARE Discover (${new Date().toISOString()}) ===`);
   progressLog.write(`Project: ${resolvedPath}`);
   progressLog.write('');

@@ -224,7 +224,7 @@ export async function specifyCommand(
   }
 
   // Create progress log for tail -f monitoring
-  const progressLog = ProgressLog.create(absolutePath);
+  const progressLog = ProgressLog.create(absolutePath, 'specify', backend.name, effectiveModel);
   progressLog.write(`=== ARE Specify (${new Date().toISOString()}) ===`);
   progressLog.write(`Project: ${absolutePath}`);
   progressLog.write(`AGENTS.md files: ${docs.length}`);
