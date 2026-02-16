@@ -115,7 +115,7 @@ export function runSubprocess(
       {
         timeout: options.timeoutMs,
         killSignal: 'SIGTERM',
-        maxBuffer: 10 * 1024 * 1024, // 10MB for large AI responses
+        maxBuffer: 100 * 1024 * 1024, // 100MB for agentic multi-turn sessions
         encoding: 'utf-8',
         cwd: options.cwd,
         env: {
@@ -154,9 +154,11 @@ export function runSubprocess(
           // console.error(`[subprocess:${child.pid}] SIGKILL failed (process already dead): ${killError instanceof Error ? killError.message : String(killError)}`);
         }
 
-        // Detect timeout: execFile sets `killed = true` when the process
-        // is terminated due to exceeding the timeout option.
-        const timedOut = error !== null && 'killed' in error && error.killed === true;
+        // Detect timeout vs maxBuffer overflow:
+        // execFile sets `killed = true` for both timeout and maxBuffer exceeded.
+        // Distinguish by checking the error code: maxBuffer sets 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'.
+        const isMaxBuffer = error !== null && 'code' in error && error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
+        const timedOut = error !== null && 'killed' in error && error.killed === true && !isMaxBuffer;
 
         // Extract exit code from the error or child process.
         // execFile puts the exit code in error.code when the process exits
