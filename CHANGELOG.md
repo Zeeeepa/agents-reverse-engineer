@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-02-16
+
+### Added
+- **Subprocess working directory isolation** — AI subprocesses now run in `os.tmpdir()` instead of the project directory, preventing AI CLIs from discovering project-level context files (e.g., `CLAUDE.md`) that waste cache tokens on unnecessary context loading. New `setSubprocessCwd()` method on `AIService` and `SubprocessProvider`, wired into `generate`, `update`, `specify`, and `rebuild` commands
+- **Detailed token and cache statistics in progress summary** — Progress reporting now shows separate lines for direct tokens (`in / out`), cached tokens (`read in / created in`), and combined totals, replacing the previous condensed format that only showed cache stats when cache reads were non-zero
+
 ## [1.1.2] - 2026-02-16
 
 ### Fixed
@@ -980,7 +986,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.1...v1.1.0
