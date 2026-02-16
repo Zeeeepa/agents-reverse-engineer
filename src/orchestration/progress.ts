@@ -333,11 +333,10 @@ export class ProgressReporter {
       lines.push(`  Dirs skipped:    ${pc.yellow(String(summary.dirsSkipped))}`);
     }
     lines.push(`  Total calls:     ${summary.totalCalls}`);
+    lines.push(`  Tokens:          ${summary.totalInputTokens} in / ${summary.totalOutputTokens} out`);
+    lines.push(`  Cached:          ${summary.totalCacheReadTokens} read in / ${summary.totalCacheCreationTokens} created in`);
     const totalIn = summary.totalInputTokens + summary.totalCacheReadTokens + summary.totalCacheCreationTokens;
-    lines.push(`  Tokens:          ${totalIn} in / ${summary.totalOutputTokens} out`);
-    if (summary.totalCacheReadTokens > 0) {
-      lines.push(`  Cache:           ${summary.totalCacheReadTokens} read / ${summary.totalCacheCreationTokens} created`);
-    }
+    lines.push(`  Total:           ${totalIn} in / ${summary.totalOutputTokens} out`);
 
     if (summary.totalFilesRead > 0) {
       lines.push(`  Files read:      ${summary.totalFilesRead} (${summary.uniqueFilesRead} unique)`);
