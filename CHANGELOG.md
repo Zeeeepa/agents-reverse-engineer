@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-16
+
+### Added
+- **A/B plan comparison command** — New `are plan` CLI command that runs AI planning tasks in two isolated Git worktrees (one with ARE documentation, one without) and evaluates the quality difference. Includes metrics extraction, structured evaluation prompts, result storage, and comparison views for measuring the impact of ARE-generated docs on AI planning quality
+- **Git worktree permission** — Added `git worktree` to installer permissions for Claude Code settings, enabling worktree-based isolation used by the plan comparison feature
+
 ## [1.1.4] - 2026-02-16
 
 ### Added
@@ -999,7 +1005,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.4...v1.2.0
 [1.1.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.1...v1.1.2
