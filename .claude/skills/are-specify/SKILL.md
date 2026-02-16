@@ -10,26 +10,21 @@ Run the specify command in the background and monitor progress in real time.
 
 ## Steps
 
-1. **Display version**: Read `.claude/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
+1. **Read version**: Read `.claude/ARE-VERSION` → store as `$VERSION`. Show the user: `agents-reverse-engineer v$VERSION`
 
-2. **Delete stale progress log** (prevents reading leftover data from a previous run):
+2. **Run the specify command in the background** using `run_in_background: true`:
    ```bash
-   rm -f .agents-reverse-engineer/progress.log
+   npx agents-reverse-engineer@$VERSION specify --backend claude $ARGUMENTS
    ```
 
-3. **Run the specify command in the background** using `run_in_background: true`:
-   ```bash
-   npx agents-reverse-engineer specify --backend claude $ARGUMENTS
-   ```
-
-4. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:
-   - Wait ~15 seconds (use `sleep 15` in Bash), then use the **Read** tool to read `.agents-reverse-engineer/progress.log` (use the `offset` parameter to read only the last ~20 lines for long files)
+3. **Monitor progress** by polling the latest progress log:
+   - Wait ~15 seconds (use `sleep 15` in Bash), then use **Glob** to find the latest `.agents-reverse-engineer/progress-*.log` file, and **Read** it (use the `offset` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using `TaskOutput` with `block: false`
    - Repeat until the background task finishes
-   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+   - **Important**: Keep polling even if no progress log exists yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and summarize:
+4. **On completion**, read the full background task output and summarize:
    - Number of AGENTS.md files collected
    - Output file(s) written
 

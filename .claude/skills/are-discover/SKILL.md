@@ -8,32 +8,27 @@ List files that would be analyzed for documentation.
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY this exact command: `npx agents-reverse-engineer discover $ARGUMENTS`
+1. Run ONLY this exact command: `npx agents-reverse-engineer@$VERSION discover $ARGUMENTS`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after `/are-discover`, run with ZERO flags
 
 ## Steps
 
-1. **Display version**: Read `.claude/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
+1. **Read version**: Read `.claude/ARE-VERSION` → store as `$VERSION`. Show the user: `agents-reverse-engineer v$VERSION`
 
-2. **Delete stale progress log** (prevents reading leftover data from a previous run):
+2. **Run the discover command in the background** using `run_in_background: true`:
    ```bash
-   rm -f .agents-reverse-engineer/progress.log
+   npx agents-reverse-engineer@$VERSION discover $ARGUMENTS
    ```
 
-3. **Run the discover command in the background** using `run_in_background: true`:
-   ```bash
-   npx agents-reverse-engineer discover $ARGUMENTS
-   ```
-
-4. **Monitor progress by polling** `.agents-reverse-engineer/progress.log`:
-   - Wait ~10 seconds (use `sleep 10` in Bash), then use the **Read** tool to read `.agents-reverse-engineer/progress.log` (use the `offset` parameter to read only the last ~20 lines for long files)
+3. **Monitor progress** by polling the latest progress log:
+   - Wait ~10 seconds (use `sleep 10` in Bash), then use **Glob** to find the latest `.agents-reverse-engineer/progress-*.log` file, and **Read** it (use the `offset` parameter to read only the last ~20 lines for long files)
    - Show the user a brief progress update
    - Check whether the background task has completed using `TaskOutput` with `block: false`
    - Repeat until the background task finishes
-   - **Important**: Keep polling even if progress.log doesn't exist yet (the command takes a few seconds to start writing)
+   - **Important**: Keep polling even if no progress log exists yet (the command takes a few seconds to start writing)
 
-5. **On completion**, read the full background task output and report number of files found.
+4. **On completion**, read the full background task output and report number of files found.
 
 6. **Review plan and suggest exclusions**:
    - Read `.agents-reverse-engineer/GENERATION-PLAN.md` and `.agents-reverse-engineer/config.yaml`

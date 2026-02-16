@@ -6,7 +6,7 @@ description: Show available ARE commands and usage guide
 <objective>
 Display the complete ARE command reference.
 
-**First**: Read `.claude/ARE-VERSION` and show the user the version: `agents-reverse-engineer vX.Y.Z`
+**First**: Read `.claude/ARE-VERSION` → store as `$VERSION`. Show the user: `agents-reverse-engineer v$VERSION`
 
 **Then**: Output ONLY the reference content below. Do NOT add:
 - Project-specific analysis

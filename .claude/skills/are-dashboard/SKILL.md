@@ -8,17 +8,17 @@ Show the ARE telemetry dashboard with cost analysis, token usage, and trace time
 <execution>
 ## STRICT RULES - VIOLATION IS FORBIDDEN
 
-1. Run ONLY the exact command shown: `npx agents-reverse-engineer dashboard $ARGUMENTS`
+1. Run ONLY the exact command shown: `npx agents-reverse-engineer@$VERSION dashboard $ARGUMENTS`
 2. DO NOT add ANY flags the user did not explicitly type
 3. If user typed nothing after `/are-dashboard`, run with ZERO flags
 
 ## Steps
 
-1. **Display version**: Read `.claude/ARE-VERSION` and show the user: `agents-reverse-engineer vX.Y.Z`
+1. **Read version**: Read `.claude/ARE-VERSION` → store as `$VERSION`. Show the user: `agents-reverse-engineer v$VERSION`
 
 2. **Run the dashboard command**:
    ```bash
-   npx agents-reverse-engineer dashboard $ARGUMENTS
+   npx agents-reverse-engineer@$VERSION dashboard $ARGUMENTS
    ```
 
 3. **Present the output** to the user. The dashboard has several modes:
