@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-02-16
+
+### Fixed
+- **`npx are` commands fail outside ARE repo** — All command templates, skill files, installer permissions, and Codex prefix rules now use `npx agents-reverse-engineer` instead of `npx are`. The `are` binary is a bin alias inside the `agents-reverse-engineer` package — `npx` resolves by package name, so `npx are` only worked within the ARE repo itself (where `node_modules/.bin/are` exists) and failed with "could not determine executable to run" in any other project
+
 ## [1.1.1] - 2026-02-15
 
 ### Added
@@ -975,7 +980,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.0.0...v1.0.1
