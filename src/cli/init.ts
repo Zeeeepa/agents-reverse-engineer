@@ -5,98 +5,10 @@
  * Warns if configuration already exists.
  */
 
-import { existsSync } from 'node:fs';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { parse, modify, applyEdits, type ParseError } from 'jsonc-parser';
 import { configExists, writeDefaultConfig, CONFIG_DIR, CONFIG_FILE } from '../config/loader.js';
+import { ensureGitignoreEntry, ensureVscodeExclude } from '../installer/project-files.js';
 import { createLogger } from '../output/logger.js';
-
-const GITIGNORE_SECTION = '# agents-reverse-engineer';
-const SUM_PATTERN = '*.sum';
-
-/**
- * Ensure `*.sum` is listed in `.gitignore`.
- *
- * If a `# agents-reverse-engineer` section already exists, appends within it.
- * Otherwise creates the section. Idempotent — skips if already present.
- *
- * @returns true if the file was modified
- */
-async function ensureGitignoreEntry(root: string): Promise<boolean> {
-  const gitignorePath = path.join(root, '.gitignore');
-
-  let content = '';
-  try {
-    content = await readFile(gitignorePath, 'utf-8');
-  } catch {
-    // File doesn't exist — will create
-  }
-
-  // Already has the entry
-  if (content.split('\n').some((line) => line.trim() === SUM_PATTERN)) {
-    return false;
-  }
-
-  const sectionIdx = content.indexOf(GITIGNORE_SECTION);
-  if (sectionIdx !== -1) {
-    // Insert after the section header line
-    const endOfLine = content.indexOf('\n', sectionIdx);
-    const insertAt = endOfLine === -1 ? content.length : endOfLine;
-    content = content.slice(0, insertAt) + '\n' + SUM_PATTERN + content.slice(insertAt);
-  } else {
-    // Append new section
-    const separator = content.length > 0 && !content.endsWith('\n') ? '\n\n' : content.length > 0 ? '\n' : '';
-    content += `${separator}${GITIGNORE_SECTION}\n${SUM_PATTERN}\n`;
-  }
-
-  await writeFile(gitignorePath, content, 'utf-8');
-  return true;
-}
-
-/**
- * Ensure `.vscode/settings.json` has `files.exclude["**\/*.sum"] = true`.
- *
- * Creates the file and directory if needed. Handles JSONC (comments,
- * trailing commas) used by VS Code — edits are applied surgically via
- * `jsonc-parser` so existing comments and formatting are preserved.
- * If an existing file cannot be parsed, the file is left untouched.
- * Idempotent.
- *
- * @returns true if the file was modified
- */
-async function ensureVscodeExclude(root: string): Promise<boolean> {
-  const vscodePath = path.join(root, '.vscode');
-  const settingsPath = path.join(vscodePath, 'settings.json');
-
-  let content = '{}';
-  if (existsSync(settingsPath)) {
-    content = await readFile(settingsPath, 'utf-8');
-  }
-
-  // Parse JSONC — bail out on truly broken files
-  const errors: ParseError[] = [];
-  const settings = (parse(content, errors) ?? {}) as Record<string, unknown>;
-  if (errors.length > 0 && Object.keys(settings).length === 0) {
-    // Truly unparseable — leave untouched to avoid data loss
-    return false;
-  }
-
-  const filesExclude = (settings['files.exclude'] ?? {}) as Record<string, boolean>;
-  if (filesExclude['**/*.sum'] === true) {
-    return false;
-  }
-
-  // Targeted edit preserving existing comments and formatting
-  const edits = modify(content, ['files.exclude', '**/*.sum'], true, {
-    formattingOptions: { tabSize: 1, insertSpaces: false },
-  });
-  const updated = applyEdits(content, edits);
-
-  await mkdir(vscodePath, { recursive: true });
-  await writeFile(settingsPath, updated, 'utf-8');
-  return true;
-}
 
 /**
  * Execute the `are init` command.

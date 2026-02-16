@@ -795,6 +795,9 @@ function dirHasContent(dirPath: string): boolean {
   }
 }
 
+// Re-export project-file cleanup helpers used by installer/index.ts
+export { removeGitignoreEntry, removeVscodeExclude } from './project-files.js';
+
 /**
  * Configuration directory name (matches config/loader.ts)
  */

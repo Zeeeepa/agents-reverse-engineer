@@ -18,7 +18,7 @@ import {
 } from './banner.js';
 import { selectRuntime, selectLocation, confirmAction, isInteractive } from './prompts.js';
 import { installFiles, verifyInstallation, formatInstallResult } from './operations.js';
-import { uninstallFiles, deleteConfigFolder } from './uninstall.js';
+import { uninstallFiles, deleteConfigFolder, removeGitignoreEntry, removeVscodeExclude } from './uninstall.js';
 
 // Re-export types for external consumers
 export type { InstallerArgs, InstallerResult, Runtime, Location, RuntimePaths } from './types.js';
@@ -218,19 +218,35 @@ async function runInstall(
  * @param quiet - Suppress output
  * @returns Array of uninstallation results
  */
-function runUninstall(
+async function runUninstall(
   runtime: Runtime,
   location: Location,
   quiet: boolean,
-): InstallerResult[] {
+): Promise<InstallerResult[]> {
   const results = uninstallFiles(runtime, location, false);
 
   // Delete .agents-reverse-engineer config folder (local only)
   const configDeleted = deleteConfigFolder(location, false);
 
+  // Remove ARE entries from project files (local only)
+  let gitignoreCleaned = false;
+  let vscodeCleaned = false;
+  if (location === 'local') {
+    try {
+      gitignoreCleaned = await removeGitignoreEntry(false);
+    } catch {
+      // Non-fatal
+    }
+    try {
+      vscodeCleaned = await removeVscodeExclude(false);
+    } catch {
+      // Non-fatal
+    }
+  }
+
   // Display results
   if (!quiet) {
-    displayUninstallResults(results, configDeleted);
+    displayUninstallResults(results, configDeleted, gitignoreCleaned, vscodeCleaned);
   }
 
   return results;
@@ -295,8 +311,15 @@ function displayInstallResults(results: InstallerResult[]): void {
  *
  * @param results - Array of uninstallation results
  * @param configDeleted - Whether the .agents-reverse-engineer folder was deleted
+ * @param gitignoreCleaned - Whether ARE entries were removed from .gitignore
+ * @param vscodeCleaned - Whether ARE entries were removed from .vscode/settings.json
  */
-function displayUninstallResults(results: InstallerResult[], configDeleted: boolean = false): void {
+function displayUninstallResults(
+  results: InstallerResult[],
+  configDeleted: boolean = false,
+  gitignoreCleaned: boolean = false,
+  vscodeCleaned: boolean = false,
+): void {
   console.log();
 
   let totalDeleted = 0;
@@ -305,7 +328,6 @@ function displayUninstallResults(results: InstallerResult[], configDeleted: bool
   for (const result of results) {
     // In uninstall context, filesCreated tracks deleted files
     const deletedCount = result.filesCreated.length;
-    const notFoundCount = result.filesSkipped.length;
 
     if (result.success) {
       if (deletedCount > 0) {
@@ -339,7 +361,13 @@ function displayUninstallResults(results: InstallerResult[], configDeleted: bool
   if (configDeleted) {
     showSuccess(`Removed .agents-reverse-engineer folder`);
   }
-  if (totalDeleted === 0 && !configDeleted) {
+  if (gitignoreCleaned) {
+    showSuccess(`Removed ARE section from .gitignore`);
+  }
+  if (vscodeCleaned) {
+    showSuccess(`Removed *.sum from .vscode/settings.json`);
+  }
+  if (totalDeleted === 0 && !configDeleted && !gitignoreCleaned && !vscodeCleaned) {
     showInfo('No files were removed');
   }
 }
