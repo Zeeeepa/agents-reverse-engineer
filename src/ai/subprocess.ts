@@ -234,17 +234,14 @@ export function runSubprocess(
       // console.error(`[subprocess:${child.pid}] SIGKILL timer unref'd`);
     }
 
-    // Write prompt to stdin if provided, then close the stream.
+    // Write prompt to stdin if provided, then ALWAYS close the stream.
     // IMPORTANT: Always call .end() -- the child process blocks waiting
     // for EOF on stdin otherwise (see RESEARCH.md Pitfall 1).
-    if (options.input !== undefined && child.stdin !== null) {
-      const inputSize = Buffer.byteLength(options.input, 'utf-8');
-      // console.error(`[subprocess:${child.pid}] Writing ${inputSize} bytes to stdin`);
-      child.stdin.write(options.input);
+    if (child.stdin !== null) {
+      if (options.input !== undefined) {
+        child.stdin.write(options.input);
+      }
       child.stdin.end();
-      // console.error(`[subprocess:${child.pid}] Stdin closed`);
-    } else {
-      // console.error(`[subprocess:${child.pid}] No stdin input provided`);
     }
   });
 }
