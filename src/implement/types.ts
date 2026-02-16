@@ -117,6 +117,7 @@ export interface ImplementOptions {
   debug?: boolean;
   trace?: boolean;
   taskSlug?: string;
+  planId?: string;
   runTests?: boolean;
   runBuild?: boolean;
   runLint?: boolean;

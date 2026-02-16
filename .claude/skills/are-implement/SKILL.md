@@ -37,6 +37,7 @@ The comparison measures how much ARE documentation improves implementation quali
 - `--eval-model <name>`: Model for the evaluator (default: same as --model)
 - `--model <name>`: AI model to use for implementation
 - `--task-slug <slug>`: Reference existing plan by slug (default: auto-generate from task)
+- `--plan-id <id>`: Reference existing plan by ID (shown by `are plan` on completion)
 - `--run-tests`: Execute test suite and include results in metrics
 - `--run-build`: Execute build and verify success
 - `--run-lint`: Run linter and include error/warning counts

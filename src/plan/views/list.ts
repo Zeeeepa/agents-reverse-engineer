@@ -35,20 +35,20 @@ export function renderList(comparisons: PlanComparison[]): void {
   console.log('');
 
   // Table header
-  const dateW = 22;
-  const taskW = 40;
+  const idW = 30;
+  const taskW = 36;
   const modelW = 10;
   const costW = 12;
   const deltaW = 12;
 
   console.log(
-    pad(pc.dim('Date'), dateW) +
+    pad(pc.dim('ID'), idW) +
     pad(pc.dim('Task'), taskW) +
     pad(pc.dim('Model'), modelW) +
     pad(pc.dim('Cost'), costW) +
     pc.dim('File Refs +/-')
   );
-  console.log(pc.dim('─'.repeat(dateW + taskW + modelW + costW + deltaW)));
+  console.log(pc.dim('─'.repeat(idW + taskW + modelW + costW + deltaW)));
 
   for (const comp of comparisons) {
     // Truncate task to fit column
@@ -70,15 +70,15 @@ export function renderList(comparisons: PlanComparison[]): void {
     // Total cost across both runs
     const totalCost = comp.withDocs.cost.totalCost + comp.withoutDocs.cost.totalCost;
 
-    // Format date as YYYY-MM-DD HH:mm
-    const dateStr = comp.startTime.replace('T', ' ').slice(0, 16);
-
     console.log(
-      pad(dateStr, dateW) +
+      pad(comp.id, idW) +
       pad(taskDisplay, taskW) +
       pad(comp.model, modelW) +
       pad(formatCost(totalCost), costW) +
       refsDelta
     );
   }
+
+  console.log('');
+  console.log(pc.dim('Use --plan-id <ID> with `are implement` to reference a plan.'));
 }

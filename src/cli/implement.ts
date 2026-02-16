@@ -18,7 +18,7 @@ import { findProjectRoot, loadConfig } from '../config/loader.js';
 import { createBackendRegistry, resolveBackend } from '../ai/registry.js';
 import { createLogger } from '../output/logger.js';
 import {
-  loadComparison as loadPlanComparison,
+  loadComparison as loadPlanById,
   loadPlanText,
   listComparisons as listPlanComparisons,
 } from '../plan/storage.js';
@@ -88,18 +88,29 @@ export async function implementCommand(
   const backend = await resolveBackend(registry, backendName);
   const model = options.model ?? config.ai.model;
 
-  const taskSlug = options.taskSlug || slugify(task);
+  // Resolve plan: by --plan-id (exact ID), by --task-slug, or by slugified task
+  let planMatch;
+  if (options.planId) {
+    planMatch = await loadPlanById(projectRoot, options.planId);
+    if (!planMatch) {
+      logger.error(`No plan found with ID "${options.planId}".`);
+      logger.info('Run `are plan --list` to see available plans.');
+      process.exit(1);
+    }
+  } else {
+    const taskSlug = options.taskSlug || slugify(task);
+    const planComparisons = await listPlanComparisons(projectRoot);
+    planMatch = planComparisons.find(c => c.taskSlug === taskSlug);
+    if (!planMatch) {
+      logger.error(`No plan found for task slug "${taskSlug}".`);
+      logger.info('Run `are plan "<task>"` first, or use --plan-id <id>.');
+      process.exit(1);
+    }
+  }
+
+  const taskSlug = planMatch.taskSlug;
   const withDocsBranch = `are/plan/with-docs/${taskSlug}`;
   const withoutDocsBranch = `are/plan/without-docs/${taskSlug}`;
-
-  // Load plan text files — require a prior `are plan` run
-  const planComparisons = await listPlanComparisons(projectRoot);
-  const planMatch = planComparisons.find(c => c.taskSlug === taskSlug);
-  if (!planMatch) {
-    logger.error(`No plan found for task slug "${taskSlug}".`);
-    logger.info('Run `are plan "<task>"` first to create a plan.');
-    process.exit(1);
-  }
 
   const withDocsPlan = await loadPlanText(projectRoot, planMatch.id, 'with-docs');
   const withoutDocsPlan = await loadPlanText(projectRoot, planMatch.id, 'without-docs');

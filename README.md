@@ -270,6 +270,7 @@ are implement --show 2026-02-16         # View a comparison
 | `--eval`            | Run AI quality evaluator on both results                 | plan, implement                     |
 | `--eval-model <m>`  | Model for AI evaluator (defaults to --model)             | plan, implement                     |
 | `--task-slug <slug>`| Override auto-generated task slug                        | plan, implement                     |
+| `--plan-id <id>`    | Reference existing plan by ID                            | implement                           |
 | `--list`            | List saved comparisons                                   | plan, implement                     |
 | `--show <id>`       | Show a previous comparison by ID                         | plan, implement                     |
 | `--run-tests`       | Run test suite and extract metrics                       | implement                           |

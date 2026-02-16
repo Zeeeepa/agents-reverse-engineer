@@ -69,6 +69,7 @@ General Options:
   --show <id>       View a previous comparison (plan, implement)
   --eval-model <n>  Model for evaluator (plan, implement)
   --task-slug <s>   Reference existing plan by slug (implement only)
+  --plan-id <id>    Reference existing plan by ID (implement only)
   --run-tests       Run test suite during implementation (implement only)
   --run-build       Run build during implementation (implement only)
   --run-lint        Run linter during implementation (implement only)
@@ -100,6 +101,7 @@ Examples:
   are plan --list
   are plan --show 2026-02-16
   are implement "Add rate limiting" --eval
+  are implement "Add rate limiting" --plan-id 2026-02-16T12-34-56-789Z
   are implement "Refactor auth module" --run-tests --run-build
   are implement --list
   are implement --show 2026-02-16
@@ -392,6 +394,7 @@ async function main(): Promise<void> {
         debug: flags.has('debug'),
         trace: flags.has('trace'),
         taskSlug: values.get('task-slug'),
+        planId: values.get('plan-id'),
         runTests: flags.has('run-tests'),
         runBuild: flags.has('run-build'),
         runLint: flags.has('run-lint'),

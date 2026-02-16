@@ -140,9 +140,12 @@ export function renderComparison(comparison: PlanComparison): void {
 
   // Footer
   console.log('');
-  console.log(pc.dim(`Plans saved to: .agents-reverse-engineer/plans/${comparison.id}/`));
+  console.log(pc.dim(`Plan ID: ${comparison.id}`));
+  console.log(pc.dim(`Saved to: .agents-reverse-engineer/plans/${comparison.id}/`));
   console.log(pc.dim(`Branches: ${comparison.branches.withDocs}`));
   console.log(pc.dim(`          ${comparison.branches.withoutDocs}`));
+  console.log('');
+  console.log(`To implement: ${pc.cyan(`are implement "${comparison.task}" --plan-id ${comparison.id}`)}`);
 }
 
 /**
