@@ -105,7 +105,8 @@
       "WebFetch(domain:openai.com)",
       "WebFetch(domain:platform.openai.com)",
       "Bash(command -v:*)",
-      "Bash(git worktree:*)"
+      "Bash(git worktree:*)",
+      "Bash(ps:*)"
     ]
   }
 }
