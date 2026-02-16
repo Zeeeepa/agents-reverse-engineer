@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-02-16
+
+### Added
+- **Timestamped progress log files** — Progress logs now use timestamped filenames (`progress-{cmd}-{backend}-{model}-{ts}.log`) instead of a single `progress.log`, preventing stale data from previous runs. New `ProgressLog.getLatestPath()` method finds the most recent log, and `ProgressLog.cleanup()` retains only the 20 most recent files
+- **Project file cleanup helpers** — New `src/installer/project-files.ts` module with `ensureGitignoreEntry()`, `removeGitignoreEntry()`, `ensureVscodeExclude()`, and `removeVscodeExclude()` functions for managing ARE entries in `.gitignore` and `.vscode/settings.json` using JSONC-safe edits
+
+### Changed
+- **Progress monitoring uses Glob + Read** — Command templates now use Glob to find the latest `progress-*.log` file and Read to poll it, replacing the fixed `progress.log` path. Stale progress log deletion step removed from all templates (auto-cleanup handles retention)
+- **Command templates pin `npx agents-reverse-engineer@$VERSION`** — All command templates now read the version from `ARE-VERSION` and use it in the `npx` invocation, ensuring the installed version is used instead of resolving `@latest`
+- **Uninstaller cleans up project files** — Local uninstall now removes ARE entries from `.gitignore` and `*.sum` exclusion from `.vscode/settings.json`, with results shown in uninstall summary
+- **Init logic extracted to reusable module** — `.gitignore` and `.vscode/settings.json` management moved from `cli/init.ts` into `installer/project-files.ts` for reuse by both init and uninstall
+- **Removed `progress.log` permission from uninstall** — `rm -f .agents-reverse-engineer/progress.log*` removed from `ARE_PERMISSIONS` list (no longer needed with timestamped logs)
+
 ## [1.1.3] - 2026-02-16
 
 ### Added
@@ -986,7 +999,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.0...v1.1.1
