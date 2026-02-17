@@ -16,6 +16,7 @@ Run the implement command to execute code changes in both environments.
    ```bash
    npx agents-reverse-engineer@$VERSION implement --backend claude $ARGUMENTS
    ```
+   Note: When `--plan-id <id>` is provided, the task description is loaded from the stored plan — no need to pass it explicitly.
 
 3. **Wait for completion** — the command runs two sequential AI implementation sessions (without docs, then with docs) and outputs a comparison table.
 

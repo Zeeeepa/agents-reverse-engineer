@@ -73,15 +73,6 @@ export async function implementCommand(
     return;
   }
 
-  // Require a task for actual implementation
-  if (!task) {
-    logger.error('A task description is required.');
-    logger.info('Usage: are implement "<task description>" [options]');
-    logger.info('       are implement --list');
-    logger.info('       are implement --show <id>');
-    process.exit(1);
-  }
-
   // Resolve backend and model
   const registry = createBackendRegistry();
   const backendName = options.backend ?? config.ai.backend;
@@ -97,6 +88,17 @@ export async function implementCommand(
       logger.info('Run `are plan --list` to see available plans.');
       process.exit(1);
     }
+    // Use plan's stored task when no explicit task provided
+    if (!task) {
+      task = planMatch.task;
+    }
+  } else if (!task) {
+    logger.error('A task description is required (or use --plan-id <id>).');
+    logger.info('Usage: are implement "<task description>" [options]');
+    logger.info('       are implement --plan-id <id> [options]');
+    logger.info('       are implement --list');
+    logger.info('       are implement --show <id>');
+    process.exit(1);
   } else {
     const taskSlug = options.taskSlug || slugify(task);
     const planComparisons = await listPlanComparisons(projectRoot);
