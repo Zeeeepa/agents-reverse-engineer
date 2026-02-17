@@ -23,11 +23,11 @@ Show
 
 # User types the install command
 Type "npx agents-reverse-engineer@latest"
-Sleep 1s
+Sleep 500ms
 Enter
 
 # npx "Ok to proceed?" prompt
-Sleep 1s
+Sleep 500ms
 Enter
 
 # Wait for banner + golden circle animation
@@ -35,11 +35,11 @@ Sleep 4s
 
 # Select "Claude Code" (already highlighted as default)
 Enter
-Sleep 1s
+Sleep 4s
 
 # Select "Local" (second option — press Down)
 Down
-Sleep 500ms
+Sleep 1s
 Enter
 
 # Wait for installation to complete and results to display
