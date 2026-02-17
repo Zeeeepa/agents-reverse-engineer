@@ -28,7 +28,10 @@
       "Bash(npx agents-reverse-engineer@1.2.8 generate:*)",
       "Bash(npx:*)",
       "Bash(gh release delete:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(/home/pascal/wks/agents-reverse-engineer/node_modules/.bin/are dashboard:*)",
+      "Bash(wslview:*)",
+      "Bash(xdg-open:*)"
     ]
   }
 }
