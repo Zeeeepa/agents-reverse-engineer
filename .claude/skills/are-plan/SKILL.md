@@ -1,6 +1,7 @@
 ---
 name: are-plan
 description: Compare AI planning quality with and without ARE documentation
+disable-model-invocation: true
 ---
 
 Compare AI planning quality with and without ARE documentation.

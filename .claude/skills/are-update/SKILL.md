@@ -1,6 +1,7 @@
 ---
 name: are-update
 description: Incrementally update documentation for changed files
+disable-model-invocation: true
 ---
 
 Update documentation for files that changed since last run.

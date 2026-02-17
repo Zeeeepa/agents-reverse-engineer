@@ -1,6 +1,7 @@
 ---
 name: are-help
 description: Show available ARE commands and usage guide
+disable-model-invocation: true
 ---
 
 <objective>

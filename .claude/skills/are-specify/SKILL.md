@@ -1,6 +1,7 @@
 ---
 name: are-specify
 description: Generate project specification from AGENTS.md docs
+disable-model-invocation: true
 ---
 
 Generate a project specification from existing AGENTS.md documentation.

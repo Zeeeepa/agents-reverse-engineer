@@ -840,6 +840,7 @@ function buildFrontmatter(
   }
 
   lines.push(`description: ${description}`);
+  lines.push('disable-model-invocation: true');
 
   if (platform === 'codex' && argumentHint) {
     lines.push(`argument-hint: ${JSON.stringify(argumentHint)}`);

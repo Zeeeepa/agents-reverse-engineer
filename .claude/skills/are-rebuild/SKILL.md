@@ -1,6 +1,7 @@
 ---
 name: are-rebuild
 description: Reconstruct project from specification documents
+disable-model-invocation: true
 ---
 
 Reconstruct a project from specification documents using agents-reverse-engineer.

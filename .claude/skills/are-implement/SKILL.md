@@ -1,6 +1,7 @@
 ---
 name: are-implement
 description: Execute implementation with and without ARE documentation
+disable-model-invocation: true
 ---
 
 Execute the implementation phase with and without ARE documentation to measure impact.

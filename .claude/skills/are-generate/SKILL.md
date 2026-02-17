@@ -1,6 +1,7 @@
 ---
 name: are-generate
 description: Generate AI-friendly documentation for the entire codebase
+disable-model-invocation: true
 ---
 
 Generate comprehensive documentation for this codebase using agents-reverse-engineer.
