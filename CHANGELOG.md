@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-02-17
+
+### Changed
+- **`--plan-id` infers task description from stored plan** — When using `are implement --plan-id <id>`, the task description is now loaded automatically from the stored plan, so it no longer needs to be passed explicitly on the command line
+- **Improved error message for missing task** — The error when no task description is provided now suggests `--plan-id <id>` as an alternative, with updated usage examples
+
 ## [1.2.2] - 2026-02-16
 
 ### Added
@@ -1035,7 +1041,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.1.4...v1.2.0
