@@ -7,6 +7,7 @@
  * @module
  */
 
+import { simpleGit } from 'simple-git';
 import { runSubprocess } from '../ai/subprocess.js';
 import { ClaudeBackend } from '../ai/backends/claude.js';
 import { computeCost, getModelPricing } from '../dashboard/cost-calculator.js';
@@ -50,6 +51,10 @@ export interface ExecuteOptions {
  */
 export async function executeImplementation(options: ExecuteOptions): Promise<ImplementationRunResult> {
   const { task, planText, cwd, model, debug, runTests, runBuild, runLint } = options;
+
+  // Capture HEAD SHA before the AI runs — used as base ref for diff/commit counting
+  const baseRef = await simpleGit(cwd).revparse(['HEAD']);
+
   const prompt = buildImplementationPrompt(task, planText, { runTests, runBuild, runLint });
 
   // Build agentic args with write tools enabled (unlike planning which is read-only)
@@ -97,6 +102,7 @@ export async function executeImplementation(options: ExecuteOptions): Promise<Im
     );
 
     const metrics = await extractImplementationMetrics(cwd, {
+      baseRef,
       runTests,
       runBuild,
       runLint,

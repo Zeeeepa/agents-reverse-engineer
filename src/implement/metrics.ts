@@ -16,6 +16,8 @@ import type { ImplementationMetrics } from './types.js';
  * Options for metric extraction.
  */
 interface MetricOptions {
+  /** Git ref (SHA) captured before the AI run — used as base for diff and commit counting */
+  baseRef?: string;
   runTests?: boolean;
   runBuild?: boolean;
   runLint?: boolean;
@@ -45,30 +47,51 @@ export async function extractImplementationMetrics(
   let filesModified = 0;
   let commitCount = 0;
 
-  try {
-    const diffSummary = await git.diffSummary(['HEAD~1']);
-    linesAdded = diffSummary.insertions;
-    linesDeleted = diffSummary.deletions;
-    filesCreated = diffSummary.files.filter(f => 'insertions' in f && f.insertions > 0 && f.deletions === 0).length;
-    filesModified = diffSummary.files.filter(f => 'deletions' in f && f.deletions > 0).length;
-  } catch {
-    // May fail if there's only one commit — try status instead
-    try {
-      const status = await git.status();
-      filesCreated = status.not_added.length + status.created.length;
-      filesModified = status.modified.length;
-    } catch {
-      // No git data available
-    }
-  }
+  const { baseRef } = options;
 
-  // Count commits made during implementation (after the initial branch commit)
-  try {
-    const log = await git.log();
-    // Subtract the initial branch commit(s) — implementation commits are after the plan baseline
-    commitCount = Math.max(0, log.all.length - 1);
-  } catch {
-    // No log data
+  if (baseRef) {
+    // Diff all changes since the pre-implementation snapshot
+    try {
+      const diffSummary = await git.diffSummary([baseRef, 'HEAD']);
+      linesAdded = diffSummary.insertions;
+      linesDeleted = diffSummary.deletions;
+      filesCreated = diffSummary.files.filter(f => 'insertions' in f && f.insertions > 0 && f.deletions === 0).length;
+      filesModified = diffSummary.files.filter(f => 'deletions' in f && f.deletions > 0).length;
+    } catch {
+      // Fall through to status-based detection
+    }
+
+    // Count commits made by the AI (everything after baseRef)
+    try {
+      const log = await git.log([`${baseRef}..HEAD`]);
+      commitCount = log.all.length;
+    } catch {
+      // No log data
+    }
+  } else {
+    // Legacy fallback: no baseRef provided
+    try {
+      const diffSummary = await git.diffSummary(['HEAD~1']);
+      linesAdded = diffSummary.insertions;
+      linesDeleted = diffSummary.deletions;
+      filesCreated = diffSummary.files.filter(f => 'insertions' in f && f.insertions > 0 && f.deletions === 0).length;
+      filesModified = diffSummary.files.filter(f => 'deletions' in f && f.deletions > 0).length;
+    } catch {
+      try {
+        const status = await git.status();
+        filesCreated = status.not_added.length + status.created.length;
+        filesModified = status.modified.length;
+      } catch {
+        // No git data available
+      }
+    }
+
+    try {
+      const log = await git.log();
+      commitCount = Math.max(0, log.all.length - 1);
+    } catch {
+      // No log data
+    }
   }
 
   // Test metrics
