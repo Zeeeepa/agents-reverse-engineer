@@ -257,9 +257,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Show version banner (suppress for piped output formats)
+  // Show version banner (suppress for installer and piped output formats)
   const format = values.get('format');
-  if (!(command === 'dashboard' && (format === 'html' || format === 'json'))) {
+  const suppressBanner = command === 'install' || command === 'uninstall'
+    || (command === 'dashboard' && (format === 'html' || format === 'json'));
+  if (!suppressBanner) {
     showVersionBanner();
   }
 

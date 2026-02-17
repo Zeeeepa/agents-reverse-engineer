@@ -3,8 +3,10 @@
  *
  * Provides the runInstaller function for npx installation workflow.
  * Supports interactive prompts and non-interactive flags for CI/scripted installs.
+ * Features split-pane layout with rotating golden circle animation in TTY mode.
  */
 
+import pc from 'picocolors';
 import type { InstallerArgs, InstallerResult, Runtime, Location } from './types.js';
 import { getAllRuntimes, resolveInstallPath } from './paths.js';
 import {
@@ -15,10 +17,13 @@ import {
   showWarning,
   showInfo,
   showNextSteps,
+  getLeftPaneContent,
 } from './banner.js';
 import { selectRuntime, selectLocation, confirmAction, isInteractive } from './prompts.js';
 import { installFiles, verifyInstallation, formatInstallResult } from './operations.js';
 import { uninstallFiles, deleteConfigFolder, removeGitignoreEntry, removeVscodeExclude } from './uninstall.js';
+import { SplitPaneLayout, clearScreen } from './layout.js';
+import { Spinner, GOLDEN_CIRCLE_SPINNER } from './spinner.js';
 
 // Re-export types for external consumers
 export type { InstallerArgs, InstallerResult, Runtime, Location, RuntimePaths } from './types.js';
@@ -78,9 +83,6 @@ export function parseInstallerArgs(args: string[]): InstallerArgs {
 
 /**
  * Determine installation location from args or return undefined for prompt
- *
- * @param args - Parsed installer arguments
- * @returns Location if specified, undefined if needs prompt
  */
 function determineLocation(args: InstallerArgs): Location | undefined {
   if (args.global && !args.local) {
@@ -89,19 +91,14 @@ function determineLocation(args: InstallerArgs): Location | undefined {
   if (args.local && !args.global) {
     return 'local';
   }
-  // Both or neither - needs interactive prompt
   return undefined;
 }
 
 /**
  * Determine target runtimes from args
- *
- * @param runtime - Runtime from args (may be 'all' or specific runtime)
- * @returns Array of specific runtimes to install to
  */
 function determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime, 'all'>> {
   if (!runtime) {
-    // No runtime specified - will need interactive prompt
     return [];
   }
   if (runtime === 'all') {
@@ -111,13 +108,23 @@ function determineRuntimes(runtime: Runtime | undefined): Array<Exclude<Runtime,
 }
 
 /**
+ * Create a SplitPaneLayout if conditions allow (TTY, sufficient width, not quiet).
+ * Returns undefined if layout should not be used.
+ */
+function createLayout(quiet: boolean): SplitPaneLayout | undefined {
+  if (quiet || !process.stdout.isTTY) {
+    return undefined;
+  }
+
+  const layout = new SplitPaneLayout({ leftWidth: 44, padding: 2 });
+  return layout.isEnabled ? layout : undefined;
+}
+
+/**
  * Run the installer workflow
  *
  * This is the main entry point for the installation process.
  * Supports both interactive mode (prompts) and non-interactive mode (flags).
- *
- * @param args - Parsed installer arguments
- * @returns Array of installation results (one per runtime/location combination)
  */
 export async function runInstaller(args: InstallerArgs): Promise<InstallerResult[]> {
   // Handle help flag
@@ -126,85 +133,151 @@ export async function runInstaller(args: InstallerArgs): Promise<InstallerResult
     return [];
   }
 
-  // Display banner unless quiet mode
-  if (!args.quiet) {
+  // Create layout for split-pane mode (TTY only, not quiet)
+  const layout = createLayout(args.quiet);
+
+  // Start spinner + layout from the beginning so the circle rotates
+  // throughout the entire installer flow (prompts, install, results).
+  let spinner: Spinner | undefined;
+
+  if (layout) {
+    clearScreen();
+    displayBanner(layout);
+    // Draw separator for the initial screen height
+    layout.drawSeparator(process.stdout.rows || 24);
+    // Position right pane cursor after banner area
+    layout.setRightRow(2);
+
+    // Start the rotating golden circle in the left pane
+    spinner = new Spinner(GOLDEN_CIRCLE_SPINNER);
+    spinner.start(4, 2);
+  } else if (!args.quiet) {
     displayBanner();
   }
 
-  // Determine location and runtimes from flags
-  let location = determineLocation(args);
-  const runtimeArg = args.runtime;
+  /** Stop spinner and restore static banner on exit */
+  const stopSpinner = (): void => {
+    if (spinner) {
+      spinner.stop();
+      spinner = undefined;
+      // Re-render the static banner frame, separator, and right pane after spinner stops
+      if (layout) {
+        const content = getLeftPaneContent(0);
+        layout.setLeftPane(content);
+        layout.renderLeftPane();
+        layout.drawSeparator(process.stdout.rows || 24);
+        layout.refreshRight();
+      }
+    }
+  };
 
-  // Non-interactive mode: require all flags
-  if (!isInteractive()) {
-    if (!runtimeArg) {
-      showError('Missing --runtime flag (required in non-interactive mode)');
+  try {
+    // Determine location and runtimes from flags
+    let location = determineLocation(args);
+    const runtimeArg = args.runtime;
+
+    // Non-interactive mode: require all flags
+    if (!isInteractive()) {
+      if (!runtimeArg) {
+        stopSpinner();
+        showError('Missing --runtime flag (required in non-interactive mode)');
+        process.exit(1);
+      }
+      if (!location) {
+        stopSpinner();
+        showError('Missing -g/--global or -l/--local flag (required in non-interactive mode)');
+        process.exit(1);
+      }
+    }
+
+    // Interactive mode: prompt for missing values (rendered in right pane)
+    const mode = args.uninstall ? 'uninstall' : 'install';
+    let selectedRuntime: Runtime | undefined = runtimeArg;
+    if (!selectedRuntime && isInteractive()) {
+      selectedRuntime = await selectRuntime(mode, layout);
+    }
+
+    if (!location && isInteractive()) {
+      location = await selectLocation(mode, layout);
+    }
+
+    // Safety check
+    if (!selectedRuntime || !location) {
+      stopSpinner();
+      showError('Unable to determine runtime and location');
       process.exit(1);
     }
-    if (!location) {
-      showError('Missing -g/--global or -l/--local flag (required in non-interactive mode)');
-      process.exit(1);
+
+    let results: InstallerResult[];
+
+    // UNINSTALL MODE
+    if (args.uninstall) {
+      results = await runUninstall(selectedRuntime, location, args.quiet, layout);
+    } else {
+      // INSTALL MODE
+      results = await runInstall(selectedRuntime, location, args.force, args.quiet, layout);
     }
-  }
 
-  // Interactive mode: prompt for missing values
-  const mode = args.uninstall ? 'uninstall' : 'install';
-  let selectedRuntime: Runtime | undefined = runtimeArg;
-  if (!selectedRuntime && isInteractive()) {
-    selectedRuntime = await selectRuntime(mode);
+    stopSpinner();
+    layout?.finalize();
+    return results;
+  } catch (err) {
+    stopSpinner();
+    layout?.finalize();
+    throw err;
   }
-
-  if (!location && isInteractive()) {
-    location = await selectLocation(mode);
-  }
-
-  // Safety check - should not reach here without values
-  if (!selectedRuntime || !location) {
-    showError('Unable to determine runtime and location');
-    process.exit(1);
-  }
-
-  // UNINSTALL MODE
-  if (args.uninstall) {
-    return runUninstall(selectedRuntime, location, args.quiet);
-  }
-
-  // INSTALL MODE
-  return runInstall(selectedRuntime, location, args.force, args.quiet);
 }
 
 /**
- * Run the installation workflow
- *
- * @param runtime - Target runtime or 'all'
- * @param location - Installation location
- * @param force - Overwrite existing files
- * @param quiet - Suppress output
- * @returns Array of installation results
+ * Run the installation workflow with optional split-pane layout and spinner.
  */
 async function runInstall(
   runtime: Runtime,
   location: Location,
   force: boolean,
   quiet: boolean,
+  layout?: SplitPaneLayout,
 ): Promise<InstallerResult[]> {
-  // Install files
-  const results = installFiles(runtime, location, { force, dryRun: false });
+  if (layout) {
+    layout.appendRight(pc.dim('Installing files...'));
+    layout.appendRight('');
+  }
+
+  // Install files with progress callback
+  const results = installFiles(runtime, location, {
+    force,
+    dryRun: false,
+    onProgress: layout
+      ? (current, total, file) => {
+          const shortFile = file.split('/').slice(-2).join('/');
+          const statusRow = layout.currentRightRow - 1;
+          layout.setRightRow(statusRow);
+          layout.appendRight(pc.dim(`Installing (${current}/${total}): ${shortFile}`));
+        }
+      : undefined,
+  });
 
   // Verify installation
   const allCreatedFiles = results.flatMap((r) => r.filesCreated);
   const verification = verifyInstallation(allCreatedFiles);
 
   if (!verification.success) {
-    showError('Installation verification failed - some files missing:');
-    for (const missing of verification.missing) {
-      showWarning(`  Missing: ${missing}`);
+    if (layout) {
+      layout.appendRight(pc.red('✗') + ' Installation verification failed:');
+      for (const missing of verification.missing) {
+        layout.appendRight(pc.yellow('  ! Missing: ') + missing);
+      }
+    } else {
+      showError('Installation verification failed - some files missing:');
+      for (const missing of verification.missing) {
+        showWarning(`  Missing: ${missing}`);
+      }
     }
   }
 
   // Display results
   if (!quiet) {
-    displayInstallResults(results);
+    displayInstallResults(results, layout);
   }
 
   return results;
@@ -212,23 +285,17 @@ async function runInstall(
 
 /**
  * Run the uninstallation workflow
- *
- * @param runtime - Target runtime or 'all'
- * @param location - Installation location
- * @param quiet - Suppress output
- * @returns Array of uninstallation results
  */
 async function runUninstall(
   runtime: Runtime,
   location: Location,
   quiet: boolean,
+  layout?: SplitPaneLayout,
 ): Promise<InstallerResult[]> {
   const results = uninstallFiles(runtime, location, false);
 
-  // Delete .agents-reverse-engineer config folder (local only)
   const configDeleted = deleteConfigFolder(location, false);
 
-  // Remove ARE entries from project files (local only)
   let gitignoreCleaned = false;
   let vscodeCleaned = false;
   if (location === 'local') {
@@ -244,24 +311,27 @@ async function runUninstall(
     }
   }
 
-  // Display results
   if (!quiet) {
-    displayUninstallResults(results, configDeleted, gitignoreCleaned, vscodeCleaned);
+    displayUninstallResults(results, configDeleted, gitignoreCleaned, vscodeCleaned, layout);
   }
 
   return results;
 }
 
 /**
- * Display installation results with styled output
- *
- * Shows checkmarks for successful actions, warnings for skipped files,
- * and next steps for using the installed commands.
- *
- * @param results - Array of installation results
+ * Display installation results with styled output.
+ * Renders in split-pane right pane when layout is provided.
  */
-function displayInstallResults(results: InstallerResult[]): void {
-  console.log();
+function displayInstallResults(results: InstallerResult[], layout?: SplitPaneLayout): void {
+  const output = (text: string): void => {
+    if (layout) {
+      layout.appendRight(text);
+    } else {
+      console.log(text);
+    }
+  };
+
+  output('');
 
   let totalCreated = 0;
   let totalSkipped = 0;
@@ -269,11 +339,11 @@ function displayInstallResults(results: InstallerResult[]): void {
 
   for (const result of results) {
     if (result.success) {
-      showSuccess(`Installed ${result.runtime} (${result.location})`);
+      output(pc.green('✓') + ` Installed ${result.runtime} (${result.location})`);
     } else {
-      showError(`Failed to install ${result.runtime} (${result.location})`);
+      output(pc.red('✗') + ` Failed to install ${result.runtime} (${result.location})`);
       for (const err of result.errors) {
-        showWarning(`  ${err}`);
+        output(pc.yellow('  ! ') + err);
       }
     }
 
@@ -286,88 +356,86 @@ function displayInstallResults(results: InstallerResult[]): void {
   }
 
   // Summary
-  console.log();
+  output('');
   if (totalCreated > 0) {
-    showSuccess(`Created ${totalCreated} command files`);
+    output(pc.green('✓') + ` Created ${totalCreated} command files`);
   }
   if (hooksRegistered > 0) {
-    showSuccess(`Registered ${hooksRegistered} session hook(s)`);
+    output(pc.green('✓') + ` Registered ${hooksRegistered} session hook(s)`);
   }
   if (totalSkipped > 0) {
-    showWarning(`Skipped ${totalSkipped} existing files (use --force to overwrite)`);
+    output(pc.yellow('!') + ` Skipped ${totalSkipped} existing files (use --force to overwrite)`);
   }
 
-  // Next steps
+  // Next steps (includes docs link)
   const primaryRuntime = results[0]?.runtime || 'claude';
-  showNextSteps(primaryRuntime, totalCreated);
-
-  // GitHub link
-  console.log();
-  showInfo('Docs: https://github.com/GeoloeG-IsT/agents-reverse-engineer');
+  showNextSteps(primaryRuntime, totalCreated, layout);
 }
 
 /**
- * Display uninstallation results with styled output
- *
- * @param results - Array of uninstallation results
- * @param configDeleted - Whether the .agents-reverse-engineer folder was deleted
- * @param gitignoreCleaned - Whether ARE entries were removed from .gitignore
- * @param vscodeCleaned - Whether ARE entries were removed from .vscode/settings.json
+ * Display uninstallation results with styled output.
  */
 function displayUninstallResults(
   results: InstallerResult[],
   configDeleted: boolean = false,
   gitignoreCleaned: boolean = false,
   vscodeCleaned: boolean = false,
+  layout?: SplitPaneLayout,
 ): void {
-  console.log();
+  const output = (text: string): void => {
+    if (layout) {
+      layout.appendRight(text);
+    } else {
+      console.log(text);
+    }
+  };
+
+  output('');
 
   let totalDeleted = 0;
   let hooksUnregistered = 0;
 
   for (const result of results) {
-    // In uninstall context, filesCreated tracks deleted files
     const deletedCount = result.filesCreated.length;
 
     if (result.success) {
       if (deletedCount > 0) {
-        showSuccess(`Uninstalled ${result.runtime} (${result.location}) - ${deletedCount} files removed`);
+        output(pc.green('✓') + ` Uninstalled ${result.runtime} (${result.location}) - ${deletedCount} files removed`);
       } else {
-        showInfo(`No ${result.runtime} files found in ${result.location}`);
+        output(pc.cyan('>') + ` No ${result.runtime} files found in ${result.location}`);
       }
     } else {
-      showError(`Failed to uninstall ${result.runtime} (${result.location})`);
+      output(pc.red('✗') + ` Failed to uninstall ${result.runtime} (${result.location})`);
       for (const err of result.errors) {
-        showWarning(`  ${err}`);
+        output(pc.yellow('  ! ') + err);
       }
     }
 
     totalDeleted += deletedCount;
 
-    // hookRegistered is repurposed for uninstall to mean "hook was unregistered"
     if (result.hookRegistered) {
       hooksUnregistered++;
     }
   }
 
   // Summary
-  console.log();
+  output('');
   if (totalDeleted > 0) {
-    showSuccess(`Removed ${totalDeleted} files`);
+    output(pc.green('✓') + ` Removed ${totalDeleted} files`);
   }
   if (hooksUnregistered > 0) {
-    showSuccess(`Unregistered ${hooksUnregistered} session hook(s)`);
+    output(pc.green('✓') + ` Unregistered ${hooksUnregistered} session hook(s)`);
   }
   if (configDeleted) {
-    showSuccess(`Removed .agents-reverse-engineer folder`);
+    output(pc.green('✓') + ` Removed .agents-reverse-engineer folder`);
   }
   if (gitignoreCleaned) {
-    showSuccess(`Removed ARE section from .gitignore`);
+    output(pc.green('✓') + ` Removed ARE section from .gitignore`);
   }
   if (vscodeCleaned) {
-    showSuccess(`Removed *.sum from .vscode/settings.json`);
+    output(pc.green('✓') + ` Removed *.sum from .vscode/settings.json`);
   }
   if (totalDeleted === 0 && !configDeleted && !gitignoreCleaned && !vscodeCleaned) {
-    showInfo('No files were removed');
+    output(pc.cyan('>') + ' No files were removed');
   }
 }

@@ -69,6 +69,7 @@ const child = spawn(process.execPath, ['-e', `
   windowsHide: true,
   env: {
     ...process.env,
+    npm_config_cache: npmCacheDir,
   },
 });
 
