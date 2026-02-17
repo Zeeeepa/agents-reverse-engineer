@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-02-17
+
+### Added
+- **Split-pane installer layout** — New `SplitPaneLayout` provides a dual-pane terminal interface during installation, rendering prompts in the right pane for a cleaner, more organized experience
+- **Golden circle spinner** — Rotating golden circle animation using 36 pre-rendered frames to indicate progress during installation and uninstallation workflows
+- **`disable-model-invocation` flag for skills** — All SKILL.md files and the skill template now include a `disable-model-invocation` flag, allowing skills to opt out of AI model calls
+
+### Changed
+- **Installer UI refactored for split-pane rendering** — Installation and uninstallation workflows updated to use the new layout and spinner, with result displays adapted for the right pane
+
 ## [1.2.5] - 2026-02-17
 
 ### Added
@@ -1058,7 +1068,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.5...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.6...HEAD
+[1.2.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.2...v1.2.3
