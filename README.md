@@ -26,8 +26,6 @@ npx agents-reverse-engineer@latest
 
 _"Finally, my AI assistant actually understands my codebase structure."_
 
-_"No more explaining the same architecture in every conversation."_
-
 <br>
 
 [Why This Exists](#why-this-exists) · [How It Works](#how-it-works) · [Commands](#commands) · [Generated Docs](#generated-documentation)
@@ -37,6 +35,7 @@ _"No more explaining the same architecture in every conversation."_
 ### Works with
 
 [<img src="https://img.shields.io/badge/Claude_Code-F97316?style=for-the-badge&logo=anthropic&logoColor=white" alt="Claude Code">](https://claude.ai/claude-code)
+[<img src="https://img.shields.io/badge/Codex-FFFFFF?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSJibGFjayIgZD0iTTIyLjI4MiA5LjgyMWE2IDYgMCAwIDAtLjUxNi00LjkxYTYuMDUgNi4wNSAwIDAgMC02LjUxLTIuOUE2LjA2NSA2LjA2NSAwIDAgMCA0Ljk4MSA0LjE4YTYgNiAwIDAgMC0zLjk5OCAyLjlhNi4wNSA2LjA1IDAgMCAwIC43NDMgNy4wOTdhNS45OCA1Ljk4IDAgMCAwIC41MSA0LjkxMWE2LjA1IDYuMDUgMCAwIDAgNi41MTUgMi45QTYgNiAwIDAgMCAxMy4yNiAyNGE2LjA2IDYuMDYgMCAwIDAgNS43NzItNC4yMDZhNiA2IDAgMCAwIDMuOTk3LTIuOWE2LjA2IDYuMDYgMCAwIDAtLjc0Ny03LjA3M00xMy4yNiAyMi40M2E0LjQ4IDQuNDggMCAwIDEtMi44NzYtMS4wNGwuMTQxLS4wODFsNC43NzktMi43NThhLjguOCAwIDAgMCAuMzkyLS42ODF2LTYuNzM3bDIuMDIgMS4xNjhhLjA3LjA3IDAgMCAxIC4wMzguMDUydjUuNTgzYTQuNTA0IDQuNTA0IDAgMCAxLTQuNDk0IDQuNDk0TTMuNiAxOC4zMDRhNC40NyA0LjQ3IDAgMCAxLS41MzUtMy4wMTRsLjE0Mi4wODVsNC43ODMgMi43NTlhLjc3Ljc3IDAgMCAwIC43OCAwbDUuODQzLTMuMzY5djIuMzMyYS4wOC4wOCAwIDAgMS0uMDMzLjA2Mkw5Ljc0IDE5Ljk1YTQuNSA0LjUgMCAwIDEtNi4xNC0xLjY0Nk0yLjM0IDcuODk2YTQuNSA0LjUgMCAwIDEgMi4zNjYtMS45NzNWMTEuNmEuNzcuNzcgMCAwIDAgLjM4OC42NzdsNS44MTUgMy4zNTRsLTIuMDIgMS4xNjhhLjA4LjA4IDAgMCAxLS4wNzEgMGwtNC44My0yLjc4NkE0LjUwNCA0LjUwNCAwIDAgMSAyLjM0IDcuODcyem0xNi41OTcgMy44NTVsLTUuODMzLTMuMzg3TDE1LjExOSA3LjJhLjA4LjA4IDAgMCAxIC4wNzEgMGw0LjgzIDIuNzkxYTQuNDk0IDQuNDk0IDAgMCAxLS42NzYgOC4xMDV2LTUuNjc4YS43OS43OSAwIDAgMC0uNDA3LS42NjdtMi4wMS0zLjAyM2wtLjE0MS0uMDg1bC00Ljc3NC0yLjc4MmEuNzguNzggMCAwIDAtLjc4NSAwTDkuNDA5IDkuMjNWNi44OTdhLjA3LjA3IDAgMCAxIC4wMjgtLjA2MWw0LjgzLTIuNzg3YTQuNSA0LjUgMCAwIDEgNi42OCA0LjY2em0tMTIuNjQgNC4xMzVsLTIuMDItMS4xNjRhLjA4LjA4IDAgMCAxLS4wMzgtLjA1N1Y2LjA3NWE0LjUgNC41IDAgMCAxIDcuMzc1LTMuNDUzbC0uMTQyLjA4TDguNzA0IDUuNDZhLjguOCAwIDAgMC0uMzkzLjY4MXptMS4wOTctMi4zNjVsMi42MDItMS41bDIuNjA3IDEuNXYyLjk5OWwtMi41OTcgMS41bC0yLjYwNy0xLjVaIi8+PC9zdmc+&logoColor=black" alt="Codex">](https://github.com/openai/codex)
 [<img src="https://img.shields.io/badge/Gemini_CLI-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini CLI">](https://github.com/google-gemini/gemini-cli)
 [<img src="https://img.shields.io/badge/OpenCode-000000?style=for-the-badge&logo=github&logoColor=white" alt="OpenCode">](https://github.com/anomalyco/opencode)
 [<img src="https://img.shields.io/badge/Any_AGENTS.md_tool-6B7280?style=for-the-badge" alt="Any AGENTS.md tool">](#)
@@ -49,13 +48,16 @@ _"No more explaining the same architecture in every conversation."_
 
 AI coding assistants are powerful, but they don't know your codebase. Every session starts fresh. You explain the same architecture, the same patterns, the same file locations — over and over.
 
-**agents-reverse-engineer** fixes that. It generates documentation that AI assistants actually read:
+Some assistants offer built-in initialization (e.g. Claude Code's `/init`), but these features are shallow — they produce a thin top-level summary that falls short on large brownfield projects with deep module hierarchies. Worse, there is no associated update mechanism: as the codebase evolves, the generated context silently drifts out of date.
+
+**agents-reverse-engineer** fixes that. It generates rich, multi-level documentation that AI assistants actually read — and keeps it in sync:
 
 - **`.sum` files** — Per-file summaries with purpose, exports, dependencies
 - **`AGENTS.md`** — Per-directory overviews with file organization (standard format)
 - **`CLAUDE.md`** / **`GEMINI.md`** / **`OPENCODE.md`** — Runtime-specific project entry points
+- **Incremental updates** — Git-aware change detection regenerates only what changed
 
-The result: Your AI assistant understands your codebase from the first message.
+The result: Your AI assistant understands your codebase from the first message — and stays accurate as it grows.
 
 ---
 
@@ -124,6 +126,7 @@ npx agents-reverse-engineer@latest uninstall
 ```
 
 Removes:
+
 - Command files (`/are-*` commands)
 - ARE permissions from settings.json
 - `.agents-reverse-engineer` folder (local installs only)
@@ -235,67 +238,67 @@ are implement --show 2026-02-16         # View a comparison
 
 ## Commands
 
-| Command                         | Description                      |
-| ------------------------------- | -------------------------------- |
-| `are`                           | Interactive installer (default)  |
-| `are install`                   | Install with prompts             |
-| `are install --runtime <rt> -g` | Install to runtime globally      |
-| `are install --runtime <rt> -l` | Install to runtime locally       |
-| `are uninstall`                 | Uninstall (remove files/hooks)   |
-| `are init`                      | Create configuration file        |
-| `are discover`                  | Scan files and create GENERATION-PLAN.md |
-| `are generate`                  | Generate all documentation       |
-| `are update`                    | Update changed files only        |
-| `are specify`                   | Generate project specification   |
-| `are rebuild`                   | Reconstruct project from specs   |
-| `are plan "<task>"`             | Compare AI planning with vs without docs |
-| `are implement "<task>"`        | Compare AI implementation with vs without docs |
-| `are clean`                     | Remove all generated docs        |
+| Command                         | Description                                      |
+| ------------------------------- | ------------------------------------------------ |
+| `are`                           | Interactive installer (default)                  |
+| `are install`                   | Install with prompts                             |
+| `are install --runtime <rt> -g` | Install to runtime globally                      |
+| `are install --runtime <rt> -l` | Install to runtime locally                       |
+| `are uninstall`                 | Uninstall (remove files/hooks)                   |
+| `are init`                      | Create configuration file                        |
+| `are discover`                  | Scan files and create GENERATION-PLAN.md         |
+| `are generate`                  | Generate all documentation                       |
+| `are update`                    | Update changed files only                        |
+| `are specify`                   | Generate project specification                   |
+| `are rebuild`                   | Reconstruct project from specs                   |
+| `are plan "<task>"`             | Compare AI planning with vs without docs         |
+| `are implement "<task>"`        | Compare AI implementation with vs without docs   |
+| `are clean`                     | Remove all generated docs                        |
 | `are dashboard`                 | Show telemetry dashboard (costs, tokens, traces) |
 
 **Runtimes:** `claude`, `codex`, `opencode`, `gemini`, `all`
 
 ### General CLI Options
 
-| Flag                | Description                                              | Applies to                          |
-| ------------------- | -------------------------------------------------------- | ----------------------------------- |
-| `--model <name>`    | AI model to use (e.g., sonnet, opus, haiku)              | generate, update, specify, rebuild  |
-| `--backend <name>`  | AI backend (claude, codex, gemini, opencode, auto)       | generate, update, specify, rebuild  |
-| `--concurrency <n>` | Number of concurrent AI calls (default: auto)            | generate, update, rebuild           |
-| `--dry-run`         | Show plan without writing files                          | generate, update, specify, rebuild, clean |
-| `--force`           | Overwrite existing files                                 | init, install, generate, specify, rebuild |
-| `--fail-fast`       | Stop on first file analysis failure                      | generate, update, rebuild           |
-| `--show-excluded`   | Show excluded files during discovery                     | discover                            |
-| `--uncommitted`     | Include uncommitted changes                              | update                              |
-| `--eval`            | Run AI quality evaluator on both results                 | plan, implement                     |
-| `--eval-model <m>`  | Model for AI evaluator (defaults to --model)             | plan, implement                     |
-| `--task-slug <slug>`| Override auto-generated task slug                        | plan, implement                     |
-| `--plan-id <id>`    | Reference existing plan by ID                            | implement                           |
-| `--list`            | List saved comparisons                                   | plan, implement                     |
-| `--show <id>`       | Show a previous comparison by ID                         | plan, implement                     |
-| `--run-tests`       | Run test suite and extract metrics                       | implement                           |
-| `--run-build`       | Run build and check success                              | implement                           |
-| `--run-lint`        | Run linter and extract metrics                           | implement                           |
-| `--debug`           | Show AI prompts and backend details                      | discover, generate, update, specify, rebuild, plan, implement |
-| `--trace`           | Enable concurrency tracing (.agents-reverse-engineer/traces/) | generate, update, specify, rebuild |
-| `--run <id>`        | Show per-entry detail for a specific run                     | dashboard                          |
-| `--trends`          | Show cost & usage trends across runs                         | dashboard                          |
-| `--format <fmt>`    | Output format: table (default), json, html                   | dashboard                          |
+| Flag                 | Description                                                   | Applies to                                                    |
+| -------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- |
+| `--model <name>`     | AI model to use (e.g., sonnet, opus, haiku)                   | generate, update, specify, rebuild                            |
+| `--backend <name>`   | AI backend (claude, codex, gemini, opencode, auto)            | generate, update, specify, rebuild                            |
+| `--concurrency <n>`  | Number of concurrent AI calls (default: auto)                 | generate, update, rebuild                                     |
+| `--dry-run`          | Show plan without writing files                               | generate, update, specify, rebuild, clean                     |
+| `--force`            | Overwrite existing files                                      | init, install, generate, specify, rebuild                     |
+| `--fail-fast`        | Stop on first file analysis failure                           | generate, update, rebuild                                     |
+| `--show-excluded`    | Show excluded files during discovery                          | discover                                                      |
+| `--uncommitted`      | Include uncommitted changes                                   | update                                                        |
+| `--eval`             | Run AI quality evaluator on both results                      | plan, implement                                               |
+| `--eval-model <m>`   | Model for AI evaluator (defaults to --model)                  | plan, implement                                               |
+| `--task-slug <slug>` | Override auto-generated task slug                             | plan, implement                                               |
+| `--plan-id <id>`     | Reference existing plan by ID                                 | implement                                                     |
+| `--list`             | List saved comparisons                                        | plan, implement                                               |
+| `--show <id>`        | Show a previous comparison by ID                              | plan, implement                                               |
+| `--run-tests`        | Run test suite and extract metrics                            | implement                                                     |
+| `--run-build`        | Run build and check success                                   | implement                                                     |
+| `--run-lint`         | Run linter and extract metrics                                | implement                                                     |
+| `--debug`            | Show AI prompts and backend details                           | discover, generate, update, specify, rebuild, plan, implement |
+| `--trace`            | Enable concurrency tracing (.agents-reverse-engineer/traces/) | generate, update, specify, rebuild                            |
+| `--run <id>`         | Show per-entry detail for a specific run                      | dashboard                                                     |
+| `--trends`           | Show cost & usage trends across runs                          | dashboard                                                     |
+| `--format <fmt>`     | Output format: table (default), json, html                    | dashboard                                                     |
 
 ### AI Assistant Commands
 
-| Command         | Description                    | Supported Runtimes       |
-| --------------- | ------------------------------ | ------------------------ |
-| `/are-init`     | Initialize config and commands | Claude, Codex, OpenCode, Gemini |
-| `/are-discover` | Rediscover and regenerate plan | Claude, Codex, OpenCode, Gemini |
-| `/are-generate` | Generate all documentation     | Claude, Codex, OpenCode, Gemini |
-| `/are-update`   | Update changed files only      | Claude, Codex, OpenCode, Gemini |
-| `/are-specify`  | Generate project specification | Claude, Codex, OpenCode, Gemini |
-| `/are-rebuild`  | Reconstruct project from specs | Claude, Codex, OpenCode, Gemini |
-| `/are-plan`     | Compare planning with vs without docs | Claude, Codex, OpenCode, Gemini |
-| `/are-implement`| Compare implementation with vs without docs | Claude, Codex, OpenCode, Gemini |
-| `/are-clean`    | Remove all generated docs      | Claude, Codex, OpenCode, Gemini |
-| `/are-dashboard`| Show telemetry dashboard       | Claude, Codex, OpenCode, Gemini |
+| Command          | Description                                 | Supported Runtimes              |
+| ---------------- | ------------------------------------------- | ------------------------------- |
+| `/are-init`      | Initialize config and commands              | Claude, Codex, OpenCode, Gemini |
+| `/are-discover`  | Rediscover and regenerate plan              | Claude, Codex, OpenCode, Gemini |
+| `/are-generate`  | Generate all documentation                  | Claude, Codex, OpenCode, Gemini |
+| `/are-update`    | Update changed files only                   | Claude, Codex, OpenCode, Gemini |
+| `/are-specify`   | Generate project specification              | Claude, Codex, OpenCode, Gemini |
+| `/are-rebuild`   | Reconstruct project from specs              | Claude, Codex, OpenCode, Gemini |
+| `/are-plan`      | Compare planning with vs without docs       | Claude, Codex, OpenCode, Gemini |
+| `/are-implement` | Compare implementation with vs without docs | Claude, Codex, OpenCode, Gemini |
+| `/are-clean`     | Remove all generated docs                   | Claude, Codex, OpenCode, Gemini |
+| `/are-dashboard` | Show telemetry dashboard                    | Claude, Codex, OpenCode, Gemini |
 
 ---
 
@@ -314,6 +317,7 @@ are dashboard --format html > report.html  # Self-contained HTML report with cha
 In your AI assistant: `/are-dashboard`, `/are-dashboard --trends`, etc.
 
 **Tip:** For total session costs (not just ARE), use [ccusage](https://github.com/ryoppippi/ccusage):
+
 - Claude Code: `npx ccusage@latest`
 - Codex: `npx @ccusage/codex@latest`
 - OpenCode: `npx @ccusage/opencode@latest`
@@ -370,46 +374,48 @@ Edit `.agents-reverse-engineer/config.yaml`:
 ```yaml
 # File and directory exclusions
 exclude:
-  patterns: []              # Custom glob patterns (e.g., ["*.log", "temp/**"])
-  vendorDirs:               # Directories to skip
+  patterns: [] # Custom glob patterns (e.g., ["*.log", "temp/**"])
+  vendorDirs: # Directories to skip
     - node_modules
     - dist
     - .git
-  binaryExtensions:         # File types to skip
+  binaryExtensions: # File types to skip
     - .png
     - .jpg
     - .pdf
 
 # Discovery options
 options:
-  followSymlinks: false     # Follow symbolic links during traversal
-  maxFileSize: 1048576      # Max file size in bytes (1MB default)
+  followSymlinks: false # Follow symbolic links during traversal
+  maxFileSize: 1048576 # Max file size in bytes (1MB default)
 
 # Output formatting
 output:
-  colors: true              # Use colors in terminal output
+  colors: true # Use colors in terminal output
 
 # AI service configuration
 ai:
-  backend: auto             # Backend: 'claude', 'codex', 'gemini', 'opencode', 'auto'
-  model: sonnet             # Model identifier (backend-specific)
-  timeoutMs: 300000         # Subprocess timeout in ms (5 minutes)
-  maxRetries: 3             # Max retries for transient errors
-  concurrency: 10           # Parallel AI calls (1-20, auto-detected from CPU/RAM)
+  backend: auto # Backend: 'claude', 'codex', 'gemini', 'opencode', 'auto'
+  model: sonnet # Model identifier (backend-specific)
+  timeoutMs: 300000 # Subprocess timeout in ms (5 minutes)
+  maxRetries: 3 # Max retries for transient errors
+  concurrency: 10 # Parallel AI calls (1-20, auto-detected from CPU/RAM)
 
   telemetry:
-    keepRuns: 50            # Number of run logs to keep
+    keepRuns: 50 # Number of run logs to keep
 ```
 
 ### Key Config Options
 
 **Concurrency (`ai.concurrency`)**
+
 - Default: Auto-detected from CPU cores and available memory
 - Range: `1-20`
 - Lower values recommended for resource-constrained environments
 - Higher values speed up generation but use more memory
 
 **Timeout (`ai.timeoutMs`)**
+
 - Default: `300000` (5 minutes)
 - AI subprocess timeout for each file analysis
 - Increase for very large files or slow connections
