@@ -26,7 +26,9 @@
       "Bash(export PATH=\"$HOME/.local/bin:/tmp/are-demo-bin:$PATH\")",
       "Bash(npx agents-reverse-engineer@1.2.6 update:*)",
       "Bash(npx agents-reverse-engineer@1.2.8 generate:*)",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "Bash(gh release delete:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

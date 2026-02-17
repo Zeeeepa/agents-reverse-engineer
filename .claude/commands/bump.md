@@ -12,7 +12,7 @@ Bump the project version, update documentation, create a git tag, and publish a 
 - Version argument is REQUIRED (e.g., `/bump 0.4.0`)
 - Should be on `main` branch (warn if not, but proceed)
 - `gh` CLI must be authenticated
-- Dirty working tree is allowed — uncommitted changes will be included in the release commit
+- Dirty working tree is allowed — but only `package.json` and `CHANGELOG.md` are staged for the release commit
 
 ## Phase 1: Validate
 
@@ -26,7 +26,7 @@ Bump the project version, update documentation, create a git tag, and publish a 
    git status --porcelain
    ```
 
-   - If there are uncommitted changes, WARN the user but **proceed anyway** — these changes will be staged and included in the release commit.
+   - If there are uncommitted changes, note them but **proceed** — only `package.json` and `CHANGELOG.md` will be staged for the release commit. Other changes are left untouched.
 
 3. **Check current branch**:
 
@@ -122,10 +122,10 @@ Scan `README.md` for any hardcoded version references that need updating:
 
 ## Phase 4: Commit and Tag
 
-1. **Stage all changes** (including any pre-existing dirty files):
+1. **Stage only release files** (do NOT use `git add -A`):
 
    ```bash
-   git add -A
+   git add package.json CHANGELOG.md
    ```
 
 2. **Create commit**:
