@@ -7,7 +7,6 @@
  * @module
  */
 
-import { simpleGit } from 'simple-git';
 import { runSubprocess } from '../ai/subprocess.js';
 import { ClaudeBackend } from '../ai/backends/claude.js';
 import { computeCost, getModelPricing } from '../dashboard/cost-calculator.js';
@@ -28,6 +27,8 @@ export interface ExecuteOptions {
   planText?: string;
   /** Working directory (worktree path) */
   cwd: string;
+  /** Git ref (SHA) of the branch fork point — used to measure cumulative changes across all sessions */
+  baseRef?: string;
   /** Model to use */
   model?: string;
   /** Debug mode */
@@ -50,10 +51,7 @@ export interface ExecuteOptions {
  * @returns Implementation run result with metrics and token usage
  */
 export async function executeImplementation(options: ExecuteOptions): Promise<ImplementationRunResult> {
-  const { task, planText, cwd, model, debug, runTests, runBuild, runLint } = options;
-
-  // Capture HEAD SHA before the AI runs — used as base ref for diff/commit counting
-  const baseRef = await simpleGit(cwd).revparse(['HEAD']);
+  const { task, planText, cwd, baseRef, model, debug, runTests, runBuild, runLint } = options;
 
   const prompt = buildImplementationPrompt(task, planText, { runTests, runBuild, runLint });
 

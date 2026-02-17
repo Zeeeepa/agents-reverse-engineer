@@ -14,6 +14,7 @@
 
 import path from 'node:path';
 import pc from 'picocolors';
+import { simpleGit } from 'simple-git';
 import { findProjectRoot, loadConfig } from '../config/loader.js';
 import { createBackendRegistry, resolveBackend } from '../ai/registry.js';
 import { createLogger } from '../output/logger.js';
@@ -200,6 +201,17 @@ export async function implementCommand(
     }
   }
 
+  // Compute branch fork point — merge-base between the two branches gives us the
+  // original commit they were both created from, so metrics capture cumulative
+  // changes across all `are implement` sessions on this branch.
+  let branchBaseRef: string | undefined;
+  try {
+    const git = simpleGit(projectRoot);
+    branchBaseRef = (await git.raw(['merge-base', withDocsBranch, withoutDocsBranch])).trim();
+  } catch {
+    // Fall back to per-session metrics if merge-base fails
+  }
+
   // Register cleanup on abort
   let cleanedUp = false;
   const doCleanup = async () => {
@@ -217,6 +229,7 @@ export async function implementCommand(
       task,
       planText: withoutDocsPlan,
       cwd: worktrees.withoutDocsPath,
+      baseRef: branchBaseRef,
       model,
       debug: options.debug,
       runTests: options.runTests,
@@ -236,6 +249,7 @@ export async function implementCommand(
       task,
       planText: withDocsPlan,
       cwd: worktrees.withDocsPath,
+      baseRef: branchBaseRef,
       model,
       debug: options.debug,
       runTests: options.runTests,
