@@ -1,6 +1,7 @@
 ---
 name: are-dashboard
 description: Show telemetry dashboard (costs, tokens, traces)
+disable-model-invocation: true
 ---
 
 Show the ARE telemetry dashboard with cost analysis, token usage, and trace timelines.

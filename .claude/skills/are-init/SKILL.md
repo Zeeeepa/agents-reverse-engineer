@@ -1,6 +1,7 @@
 ---
 name: are-init
 description: Initialize agents-reverse-engineer configuration
+disable-model-invocation: true
 ---
 
 Initialize agents-reverse-engineer configuration in this project.

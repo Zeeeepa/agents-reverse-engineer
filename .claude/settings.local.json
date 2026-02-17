@@ -107,7 +107,13 @@
       "Bash(command -v:*)",
       "Bash(git worktree:*)",
       "Bash(ps:*)",
-      "Bash(git -C /home/pascal/wks/agents-reverse-engineer worktree list)"
+      "Bash(git -C /home/pascal/wks/agents-reverse-engineer worktree list)",
+      "WebFetch(domain:blog.alexbeals.com)",
+      "Bash(for i in 1 5 9 13 18 25 36)",
+      "Bash(do echo \"=== CODEX frame_$i ===\")",
+      "Bash(for i in 1 10 20)",
+      "Bash(do echo \"=== DEFAULT frame_$i ===\")",
+      "WebFetch(domain:paddo.dev)"
     ]
   }
 }

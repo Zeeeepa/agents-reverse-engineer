@@ -1,6 +1,7 @@
 ---
 name: are-discover
 description: Discover files in codebase
+disable-model-invocation: true
 ---
 
 List files that would be analyzed for documentation.

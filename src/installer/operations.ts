@@ -26,6 +26,8 @@ export interface InstallOptions {
   force: boolean;
   /** Preview mode - don't write files */
   dryRun: boolean;
+  /** Progress callback: (current, total, filePath) */
+  onProgress?: (current: number, total: number, file: string) => void;
 }
 
 /**
@@ -216,11 +218,17 @@ function installFilesForRuntime(
   const errors: string[] = [];
 
   // Install command templates
+  const totalFiles = templates.length;
+  let currentFile = 0;
+
   for (const template of templates) {
+    currentFile++;
     // Template path is relative (e.g., .claude/commands/are/generate.md)
     // Extract the part after the runtime directory (e.g., commands/are/generate.md)
     const relativePath = template.path.split('/').slice(1).join('/');
     const fullPath = path.join(basePath, relativePath);
+
+    options.onProgress?.(currentFile, totalFiles, template.path);
 
     if (existsSync(fullPath) && !options.force) {
       filesSkipped.push(fullPath);
