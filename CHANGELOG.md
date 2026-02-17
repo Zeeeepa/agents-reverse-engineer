@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-02-17
+
+### Added
+- **VHS demo installation scripts** — New `scripts/demo-install.tape` VHS tape file and `scripts/fake-npx.sh` helper for recording terminal demo GIFs of the installer, with accompanying `scripts/README.md` documentation
+- **Demo installation GIF** — Added `assets/demo-install.gif` and embedded it in the README for a visual preview of the installation experience
+- **Branch base reference for cumulative metrics** — `are implement` now captures the Git fork-point SHA before AI execution and passes it to metric extraction, ensuring cumulative diffs across multi-session runs are measured correctly
+- **AGENTS.md and CLAUDE.md for new modules** — Added documentation files for `src/plan/`, `src/plan/views/`, `src/implement/`, `src/implement/views/`, `src/installer/frames/`, `src/quality/inconsistency/`, `src/quality/phantom-paths/`, and `src/rebuild/`
+- **Comprehensive documentation regeneration** — Updated all existing AGENTS.md files across the codebase (74 files) with enriched descriptions, behavioral contracts, and v1.2.8 version tags
+
+### Changed
+- **Implementation max turns increased from 50 to 100** — Allows longer AI implementation sessions to complete more complex tasks without hitting the turn limit
+- **Metric extraction uses base ref instead of HEAD~1** — Implementation metrics now diff against the branch fork point rather than the previous commit, capturing all cumulative changes accurately
+
+### Fixed
+- **Demo script timing** — Adjusted sleep durations in the VHS demo installation tape for smoother recording pacing
+
 ## [1.2.8] - 2026-02-17
 
 ### Changed
@@ -1086,7 +1102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.8...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.9...HEAD
+[1.2.9]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.8...v1.2.9
 [1.2.8]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.7...v1.2.8
 [1.2.7]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.5...v1.2.6
