@@ -180,7 +180,6 @@ export async function implementCommand(
     }
 
     if (!withDocsPlan || !withoutDocsPlan) {
-      await worktrees.cleanup();
       logger.error('Plan text not found on branches or in local storage.');
       logger.info('Run `are plan "<task>"` again to regenerate.');
       process.exit(1);
@@ -212,17 +211,7 @@ export async function implementCommand(
     // Fall back to per-session metrics if merge-base fails
   }
 
-  // Register cleanup on abort
-  let cleanedUp = false;
-  const doCleanup = async () => {
-    if (cleanedUp) return;
-    cleanedUp = true;
-    await worktrees.cleanup();
-  };
-  process.once('SIGINT', () => { doCleanup().finally(() => process.exit(1)); });
-  process.once('SIGTERM', () => { doCleanup().finally(() => process.exit(1)); });
-
-  try {
+  {
     // Phase 1: Implement WITHOUT docs
     renderPhaseStart(1, 2, 'Implementing WITHOUT documentation...');
     const withoutDocsResult = await executeImplementation({
@@ -329,8 +318,9 @@ export async function implementCommand(
 
     // Render results
     renderComparison(comparison);
-  } finally {
-    // Always clean up worktrees (branches are kept)
-    await doCleanup();
+
+    // Print worktree paths for inspection
+    console.log(`Worktrees: ${worktrees.withDocsPath}`);
+    console.log(`           ${worktrees.withoutDocsPath}`);
   }
 }

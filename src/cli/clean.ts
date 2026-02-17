@@ -6,10 +6,12 @@
  */
 
 import path from 'node:path';
-import { access, readFile, rename, unlink } from 'node:fs/promises';
+import { access, readdir, readFile, rename, rm, unlink } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import { tmpdir } from 'node:os';
 import fg from 'fast-glob';
 import pc from 'picocolors';
+import { simpleGit } from 'simple-git';
 import { findProjectRoot } from '../config/loader.js';
 import { createLogger } from '../output/logger.js';
 import { GENERATED_MARKER_PREFIX } from '../generation/writers/agents-md.js';
@@ -165,10 +167,52 @@ export async function cleanCommand(
     // File doesn't exist - skip
   }
 
+  // Find ARE worktrees (registered + orphaned directories in /tmp)
+  const areWorktreePaths: string[] = [];
+  try {
+    const git = simpleGit(resolvedPath);
+    const porcelain = await git.raw(['worktree', 'list', '--porcelain']);
+    let currentPath: string | null = null;
+    for (const line of porcelain.split('\n')) {
+      if (line.startsWith('worktree ')) {
+        currentPath = line.slice('worktree '.length);
+      } else if (line.trim() === '') {
+        if (currentPath) {
+          const base = path.basename(path.dirname(currentPath));
+          if (base.startsWith('are-plan-') || base.startsWith('are-impl-')) {
+            areWorktreePaths.push(currentPath);
+          }
+        }
+        currentPath = null;
+      }
+    }
+  } catch {
+    // Not a git repo or git worktree command failed — skip
+  }
+
+  // Find orphaned /tmp directories not registered as worktrees
+  const orphanedDirs: string[] = [];
+  try {
+    const tmpEntries = await readdir(tmpdir());
+    for (const entry of tmpEntries) {
+      if (entry.startsWith('are-plan-') || entry.startsWith('are-impl-')) {
+        const fullPath = path.join(tmpdir(), entry);
+        // Check it's not already in the registered worktree list
+        const isRegistered = areWorktreePaths.some(wp => wp.startsWith(fullPath));
+        if (!isRegistered) {
+          orphanedDirs.push(fullPath);
+        }
+      }
+    }
+  } catch {
+    // Can't read /tmp — skip
+  }
+
   const allLocalFiles = [...localAgentsFiles, ...localClaudeFiles];
   const allFiles = [...sumFiles, ...generatedAgentsFiles, ...generatedClaudeFiles, ...singleFiles];
+  const totalWorktrees = areWorktreePaths.length + orphanedDirs.length;
 
-  if (allFiles.length === 0 && allLocalFiles.length === 0) {
+  if (allFiles.length === 0 && allLocalFiles.length === 0 && totalWorktrees === 0) {
     logger.info('No generated artifacts found.');
     return;
   }
@@ -207,13 +251,28 @@ export async function cleanCommand(
     }
   }
 
+  if (totalWorktrees > 0) {
+    logger.info('');
+    logger.info(options.dryRun ? 'Worktrees that would be removed:' : 'Removing worktrees:');
+    for (const wp of areWorktreePaths) {
+      logger.info(`  ${wp}`);
+    }
+    for (const dir of orphanedDirs) {
+      logger.info(`  ${dir} (orphaned)`);
+    }
+  }
+
   logger.info('');
-  logger.info(
-    `${pc.bold(String(sumFiles.length))} .sum file(s), ` +
-    `${pc.bold(String(generatedAgentsFiles.length))} AGENTS*.md file(s), ` +
-    `${pc.bold(String(generatedClaudeFiles.length))} CLAUDE.md file(s), ` +
-    `${pc.bold(String(allLocalFiles.length))} local file(s) to restore`
-  );
+  const summaryParts = [
+    `${pc.bold(String(sumFiles.length))} .sum file(s)`,
+    `${pc.bold(String(generatedAgentsFiles.length))} AGENTS*.md file(s)`,
+    `${pc.bold(String(generatedClaudeFiles.length))} CLAUDE.md file(s)`,
+    `${pc.bold(String(allLocalFiles.length))} local file(s) to restore`,
+  ];
+  if (totalWorktrees > 0) {
+    summaryParts.push(`${pc.bold(String(totalWorktrees))} worktree(s)`);
+  }
+  logger.info(summaryParts.join(', '));
 
   if (options.dryRun) {
     logger.info('');
@@ -253,10 +312,35 @@ export async function cleanCommand(
     }
   }
 
+  // Remove ARE worktrees and orphaned directories
+  let removedWorktrees = 0;
+  if (totalWorktrees > 0) {
+    const git = simpleGit(resolvedPath);
+    for (const wp of areWorktreePaths) {
+      try {
+        await git.raw(['worktree', 'remove', '--force', wp]);
+        removedWorktrees++;
+      } catch (err) {
+        logger.error(`Failed to remove worktree ${wp}: ${(err as Error).message}`);
+      }
+    }
+    for (const dir of orphanedDirs) {
+      try {
+        await rm(dir, { recursive: true, force: true });
+        removedWorktrees++;
+      } catch (err) {
+        logger.error(`Failed to remove ${dir}: ${(err as Error).message}`);
+      }
+    }
+  }
+
   logger.info('');
   const parts = [`Deleted ${deleted} file(s)`];
   if (restored > 0) {
     parts.push(`restored ${restored} local file(s)`);
+  }
+  if (removedWorktrees > 0) {
+    parts.push(`removed ${removedWorktrees} worktree(s)`);
   }
   logger.info(pc.green(`${parts.join(', ')}.`));
 }

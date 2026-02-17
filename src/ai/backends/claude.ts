@@ -32,12 +32,12 @@ import { isCommandOnPath } from './common.js';
  */
 const ClaudeResponseSchema = z.object({
   type: z.literal('result'),
-  subtype: z.enum(['success', 'error']),
+  subtype: z.enum(['success', 'error', 'error_max_turns', 'error_during_execution', 'error_max_budget_usd', 'error_max_structured_output_retries']),
   is_error: z.boolean(),
   duration_ms: z.number(),
   duration_api_ms: z.number(),
   num_turns: z.number(),
-  result: z.string(),
+  result: z.string().optional(),
   session_id: z.string(),
   total_cost_usd: z.number(),
   usage: z.object({
@@ -166,7 +166,7 @@ export class ClaudeBackend implements AIBackend {
     const modelName = Object.keys(parsed.modelUsage)[0] ?? 'unknown';
 
     return {
-      text: parsed.result,
+      text: parsed.result ?? '',
       model: modelName,
       inputTokens: parsed.usage.input_tokens,
       outputTokens: parsed.usage.output_tokens,

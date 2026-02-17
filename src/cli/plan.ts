@@ -137,17 +137,7 @@ export async function planCommand(
     process.exit(1);
   }
 
-  // Register cleanup on abort
-  let cleanedUp = false;
-  const doCleanup = async () => {
-    if (cleanedUp) return;
-    cleanedUp = true;
-    await worktrees.cleanup();
-  };
-  process.once('SIGINT', () => { doCleanup().finally(() => process.exit(1)); });
-  process.once('SIGTERM', () => { doCleanup().finally(() => process.exit(1)); });
-
-  try {
+  {
     // Phase 1: Strip artifacts from "without-docs" worktree
     const removedCount = await stripArtifacts(worktrees.withoutDocsPath);
     if (options.debug) {
@@ -253,8 +243,9 @@ export async function planCommand(
 
     // Render results
     renderComparison(comparison);
-  } finally {
-    // Always clean up worktrees (branches are kept)
-    await doCleanup();
+
+    // Print worktree paths for inspection
+    console.log(`Worktrees: ${worktrees.withDocsPath}`);
+    console.log(`           ${worktrees.withoutDocsPath}`);
   }
 }
