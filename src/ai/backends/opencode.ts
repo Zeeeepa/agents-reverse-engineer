@@ -20,6 +20,7 @@ import { z } from 'zod';
 import type { AIBackend, AICallOptions, AIResponse } from '../types.js';
 import { AIServiceError } from '../types.js';
 import { isCommandOnPath } from './common.js';
+import { getModelPricing, computeCost } from '../../dashboard/cost-calculator.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for OpenCode NDJSON events
@@ -72,37 +73,6 @@ const OpenCodeTextSchema = z.object({
   part: OpenCodeTextPartSchema,
 }).passthrough();
 
-// ---------------------------------------------------------------------------
-// Cost calculation constants (Anthropic Claude Sonnet pricing as default)
-// ---------------------------------------------------------------------------
-
-/** Input token price per million tokens (USD) */
-const INPUT_COST_PER_MTOK = 15;
-/** Output token price per million tokens (USD) */
-const OUTPUT_COST_PER_MTOK = 75;
-/** Cache write token price per million tokens (USD) */
-const CACHE_WRITE_COST_PER_MTOK = 18.75;
-/** Cache read token price per million tokens (USD) */
-const CACHE_READ_COST_PER_MTOK = 1.50;
-
-/**
- * Calculate cost from token counts when OpenCode doesn't provide it.
- *
- * Uses Anthropic Claude Sonnet pricing as the default since OpenCode
- * is typically used with Anthropic models.
- */
-function calculateCostFromTokens(
-  inputTokens: number,
-  outputTokens: number,
-  cacheReadTokens: number,
-  cacheWriteTokens: number,
-): number {
-  const inputCost = (inputTokens / 1_000_000) * INPUT_COST_PER_MTOK;
-  const outputCost = (outputTokens / 1_000_000) * OUTPUT_COST_PER_MTOK;
-  const cacheWriteCost = (cacheWriteTokens / 1_000_000) * CACHE_WRITE_COST_PER_MTOK;
-  const cacheReadCost = (cacheReadTokens / 1_000_000) * CACHE_READ_COST_PER_MTOK;
-  return inputCost + outputCost + cacheWriteCost + cacheReadCost;
-}
 
 // ---------------------------------------------------------------------------
 // Aggregated metrics from NDJSON parsing
@@ -353,12 +323,16 @@ export class OpenCodeBackend implements AIBackend {
     // Calculate cost if OpenCode didn't provide it
     let cost = parsed.totalCost;
     if (cost === 0 && (parsed.inputTokens > 0 || parsed.outputTokens > 0)) {
-      cost = calculateCostFromTokens(
+      // Use Opus pricing as default for OpenCode (typically used with Anthropic models)
+      const pricing = getModelPricing('opus');
+      const costBreakdown = computeCost(
         parsed.inputTokens,
         parsed.outputTokens,
         parsed.cacheReadTokens,
         parsed.cacheWriteTokens,
+        pricing,
       );
+      cost = costBreakdown.totalCost;
     }
 
     return {
