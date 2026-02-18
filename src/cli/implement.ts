@@ -200,15 +200,22 @@ export async function implementCommand(
     }
   }
 
-  // Compute branch fork point — merge-base between the two branches gives us the
-  // original commit they were both created from, so metrics capture cumulative
-  // changes across all `are implement` sessions on this branch.
-  let branchBaseRef: string | undefined;
+  // Capture per-worktree HEAD as baseline for metrics.
+  // This must happen AFTER artifact stripping so the strip commit is excluded
+  // from the diff — we only want to measure actual AI implementation changes.
+  let withoutDocsBaseRef: string | undefined;
+  let withDocsBaseRef: string | undefined;
   try {
-    const git = simpleGit(projectRoot);
-    branchBaseRef = (await git.raw(['merge-base', withDocsBranch, withoutDocsBranch])).trim();
+    const gitWithout = simpleGit(worktrees.withoutDocsPath);
+    withoutDocsBaseRef = (await gitWithout.revparse(['HEAD'])).trim();
   } catch {
-    // Fall back to per-session metrics if merge-base fails
+    // Fall back to per-session metrics if rev-parse fails
+  }
+  try {
+    const gitWith = simpleGit(worktrees.withDocsPath);
+    withDocsBaseRef = (await gitWith.revparse(['HEAD'])).trim();
+  } catch {
+    // Fall back to per-session metrics if rev-parse fails
   }
 
   {
@@ -218,7 +225,7 @@ export async function implementCommand(
       task,
       planText: withoutDocsPlan,
       cwd: worktrees.withoutDocsPath,
-      baseRef: branchBaseRef,
+      baseRef: withoutDocsBaseRef,
       model,
       debug: options.debug,
       runTests: options.runTests,
@@ -238,7 +245,7 @@ export async function implementCommand(
       task,
       planText: withDocsPlan,
       cwd: worktrees.withDocsPath,
-      baseRef: branchBaseRef,
+      baseRef: withDocsBaseRef,
       model,
       debug: options.debug,
       runTests: options.runTests,
