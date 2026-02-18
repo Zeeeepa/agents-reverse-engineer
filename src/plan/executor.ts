@@ -57,7 +57,7 @@ export async function executePlanRun(options: ExecuteOptions): Promise<PlanRunRe
       model,
       timeoutMs: AGENTIC_TIMEOUT_MS,
       maxTurns: 25,
-      allowedTools: 'Read,Glob,Grep,Bash',
+      allowedTools: 'Read,Glob,Grep,Bash,Task,WebSearch,WebFetch',
       cwd,
       taskLabel: `plan:${cwd.includes('without-docs') ? 'without-docs' : 'with-docs'}`,
     });

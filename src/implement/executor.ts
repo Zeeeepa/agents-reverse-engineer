@@ -69,7 +69,7 @@ export async function executeImplementation(options: ExecuteOptions): Promise<Im
       model,
       timeoutMs: IMPLEMENTATION_TIMEOUT_MS,
       maxTurns: 100,
-      allowedTools: 'Read,Glob,Grep,Bash,Write,Edit',
+      allowedTools: 'Read,Glob,Grep,Bash,Write,Edit,Task,WebSearch,WebFetch,TodoWrite',
       cwd,
       taskLabel: `implement:${cwd.includes('without-docs') ? 'without-docs' : 'with-docs'}`,
     });

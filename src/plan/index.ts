@@ -14,7 +14,7 @@ export { buildPlanningPrompt, buildEvaluatorPrompt } from './prompts.js';
 export { extractPlanMetrics } from './metrics.js';
 export { createWorktreePair, reuseWorktreePair, hasUncommittedChanges, commitPlanToWorktree, readPlanFromWorktree } from './worktree.js';
 export { stripArtifacts } from './strip-artifacts.js';
-export { executePlanRun, extractPlanText } from './executor.js';
+export { executePlanRun } from './executor.js';
 export { evaluatePlans } from './evaluator.js';
 export { saveComparison, loadComparison, loadPlanText, listComparisons } from './storage.js';
 export { renderComparison, renderHeader, renderPhaseStart, renderPhaseComplete } from './views/comparison.js';
