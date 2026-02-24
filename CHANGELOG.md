@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.13] - 2026-02-24
+
+### Added
+- **Project-local `.npmrc` for npm cache isolation** — Local installs now create a `.npmrc` with `cache=.agents-reverse-engineer/.npm-cache` to avoid global `~/.npm` permission issues (EACCES) and keep ARE command execution reproducible across environments
+- **`.npmrc` cleanup on uninstall** — Uninstaller removes the ARE-managed section from `.npmrc` (delimited by `BEGIN/END` markers), deleting the file entirely if no other content remains
+
+### Changed
+- **Shared formatting utilities for comparison views** — Extracted duplicated `pad()` and `formatDelta()` functions from four view files into `src/views/format-utils.ts`, reducing code duplication by ~80 lines while preserving ANSI-aware width calculations
+
 ## [1.2.12] - 2026-02-18
 
 ### Changed
@@ -1126,7 +1135,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.12...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.13...HEAD
+[1.2.13]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.12...v1.2.13
 [1.2.12]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.11...v1.2.12
 [1.2.11]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.10...v1.2.11
 [1.2.10]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.9...v1.2.10
