@@ -124,7 +124,7 @@ export type {
 } from '../change-detection/types.js';
 
 // === Config ===
-export { loadConfig, findProjectRoot } from '../config/loader.js';
+export { loadConfig, findProjectRoot, getDefaultBackendConfig } from '../config/loader.js';
 export { ConfigSchema } from '../config/schema.js';
 export type { Config } from '../config/schema.js';
 export {

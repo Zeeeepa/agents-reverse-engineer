@@ -6,7 +6,7 @@
  */
 
 import path from 'node:path';
-import { configExists, writeDefaultConfig, CONFIG_DIR, CONFIG_FILE } from '../config/loader.js';
+import { configExists, writeDefaultConfig, getDefaultBackendConfig, CONFIG_DIR, CONFIG_FILE } from '../config/loader.js';
 import { ensureGitignoreEntry, ensureVscodeExclude } from '../installer/project-files.js';
 import { createLogger } from '../output/logger.js';
 
@@ -37,10 +37,16 @@ export async function initCommand(root: string, options?: { force?: boolean }): 
       logger.warn(`Config already exists at ${configPath}`);
       logger.info('Edit the file to customize exclusions and options.');
     } else {
-      // Create default config
-      await writeDefaultConfig(resolvedRoot);
+      // Detect available AI backends and pick the best default
+      const { backend, model } = await getDefaultBackendConfig();
+      await writeDefaultConfig(resolvedRoot, { backend, model });
 
       logger.info(`Created configuration at ${configPath}`);
+      if (backend !== 'auto') {
+        logger.info(`Detected ${backend} CLI — configured as default backend with model: ${model}`);
+      } else {
+        logger.info('No AI CLI detected — using auto-detection mode');
+      }
 
       // Configure project files to hide generated *.sum artifacts
       try {

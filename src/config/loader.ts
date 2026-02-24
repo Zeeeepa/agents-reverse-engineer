@@ -15,6 +15,7 @@ import type { Logger } from '../core/logger.js';
 import { nullLogger } from '../core/logger.js';
 import { DEFAULT_VENDOR_DIRS, DEFAULT_BINARY_EXTENSIONS, DEFAULT_MAX_FILE_SIZE, DEFAULT_EXCLUDE_PATTERNS, getDefaultConcurrency } from './defaults.js';
 import type { ITraceWriter } from '../orchestration/trace.js';
+import { createBackendRegistry, detectAvailableBackends } from '../ai/registry.js';
 
 /**
  * Quote a string value for YAML output if it contains characters that
@@ -190,20 +191,65 @@ export async function configExists(root: string): Promise<boolean> {
 }
 
 /**
+ * Default model for each backend, used when generating config.yaml.
+ *
+ * These are the most sensible default models for each backend:
+ * - Claude: 'sonnet' (native alias for claude-sonnet-4-5)
+ * - Codex: 'gpt-5.3-codex' (latest Codex model)
+ * - Gemini: 'gemini-3-flash-preview' (fast, capable model)
+ * - OpenCode: 'anthropic/claude-sonnet-4-5' (fully-qualified format)
+ */
+const BACKEND_DEFAULT_MODELS: Record<string, string> = {
+  claude: 'sonnet',
+  codex: 'gpt-5.3-codex',
+  gemini: 'gemini-3-flash-preview',
+  opencode: 'anthropic/claude-sonnet-4-5',
+};
+
+/**
+ * Detect available AI backends and return the best default backend/model pair.
+ *
+ * Priority order: Claude > Codex > Gemini > OpenCode (matches registry order).
+ * If no backends are detected, falls back to `backend: 'auto'`, `model: 'sonnet'`.
+ *
+ * @returns Object with `backend` and `model` strings for config.yaml
+ */
+export async function getDefaultBackendConfig(): Promise<{ backend: string; model: string }> {
+  const registry = createBackendRegistry();
+  const available = await detectAvailableBackends(registry);
+
+  if (available.length === 0) {
+    return { backend: 'auto', model: 'auto' };
+  }
+
+  const best = available[0];
+  const model = BACKEND_DEFAULT_MODELS[best.name] ?? 'sonnet';
+
+  return { backend: best.name, model };
+}
+
+/**
  * Write a default configuration file with helpful comments.
  *
  * Creates the `.agents-reverse/` directory if it doesn't exist.
  * The generated file includes comments explaining each option.
  *
  * @param root - Root directory where `.agents-reverse/` will be created
+ * @param options - Optional backend/model to write as defaults (auto-detected if omitted)
  *
  * @example
  * ```typescript
  * await writeDefaultConfig('/path/to/project');
  * // Creates /path/to/project/.agents-reverse/config.yaml
+ *
+ * await writeDefaultConfig('/path/to/project', { backend: 'codex', model: 'gpt-5.3-codex' });
+ * // Creates config with Codex defaults
  * ```
  */
-export async function writeDefaultConfig(root: string): Promise<void> {
+export async function writeDefaultConfig(
+  root: string,
+  options?: { backend?: string; model?: string },
+): Promise<void> {
   const configDir = path.join(root, CONFIG_DIR);
   const configPath = path.join(configDir, CONFIG_FILE);
 
@@ -269,7 +315,7 @@ generation:
 ai:
   # AI CLI backend to use
   # Options: 'claude', 'codex', 'gemini', 'opencode', 'auto' (auto-detect from PATH)
-  backend: auto
+  backend: ${options?.backend ?? 'auto'}
 
   # Model identifier (backend-specific)
   # Claude:   sonnet | opus | haiku | sonnet[1m] | opusplan
@@ -280,7 +326,7 @@ ai:
   #           gemini-2.5-pro | gemini-2.5-flash
   # OpenCode: provider/model format — e.g. anthropic/claude-sonnet-4-5,
   #           openai/gpt-5, google/gemini-2.5, groq/..., ollama/...
-  model: sonnet
+  model: ${options?.model ?? 'auto'}
 
   # Subprocess timeout in milliseconds
   # Default: 300,000ms (5 minutes)

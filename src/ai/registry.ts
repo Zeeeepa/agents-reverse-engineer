@@ -130,6 +130,28 @@ export async function detectBackend(registry: BackendRegistry): Promise<AIBacken
   return null;
 }
 
+/**
+ * Detect all available backends on PATH.
+ *
+ * Checks every registered backend for availability and returns
+ * those whose CLI is found on PATH. The returned array preserves
+ * registration order (Claude > Codex > Gemini > OpenCode).
+ *
+ * @param registry - The backend registry to search
+ * @returns Array of available backends (may be empty)
+ */
+export async function detectAvailableBackends(
+  registry: BackendRegistry,
+): Promise<AIBackend[]> {
+  const available: AIBackend[] = [];
+  for (const backend of registry.getAll()) {
+    if (await backend.isAvailable()) {
+      available.push(backend);
+    }
+  }
+  return available;
+}
+
 // ---------------------------------------------------------------------------
 // Install instructions
 // ---------------------------------------------------------------------------

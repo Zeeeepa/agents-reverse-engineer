@@ -61,6 +61,7 @@ export {
   createBackendRegistry,
   resolveBackend,
   detectBackend,
+  detectAvailableBackends,
   getInstallInstructions,
 } from './registry.js';
 
