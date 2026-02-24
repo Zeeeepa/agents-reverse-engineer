@@ -800,7 +800,7 @@ const PLATFORM_CONFIGS: Record<Platform, PlatformConfig> = {
     ccusageHint: '`npx ccusage@latest` (https://github.com/ryoppippi/ccusage) to see ALL Claude Code session costs',
   },
   codex: {
-    commandPrefix: '/are-',
+    commandPrefix: '$are-',
     pathPrefix: '.agents/skills/',
     filenameSeparator: '.',
     usesName: true,
