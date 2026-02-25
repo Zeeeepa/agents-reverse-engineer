@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.17] - 2026-02-25
+
+### Changed
+- **Separated target directory from project root in CLI commands** — The `discover`, `generate`, and `update` commands now resolve `targetDir` (the directory to scan) and `projectRoot` (where config, logs, and telemetry live) independently, instead of conflating them via `findProjectRoot()`. This allows running commands on subdirectories (e.g., `are generate src/`) while still locating `config.yaml`, `.agents-reverse-engineer/` logs, traces, and telemetry at the project root
+- **Config and artifact paths use project root** — `loadConfig()`, `ProgressLog.create()`, trace writers, subprocess log directories, telemetry finalization, and `GENERATION-PLAN.md` output now consistently write to the project root, while file discovery and documentation generation operate on the user-specified target directory
+
 ## [1.2.16] - 2026-02-25
 
 ### Changed
@@ -1162,7 +1168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary file detection and exclusion
 - Token budget management for AI-friendly output
 
-[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.16...HEAD
+[Unreleased]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.17...HEAD
+[1.2.17]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.16...v1.2.17
 [1.2.16]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.15...v1.2.16
 [1.2.15]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.14...v1.2.15
 [1.2.14]: https://github.com/GeoloeG-IsT/agents-reverse-engineer/compare/v1.2.13...v1.2.14
